@@ -1,25 +1,32 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useGroup } from '../../../composables/useGroup'
-import DataLayout from '../../../components/common/DataLayout.vue'
-import BaseSearch from '../../../components/common/BaseSearch.vue'
-import BasePagination from '../../../components/common/BasePagination.vue'
-import BaseModal from '../../../components/common/BaseModal.vue'
-import * as XLSX from 'xlsx'
+import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
-  IconCar, 
-  IconPlus,
-  IconHash,
-  IconTag,
-  IconTruck,
-  IconChevronDown,
-  IconCheck,
-  IconEdit,
-  IconTrash,
-  IconDownload,
-  IconLoader2,
-  IconAlertCircle
-} from '@tabler/icons-vue'
+  Add01Icon, 
+  Search01Icon, 
+  Car01Icon, 
+  Download01Icon, 
+  Sorting05Icon, 
+  ArrowDown01Icon, 
+  ArrowUp01Icon, 
+  Edit02Icon, 
+  Delete01Icon, 
+  Tick01Icon, 
+  Alert01Icon,
+  Refresh01Icon,
+  TruckIcon,
+  FingerPrintIcon,
+  LicenseIcon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon
+} from '@hugeicons/core-free-icons'
+import * as XLSX from 'xlsx'
+import BaseModal from '../../../components/common/BaseModal.vue'
+import AppSearch from '../../../components/common/AppSearch.vue'
+import AppTableCard from '../../../components/common/AppTableCard.vue'
+import AppPageHeader from '../../../components/common/AppPageHeader.vue'
+import AppButton from '../../../components/common/AppButton.vue'
 import { 
   fetchVehiculosApi, 
   fetchVehicleTypesApi, 
@@ -247,11 +254,22 @@ const sortedVehicles = computed(() => {
   })
 })
 
-const paginatedVehicles = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage.value
-  const end = start + itemsPerPage.value
-  return sortedVehicles.value.slice(start, end)
+const visiblePages = computed(() => {
+  const total = Math.max(1, Math.ceil(filteredVehicles.value.length / itemsPerPage.value))
+  const current = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '...')[] = []
+  if (current <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', total)
+  } else if (current >= total - 3) {
+    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total)
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total)
+  }
+  return pages
 })
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredVehicles.value.length / itemsPerPage.value)))
 
 watch(() => selectedGroup.value.id, () => {
   currentPage.value = 1
@@ -259,299 +277,344 @@ watch(() => selectedGroup.value.id, () => {
 })
 </script>
 
-<template>
-  <DataLayout class="theme-sync"
-      :title="$t('vehiculos.title') || 'Vehículos'"
-      :subtitle="`${$t('vehiculos.subtitle') || 'Gestión de flota para'} ${selectedGroup.nombre}`"
+<<template>
+  <div class="p-4 md:p-8 space-y-8 bg-[#F8FAFC] dark:bg-[#0A0C10] min-h-screen animate-fade-in font-inter">
+    <!-- Header -->
+    <AppPageHeader 
+      :title="$t('vehiculos.title')" 
+      :subtitle="`${$t('vehiculos.subtitle')} ${selectedGroup.nombre}`" 
+      :count="filteredVehicles.length"
     >
-    <template #actions>
-      <button @click="exportToExcel" class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 bg-white dark:bg-[#1E2228] hover:bg-slate-100 dark:hover:bg-[#2A313A] text-slate-600 dark:text-slate-300 px-4 py-2.5 rounded-lg transition-all duration-200 border border-slate-200 dark:border-[#2A313A] shadow-sm text-sm font-medium focus:ring-2 focus:ring-slate-500 focus:outline-none">
-        <IconDownload :size="18" />
-        <span class="hidden sm:inline">{{ $t('vehiculos.btnExport') || 'Exportar' }}</span>
-      </button>
-      <button @click="openCreateModal" class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 bg-[#60a5fa] hover:bg-[#3b82f6] text-white px-5 py-2.5 rounded-lg transition-all duration-200 border border-[#60a5fa] shadow-sm text-sm font-medium focus:ring-2 focus:ring-slate-500 focus:outline-none">
-        <IconPlus :size="18" />
-        <span>{{ $t('vehiculos.btnNew') || 'Nuevo Vehículo' }}</span>
-      </button>
-    </template>
+      <template #actions>
+        <div class="flex items-center gap-3">
+          <AppButton 
+            variant="secondary" 
+            :icon="Download01Icon" 
+            @click="exportToExcel"
+            class="!px-3"
+          />
+          <AppButton 
+            variant="primary" 
+            :icon="Add01Icon" 
+            @click="openCreateModal"
+          >
+            <span>{{ $t('vehiculos.btnNew') }}</span>
+          </AppButton>
+        </div>
+      </template>
+    </AppPageHeader>
 
-    <template #search>
-      <BaseSearch v-model="searchQuery" :placeholder="$t('vehiculos.searchPlaceholder') || 'Buscar por placa, nombre o serial...'" />
-    </template>
+    <!-- Search -->
+    <AppSearch 
+      v-model="searchQuery" 
+      :placeholder="$t('vehiculos.searchPlaceholder')"
+    />
 
-    <div class="w-full overflow-x-auto custom-scrollbar rounded-xl border border-slate-200 dark:border-[#2A313A] bg-white dark:bg-[#1E2228] shadow-sm">
-      <table class="w-full text-left border-collapse min-w-[900px]">
-        <thead>
-          <tr class="bg-slate-50/90 dark:bg-[#16191D]/80 border-b border-slate-200 dark:border-[#2A313A]">
-            <th @click="toggleSort('nombre')" class="px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
-              <div class="flex items-center gap-1.5">
-                {{ $t('vehiculos.thName') || 'Vehículo' }}
-                <IconChevronDown v-if="sortKey === 'nombre'" :class="{'rotate-180': sortOrder === -1}" :size="14" class="transition-transform" />
-              </div>
-            </th>
-            <th @click="toggleSort('placa')" class="px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
-              <div class="flex items-center gap-1.5">
-                {{ $t('vehiculos.thPlate') || 'Placa / Serial' }}
-                <IconChevronDown v-if="sortKey === 'placa'" :class="{'rotate-180': sortOrder === -1}" :size="14" class="transition-transform" />
-              </div>
-            </th>
-            <th @click="toggleSort('tipo')" class="px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 cursor-pointer hover:text-slate-700 dark:hover:text-slate-200 transition-colors group">
-              <div class="flex items-center gap-1.5">
-                {{ $t('vehiculos.thType') || 'Tipo' }}
-                <IconChevronDown v-if="sortKey === 'tipo'" :class="{'rotate-180': sortOrder === -1}" :size="14" class="transition-transform" />
-              </div>
-            </th>
-            <th class="px-6 py-3.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <Transition mode="out-in" name="fade">
-          <tbody v-if="isLoading" class="bg-white dark:bg-[#1E2228] divide-y divide-slate-200 dark:divide-[#2A313A]">
-            <tr v-for="i in 5" :key="'skeleton-'+i" class="border-b border-slate-200 dark:border-[#2A313A] animate-pulse">
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 bg-slate-200 dark:bg-[#2A313A] rounded-full"></div>
-                  <div class="h-4 w-32 bg-slate-200 dark:bg-[#2A313A] rounded"></div>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="h-3 w-24 bg-slate-200 dark:bg-[#2A313A] rounded"></div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="h-3 w-32 bg-slate-200 dark:bg-[#2A313A] rounded"></div>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2">
-                  <div class="h-7 w-7 bg-slate-200 dark:bg-[#2A313A] rounded"></div>
-                  <div class="h-7 w-7 bg-slate-200 dark:bg-[#2A313A] rounded"></div>
-                </div>
-              </td>
+    <!-- Table Card -->
+    <AppTableCard>
+      <div class="overflow-x-auto scrollbar-hide">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="bg-transparent border-b border-slate-200/60 dark:border-white/5">
+              <th class="px-6 py-5">
+                <button @click="toggleSort('nombre')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
+                  {{ $t('vehiculos.thName') }}
+                  <HugeiconsIcon :icon="sortKey === 'nombre' ? (sortOrder === 1 ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </th>
+              <th class="px-6 py-5">
+                <button @click="toggleSort('placa')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
+                  {{ $t('vehiculos.thPlate') }}
+                  <HugeiconsIcon :icon="sortKey === 'placa' ? (sortOrder === 1 ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </th>
+              <th class="px-6 py-5">
+                <button @click="toggleSort('tipo')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
+                  {{ $t('vehiculos.thType') }}
+                  <HugeiconsIcon :icon="sortKey === 'tipo' ? (sortOrder === 1 ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
+                </button>
+              </th>
+              <th class="px-6 py-5 text-right text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
+                Acciones
+              </th>
             </tr>
-          </tbody>
-          <TransitionGroup v-else-if="paginatedVehicles.length > 0" tag="tbody" name="table-rows" class="bg-white dark:bg-[#1E2228] divide-y divide-slate-200 dark:divide-[#2A313A]">
-            <tr v-for="vehicle in paginatedVehicles" :key="vehicle.id_vehiculo" class="border-b border-slate-200 dark:border-[#2A313A] hover:bg-slate-50 dark:hover:bg-[#22272E] transition-colors duration-150 group">
-              <td class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 bg-gradient-to-br from-[#5da6fc]/10 to-transparent border border-[#5da6fc]/20 rounded-full flex items-center justify-center text-[#5da6fc] group-hover:scale-110 transition-transform">
-                    <IconCar :size="20" />
-                  </div>
-                  <div>
-                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-100 tracking-tight">{{ vehicle.nombre || 'Vehículo sin nombre' }}</div>
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <div class="flex flex-col">
-                  <span class="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase">{{ vehicle.placa || '---' }}</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{{ vehicle.serial || 'No Serial' }}</span>
-                </div>
-              </td>
-              <td class="px-6 py-4">
-                <span class="text-xs text-slate-400 dark:text-slate-500 max-w-[200px] truncate block italic">{{ vehicle.tipo || 'General' }}</span>
-              </td>
-              <td class="px-6 py-4 text-right">
-                <div class="flex justify-end gap-2">
-                  <button @click="openEditModal(vehicle)" class="p-1.5 rounded text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#2A313A] transition-colors" title="Editar"><IconEdit :size="18" /></button>
-                  <button @click="confirmDelete(vehicle.id_vehiculo)" class="p-1.5 rounded text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors" title="Eliminar"><IconTrash :size="18" /></button>
-                </div>
-              </td>
-            </tr>
-          </TransitionGroup>
-          <tbody v-else class="bg-white dark:bg-[#1E2228] divide-y divide-slate-200 dark:divide-[#2A313A]">
-            <tr key="empty-state">
-              <td colspan="4" class="px-6 py-16 text-center">
-              <div class="flex flex-col items-center justify-center space-y-3">
-                <IconCar :size="32" class="mb-2 text-slate-600 dark:text-slate-500" />
-                <p class="text-sm font-medium text-slate-400 dark:text-slate-400">{{ $t('vehiculos.noResults') || 'No se encontraron vehículos.' }}</p>
-                <p class="text-sm text-slate-500 dark:text-slate-500">{{ $t('vehiculos.noResultsHint') || 'Intenta cambiar el grupo seleccionado o ajusta tu búsqueda.' }}</p>
-              </div>
-            </td>
-            </tr>
-          </tbody>
-        </Transition>
-      </table>
-    </div>
-
-    <template #pagination>
-      <BasePagination 
-        v-model:current-page="currentPage"
-        :total-items="filteredVehicles.length"
-        :items-per-page="itemsPerPage"
-      />
-    </template>
-
-    <template #modals>
-      <BaseModal 
-        v-model:is-open="isDeleteModalOpen"
-        :title="$t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"
-        :confirm-text="$t('common.delete') || 'Eliminar'"
-        :cancel-text="$t('common.cancel') || 'Cancelar'"
-        confirmButtonClass="bg-red-500/10 text-red-500 hover:bg-red-500/20 border-red-500/20"
-        @confirm="deleteVehicle"
-      >
-        <template #icon>
-          <IconAlertCircle :size="20" class="text-red-400" />
-        </template>
-        <p class="text-sm text-slate-600 dark:text-slate-300">
-          {{ $t('common.confirmDeleteMsg') || '¿Está seguro de que desea eliminar este registro? Esta acción no se puede deshacer.' }}
-        </p>
-      </BaseModal>
-
-      <BaseModal 
-        v-model:is-open="isModalOpen"
-        :title="modalMode === 'crear' ? ($t('vehiculos.modalTitleCreate') || 'Crear Nuevo Vehículo') : ($t('vehiculos.modalTitleEdit') || 'Actualizar Vehículo')"
-        :confirm-text="modalMode === 'crear' ? ($t('vehiculos.btnRegister') || 'Crear Vehículo') : ($t('vehiculos.btnSave') || 'Guardar Cambios')"
-        @confirm="saveVehicle"
-      >
-        <template #icon>
-          <IconCar :size="20" class="text-[#60a5fa] dark:text-[#5da6fc]" />
-        </template>
-
-        <form @submit.prevent="saveVehicle" class="space-y-5 relative">
-
-          <!-- Overlay de Carga -->
-          <Transition name="loader-fade">
-            <div v-if="isSubmitting" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#16191D]/60 backdrop-blur-md rounded-2xl overflow-hidden">
-              <div class="flex flex-col items-center gap-4 p-8">
-                <div class="relative flex items-center justify-center">
-                  <div class="w-14 h-14 border-[3px] border-[#60a5fa]/15 dark:border-[#5da6fc]/10 border-t-[#60a5fa] dark:border-t-[#5da6fc] rounded-full animate-spin"></div>
-                  <div class="absolute inset-0 flex items-center justify-center">
-                    <IconLoader2 :size="20" class="text-[#60a5fa] dark:text-[#5da6fc] animate-pulse" />
-                  </div>
-                </div>
-                <p class="text-[10px] font-bold text-slate-500 dark:text-white/50 tracking-[0.2em] uppercase animate-pulse">
-                  {{ modalMode === 'crear' ? 'Registrando' : 'Actualizando' }}
-                </p>
-              </div>
-            </div>
-          </Transition>
-
-          <!-- Feedback Minimalista -->
-          <Transition name="message-fade">
-            <div v-if="modalMessage && !isSubmitting"
-                 class="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase transition-all duration-300"
-                 :class="{
-                   'text-red-500 dark:text-red-400 bg-red-500/10 dark:bg-red-400/5': modalMessage.type === 'error',
-                   'text-amber-500 dark:text-amber-400 bg-amber-500/10 dark:bg-amber-400/5': modalMessage.type === 'warning',
-                   'text-[#60a5fa] dark:text-[#5da6fc] bg-[#60a5fa]/10 dark:bg-[#5da6fc]/5': modalMessage.type === 'success'
-                 }">
-                 <IconAlertCircle v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :size="14" />
-                 <IconCheck v-else :size="14" class="text-[#60a5fa] dark:text-[#5da6fc]" />
-                 {{ modalMessage.text }}
-            </div>
-          </Transition>
-
-          <!-- Nombre -->
-          <div class="space-y-1.5">
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{{ $t('vehiculos.labelName') || 'Nombre del Vehículo' }}</label>
-            <div class="relative">
-              <IconTag :size="18" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-              <input 
-                v-model="formData.nombre"
-                type="text" 
-                :placeholder="$t('vehiculos.placeholderName') || 'Ej: Camioneta de Reparto 01'"
-                class="block w-full px-4 py-2.5 pl-10 border border-slate-200 dark:border-[#2A313A] rounded-xl shadow-sm bg-white dark:bg-[#1E2228] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#60a5fa]/20 dark:focus:ring-slate-500/40 focus:border-[#60a5fa]/50 dark:focus:border-slate-500 transition-all sm:text-sm"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <!-- Placa -->
-            <div class="space-y-1.5">
-              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{{ $t('vehiculos.labelPlate') || 'Placa' }}</label>
-              <div class="relative">
-                <IconHash :size="18" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                <input 
-                  v-model="formData.placa"
-                  type="text" 
-                  :placeholder="$t('vehiculos.placeholderPlate') || 'Ej: ABC-123'"
-                  class="block w-full px-4 py-2.5 pl-10 border border-slate-200 dark:border-[#2A313A] rounded-xl shadow-sm bg-white dark:bg-[#1E2228] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#60a5fa]/20 dark:focus:ring-slate-500/40 focus:border-[#60a5fa]/50 dark:focus:border-slate-500 transition-all sm:text-sm uppercase"
-                  required
-                />
-              </div>
-            </div>
-
-            <!-- Serial -->
-            <div class="space-y-1.5">
-              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{{ $t('vehiculos.labelSerial') || 'Serial' }}</label>
-              <div class="relative">
-                <IconHash :size="18" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400" />
-                <input 
-                  v-model="formData.serial"
-                  type="text" 
-                  :placeholder="$t('vehiculos.placeholderSerial') || 'Ej: SN-45678'"
-                  class="block w-full px-4 py-2.5 pl-10 border border-slate-200 dark:border-[#2A313A] rounded-xl shadow-sm bg-white dark:bg-[#1E2228] text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#60a5fa]/20 dark:focus:ring-slate-500/40 focus:border-[#60a5fa]/50 dark:focus:border-slate-500 transition-all sm:text-sm uppercase"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Tipo de Vehículo -->
-          <div class="space-y-1.5" ref="typeDropdownRef">
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">{{ $t('vehiculos.labelType') || 'Tipo de Vehículo' }}</label>
-            <div class="relative">
-              <IconTruck :size="18" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 z-10" />
-              <button 
-                type="button"
-                @click="isTypeDropdownOpen = !isTypeDropdownOpen"
-                class="block w-full px-4 py-2.5 pl-10 border border-slate-200 dark:border-[#2A313A] rounded-xl shadow-sm bg-white dark:bg-[#1E2228] text-left focus:outline-none focus:ring-2 focus:ring-[#60a5fa]/20 dark:focus:ring-slate-500/40 focus:border-[#60a5fa]/50 dark:focus:border-slate-500 transition-all sm:text-sm text-slate-700 dark:text-slate-200"
+          </thead>
+          <tbody class="divide-y divide-slate-100/50 dark:divide-white/5">
+            <template v-if="isLoading">
+              <tr v-for="n in 5" :key="`skeleton-${n}`" class="animate-pulse">
+                <td class="px-6 py-5"><div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5"></div><div class="h-4 w-32 bg-slate-100 dark:bg-white/5 rounded"></div></div></td>
+                <td class="px-6 py-5"><div class="h-4 w-24 bg-slate-100 dark:bg-white/5 rounded"></div></td>
+                <td class="px-6 py-5"><div class="h-4 w-28 bg-slate-100 dark:bg-white/5 rounded"></div></td>
+                <td class="px-6 py-5"><div class="flex justify-end gap-2"><div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/5"></div></div></td>
+              </tr>
+            </template>
+            <template v-else-if="sortedVehicles.length > 0">
+              <tr 
+                v-for="vehicle in sortedVehicles.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)" 
+                :key="vehicle.id_vehiculo" 
+                class="hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all duration-200 group cursor-default"
               >
-                <span v-if="formData.tipo" class="truncate font-medium">{{ vehicleTypes.find(t => t.id_tipo === formData.tipo)?.nombre }}</span>
-                <span v-else class="text-slate-500 dark:text-slate-400 truncate">{{ $t('vehiculos.placeholderType') || 'Seleccione un tipo...' }}</span>
-              </button>
-              <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none transition-transform duration-200" :class="{ 'rotate-180': isTypeDropdownOpen }">
-                 <IconChevronDown :size="16" class="text-slate-500 dark:text-slate-400" />
-              </div>
-
-              <Transition name="fade-slide">
-                <div v-if="isTypeDropdownOpen" class="absolute left-0 right-0 top-full mt-2 bg-white dark:bg-[#1E2228] border border-slate-200 dark:border-[#2A313A] rounded-xl shadow-2xl z-[150] overflow-hidden">
-                  <div class="max-h-56 overflow-y-auto custom-scrollbar p-1.5 space-y-0.5 relative z-[151]">
-                    <button 
-                      v-for="type in vehicleTypes" 
-                      :key="type.id_tipo"
-                      type="button"
-                      @click="formData.tipo = type.id_tipo; isTypeDropdownOpen = false"
-                      class="w-full text-left px-3 py-2 text-sm rounded-lg transition-colors flex items-center justify-between group focus:outline-none"
-                      :class="formData.tipo === type.id_tipo ? 'bg-[#60a5fa]/10 dark:bg-[#5da6fc]/10 text-[#2563eb] dark:text-[#9dccff]' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#2A313A] hover:text-slate-800 dark:hover:text-slate-200'"
-                    >
-                      <span class="truncate pr-2 font-medium">{{ type.nombre }}</span>
-                      <IconCheck v-if="formData.tipo === type.id_tipo" :size="14" class="text-[#60a5fa] dark:text-[#5da6fc] shrink-0" stroke-width="3" />
-                    </button>
-                    <div v-if="vehicleTypes.length === 0" class="py-4 text-center text-xs text-slate-500 dark:text-slate-400">
-                      Cargando tipos de vehículo...
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-4 group/avatar">
+                    <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm">
+                      <HugeiconsIcon :icon="Car01Icon" :size="20" :stroke-width="1.8" />
+                    </div>
+                    <div class="flex flex-col">
+                      <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ vehicle.nombre || 'Vehículo' }}</span>
+                      <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 uppercase tracking-widest truncate">{{ vehicle.id_vehiculo }}</span>
                     </div>
                   </div>
+                </td>
+                <td class="px-6 py-5">
+                  <div class="flex flex-col">
+                    <span class="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ vehicle.placa || '---' }}</span>
+                    <div class="flex items-center gap-1.5 mt-1 opacity-60">
+                      <HugeiconsIcon :icon="FingerPrintIcon" :size="10" />
+                      <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ vehicle.serial || 'S/N' }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-5">
+                  <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/type">
+                    <HugeiconsIcon :icon="TruckIcon" :size="14" class="text-slate-400 group-hover/type:text-[#3b82f6] transition-colors" />
+                    <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
+                      {{ vehicle.tipo || 'General' }}
+                    </span>
+                  </div>
+                </td>
+                <td class="px-6 py-5 text-right">
+                  <div class="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 translate-x-2 group-hover:translate-x-0">
+                    <button @click="openEditModal(vehicle)" class="p-2 rounded-xl text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-all active:scale-90" title="Editar">
+                      <HugeiconsIcon :icon="Edit02Icon" :size="18" />
+                    </button>
+                    <button @click="confirmDelete(vehicle.id_vehiculo)" class="p-2 rounded-xl text-slate-400 hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-90" title="Eliminar">
+                      <HugeiconsIcon :icon="Delete01Icon" :size="18" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+            <tr v-else>
+              <td colspan="4" class="px-6 py-20 text-center">
+                <div class="flex flex-col items-center justify-center opacity-50">
+                  <HugeiconsIcon :icon="Search01Icon" :size="48" class="text-slate-300 dark:text-slate-600 mb-4" />
+                  <p class="text-sm font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ $t('vehiculos.noResults') }}</p>
                 </div>
-              </Transition>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div v-if="filteredVehicles.length > 0" class="px-6 py-4 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-4 flex-wrap bg-white/30 dark:bg-black/20 backdrop-blur-md">
+        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
+          {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredVehicles.length) }}
+          <span class="text-slate-300 dark:text-slate-600 px-1">de</span>
+          {{ filteredVehicles.length }}
+        </p>
+
+        <div v-if="totalPages > 1" class="flex items-center gap-1">
+          <button @click="currentPage > 1 && currentPage--" :disabled="currentPage === 1" class="pagination-btn">
+            <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" stroke-width="2.5" />
+          </button>
+          <template v-for="p in visiblePages" :key="p">
+            <span v-if="p === '...'" class="pagination-ellipsis">…</span>
+            <button v-else @click="currentPage = p" :class="['pagination-btn', currentPage === p ? 'pagination-btn--active' : '']">{{ p }}</button>
+          </template>
+          <button @click="currentPage < totalPages && currentPage++" :disabled="currentPage === totalPages" class="pagination-btn">
+            <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" stroke-width="2.5" />
+          </button>
+        </div>
+      </div>
+    </AppTableCard>
+
+    <!-- Modals -->
+    <BaseModal 
+      v-model:isOpen="isDeleteModalOpen"
+      :title="$t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"
+      :showFooter="false"
+      @confirm="deleteVehicle"
+    >
+      <template #icon>
+        <div class="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 shadow-sm">
+          <HugeiconsIcon :icon="Alert01Icon" :size="20" class="text-red-500" />
+        </div>
+      </template>
+      <div class="py-4 text-center">
+        <p class="text-sm text-slate-600 dark:text-slate-300 font-medium">
+          {{ $t('common.confirmDeleteMsg') }}
+        </p>
+        <div class="flex items-center gap-4 mt-8">
+          <AppButton variant="secondary" class="flex-1 !rounded-2xl" @click="isDeleteModalOpen = false">{{ $t('common.cancel') }}</AppButton>
+          <AppButton variant="primary" class="flex-1 !rounded-2xl !bg-red-500 !border-red-500 shadow-red-500/20" @click="deleteVehicle">{{ $t('common.delete') }}</AppButton>
+        </div>
+      </div>
+    </BaseModal>
+
+    <BaseModal 
+      v-model:isOpen="isModalOpen"
+      :title="modalMode === 'crear' ? ($t('vehiculos.modalTitleCreate') || 'Nuevo Vehículo') : ($t('vehiculos.modalTitleEdit') || 'Editar Vehículo')"
+      :showFooter="false"
+      @confirm="saveVehicle"
+    >
+      <template #icon>
+        <div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-sm">
+          <HugeiconsIcon :icon="Car01Icon" :size="20" class="text-[#3b82f6]" />
+        </div>
+      </template>
+
+      <form @submit.prevent="saveVehicle" class="space-y-6 relative py-2">
+        <!-- Overlay de Carga -->
+        <Transition name="loader-fade">
+          <div v-if="isSubmitting" class="absolute -inset-6 z-[100] flex items-center justify-center bg-white/80 dark:bg-[#0F1216]/95 backdrop-blur-xl rounded-2xl overflow-hidden pointer-events-auto">
+            <div class="flex flex-col items-center gap-5 p-8 text-center">
+              <div class="relative flex items-center justify-center">
+                <div class="w-16 h-16 border-[3px] border-[#3b82f6]/10 border-t-[#3b82f6] rounded-full animate-spin"></div>
+                <div class="absolute inset-0 flex items-center justify-center">
+                  <HugeiconsIcon :icon="Refresh01Icon" :size="24" class="text-[#3b82f6] animate-pulse" />
+                </div>
+              </div>
+              <div class="space-y-1">
+                <p class="text-[11px] font-black text-[#3b82f6] tracking-[0.3em] uppercase animate-pulse">
+                  Procesando
+                </p>
+                <p class="text-[9px] font-medium text-slate-400 dark:text-slate-500 tracking-wider">Por favor, espera...</p>
+              </div>
             </div>
           </div>
+        </Transition>
 
-        </form>
-      </BaseModal>
-    </template>
-  </DataLayout>
+        <!-- Feedback -->
+        <Transition name="message-fade">
+          <div v-if="modalMessage && !isSubmitting" 
+               class="flex items-center gap-2 py-2.5 px-3 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 mb-6 border border-current/10"
+               :class="{
+                 'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
+                 'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
+                 'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
+               }">
+                <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="14" />
+                <HugeiconsIcon v-else :icon="Tick01Icon" :size="14" class="text-[#3b82f6]" />
+                {{ modalMessage.text }}
+          </div>
+        </Transition>
+
+        <div class="space-y-2">
+          <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('vehiculos.labelName') }}</label>
+          <div class="relative group/input">
+            <HugeiconsIcon :icon="LicenseIcon" :size="18" class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/input:text-[#3b82f6] transition-colors" />
+            <input 
+              v-model="formData.nombre"
+              type="text" 
+              required
+              :placeholder="$t('vehiculos.placeholderName')" 
+              class="block w-full px-5 py-3.5 pl-12 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-4 focus:ring-[#3b82f6]/5 dark:focus:ring-[#3b82f6]/5 focus:border-[#3b82f6]/40 dark:focus:border-[#3b82f6]/40 transition-all duration-300 font-bold text-sm"
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('vehiculos.labelPlate') }}</label>
+            <input 
+              v-model="formData.placa"
+              type="text" 
+              required
+              class="block w-full px-5 py-3.5 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-[#3b82f6]/5 focus:border-[#3b82f6]/40 transition-all duration-300 font-bold text-sm uppercase text-center tracking-widest"
+            >
+          </div>
+          <div class="space-y-2">
+            <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('vehiculos.labelSerial') }}</label>
+            <input 
+              v-model="formData.serial"
+              type="text" 
+              class="block w-full px-5 py-3.5 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-[#3b82f6]/5 focus:border-[#3b82f6]/40 transition-all duration-300 font-bold text-sm uppercase text-center tracking-widest"
+            >
+          </div>
+        </div>
+
+        <div class="space-y-2" ref="typeDropdownRef">
+          <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('vehiculos.labelType') }}</label>
+          <div class="relative z-50">
+             <div 
+              @click="isTypeDropdownOpen = !isTypeDropdownOpen" 
+              class="w-full px-5 py-3.5 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-slate-300 dark:hover:border-white/10 hover:bg-white dark:hover:bg-white/[0.05]"
+            >
+               <div class="flex items-center gap-3">
+               <HugeiconsIcon :icon="Truck01Icon" :size="16" class="text-slate-400 dark:text-slate-500" />
+                 <span class="text-sm font-bold truncate" :class="formData.tipo ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-600'">
+                   {{ vehicleTypes.find(t => t.id_tipo === formData.tipo)?.nombre || $t('vehiculos.placeholderType') }}
+                 </span>
+               </div>
+               <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 transition-transform duration-300" :class="{ 'rotate-180': isTypeDropdownOpen }" />
+            </div>
+            
+            <Transition name="fade-slide">
+              <div v-if="isTypeDropdownOpen" class="absolute left-0 right-0 mt-2 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl bg-opacity-95">
+                <ul class="max-h-56 overflow-y-auto custom-scrollbar p-1.5">
+                  <li 
+                    v-for="type in vehicleTypes" 
+                    :key="type.id_tipo" 
+                    @click="formData.tipo = type.id_tipo; isTypeDropdownOpen = false" 
+                    class="px-4 py-2.5 text-[13px] font-bold rounded-xl cursor-pointer transition-all duration-200 flex items-center justify-between group/opt"
+                    :class="formData.tipo === type.id_tipo ? 'bg-[#3b82f6]/10 text-[#3b82f6]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'"
+                  >
+                    <span>{{ type.nombre }}</span>
+                    <HugeiconsIcon v-if="formData.tipo === type.id_tipo" :icon="Tick01Icon" :size="14" />
+                  </li>
+                </ul>
+              </div>
+            </Transition>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 pt-6 border-t border-slate-100 dark:border-white/5 mt-4">
+          <AppButton type="button" variant="secondary" class="flex-1 !rounded-2xl" @click="isModalOpen = false">{{ $t('vehiculos.btnCancel') || 'Cancelar' }}</AppButton>
+          <AppButton type="submit" variant="primary" class="flex-1 !rounded-2xl shadow-blue-500/20" :loading="isSubmitting">{{ modalMode === 'crear' ? $t('vehiculos.btnRegister') : $t('vehiculos.btnSave') }}</AppButton>
+        </div>
+      </form>
+    </BaseModal>
+  </div>
 </template>
 
 <style scoped>
-.font-mono {
-  font-family: 'Share Tech Mono', monospace;
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.pagination-btn {
+  @apply w-8 h-8 flex items-center justify-center rounded-xl text-[11px] font-black transition-all duration-200 border border-transparent;
+  @apply text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5;
+}
+
+.pagination-btn--active {
+  @apply bg-[#3b82f6] text-white shadow-lg shadow-blue-500/20 border-[#3b82f6];
+}
+
+.pagination-ellipsis {
+  @apply w-8 h-8 flex items-center justify-center text-slate-400 dark:text-slate-600 text-[10px] font-bold;
+}
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #60a5fa; }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: #2A313A; }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #5da6fc; }
+.custom-scrollbar::-webkit-scrollbar-thumb { 
+  @apply bg-slate-200 dark:bg-white/10 rounded-full hover:bg-[#3b82f6] transition-colors;
+}
 
-.table-rows-enter-active, .table-rows-leave-active, .table-rows-move { transition: all 0.24s ease; }
-.table-rows-enter-from, .table-rows-leave-to { opacity: 0; transform: translateY(8px); }
+/* Animaciones */
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
-.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* Overlay de Carga */
 .loader-fade-enter-active, .loader-fade-leave-active { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -562,17 +625,8 @@ watch(() => selectedGroup.value.id, () => {
 .message-fade-enter-from { opacity: 0; transform: translateY(-8px) scale(0.98); filter: blur(4px); }
 .message-fade-leave-to { opacity: 0; transform: translateY(4px); filter: blur(2px); }
 
-.theme-sync,
-.theme-sync * {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-duration: 180ms;
-  transition-timing-function: ease;
-}
-
-.theme-sync .animate-pulse,
-.theme-sync .animate-pulse * {
-  transition: none !important;
-}
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>
 
 

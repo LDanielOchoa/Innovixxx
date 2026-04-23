@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import BaseModal from '../common/BaseModal.vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -15,7 +15,9 @@ import {
   FloppyDiskIcon,
   Shield02Icon,
   Mail01Icon,
-  CheckmarkCircle01Icon
+  CheckmarkCircle01Icon,
+  RotateRight01Icon,
+  RotateLeft01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroup } from '../../composables/useGroup'
 import { useI18n } from 'vue-i18n'
@@ -23,6 +25,9 @@ import type { PropType } from 'vue'
 import { apiClient } from '../../utils/api-client'
 import AppInput from '../common/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
+import { obtenerUrlImagen } from '../../utils/imagenes'
+import { Cropper, CircleStencil } from 'vue-advanced-cropper'
+import 'vue-advanced-cropper/dist/style.css'
 
 const { selectedGroup } = useGroup()
 const { t } = useI18n()
@@ -46,6 +51,10 @@ const props = defineProps({
   }
 })
 
+const fotoMostrada = computed(() => {
+  return previewImage.value || obtenerUrlImagen(props.userData.foto)
+})
+
 const emit = defineEmits(['update:isOpen', 'profileUpdated'])
 
 const imageError = ref(false)
@@ -53,6 +62,11 @@ const previewImage = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const saving = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' } | null>(null)
+
+// Estados para el cropper
+const isCropping = ref(false)
+const imageToCrop = ref<string | null>(null)
+const cropper = ref<any>(null)
 
 const profileForm = reactive({
   nombre: '',
@@ -67,11 +81,12 @@ watch(() => props.isOpen, (isOpen) => {
     profileForm.email = props.userData.email || ''
     profileForm.password = ''
     profileForm.new_password = ''
-    const savedPhoto = localStorage.getItem('user-profile-photo')
-    previewImage.value = savedPhoto
+    previewImage.value = null
     selectedFile.value = null
     modalMessage.value = null
     imageError.value = false
+    isCropping.value = false
+    imageToCrop.value = null
   }
 })
 
@@ -80,16 +95,49 @@ const handleFileUpload = (event: Event) => {
   const file = target.files?.[0]
 
   if (file) {
-    selectedFile.value = file
     const reader = new FileReader()
     reader.onload = (e) => {
-      const imageData = e.target?.result as string
-      previewImage.value = imageData
-      imageError.value = false
-      localStorage.setItem('user-profile-photo', imageData)
+      imageToCrop.value = e.target?.result as string
+      isCropping.value = true
     }
     reader.readAsDataURL(file)
+    // Limpiar el input para permitir subir la misma foto si se desea
+    target.value = ''
   }
+}
+
+const applyCrop = () => {
+  if (!cropper.value) return
+  
+  const { canvas } = cropper.value.getResult()
+  if (canvas) {
+    canvas.toBlob((blob: Blob | null) => {
+      if (!blob) return
+      
+      const file = new File([blob], 'perfil.jpg', { type: 'image/jpeg' })
+      selectedFile.value = file
+      
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        previewImage.value = e.target?.result as string
+        imageError.value = false
+        isCropping.value = false
+        imageToCrop.value = null
+      }
+      reader.readAsDataURL(blob)
+    }, 'image/jpeg')
+  }
+}
+
+const rotate = (angle: number) => {
+  if (cropper.value) {
+    cropper.value.rotate(angle)
+  }
+}
+
+const cancelCrop = () => {
+  isCropping.value = false
+  imageToCrop.value = null
 }
 
 const handleSaveProfile = async () => {
@@ -129,9 +177,6 @@ const handleSaveProfile = async () => {
 
     if (response.done) {
       modalMessage.value = { text: response.message || t('common.successUpdate'), type: 'success' }
-      if (previewImage.value) {
-        localStorage.setItem('user-profile-photo', previewImage.value)
-      }
       emit('profileUpdated')
       setTimeout(() => {
         emit('update:isOpen', false)
@@ -167,7 +212,7 @@ const handleSaveProfile = async () => {
         <div class="relative group">
           <label for="profilePhotoUpload" class="block w-44 h-44 rounded-[32px] bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/5 p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-500 hover:border-[#3b82f6]/50 cursor-pointer overflow-hidden active:scale-95 group-hover:-translate-y-1">
             <div class="w-full h-full rounded-[24px] overflow-hidden bg-slate-50 dark:bg-[#13161C] flex items-center justify-center border border-slate-100 dark:border-white/5 shadow-inner">
-              <img v-if="(previewImage || userData.foto) && !imageError" :src="previewImage || userData.foto" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Profile" @error="imageError = true" />
+              <img v-if="fotoMostrada && !imageError" :src="fotoMostrada" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Profile" @error="imageError = true" />
               <HugeiconsIcon v-else :icon="User02Icon" :size="64" :stroke-width="1" class="text-slate-300 dark:text-slate-600 transition-all duration-500 group-hover:scale-110 group-hover:text-[#3b82f6]" />
             </div>
 
@@ -265,6 +310,66 @@ const handleSaveProfile = async () => {
       </div>
     </div>
   </BaseModal>
+
+  <!-- Modal para recortar imagen -->
+  <BaseModal
+    :isOpen="isCropping"
+    @update:isOpen="isCropping = $event"
+    :title="t('sidebar.editPhoto')"
+    size="lg"
+    @confirm="applyCrop"
+    @close="cancelCrop"
+    :confirmText="t('common.apply')"
+  >
+    <template #icon>
+      <HugeiconsIcon :icon="Camera01Icon" :size="20" class="text-[#3b82f6]" />
+    </template>
+
+    <div class="cropper-wrapper bg-slate-900/5 dark:bg-black/20 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/5 relative group">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.2)_100%)] pointer-events-none z-10"></div>
+      <Cropper
+        ref="cropper"
+        class="cropper min-h-[450px] max-h-[60vh]"
+        :src="imageToCrop"
+        :stencil-component="CircleStencil"
+        :stencil-props="{
+          aspectRatio: 1/1,
+          previewClass: 'cropper-preview'
+        }"
+        :canvas="{
+          height: 1024,
+          width: 1024
+        }"
+      />
+      
+      <!-- Controles de Rotación sobre el Cropper -->
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-20">
+        <button 
+          @click="rotate(-90)"
+          class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
+          title="Rotar a la izquierda"
+          type="button"
+        >
+          <HugeiconsIcon :icon="RotateLeft01Icon" :size="20" />
+        </button>
+        <button 
+          @click="rotate(90)"
+          class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
+          title="Rotar a la derecha"
+          type="button"
+        >
+          <HugeiconsIcon :icon="RotateRight01Icon" :size="20" />
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+      <HugeiconsIcon :icon="Alert01Icon" :size="18" class="text-[#3b82f6]" />
+      <p class="text-[12px] font-bold text-slate-600 dark:text-slate-400">
+        {{ t('sidebar.adjustImageInfo', 'Ajusta el círculo para centrar tu foto. Solo lo que esté dentro del círculo será visible.') }}
+      </p>
+    </div>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -298,6 +403,28 @@ const handleSaveProfile = async () => {
 
 .fade-enter-active, .fade-leave-active { transition: all 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95); }
+
+/* Estilos personalizados para el Cropper */
+:deep(.vue-advanced-cropper) {
+  background: #000;
+}
+
+:deep(.vue-circle-stencil) {
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6);
+}
+
+:deep(.vue-handler-wrapper--active .vue-handler) {
+  background: #3b82f6;
+}
+
+:deep(.vue-simple-handler) {
+  background: #3b82f6;
+  border: 2px solid white;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
 </style>
 
 

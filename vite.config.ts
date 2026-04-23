@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'https://innovix.gfandino.xyz',
         changeOrigin: true,
         secure: true
+      },
+      '/media': {
+        target: 'https://innovix.gfandino.xyz',
+        changeOrigin: true,
+        secure: true
       }
     }
   }

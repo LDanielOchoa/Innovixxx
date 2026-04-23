@@ -17,6 +17,7 @@ import {
   ArrowRight01Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
 
 // PrimeVue Components
 import DataTable from 'primevue/datatable'
@@ -290,7 +291,8 @@ const getStatusType = (usuario: Usuario) => {
             <div class="flex items-center gap-4 group/avatar">
               <div class="relative">
                 <Avatar 
-                  :label="data.nombre.charAt(0).toUpperCase()" 
+                  :image="data.foto ? obtenerUrlImagen(data.foto) : undefined"
+                  :label="!data.foto ? data.nombre.charAt(0).toUpperCase() : undefined" 
                   shape="circle" 
                   class="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white font-black border border-white dark:border-white/10 shadow-sm transition-transform duration-300 group-hover/avatar:scale-110" 
                 />

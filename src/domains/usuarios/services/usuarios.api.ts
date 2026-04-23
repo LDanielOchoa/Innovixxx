@@ -73,6 +73,7 @@ export const mapUsuariosFromApi = (items: any[], grupo: Grupo, fallbackLang: str
     id_role: item.id_role ?? item.role_id ?? '',
     id_grupo: grupo.id,
     grupo_nombre: item.grupo ?? item.grupo_nombre ?? grupo.nombre,
-    time_zone: item.time_zone ?? item.timezone ?? ''
+    time_zone: item.time_zone ?? item.timezone ?? '',
+    foto: item.foto ?? ''
   }))
 }

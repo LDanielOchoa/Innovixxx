@@ -24,7 +24,8 @@ export const commonMessages = {
     errorUpdate: 'Error al actualizar',
     error: 'Error',
     errorNetwork: 'Error de red',
-    back: 'Volver'
+    back: 'Volver',
+    apply: 'Aplicar'
   },
   en: {
     es: 'ES',
@@ -51,6 +52,7 @@ export const commonMessages = {
     errorUpdate: 'Error updating',
     error: 'Error',
     errorNetwork: 'Network error',
-    back: 'Back'
+    back: 'Back',
+    apply: 'Apply'
   }
 }

@@ -8,6 +8,7 @@ export interface Usuario {
   id_grupo: string
   grupo_nombre: string
   time_zone?: string
+  foto?: string
 }
 
 export interface Grupo {

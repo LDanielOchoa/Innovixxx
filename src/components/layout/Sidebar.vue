@@ -23,6 +23,7 @@ import {
   Cancel01Icon,
   Settings02Icon
 } from '@hugeicons/core-free-icons'
+import { obtenerUrlImagen } from '../../utils/imagenes'
 
 const isExpanded = ref(false)
 const router = useRouter()
@@ -43,6 +44,10 @@ const userData = reactive({
   isAdmin: false
 })
 
+const fotoUsuario = computed(() => {
+  return obtenerUrlImagen(userData.foto)
+})
+
 import { useGroup } from '../../composables/useGroup'
 const { selectedGroup, setGroup } = useGroup()
 
@@ -50,11 +55,6 @@ onMounted(() => {
   const savedState = localStorage.getItem('sidebarExpanded')
   if (savedState !== null) {
     isExpanded.value = savedState === 'true'
-  }
-
-  const savedPhoto = localStorage.getItem('user-profile-photo')
-  if (savedPhoto) {
-    userData.foto = savedPhoto
   }
 
   fetchUserData()
@@ -93,11 +93,7 @@ const fetchUserData = async () => {
       }
       userData.idioma = data.data.idioma
       userData.tz = data.data.tz
-      const savedPhoto = localStorage.getItem('user-profile-photo')
-      userData.foto = savedPhoto || data.data.foto
-      if (data.data.foto && !savedPhoto) {
-        localStorage.setItem('user-profile-photo', data.data.foto)
-      }
+      userData.foto = data.data.foto || ''
 
       if (data.data.idioma) {
         locale.value = data.data.idioma
@@ -322,7 +318,7 @@ const cerrarSesion = () => {
         :class="!isExpanded ? 'justify-center' : ''"
       >
         <div class="relative shrink-0">
-          <img :src="userData.foto || 'https://i.pravatar.cc/150?img=11'" class="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-[#1A1D24] shadow-sm" />
+          <img :src="fotoUsuario" class="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-[#1A1D24] shadow-sm" />
         </div>
         
         <div 

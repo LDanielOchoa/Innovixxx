@@ -46,58 +46,51 @@
       ]"
     >
       <!-- Cabecera del Sidebar -->
-      <div class="p-6 border-b border-slate-200/80 dark:border-white/5 flex justify-between items-center">
-        <div class="flex items-center gap-4">
-          <div class="w-12 h-12 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shadow-sm relative overflow-hidden group/logo animate-[float_6s_ease-in-out_infinite]">
-            <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 opacity-0 group-hover/logo:opacity-100 transition-opacity"></div>
-            <HugeiconsIcon :icon="Route01Icon" :size="24" :stroke-width="1.8" class="relative z-10" />
-          </div>
-          <div>
-            <h2 class="text-lg font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ $t('rutas.title') }}</h2>
-            <p class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-widest mt-1 opacity-80">{{ $t('rutas.subtitle') }}</p>
-          </div>
-        </div>
-        
-        <div class="flex items-center gap-3">
-          <button 
-            @click="openCreateModal" 
-            class="flex items-center justify-center gap-2 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] text-white px-4 py-2.5 rounded-xl transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.15)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.3)] text-xs font-bold focus:outline-none"
-          >
-            <HugeiconsIcon :icon="Add01Icon" :size="18" :stroke-width="2.5" />
-            <span class="hidden sm:inline uppercase tracking-wide">{{ $t('rutas.btnNew') }}</span>
-          </button>
-          
-          <div class="flex items-center bg-slate-100/50 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/5">
-            <button 
-              @click="fetchRoutes" 
-              :class="{'animate-spin text-[#3b82f6] dark:text-[#5da6fc] pointer-events-none': isFetchingRoutes}" 
-              class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-white dark:hover:bg-[#1A1D24] rounded-lg transition-all duration-300 focus:outline-none"
-            >
-              <HugeiconsIcon :icon="RefreshIcon" :size="18" :stroke-width="2" />
-            </button>
-            <button 
-              @click="toggleFullScreen" 
-              class="w-9 h-9 hidden md:flex items-center justify-center text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-white dark:hover:bg-[#1A1D24] rounded-lg transition-all duration-300 focus:outline-none"
-            >
-              <HugeiconsIcon :icon="isSidebarFullScreen ? ArrowShrink01Icon : ArrowExpand01Icon" :size="18" :stroke-width="2" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <div class="p-8 border-b border-slate-200/80 dark:border-white/5 space-y-8">
+        <AppPageHeader 
+          :title="$t('rutas.title')" 
+          :subtitle="$t('rutas.subtitle')" 
+          :count="filteredRoutes.length"
+        >
+          <template #actions>
+            <div class="flex items-center gap-3">
+              <AppButton 
+                variant="secondary" 
+                :icon="RefreshIcon"
+                :loading="isFetchingRoutes"
+                @click="fetchRoutes"
+                class="!px-3"
+              />
+              <AppButton 
+                variant="secondary" 
+                :icon="isSidebarFullScreen ? ArrowShrink01Icon : ArrowExpand01Icon"
+                @click="toggleFullScreen"
+                class="!px-3 hidden md:flex"
+              />
+              <AppButton 
+                variant="primary" 
+                :icon="Add01Icon" 
+                @click="openCreateModal"
+              >
+                <span>{{ $t('rutas.btnNew') }}</span>
+              </AppButton>
+            </div>
+          </template>
+        </AppPageHeader>
 
-      <!-- Barra de Búsqueda -->
-      <div class="p-6 bg-slate-50/50 dark:bg-white/5 border-b border-slate-200/80 dark:border-white/5">
-        <div class="relative flex items-center group/input bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-4 focus-within:ring-[#3b82f6]/10 dark:focus-within:ring-[#5da6fc]/10 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
-          <div class="pl-4 text-slate-400 group-focus-within/input:text-[#3b82f6] dark:group-focus-within/input:text-[#5da6fc] transition-colors">
-            <HugeiconsIcon :icon="Search01Icon" :size="18" />
-          </div>
-          <input 
-            v-model="searchQuery"
-            type="text"
-            :placeholder="$t('rutas.searchPlaceholder')"
-            class="w-full bg-transparent border-none px-4 py-3.5 text-sm font-bold text-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0"
-          />
-        </div>
+        <!-- Barra de Búsqueda -->
+        <AppSearch 
+          v-model="searchQuery" 
+          :placeholder="$t('rutas.searchPlaceholder')" 
+        >
+          <template #extra>
+            <button class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.1em] uppercase whitespace-nowrap hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95">
+              <HugeiconsIcon :icon="FilterIcon" :size="14" />
+              <span>Filtrar</span>
+              <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" />
+            </button>
+          </template>
+        </AppSearch>
       </div>
             <!-- Listado de Contenido (Tabla) -->
       <div class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 custom-scrollbar relative">
@@ -177,27 +170,27 @@
               </TransitionGroup>
 
               <!-- Desktop -->
-              <div class="hidden md:block bg-white/70 dark:bg-[#1A1D24]/80 backdrop-blur-xl rounded-[24px] border border-slate-200/80 dark:border-white/10 shadow-sm overflow-hidden">
+              <AppTableCard class="hidden md:block mx-6 mb-6">
                 <table class="w-full table-fixed">
                   <thead>
-                    <tr class="bg-slate-50/50 dark:bg-white/5 border-b border-slate-200 dark:border-white/5">
-                      <th class="px-6 py-4 text-left w-[40%]">
-                        <button @click="toggleSort('nombre')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
+                    <tr class="bg-transparent border-b border-slate-200/60 dark:border-white/5">
+                      <th class="px-6 py-5 text-left" :class="isSidebarFullScreen ? 'w-[40%]' : 'w-[60%]'">
+                        <button @click="toggleSort('nombre')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
                           {{ $t('rutas.colRoute') }}
                           <HugeiconsIcon :icon="sortKey==='nombre' ? (sortOrder==='asc' ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
                         </button>
                       </th>
-                      <th class="px-6 py-4 text-left w-[30%]">
-                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ $t('rutas.colDesc') }}</span>
+                      <th v-if="isSidebarFullScreen" class="px-6 py-5 text-left w-[30%]">
+                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">{{ $t('rutas.colDesc') }}</span>
                       </th>
-                      <th class="px-6 py-4 text-left w-[18%]">
-                         <button @click="toggleSort('estado')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
+                      <th class="px-6 py-5 text-left" :class="isSidebarFullScreen ? 'w-[18%]' : 'w-[40%]'">
+                         <button @click="toggleSort('estado')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
                           {{ $t('rutas.colStatus') }}
                           <HugeiconsIcon :icon="sortKey==='estado' ? (sortOrder==='asc' ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
                         </button>
                       </th>
-                      <th class="px-6 py-4 text-center w-[12%]">
-                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ $t('rutas.colActions') }}</span>
+                      <th v-if="isSidebarFullScreen" class="px-6 py-5 text-center w-[12%]">
+                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">{{ $t('rutas.colActions') }}</span>
                       </th>
                     </tr>
                   </thead>
@@ -206,48 +199,51 @@
                       v-for="ruta in paginatedRoutes" 
                       :key="ruta.id_ruta" 
                       @click="showRouteDetails(ruta.id_ruta)" 
-                      class="border-b border-slate-100 dark:border-white/5 last:border-none hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all duration-200 group cursor-pointer"
+                      class="border-b border-slate-100/50 dark:border-white/5 last:border-none hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all duration-200 group cursor-pointer"
                     >
                       <td class="px-6 py-5">
-                        <div class="flex items-center gap-4">
-                          <div class="w-10 h-10 shrink-0 rounded-xl bg-slate-50 dark:bg-[#0F1115] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/5 flex items-center justify-center group-hover:border-[#3b82f6]/30 dark:group-hover:border-[#5da6fc]/30 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
+                        <div class="flex items-center gap-4 group/avatar">
+                          <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm">
                             <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="1.8" />
                           </div>
-                          <div class="flex flex-col min-w-0">
-                            <span class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight truncate">{{ ruta.nombre }}</span>
-                            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase tracking-widest truncate">{{ ruta.id_ruta }}</span>
+                          <div class="flex flex-col">
+                            <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ ruta.nombre }}</span>
+                            <span v-if="isSidebarFullScreen" class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 uppercase tracking-widest truncate">{{ ruta.id_ruta }}</span>
                           </div>
                         </div>
                       </td>
-                      <td class="px-6 py-5">
-                        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium truncate max-w-[200px]" :title="ruta.descripcion">
-                          {{ ruta.descripcion || '—' }}
-                        </p>
-                      </td>
-                      <td class="px-6 py-5">
-                        <div class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border inline-flex items-center gap-2"
-                            :class="ruta.estado === 'Habilitada' ? 'bg-green-50/50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'">
-                          <span class="w-1.5 h-1.5 rounded-full" :class="ruta.estado === 'Habilitada' ? 'bg-green-500' : 'bg-slate-400'"></span>
-                          {{ ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled') }}
+                      <td v-if="isSidebarFullScreen" class="px-6 py-5">
+                        <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors group/desc">
+                          <p class="text-[13px] font-medium tracking-tight truncate max-w-[200px]" :title="ruta.descripcion">
+                            {{ ruta.descripcion || '—' }}
+                          </p>
                         </div>
                       </td>
                       <td class="px-6 py-5">
-                        <div class="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div class="inline-flex items-center gap-3 px-3.5 py-2 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/status shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                          <span class="w-2 h-2 rounded-full shadow-sm transition-all duration-500 group-hover/status:scale-125" :class="ruta.estado === 'Habilitada' ? 'bg-green-500 shadow-green-500/20' : 'bg-slate-400 shadow-slate-400/20'"></span>
+                          <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-l border-slate-300/80 dark:border-white/10 pl-3">
+                            {{ ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled') }}
+                          </span>
+                        </div>
+                      </td>
+                      <td v-if="isSidebarFullScreen" class="px-6 py-5">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <button
                             @click.stop="openEditModal(ruta)"
-                            class="w-9 h-9 flex items-center justify-center text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] bg-white dark:bg-[#1A1D24] rounded-xl transition-all duration-300 border border-slate-200 dark:border-white/10 shadow-sm active:scale-90"
+                            class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all active:scale-90 shadow-sm"
                             :title="$t('rutas.tooltipEdit')"
                           >
-                            <HugeiconsIcon :icon="Edit02Icon" :size="16" />
+                            <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.2" />
                           </button>
                           <button
                             @click.stop="toggleRutaEstado(ruta)"
                             :disabled="updatingEstadoId === ruta.id_ruta"
                             class="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 border shadow-sm active:scale-90"
-                            :class="ruta.estado === 'Habilitada' ? 'text-red-400 hover:text-red-500 bg-red-50 dark:bg-red-500/5 hover:border-red-200 dark:hover:border-red-500/20 border-red-100 dark:border-red-500/10' : 'text-green-400 hover:text-green-500 bg-green-50 dark:bg-green-500/5 hover:border-green-200 dark:hover:border-green-500/20 border-green-100 dark:border-green-500/10'"
+                            :class="ruta.estado === 'Habilitada' ? 'text-red-400 hover:text-red-500 bg-red-50 dark:bg-red-500/5 hover:bg-red-500/10 border-red-100 dark:border-red-500/10' : 'text-green-400 hover:text-green-500 bg-green-50 dark:bg-green-500/5 hover:bg-green-500/10 border-green-100 dark:border-green-500/10'"
                             :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
                           >
-                            <HugeiconsIcon :icon="Settings02Icon" :size="16" />
+                            <HugeiconsIcon :icon="Settings02Icon" :size="16" :stroke-width="2.2" />
                           </button>
                         </div>
                       </td>
@@ -265,19 +261,48 @@
                     </tr>
                   </TransitionGroup>
                 </table>
-              </div>
+              </AppTableCard>
             </div>
           </Transition>
         </div>
       </div>
       
       <!-- Paginación -->
-      <div v-if="!isFetchingRoutes && routesList.length > 0" class="p-6 border-t border-slate-200/80 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 backdrop-blur-md">
-        <BasePagination 
-          :totalItems="filteredRoutes.length" 
-          v-model:currentPage="currentPage" 
-          :itemsPerPage="itemsPerPage" 
-        />
+      <div v-if="!isFetchingRoutes && routesList.length > 0" class="px-6 py-3.5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-4 flex-wrap bg-white/30 dark:bg-black/20 backdrop-blur-md">
+        <!-- Info -->
+        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
+          {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredRoutes.length) }}
+          <span class="text-slate-300 dark:text-slate-600">de</span>
+          {{ filteredRoutes.length }}
+        </p>
+
+        <!-- Controles -->
+        <div v-if="totalPages > 1" class="flex items-center gap-1">
+          <button
+            @click="currentPage > 1 && currentPage--"
+            :disabled="currentPage === 1"
+            class="pagination-btn"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+
+          <template v-for="p in visiblePages" :key="p">
+            <span v-if="p === '...'" class="pagination-ellipsis">…</span>
+            <button
+              v-else
+              @click="currentPage = p"
+              :class="['pagination-btn', currentPage === p ? 'pagination-btn--active' : '']"
+            >{{ p }}</button>
+          </template>
+
+          <button
+            @click="currentPage < totalPages && currentPage++"
+            :disabled="currentPage === totalPages"
+            class="pagination-btn"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -294,31 +319,6 @@
         @clear="clearParadasTemporales"
         @close="finishAddingParadas"
       />
-    </Transition>
-
-    <!-- TOP Progress Banner (while adding stops) -->
-    <Transition name="tutorial-fade">
-      <div v-if="isAddingParadas" class="absolute top-4 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-        <div class="flex items-center gap-3 px-5 py-2.5 bg-white/90 dark:bg-[#0F1115]/90 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-full shadow-lg">
-          <div class="flex items-center gap-2">
-            <div class="w-5 h-5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] flex items-center justify-center">
-              <HugeiconsIcon :icon="Tick01Icon" :size="12" class="text-white" />
-            </div>
-            <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider line-through">Info básica</span>
-          </div>
-          <div class="w-8 h-px bg-slate-200 dark:bg-white/10"></div>
-          <div class="flex items-center gap-2">
-            <div class="w-5 h-5 rounded-full bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center animate-pulse">
-              <span class="text-[9px] font-black text-white">2</span>
-            </div>
-            <span class="text-[11px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider">Trazar paradas</span>
-          </div>
-          <div class="w-px h-4 bg-slate-200 dark:bg-white/10 ml-1"></div>
-          <span class="text-[11px] font-black tabular-nums" :class="paradasTemporales.length >= 2 ? 'text-emerald-500' : 'text-slate-400'">
-            {{ paradasTemporales.length }}/2+
-          </span>
-        </div>
-      </div>
     </Transition>
 
     <!-- Modales -->
@@ -621,7 +621,8 @@ import {
   ArrowDown01Icon,
   ArrowUp01Icon,
   Tick01Icon,
-  Settings02Icon
+  Settings02Icon,
+  FilterIcon
 } from '@hugeicons/core-free-icons'
 
 import { fetchRutasApi, createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi, setRutaEstadoApi } from '../services/rutas.api'
@@ -629,9 +630,11 @@ import type { Ruta, TipoParada, ParadaPayload, RutaUpdatePayload } from '../type
 import { useGroup } from '../../../composables/useGroup'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import BaseSearch from '../../../components/common/BaseSearch.vue'
-import BasePagination from '../../../components/common/BasePagination.vue'
 import BaseModal from '../../../components/common/BaseModal.vue'
+import AppSearch from '../../../components/common/AppSearch.vue'
+import AppTableCard from '../../../components/common/AppTableCard.vue'
+import AppPageHeader from '../../../components/common/AppPageHeader.vue'
+import AppButton from '../../../components/common/AppButton.vue'
 import ParadasListPanel from '../../../components/rutas/ParadasListPanel.vue'
 
 const route = useRoute()
@@ -697,6 +700,23 @@ const filteredRoutes = computed(() => {
 const paginatedRoutes = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage
   return filteredRoutes.value.slice(start, start + itemsPerPage)
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredRoutes.value.length / itemsPerPage)))
+
+const visiblePages = computed(() => {
+  const total = totalPages.value
+  const current = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '...')[] = []
+  if (current <= 4) {
+    pages.push(1, 2, 3, 4, 5, '...', total)
+  } else if (current >= total - 3) {
+    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total)
+  } else {
+    pages.push(1, '...', current - 1, current, current + 1, '...', total)
+  }
+  return pages
 })
 
 const toggleSort = (key: keyof Ruta) => {
@@ -1254,15 +1274,25 @@ const addParadaToMap = (lat: number, lon: number, tipoNombre: string, index?: nu
     position: { lat, lng: lon },
     map: map.value,
     title: tipoNombre,
-    zIndex: 100,
+    zIndex: 100 + markerIndex,
     icon: {
-      path: (window as any).google.maps.SymbolPath.CIRCLE,
-      scale: 10,
+      path: "M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z",
       fillColor: routeColor,
       fillOpacity: 1,
-      strokeColor: "#ffffff",
-      strokeWeight: 2.5,
-    }
+      strokeWeight: 2,
+      strokeColor: '#FFFFFF',
+      scale: 1.2,
+      anchor: new (window as any).google.maps.Point(12, 36),
+      labelOrigin: new (window as any).google.maps.Point(12, 12)
+    },
+    label: {
+      text: (markerIndex + 1).toString(),
+      color: 'white',
+      fontSize: '11px',
+      fontWeight: 'bold',
+      fontFamily: "'Inter', sans-serif"
+    },
+    animation: (window as any).google.maps.Animation.DROP
   })
   
   const infoWindow = new (window as any).google.maps.InfoWindow({
@@ -1709,9 +1739,12 @@ onUnmounted(() => {
   50% { transform: translateY(-10px); }
 }
 
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+/* Ocultar marca de agua de Google Maps "For development purposes only" */
+#google-map-container :deep(.gm-style-cc),
+#google-map-container :deep(.gmnoprint),
+#google-map-container :deep(a[href^="https://maps.google.com/maps"]),
+#google-map-container :deep(.gm-err-container) {
+  display: none !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -1744,6 +1777,30 @@ onUnmounted(() => {
 .panel-float-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .panel-float-enter-from { opacity: 0; transform: translateY(24px) scale(0.95); }
 .panel-float-leave-to { opacity: 0; transform: translateY(16px) scale(0.97); }
+
+.pagination-btn {
+  @apply inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-semibold
+    text-slate-500 dark:text-slate-400
+    hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white
+    disabled:opacity-30 disabled:cursor-not-allowed
+    transition-all duration-150 select-none;
+}
+
+.pagination-btn--active {
+  @apply bg-[#3b82f6] text-white hover:bg-[#2563eb] dark:hover:bg-[#2563eb] hover:text-white dark:hover:text-white !important;
+}
+
+.pagination-ellipsis {
+  @apply inline-flex items-center justify-center w-8 h-8 text-[13px] text-slate-400 dark:text-slate-600 select-none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 </style>
 
 <style>

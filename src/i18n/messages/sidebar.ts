@@ -32,7 +32,9 @@ export const sidebarMessages = {
     notConfigured: 'No Configurada',
     closePanel: 'Cerrar Panel',
     profileActive: 'Perfil Activo',
-    saving: 'Guardando Cambios...'
+    saving: 'Guardando Cambios...',
+    editPhoto: 'Editar Foto',
+    adjustImageInfo: 'Ajusta el recuadro para centrar tu foto de perfil. Se guardará en formato cuadrado.'
   },
   en: {
     togglePanel: 'Toggle Panel',
@@ -67,6 +69,8 @@ export const sidebarMessages = {
     closePanel: 'Close Panel',
     saving: 'Saving Changes...',
     notConfigured: 'Not Configured',
-    profileActive: 'Profile Active'
+    profileActive: 'Profile Active',
+    editPhoto: 'Edit Photo',
+    adjustImageInfo: 'Adjust the frame to center your profile photo. It will be saved in square format.'
   }
 }
