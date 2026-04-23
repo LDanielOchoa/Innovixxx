@@ -1,0 +1,44 @@
+export interface Hardware {
+  id_hardware: string
+  nombre: string
+  descripcion: string
+  serial: string
+  imei: string
+  mac: string
+  id_familia: number
+  familia?: string
+  estado?: number | string
+  numero_sms?: string
+  id_binario?: string
+  clave_open?: string
+}
+
+export interface FamiliaHardware {
+  id_familia: number
+  nombre: string
+  descripcion: string
+}
+
+export interface HardwareCreatePayload {
+  nombre: string
+  descripcion: string
+  serial: string
+  imei: string
+  mac: string
+  id_familia: number
+  id_grupo: string
+  estado: number
+  id_ruta: number | string
+  numero_sms: string
+  id_binario: string
+  clave_open: string
+}
+
+export interface HardwareUpdatePayload extends HardwareCreatePayload {
+  id_hardware: string
+}
+
+export interface HardwareDeletePayload {
+  id_grupo: string
+  id_hardware: string
+}
