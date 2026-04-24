@@ -4,7 +4,10 @@ import UserProfileModal from './UserProfileModal.vue'
 import { useRoute, useRouter } from 'vue-router'
 import logoImg from '../../assets/logo.png'
 import { useI18n } from 'vue-i18n'
-import { useTheme } from '../../composables/useTheme'
+import { useThemeStore } from '../../stores/theme.store'
+import { useAuthStore } from '../../stores/auth.store'
+import { useGroupStore } from '../../stores/group.store'
+import { CookieAuth } from '../../utils/cookie-auth'
 import { isMobileSidebarOpen, closeMobileSidebar } from '../../composables/useSidebar'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -30,26 +33,11 @@ const router = useRouter()
 const route = useRoute()
 const isLoading = ref(true)
 const { locale } = useI18n()
-const { isDark, toggle } = useTheme()
+const themeStore = useThemeStore()
+const authStore = useAuthStore()
+const groupStore = useGroupStore()
 
 const showProfileModal = ref(false)
-
-const userData = reactive({
-  nombre: '',
-  email: '',
-  grupo: '',
-  idioma: '',
-  tz: '',
-  foto: '',
-  isAdmin: false
-})
-
-const fotoUsuario = computed(() => {
-  return obtenerUrlImagen(userData.foto)
-})
-
-import { useGroup } from '../../composables/useGroup'
-const { selectedGroup, setGroup } = useGroup()
 
 onMounted(() => {
   const savedState = localStorage.getItem('sidebarExpanded')
@@ -57,87 +45,10 @@ onMounted(() => {
     isExpanded.value = savedState === 'true'
   }
 
-  fetchUserData()
+  authStore.fetchUserProfile(router, (lang: string) => {
+    locale.value = lang
+  })
 })
-
-const fetchUserData = async () => {
-  const token = localStorage.getItem('auth-token')
-  
-  if (!token) {
-    router.push('/login')
-    return
-  }
-
-  try {
-    const response = await fetch('/api/v1/get_meta/', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      throw new Error('Token inválido o expirado')
-    }
-
-    const data = await response.json()
-    
-    if (data.done && data.data) {
-      userData.nombre = data.data.nombre
-      userData.email = data.data.email || ''
-      userData.grupo = data.data.grupo
-      if (data.data.grupo) {
-        const idGrupoCrudo = typeof data.data.id_grupo === 'string' ? data.data.id_grupo.trim() : ''
-        const idGrupoValido = idGrupoCrudo.length === 8 ? idGrupoCrudo : ''
-        setGroup({ id: idGrupoValido, nombre: data.data.grupo })
-      }
-      userData.idioma = data.data.idioma
-      userData.tz = data.data.tz
-      userData.foto = data.data.foto || ''
-
-      if (data.data.idioma) {
-        locale.value = data.data.idioma
-        localStorage.setItem('app-locale', data.data.idioma)
-      }
-      
-      try {
-        const adminRes = await fetch('/api/v1/grupo/listar/', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        });
-        
-        if (!adminRes.ok) {
-           userData.isAdmin = false;
-        } else {
-           const adminData = await adminRes.json();
-           if (adminData.done === false && adminData.message === 'Operación no permitida') {
-             userData.isAdmin = false;
-           } else {
-             userData.isAdmin = true;
-           }
-        }
-      } catch (err) {
-        console.error('Error verificando admin status', err);
-        userData.isAdmin = false;
-      }
-      
-    } else {
-      throw new Error('Datos no válidos')
-    }
-  } catch (error) {
-    console.error('Error al obtener metadatos:', error)
-    limpiarCookiesExceptoIdioma()
-    localStorage.removeItem('auth-token')
-    localStorage.removeItem('auth-grupo')
-    router.push('/login')
-  } finally {
-    isLoading.value = false
-  }
-}
 
 const toggleSidebar = () => {
   isExpanded.value = !isExpanded.value
@@ -184,7 +95,7 @@ const displayedMenuItems = computed(() => {
     { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas' }
   ]
   return menuItems.filter(item => {
-    return !item.adminOnly || userData.isAdmin
+    return !item.adminOnly || authStore.isAdmin
   })
 })
 
@@ -197,21 +108,21 @@ const isActiveRoute = (menuRoute: string | undefined): boolean => {
   return currentPath === menuRoute || currentPath.startsWith(`${menuRoute}/`)
 }
 
-const limpiarCookiesExceptoIdioma = () => {
-  const cookies = document.cookie.split(';')
-  cookies.forEach((cookie) => {
-    const nombre = cookie.split('=')[0]?.trim()
-    if (nombre && nombre !== 'app-locale') {
-      document.cookie = `${nombre}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`
-    }
-  })
+// Prefetch Predictivo: Descarga el chunk de la ruta cuando el usuario hace hover
+const prefetchedRoutes = new Set<string>()
+
+const prefetchRoute = (routePath: string | undefined) => {
+  if (!routePath || routePath === '/' || prefetchedRoutes.has(routePath)) return
+  
+  const targetRoute = router.getRoutes().find(r => r.path === routePath || r.path === `/${routePath.replace(/^\//, '')}`)
+  if (targetRoute && typeof targetRoute.components?.default === 'function') {
+    targetRoute.components.default() // Inicia la descarga
+    prefetchedRoutes.add(routePath)
+  }
 }
 
 const cerrarSesion = () => {
-  limpiarCookiesExceptoIdioma()
-  localStorage.removeItem('auth-token')
-  localStorage.removeItem('auth-grupo')
-  router.push('/login')
+  authStore.logout(router)
 }
 </script>
 
@@ -234,7 +145,7 @@ const cerrarSesion = () => {
     <!-- Botón Toggle 3D -->
     <button
       @click="toggleSidebar"
-      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] shadow-[0_4px_15px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_25px_rgba(0,0,0,0.4)] transition-all duration-300 z-50 cursor-pointer active:scale-90 active:translate-y-[1px]"
+      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#000000] transition-all duration-300 z-50 cursor-pointer active:translate-y-[2px] active:shadow-none"
     >
       <HugeiconsIcon 
         :icon="ArrowRight01Icon"
@@ -263,8 +174,8 @@ const cerrarSesion = () => {
     </div>
 
     <!-- Navegación -->
-    <nav class="flex-1 px-4 overflow-y-auto custom-scrollbar space-y-1.5 pb-6">
-      <template v-if="isLoading">
+    <nav class="flex-1 px-3 overflow-y-auto custom-scrollbar space-y-1.5 pb-6">
+      <template v-if="authStore.isLoading">
         <div v-for="i in 8" :key="i" class="w-full h-12 rounded-2xl bg-slate-100 dark:bg-white/5 animate-pulse"></div>
       </template>
       <template v-else>
@@ -276,16 +187,18 @@ const cerrarSesion = () => {
           <RouterLink
             v-else
             :to="item.route || ''"
-            class="group relative flex items-center h-12 rounded-2xl transition-all duration-300 outline-none active:scale-95 active:translate-y-[1px]"
+            @mouseenter="prefetchRoute(item.route)"
+            @focusin="prefetchRoute(item.route)"
+            class="group relative flex items-center h-12 rounded-2xl transition-all duration-300 outline-none active:scale-[0.97] active:translate-y-[1px] px-3"
             :class="[
               isActiveRoute(item.route)
-                ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/20 dark:border-[#3b82f6]/20'
-                : 'hover:bg-slate-50 dark:hover:bg-white/5'
+                ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/20 dark:border-[#3b82f6]/20 shadow-[0_2px_0_#3b82f6/10]'
+                : 'hover:bg-slate-50 dark:hover:bg-white/5 shadow-none'
             ]"
           >
-            <div class="flex items-center w-full px-3 gap-3">
+            <div class="flex items-center gap-3 w-full">
               <div 
-                class="w-10 h-10 flex items-center justify-center transition-all duration-300"
+                class="w-10 h-10 flex items-center justify-center shrink-0 transition-all duration-300"
                 :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-200'"
               >
                 <HugeiconsIcon :icon="item.icon" :size="20" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
@@ -310,23 +223,22 @@ const cerrarSesion = () => {
     </nav>
 
     <!-- Footer / Perfil -->
-    <div class="p-4 bg-slate-50/50 dark:bg-white/[0.02] border-t border-slate-200/50 dark:border-white/5 space-y-3">
+    <div class="p-3 bg-slate-50/50 dark:bg-white/[0.02] border-t border-slate-200/50 dark:border-white/5 space-y-3">
       <!-- Card Usuario -->
       <button
         @click="showProfileModal = true"
-        class="w-full flex items-center gap-3 p-2 rounded-2xl transition-all duration-300 hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 active:scale-95 group/user"
-        :class="!isExpanded ? 'justify-center' : ''"
+        class="w-full flex items-center gap-3 p-2 rounded-2xl transition-all duration-300 hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 active:scale-[0.97] active:translate-y-[1px] group/user shadow-none active:shadow-none"
       >
-        <div class="relative shrink-0">
-          <img :src="fotoUsuario" class="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-[#1A1D24] shadow-sm" />
+        <div class="w-10 h-10 flex items-center justify-center shrink-0">
+          <img :src="authStore.userAvatar" class="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-[#1A1D24] shadow-sm" />
         </div>
         
         <div 
           class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap"
           :class="isExpanded ? 'opacity-100' : 'opacity-0 w-0'"
         >
-          <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight">{{ userData.nombre || $t('sidebar.defaultUser') }}</p>
-          <p class="text-[9px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-widest opacity-80 truncate">{{ selectedGroup.nombre || userData.grupo || $t('sidebar.defaultGroup') }}</p>
+          <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+          <p class="text-[9px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-widest opacity-80 truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
         </div>
         
         <HugeiconsIcon v-if="isExpanded" :icon="Settings02Icon" :size="14" class="text-slate-300 dark:text-slate-600 group-hover/user:rotate-90 transition-transform duration-500" />
@@ -335,16 +247,16 @@ const cerrarSesion = () => {
       <!-- Controles Rápidos -->
       <div class="flex gap-2" :class="isExpanded ? 'flex-row' : 'flex-col items-center'">
         <button
-          @click="toggle"
-          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 active:scale-90"
+          @click="themeStore.toggle"
+          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 active:scale-90 shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:translate-y-[1px] active:shadow-none shrink-0"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
-          <HugeiconsIcon :icon="isDark ? Sun01Icon : Moon01Icon" :size="18" :stroke-width="2" />
+          <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="18" :stroke-width="2" />
         </button>
 
         <button
           @click="cerrarSesion"
-          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-red-500 transition-all duration-300 active:scale-90"
+          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-red-500 transition-all duration-300 active:scale-90 shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:translate-y-[1px] active:shadow-none shrink-0"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
           <HugeiconsIcon :icon="Logout01Icon" :size="18" :stroke-width="2" />
@@ -356,8 +268,8 @@ const cerrarSesion = () => {
   <UserProfileModal 
     :isOpen="showProfileModal" 
     @update:isOpen="showProfileModal = $event" 
-    @profileUpdated="fetchUserData"
-    :userData="userData" 
+    @profileUpdated="() => authStore.fetchUserProfile(router, (lang: string) => { locale.value = lang })"
+    :userData="authStore.userData" 
   />
 </template>
 

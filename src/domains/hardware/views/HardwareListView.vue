@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 import DataLayout from '../../../components/common/DataLayout.vue'
 import BaseSearch from '../../../components/common/BaseSearch.vue'
 import BasePagination from '../../../components/common/BasePagination.vue'
@@ -35,7 +36,8 @@ import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 const items = ref<Hardware[]>([])
 const familias = ref<FamiliaHardware[]>([])
 const isLoading = ref(true)

@@ -1,4 +1,5 @@
 import { ApiError, ApiErrorCode } from './api-errors'
+import { CookieAuth } from './cookie-auth'
 
 interface RequestOptions extends RequestInit {
   id_grupo?: string
@@ -8,7 +9,7 @@ export async function apiClient<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const token = localStorage.getItem('auth-token')
+  const token = CookieAuth.getToken()
   const idGrupo = options.id_grupo || localStorage.getItem('auth-grupo-id')
   const lang = localStorage.getItem('app-locale') || 'es'
   
@@ -56,7 +57,24 @@ export async function apiClient<T>(
       // Si no es JSON, capturamos el status
     }
 
-    // Lanzamos error tipado
+    // Interceptor 401 y 403
+    if (response.status === 401 || response.status === 403) {
+      // Importación dinámica para evitar dependencias circulares con Pinia/Router en utilitarios
+      import('../stores/auth.store').then(({ useAuthStore }) => {
+        import('../router').then(({ default: router }) => {
+          const authStore = useAuthStore()
+          authStore.logout(router)
+        })
+      }).catch(err => console.error('Error al invocar logout automático:', err))
+      
+      throw new ApiError(
+        response.status as ApiErrorCode,
+        'Tu sesión ha expirado o no tienes permisos suficientes.',
+        errorData
+      )
+    }
+
+    // Lanzamos error tipado genérico
     throw new ApiError(
       response.status as ApiErrorCode,
       errorData.message || response.statusText,

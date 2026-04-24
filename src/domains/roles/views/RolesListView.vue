@@ -28,7 +28,8 @@ import { createRoleApi, fetchRolesApi, updateRoleApi } from '../services/roles.a
 import type { Role } from '../types/role'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 
 // Shared Components
 import AppButton from '../../../components/common/AppButton.vue'
@@ -42,7 +43,8 @@ const router = useRouter()
 
 const ROLE_SORT_KEYS: Array<keyof Role> = ['id_role', 'nombre', 'descripcion', 'is_admin']
 
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 const roles = ref<Role[]>([])
 const loading = ref(false)
 

@@ -155,6 +155,31 @@ const createAlarmMarkers = () => {
       }
     }
 
+    const handleMapMouseMove = (e: MouseEvent) => {
+      const mapCard = e.currentTarget as HTMLElement
+      if (!mapCard) return
+      const rect = mapCard.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const centerX = rect.width / 2
+      const centerY = rect.height / 2
+      
+      const rotX = 12 + -((y - centerY) / 25)
+      const rotY = (x - centerX) / 35
+      
+      mapCard.style.setProperty('--map-rot-x', `${rotX}deg`)
+      mapCard.style.setProperty('--map-rot-y', `${rotY}deg`)
+      mapCard.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`)
+      mapCard.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`)
+    }
+
+    const handleMapMouseLeave = (e: MouseEvent) => {
+      const mapCard = e.currentTarget as HTMLElement
+      if (!mapCard) return
+      mapCard.style.setProperty('--map-rot-x', '12deg')
+      mapCard.style.setProperty('--map-rot-y', '0deg')
+    }
+
     const google = (window as any).google
     const overlay = new AlarmOverlay(new google.maps.LatLng(location.lat, location.lng))
     overlay.setMap(mapInstance.value)
@@ -427,14 +452,30 @@ onUnmounted(() => {
     <div class="absolute inset-x-0 top-0 h-[45%] bg-[radial-gradient(ellipse_at_top,rgba(100,116,139,0.06)_0%,transparent_65%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(93,166,252,0.15)_0%,transparent_65%)] pointer-events-none z-0 transition-colors duration-700"></div>
     <div class="absolute inset-x-0 bottom-0 h-[45%] bg-[radial-gradient(ellipse_at_bottom,rgba(100,116,139,0.06)_0%,transparent_65%)] dark:bg-[radial-gradient(ellipse_at_bottom,rgba(93,166,252,0.15)_0%,transparent_65%)] pointer-events-none z-0 transition-colors duration-700"></div>
 
-    <!-- Google Map (above vortex) -->
-    <div class="absolute top-[3.5%] left-1/2 -translate-x-1/2 w-[50%] h-[28%] [z-index:8] pointer-events-auto rounded-2xl overflow-hidden border border-slate-300/60 dark:border-[#5da6fc]/20 shadow-[0_16px_40px_rgba(100,116,139,0.15)] dark:shadow-[0_16px_40px_rgba(2,6,23,0.52),0_0_28px_rgba(93,166,252,0.10)] [mask-image:linear-gradient(to_bottom,black_0%,black_60%,transparent_100%)] transition-all duration-700">
-      <div ref="mapContainerRef" class="w-full h-full scale-[1.03]"></div>
-      <!-- Map overlay gradient for sci-fi effect -->
-      <div class="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_20%,rgba(100,116,139,0.04)_0%,transparent_60%)] dark:bg-[radial-gradient(circle_at_50%_20%,rgba(93,166,252,0.10)_0%,transparent_60%)] transition-colors duration-700"></div>
-      <div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-slate-300/80 dark:via-[#5da6fc]/60 to-transparent transition-colors duration-700"></div>
-      <!-- Bottom glow connector to energy beam -->
-      <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-[100px] h-[30px] bg-[radial-gradient(ellipse_at_center,rgba(96,165,250,0.3)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_center,rgba(93,166,252,0.4)_0%,transparent_70%)] blur-sm animate-pulse-slow"></div>
+    <!-- Google Map (above vortex) - Enhanced Dynamic 3D Holographic Screen -->
+    <div 
+      class="absolute top-[6%] left-[22.5%] w-[55%] h-[32%] [z-index:8] pointer-events-auto rounded-[2.5rem] overflow-hidden border border-[#3b82f6]/40 dark:border-[#5da6fc]/50 shadow-[0_50px_100px_rgba(0,0,0,0.5),0_0_60px_rgba(59,130,246,0.15)] transition-all duration-300 group/map animate-hologram-float hover:shadow-[0_60px_120px_rgba(0,0,0,0.6),0_0_80px_rgba(59,130,246,0.2)]"
+      @mousemove="handleMapMouseMove"
+      @mouseleave="handleMapMouseLeave"
+      style="
+        transform: perspective(1400px) rotateX(var(--map-rot-x, 12deg)) rotateY(var(--map-rot-y, 0deg)) scale(0.95); 
+        transform-style: preserve-3d;
+        --map-rot-x: 12deg;
+        --map-rot-y: 0deg;
+      "
+    >
+      <!-- Interior Map Container -->
+      <div ref="mapContainerRef" class="w-full h-full scale-[1.2] grayscale-[0.1] brightness-[1.1] contrast-[1.1] transition-transform duration-500"></div>
+      
+      <!-- Premium Glass Edge Glow -->
+      <div class="absolute inset-0 pointer-events-none border-[1.5px] border-white/20 dark:border-white/10 rounded-[2.5rem]"></div>
+      <div class="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_var(--mouse-x,50%)_var(--mouse-y,50%),rgba(255,255,255,0.08)_0%,transparent_50%)]"></div>
+      
+      <!-- HUD Top Bar Glow -->
+      <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-transparent via-[#5da6fc] to-transparent opacity-90 shadow-[0_0_20px_#5da6fc]"></div>
+      
+      <!-- Bottom Light Projection -->
+      <div class="absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-[280px] h-[60px] bg-[radial-gradient(ellipse_at_center,rgba(93,166,252,0.5)_0%,transparent_75%)] blur-2xl"></div>
     </div>
 
     <!-- Sci-Fi Effects Container (Visible in light mode as subtle blue/gray rings, vibrant in dark mode) -->
@@ -495,6 +536,15 @@ onUnmounted(() => {
 
 .animate-portal-pulse {
   animation: portal-pulse 3s ease-in-out infinite alternate;
+}
+
+@keyframes hologram-float {
+  0%, 100% { transform: perspective(1400px) rotateX(var(--map-rot-x, 12deg)) rotateY(var(--map-rot-y, 0deg)) translateY(0) scale(0.95); }
+  50%      { transform: perspective(1400px) rotateX(var(--map-rot-x, 12deg)) rotateY(var(--map-rot-y, 0deg)) translateY(-10px) scale(0.96); }
+}
+
+.animate-hologram-float {
+  animation: hologram-float 6s ease-in-out infinite;
 }
 
 @keyframes portal-pulse {

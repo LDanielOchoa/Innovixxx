@@ -2,14 +2,30 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useTheme } from '../../composables/useTheme'
-import { IconChevronLeft, IconMail, IconLock, IconEye, IconEyeOff, IconDeviceFloppy, IconAlertTriangle, IconCircleCheck } from '@tabler/icons-vue'
+import { useThemeStore } from '../../stores/theme.store'
+import { storeToRefs } from 'pinia'
+import { HugeiconsIcon } from '@hugeicons/vue'
+import {
+  ArrowLeft01Icon,
+  Mail01Icon,
+  LockIcon,
+  ViewIcon,
+  ViewOffSlashIcon,
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+  FloppyDiskIcon,
+  Sun01Icon,
+  Moon01Icon
+} from '@hugeicons/core-free-icons'
+import logoImg from '../../assets/logo.png'
 
 const router = useRouter()
 const route = useRoute()
 const { t, locale } = useI18n()
 const lang = computed(() => locale.value)
-useTheme() // Ensures dark class is reactive on html element
+const themeStore = useThemeStore()
+const { isDark } = storeToRefs(themeStore)
+const { toggle } = themeStore
 
 const correo = ref('')
 const nuevaClave = ref('')
@@ -19,35 +35,9 @@ const exitoMensaje = ref('')
 const errorMensaje = ref('')
 
 const tokenRecover = computed(() => {
-  // Captura el token incluso en URLs con parámetros mal formados como ?&token=
   const query = route.query
   return (query.token as string) || (query['&token'] as string) || ''
 })
-
-const recaptchaSiteKey = '6LcHvXMsAAAAAOeJeKmkj1zjpiWsOu__Po8Pu2lK'
-const recaptchaReady = ref(false)
-
-const cargarRecaptcha = () => {
-  if (document.querySelector(`script[src*="recaptcha/api.js"]`)) {
-    recaptchaReady.value = !!window.grecaptcha
-    return
-  }
-  const script = document.createElement('script')
-  script.src = `https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`
-  script.async = true
-  script.defer = true
-  script.onload = () => {
-    recaptchaReady.value = true
-  }
-  document.head.appendChild(script)
-}
-
-const obtenerTokenRecaptcha = async () => {
-  if (!window.grecaptcha) {
-    throw new Error('reCAPTCHA no está disponible.')
-  }
-  return await window.grecaptcha.execute(recaptchaSiteKey, { action: 'recover_pass_confirmed' })
-}
 
 const alternarContrasena = () => {
   mostrarContrasena.value = !mostrarContrasena.value
@@ -71,12 +61,6 @@ const restablecerClave = async () => {
   exitoMensaje.value = ''
 
   try {
-    if (!recaptchaReady.value) {
-      throw new Error(t('errors.recaptchaNotReady'))
-    }
-
-    const gcToken = await obtenerTokenRecaptcha()
-
     const respuesta = await fetch('/api/v1/recover_pass_confirmed/', {
       method: 'POST',
       headers: {
@@ -84,7 +68,6 @@ const restablecerClave = async () => {
       },
       body: JSON.stringify({
         email: correo.value,
-        gcToken,
         token_recover: tokenRecover.value,
         new_pass: nuevaClave.value,
         lang: lang.value
@@ -108,138 +91,164 @@ const restablecerClave = async () => {
   }
 }
 
-const mostrarBadgeRecaptcha = (visible: boolean) => {
-  const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null
-  if (badge) {
-    badge.style.visibility = visible ? 'visible' : 'hidden'
-    badge.style.opacity = visible ? '1' : '0'
-  }
+// 3D Tilt Logic
+const cardRef = ref<HTMLElement | null>(null)
+const rotateX = ref(0)
+const rotateY = ref(0)
+
+const handleMouseMove = (e: MouseEvent) => {
+  if (!cardRef.value) return
+  const card = cardRef.value
+  const rect = card.getBoundingClientRect()
+  const x = e.clientX - rect.left
+  const y = e.clientY - rect.top
+  const centerX = rect.width / 2
+  const centerY = rect.height / 2
+  
+  rotateX.value = -((y - centerY) / 40)
+  rotateY.value = (x - centerX) / 40
+}
+
+const handleMouseLeave = () => {
+  rotateX.value = 0
+  rotateY.value = 0
 }
 
 // Validar presencia de token al montar
 onMounted(() => {
-  cargarRecaptcha()
-  if (window.grecaptcha) {
-    recaptchaReady.value = true
-  }
-  
   if (!tokenRecover.value) {
     errorMensaje.value = t('auth.invalidToken') || 'Token de recuperación no encontrado o inválido.'
   }
-  
-  setTimeout(() => mostrarBadgeRecaptcha(true), 500)
 })
 
 onUnmounted(() => {
-  mostrarBadgeRecaptcha(false)
 })
 </script>
 
 <template>
-  <div class="bg-white dark:bg-[#1E2228] font-sans text-slate-700 dark:text-slate-300 flex items-center justify-center min-h-screen transition-colors duration-500 relative overflow-hidden selection:bg-[#60a5fa]/30 dark:selection:bg-[#5da6fc]/30 selection:text-white">
+  <div class="min-h-screen bg-slate-50 dark:bg-[#0B0D11] text-slate-800 dark:text-slate-200 font-sans flex flex-col items-center justify-center relative overflow-hidden transition-colors duration-500">
     
     <!-- Background Decorators -->
     <div class="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-      <div class="absolute inset-0 bg-[linear-gradient(rgba(100,116,139,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(100,116,139,0.05)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] opacity-30"></div>
-      <div class="absolute top-[-10%] right-[-5%] w-[40%] h-[40%] bg-[#60a5fa]/8 dark:bg-[#5da6fc]/10 rounded-full blur-[150px] animate-[pulse_4s_ease-in-out_infinite] pointer-events-none z-0"></div>
-      <div class="absolute bottom-[-10%] left-[20%] w-[30%] h-[30%] bg-[#93c5fd]/6 dark:bg-[#A5C9FF]/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
+      <!-- Dark/light subtle grid -->
+      <div class="absolute inset-0 bg-[linear-gradient(rgba(100,116,139,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(100,116,139,0.03)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px]"></div>
+      <!-- Center ambient glow -->
+      <div class="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
     </div>
 
-    <!-- Contenedor Principal -->
-    <div class="relative w-full min-h-screen flex flex-col items-center justify-center z-10 px-6 py-10">
+    <!-- Top-right Controls: Theme Toggle -->
+    <div class="fixed top-6 right-6 md:top-10 md:right-10 flex items-center z-50">
+      <button
+        @click="toggle"
+        type="button"
+        class="w-10 h-10 flex items-center justify-center rounded-[12px] border transition-all duration-500 ease-in-out bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/40 dark:hover:border-[#5da6fc]/30 shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
+      >
+        <Transition name="theme-icon" mode="out-in">
+          <HugeiconsIcon v-if="isDark" :key="'sun'" :icon="Sun01Icon" class="text-[18px]" />
+          <HugeiconsIcon v-else :key="'moon'" :icon="Moon01Icon" class="text-[18px]" />
+        </Transition>
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="relative z-10 w-full max-w-[480px] flex flex-col items-center px-4 animate-fade-in mt-12 md:mt-0" style="perspective: 1500px;">
       
-      <div class="w-full max-w-[420px] mx-auto animate-fade-slide-right relative z-10">
+      <!-- Huge Background Number/Text -->
+      <div 
+        class="absolute -top-16 left-1/2 -translate-x-1/2 text-[10rem] md:text-[14rem] font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-200/40 to-transparent dark:from-white/[0.04] dark:to-transparent tracking-tighter select-none pointer-events-none z-0 leading-none transition-transform duration-500 ease-out will-change-transform"
+        :style="{ transform: `translateX(calc(-50% + ${-rotateY * 1.5}px)) translateY(${-rotateX * 1.5}px)` }"
+      >
+        RESET
+      </div>
+
+      <!-- Typography Header -->
+      <div class="text-center relative mb-8 w-full flex flex-col items-center z-10 pt-16 md:pt-20">
+        <!-- Logo -->
+        <div class="mb-6 animate-logo-float">
+          <div
+            class="w-40 h-12 bg-slate-800 dark:bg-white transition-all duration-500"
+            :style="{
+              WebkitMaskImage: `url(${logoImg})`, maskImage: `url(${logoImg})`,
+              WebkitMaskSize: 'contain', maskSize: 'contain',
+              WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+              WebkitMaskPosition: 'center', maskPosition: 'center'
+            }"
+          ></div>
+        </div>
+
+        <h1 class="text-3xl md:text-4xl lg:text-5xl font-black mb-3 tracking-tight flex flex-col gap-1 leading-tight text-center">
+          <span class="bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] dark:from-[#5da6fc] dark:to-[#93c5fd] bg-clip-text text-transparent uppercase drop-shadow-sm">{{ t('auth.resetTitle') }}</span>
+        </h1>
+        <p class="text-slate-500 dark:text-slate-400 font-medium text-[13px] md:text-[15px] max-w-[400px] mt-2 text-center">
+          {{ t('auth.resetSubtitle') }}
+        </p>
+      </div>
+
+      <!-- Form Container -->
+      <div 
+        ref="cardRef"
+        @mousemove="handleMouseMove"
+        @mouseleave="handleMouseLeave"
+        class="w-full bg-white/80 dark:bg-[#15171C]/85 backdrop-blur-lg border border-white/50 dark:border-white/10 p-6 md:p-8 rounded-[24px] shadow-[0_20px_50px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] relative z-10 transition-transform duration-500 ease-out overflow-hidden group will-change-transform"
+        :style="{ transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg)` }"
+      >
         
         <button 
           @click="router.push('/login')" 
-          class="absolute -top-12 left-0 text-slate-400 dark:text-slate-500 hover:text-[#60a5fa] dark:hover:text-[#5da6fc] transition-colors p-2 rounded-lg hover:bg-[#60a5fa]/8 dark:hover:bg-[#5da6fc]/10 flex items-center gap-1 group"
+          class="absolute -top-12 left-2 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors p-2 flex items-center gap-1 group font-bold z-20"
         >
-          <IconChevronLeft :size="20" class="group-hover:-translate-x-1 transition-transform" />
-          <span class="text-xs font-mono tracking-widest uppercase">{{ t('common.back') }}</span>
+          <HugeiconsIcon :icon="ArrowLeft01Icon" class="text-[20px] group-hover:-translate-x-1 transition-transform" />
+          <span class="text-[12px] tracking-widest uppercase">{{ t('common.back') }}</span>
         </button>
-
-        <!-- Greeting -->
-        <div class="mb-10 text-center relative px-2 mt-8">
-          <!-- Decorative Divider -->
-          <div class="flex items-center justify-center gap-3 mb-4 opacity-50">
-            <div class="h-[1px] w-12 bg-gradient-to-r from-transparent to-slate-400 dark:to-slate-500"></div>
-            <div class="w-1.5 h-1.5 rounded-full bg-[#60a5fa] dark:bg-[#5da6fc] shadow-[0_0_8px_rgba(96,165,250,0.8)] dark:shadow-[0_0_8px_rgba(93,166,252,0.8)]"></div>
-            <div class="h-[1px] w-12 bg-gradient-to-l from-transparent to-slate-400 dark:to-slate-500"></div>
-          </div>
-
-          <h1
-            :key="`title-${locale}`"
-            class="text-3xl md:text-4xl font-black text-slate-800 dark:text-white mb-3 tracking-tight transition-all duration-500 lang-swap leading-tight drop-shadow-sm"
-          >
-            {{ t('auth.resetTitle') }}
-          </h1>
-          <p
-            :key="`subtitle-${locale}`"
-            class="text-slate-500 dark:text-slate-400 font-mono text-[10px] md:text-[11px] leading-relaxed transition-all duration-500 max-w-[280px] mx-auto lang-swap tracking-[0.1em]"
-            style="text-wrap: balance;"
-          >
-            <span class="text-[#60a5fa] dark:text-[#5da6fc] font-bold mr-1">//</span> {{ t('auth.resetSubtitle') }}
-          </p>
-        </div>
 
         <form @submit.prevent="restablecerClave" class="space-y-6 relative z-10 w-full">
           
-          <!-- Email Field -->
-          <div class="space-y-3 group/field relative transition-all duration-500">
-            <label class="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-[#60a5fa] dark:group-focus-within/field:text-[#5da6fc] transition-colors flex items-center gap-2 ml-1">
-              <span :key="`emailLabel-${locale}`" class="inline-block lang-swap">{{ t('auth.recoverEmailLabel') }}</span>
-            </label>
-            <div class="relative flex items-center transition-all duration-300 ease-in-out rounded-[14px] bg-slate-100 dark:bg-[#16191E] border border-slate-200 dark:border-transparent group-focus-within/field:bg-white dark:group-focus-within/field:bg-[#1A1D24] group-focus-within/field:border-[#60a5fa]/40 dark:group-focus-within/field:border-[#5da6fc]/30 group-focus-within/field:ring-4 group-focus-within/field:ring-[#60a5fa]/10 dark:group-focus-within/field:ring-[#5da6fc]/10 hover:border-slate-300 dark:hover:border-slate-700/30">
-              <div class="pl-5 pr-4 py-4 flex items-center justify-center transition-all duration-300 text-slate-400 dark:text-slate-500 group-focus-within/field:text-[#60a5fa] dark:group-focus-within/field:text-[#5da6fc]">
-                <IconMail :size="18" stroke-width="1.5" />
+          <!-- Email Field (Readonly?) -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-bold text-slate-700 dark:text-slate-200 ml-1 block">{{ t('auth.recoverEmailLabel') }}</label>
+            <div class="relative flex items-center group/input bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-2 focus-within:ring-[#3b82f6]/20 dark:focus-within:ring-[#5da6fc]/20 transition-all duration-500 ease-out shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)] opacity-80">
+              <div class="pl-4 pr-3 flex items-center text-slate-400 group-focus-within/input:text-[#3b82f6] dark:group-focus-within/input:text-[#5da6fc] transition-colors duration-500">
+                <HugeiconsIcon :icon="Mail01Icon" class="text-[18px] group-focus-within/input:scale-110 group-focus-within/input:-translate-y-[1px] transition-transform duration-500 ease-out" />
               </div>
-              <div class="h-6 w-[1px] bg-slate-300 dark:bg-white/5"></div>
               <input
                 v-model="correo"
-                class="w-full h-[52px] px-4 bg-transparent text-slate-700 dark:text-white font-mono text-[14px] font-bold tracking-wide outline-none transition-colors duration-300 ease-out placeholder:text-slate-400/80 dark:placeholder:text-slate-600"
+                class="w-full h-[54px] bg-transparent text-slate-700 dark:text-white font-medium text-[14px] outline-none placeholder:text-slate-400/70 shadow-none border-none focus:ring-0"
                 :placeholder="t('auth.recoverEmailPlaceholder')" type="email"
               />
             </div>
           </div>
 
-          <!-- Password Field -->
-          <div class="space-y-3 group/field relative transition-all duration-500">
-            <label class="text-[11px] font-mono font-bold uppercase tracking-[0.15em] text-slate-500 dark:text-slate-400 group-focus-within/field:text-[#60a5fa] dark:group-focus-within/field:text-[#5da6fc] transition-colors flex items-center gap-2 ml-1">
-              <span :key="`passLabel-${locale}`" class="inline-block lang-swap">{{ t('auth.resetPasswordLabel') }}</span>
-            </label>
-            <div class="relative flex items-center transition-all duration-300 ease-in-out rounded-[14px] bg-slate-100 dark:bg-[#16191E] border border-slate-200 dark:border-transparent group-focus-within/field:bg-white dark:group-focus-within/field:bg-[#1A1D24] group-focus-within/field:border-[#60a5fa]/40 dark:group-focus-within/field:border-[#5da6fc]/30 group-focus-within/field:ring-4 group-focus-within/field:ring-[#60a5fa]/10 dark:group-focus-within/field:ring-[#5da6fc]/10 hover:border-slate-300 dark:hover:border-slate-700/30">
-              <div class="pl-5 pr-4 py-4 flex items-center justify-center transition-all duration-300 text-slate-400 dark:text-slate-500 group-focus-within/field:text-[#60a5fa] dark:group-focus-within/field:text-[#5da6fc]">
-                <IconLock :size="18" stroke-width="1.5" />
+          <!-- New Password Field -->
+          <div class="space-y-2">
+            <label class="text-[13px] font-bold text-slate-700 dark:text-slate-200 ml-1 block">{{ t('auth.resetPasswordLabel') }}</label>
+            <div class="relative flex items-center group/input bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-2 focus-within:ring-[#3b82f6]/20 dark:focus-within:ring-[#5da6fc]/20 transition-all duration-500 ease-out shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+              <div class="pl-4 pr-3 flex items-center text-slate-400 group-focus-within/input:text-[#3b82f6] dark:group-focus-within/input:text-[#5da6fc] transition-colors duration-500">
+                <HugeiconsIcon :icon="LockIcon" class="text-[18px] group-focus-within/input:scale-110 group-focus-within/input:-translate-y-[1px] transition-transform duration-500 ease-out" />
               </div>
-              <div class="h-6 w-[1px] bg-slate-300 dark:bg-white/5"></div>
               <input
                 v-model="nuevaClave"
-                :type="mostrarContrasena ? 'text' : 'password'"
-                class="w-full h-[52px] px-4 bg-transparent text-slate-700 dark:text-white font-mono text-[14px] font-bold tracking-[0.25em] outline-none transition-colors duration-300 ease-out placeholder:text-slate-400/80 dark:placeholder:text-slate-600"
-                :placeholder="mostrarContrasena ? t('auth.resetPasswordPlaceholder') : '••••••••'"
+                class="w-full h-[54px] bg-transparent text-slate-700 dark:text-white font-medium text-[14px] outline-none placeholder:text-slate-400/70 shadow-none border-none focus:ring-0"
+                :placeholder="t('auth.resetPasswordPlaceholder')" :type="mostrarContrasena ? 'text' : 'password'"
               />
-              <button type="button" @click="alternarContrasena"
-                class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#60a5fa] dark:hover:text-[#5da6fc] hover:bg-[#60a5fa]/10 dark:hover:bg-[#5da6fc]/10 rounded-xl transition-all"
-              >
-                <IconEyeOff v-if="mostrarContrasena" :size="18" stroke-width="1.5" />
-                <IconEye v-else :size="18" stroke-width="1.5" />
+              <button type="button" @click="alternarContrasena" class="absolute right-3 text-slate-400 hover:text-[#3b82f6] transition-colors p-2">
+                <HugeiconsIcon :icon="mostrarContrasena ? ViewOffSlashIcon : ViewIcon" class="text-[20px]" />
               </button>
             </div>
           </div>
 
           <!-- Submit Button -->
-          <div class="pt-8">
+          <div class="pt-4">
             <button
               type="submit" :disabled="cargando"
-              class="w-full h-[52px] rounded-[14px] bg-[#60a5fa] hover:bg-[#3b82f6] dark:bg-[#5da6fc] dark:hover:bg-[#3b82f6] font-mono font-bold text-white text-[13px] tracking-[0.15em] uppercase flex items-center justify-center gap-3 transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 shadow-sm"
+              class="w-full h-[56px] rounded-[16px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] text-white font-bold text-[14px] flex items-center justify-center gap-2 transition-all duration-500 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed border border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] hover:shadow-[0_6px_0_#2563eb,0_12px_25px_rgba(59,130,246,0.5)] dark:hover:shadow-[0_6px_0_#1d4ed8,0_12px_25px_rgba(93,166,252,0.3)] hover:-translate-y-[2px] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)]"
             >
-              <span v-if="cargando" class="flex items-center gap-3">
+              <span v-if="cargando" class="flex items-center gap-2">
                 <span class="w-4 h-4 rounded-full border-2 border-white/40 border-t-white animate-spin"></span>
-                <span :key="`procesando-${locale}`" class="inline-block lang-swap">{{ t('auth.recoverProcessing') }}</span>
+                <span>{{ t('auth.recoverProcessing') }}</span>
               </span>
-              <span v-else class="flex items-center gap-3">
-                <span :key="`submit-${locale}`" class="inline-block lang-swap">{{ t('auth.resetSubmit') }}</span>
-                <IconDeviceFloppy :size="18" stroke-width="2.5" />
+              <span v-else class="flex items-center gap-2">
+                <span>{{ t('auth.resetSubmit') }}</span>
+                <HugeiconsIcon :icon="FloppyDiskIcon" class="text-[18px]" />
               </span>
             </button>
           </div>
@@ -249,43 +258,57 @@ onUnmounted(() => {
             <Transition name="hud-alert">
               <div v-if="errorMensaje || exitoMensaje"
                  :class="[
-                   'w-full flex items-center justify-center text-[11px] font-mono font-bold tracking-[0.1em] gap-2 uppercase py-3.5 px-4 rounded-[14px] border transition-all duration-500 absolute',
+                   'w-full flex items-center justify-center text-[12px] font-bold tracking-wide gap-2 py-3 px-4 rounded-[12px] border transition-all duration-500 absolute',
                    errorMensaje
                      ? 'bg-red-50 dark:bg-[#2A1616] border-red-200 dark:border-[#4A2424] text-red-500 dark:text-[#FF6B6B]'
                      : 'bg-green-50 dark:bg-[#162A1F] border-green-200 dark:border-[#244A32] text-green-600 dark:text-[#4ADE80]'
                  ]"
               >
-                <IconAlertTriangle v-if="errorMensaje" :size="16" />
-                <IconCircleCheck v-else :size="16" />
-                <span class="truncate">{{ errorMensaje || exitoMensaje }}</span>
+                <HugeiconsIcon v-if="errorMensaje" :icon="Alert01Icon" class="text-[16px]" />
+                <HugeiconsIcon v-else :icon="CheckmarkCircle01Icon" class="text-[16px]" />
+                <span class="truncate text-center">{{ errorMensaje || exitoMensaje }}</span>
               </div>
             </Transition>
           </div>
         </form>
+
+        <!-- Back to Login Link -->
+        <div class="mt-8 pt-6 border-t border-slate-100 dark:border-white/5 text-center">
+          <p class="text-slate-500 dark:text-slate-400 text-[13px]">
+            {{ t('auth.rememberPassword') }}
+            <button 
+              @click="router.push('/login')"
+              class="text-[#3b82f6] dark:text-[#5da6fc] font-bold hover:underline ml-1 transition-all"
+            >
+              {{ t('auth.backToLogin') }}
+            </button>
+          </p>
+        </div>
+      </div>
+
+      <!-- Copyright Footer -->
+      <div class="mt-8 mb-4 text-[12px] text-slate-400 dark:text-slate-500 font-medium">
+        Copyright © 2025 InnovixIng. All Rights Reserved.
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-
-.font-mono {
-  font-family: 'Share Tech Mono', monospace;
+/* Theme icon swap animation */
+.theme-icon-enter-active,
+.theme-icon-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
+.theme-icon-enter-from { opacity: 0; transform: rotate(-45deg) scale(0.6); }
+.theme-icon-leave-to  { opacity: 0; transform: rotate(45deg) scale(0.6); }
 
-:global(.grecaptcha-badge) {
-  bottom: 24px !important;
-  right: -186px !important;
-  z-index: 60;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  filter: drop-shadow(0 4px 15px rgba(0,0,0,0.4));
-  opacity: 0.6;
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
 }
-
-:global(.grecaptcha-badge:hover) {
-  right: 0px !important;
-  opacity: 1;
+.animate-logo-float {
+  animation: logoFloat 4s ease-in-out infinite;
 }
 
 .hud-alert-enter-active {
@@ -294,6 +317,14 @@ onUnmounted(() => {
 
 .hud-alert-leave-active {
   animation: hudAlertLeave 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
 }
 
 @keyframes hudAlertEnter {
@@ -305,24 +336,6 @@ onUnmounted(() => {
 @keyframes hudAlertLeave {
   0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
   100% { opacity: 0; transform: translateY(-10px) scale(0.95); filter: blur(4px); }
-}
-
-@keyframes fadeSlideRight {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.animate-fade-slide-right {
-  animation: fadeSlideRight 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.lang-swap {
-  animation: langSwap 0.35s ease both;
-}
-
-@keyframes langSwap {
-  0% { opacity: 0; transform: translateY(6px) scale(0.98); filter: blur(2px); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 </style>
 

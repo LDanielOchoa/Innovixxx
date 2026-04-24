@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Add01Icon, 
@@ -39,7 +40,8 @@ import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 const vehicles = ref<Vehiculo[]>([])
 const vehicleTypes = ref<TipoVehiculo[]>([])
 const isLoading = ref(true)
@@ -542,7 +544,7 @@ watch(() => selectedGroup.value.id, () => {
               class="w-full px-5 py-3.5 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-slate-300 dark:hover:border-white/10 hover:bg-white dark:hover:bg-white/[0.05]"
             >
                <div class="flex items-center gap-3">
-               <HugeiconsIcon :icon="Truck01Icon" :size="16" class="text-slate-400 dark:text-slate-500" />
+                 <HugeiconsIcon :icon="TruckIcon" :size="16" class="text-slate-400 dark:text-slate-500" />
                  <span class="text-sm font-bold truncate" :class="formData.tipo ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-600'">
                    {{ vehicleTypes.find(t => t.id_tipo === formData.tipo)?.nombre || $t('vehiculos.placeholderType') }}
                  </span>

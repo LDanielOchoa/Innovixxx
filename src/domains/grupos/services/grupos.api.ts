@@ -1,7 +1,8 @@
 import type { Grupo, GrupoCreatePayload } from '../types/grupo'
+import { CookieAuth } from '../../../utils/cookie-auth'
 
 const getAuthHeaders = (withJson = false) => {
-  const token = localStorage.getItem('auth-token')
+  const token = CookieAuth.getToken()
   return {
     Authorization: `Bearer ${token}`,
     ...(withJson ? { 'Content-Type': 'application/json' } : {})

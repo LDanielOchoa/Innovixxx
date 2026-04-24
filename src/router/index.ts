@@ -1,54 +1,49 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { CookieAuth } from '../utils/cookie-auth'
 import Login from '../views/Login.vue'
-import RecuperarClave from '../views/auth/RecuperarClave.vue'
-import RestablecerClave from '../views/auth/RestablecerClave.vue'
 import AppLayout from '../components/layout/AppLayout.vue'
-import Dashboard from '../views/Dashboard.vue'
-import UsuariosList from '../domains/usuarios/views/UsuariosListView.vue'
-import RolesList from '../domains/roles/views/RolesListView.vue'
-import GruposList from '../domains/grupos/views/GruposListView.vue'
-import VehiculosList from '../domains/vehiculos/views/VehiculosListView.vue'
-import EscoltasList from '../domains/escoltas/views/EscoltasListView.vue'
-import HardwareList from '../domains/hardware/views/HardwareListView.vue'
-import RutasList from '../domains/rutas/views/RutasView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/dashboard'
     },
     {
       path: '/login',
       name: 'login',
-      component: Login
+      component: Login,
+      meta: { guestOnly: true }
     },
     {
       path: '/login/recuperar',
       name: 'recuperar-clave',
-      component: RecuperarClave
+      component: () => import('../views/auth/RecuperarClave.vue'),
+      meta: { guestOnly: true }
     },
     {
       path: '/recover_pass',
       name: 'restablecer-clave',
-      component: RestablecerClave
+      component: () => import('../views/auth/RestablecerClave.vue'),
+      meta: { guestOnly: true }
     },
 
     // ─── Shell con Sidebar + Header (se monta una sola vez) ───────────────
     {
       path: '/',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: 'dashboard',
           name: 'dashboard',
-          component: Dashboard
+          component: () => import('../views/Dashboard.vue')
         },
         {
           path: 'usuarios',
           name: 'usuarios',
-          component: UsuariosList
+          component: () => import('../domains/usuarios/views/UsuariosListView.vue')
         },
         {
           path: 'usuarios/nuevo',
@@ -64,36 +59,60 @@ const router = createRouter({
         {
           path: 'roles',
           name: 'roles',
-          component: RolesList
+          component: () => import('../domains/roles/views/RolesListView.vue')
         },
         {
           path: 'grupos',
           name: 'grupos',
-          component: GruposList
+          component: () => import('../domains/grupos/views/GruposListView.vue')
         },
         {
           path: 'vehiculos',
           name: 'vehiculos',
-          component: VehiculosList
+          component: () => import('../domains/vehiculos/views/VehiculosListView.vue')
         },
         {
           path: 'escoltas',
           name: 'escoltas',
-          component: EscoltasList
+          component: () => import('../domains/escoltas/views/EscoltasListView.vue')
         },
         {
           path: 'hardware',
           name: 'hardware',
-          component: HardwareList
+          component: () => import('../domains/hardware/views/HardwareListView.vue')
         },
         {
           path: 'rutas',
           name: 'rutas',
-          component: RutasList
+          component: () => import('../domains/rutas/views/RutasView.vue')
         }
       ]
+    },
+    // ─── Catch-all para 404 ───────────────
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/NotFound.vue')
     }
   ]
+})
+
+// ─── Guardián de Navegación Global ───────────────
+router.beforeEach((to, _from, next) => {
+  const token = CookieAuth.getToken()
+  const isAuthRequired = to.matched.some(record => record.meta.requiresAuth)
+  const isGuestOnly = to.matched.some(record => record.meta.guestOnly)
+
+  if (isAuthRequired && !token) {
+    // Intenta acceder a ruta privada sin token
+    next({ name: 'login' })
+  } else if (isGuestOnly && token) {
+    // Intenta acceder a login/recover con sesión activa
+    next({ name: 'dashboard' })
+  } else {
+    // Navegación permitida
+    next()
+  }
 })
 
 export default router

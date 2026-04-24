@@ -86,11 +86,23 @@ const close = () => {
 </script>
 
 <style scoped>
-.modal-enter-active, .modal-leave-active { transition: opacity 0.3s ease; }
+.modal-enter-active, .modal-leave-active { transition: opacity 0.4s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
-.modal-content-enter-active { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-.modal-content-leave-active { transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-.modal-content-enter-from, .modal-content-leave-to { opacity: 0; transform: scale(0.96) translateY(12px); }
+
+.modal-content-enter-active { 
+  transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); 
+}
+.modal-content-leave-active { 
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.modal-content-enter-from { 
+  opacity: 0; 
+  transform: scale(0.9) translateY(40px); 
+}
+.modal-content-leave-to { 
+  opacity: 0; 
+  transform: scale(0.95) translateY(20px); 
+}
 </style>
 
 

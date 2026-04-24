@@ -2,8 +2,10 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toggleMobileSidebar } from '../../composables/useSidebar'
-import { useGroup } from '../../composables/useGroup'
-import { useTheme } from '../../composables/useTheme'
+import { useGroupStore } from '../../stores/group.store'
+import { useThemeStore } from '../../stores/theme.store'
+import { useAuthStore } from '../../stores/auth.store'
+import { CookieAuth } from '../../utils/cookie-auth'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Menu01Icon, 
@@ -25,13 +27,15 @@ interface Group {
   nombre: string
 }
 
-const { selectedGroup, setGroup } = useGroup()
+const groupStore = useGroupStore()
+const themeStore = useThemeStore()
+const authStore = useAuthStore()
+
 const { t } = useI18n()
-useTheme() // Ensures theme class is reactive on header and its children
+// La reactividad del tema se maneja globalmente ahora en themeStore
 const isLoading = ref(true)
 const isMenuOpen = ref(false)
 const groups = ref<Group[]>([])
-const isAdmin = ref(false)
 const searchQuery = ref('')
 
 const toggleMenu = () => {
@@ -66,7 +70,7 @@ const filteredGroups = computed(() => {
 const isRefreshing = ref(false)
 
 const fetchGroupsApi = async () => {
-  const token = localStorage.getItem('auth-token')
+  const token = CookieAuth.getToken()
   if (!token) return
 
   try {
@@ -82,7 +86,6 @@ const fetchGroupsApi = async () => {
     if (adminRes.ok) {
       const data = await adminRes.json()
       if (data.done && Array.isArray(data.data)) {
-        isAdmin.value = true
         groups.value = data.data.map((g: any) => ({
           id: g.id_grupo || g.id,
           nombre: g.nombre || g.id_grupo
@@ -97,32 +100,32 @@ const fetchGroupsApi = async () => {
 const sincronizarGrupoSeleccionado = () => {
   if (groups.value.length === 0) return
 
-  const idSeleccionado = selectedGroup.value?.id?.trim() || ''
+  const idSeleccionado = groupStore.selectedGroup?.id?.trim() || ''
   const grupoPorId = idSeleccionado
     ? groups.value.find(g => g.id === idSeleccionado)
     : undefined
 
   if (grupoPorId) {
-    if (selectedGroup.value.nombre !== grupoPorId.nombre) {
-      setGroup(grupoPorId)
+    if (groupStore.selectedGroup.nombre !== grupoPorId.nombre) {
+      groupStore.setGroup(grupoPorId)
     }
     return
   }
 
-  const nombreSeleccionado = selectedGroup.value?.nombre?.trim() || ''
+  const nombreSeleccionado = groupStore.selectedGroup?.nombre?.trim() || ''
   const grupoPorNombre = nombreSeleccionado
     ? groups.value.find(g => g.nombre === nombreSeleccionado)
     : undefined
 
   if (grupoPorNombre) {
-    setGroup(grupoPorNombre)
+    groupStore.setGroup(grupoPorNombre)
     return
   }
 
   const primerGrupo = groups.value[0]
   if (!primerGrupo) return
 
-  setGroup(primerGrupo)
+  groupStore.setGroup(primerGrupo)
 }
 
 onMounted(async () => {
@@ -133,7 +136,7 @@ onMounted(async () => {
   
   // Si no es admin o falló, solo mostramos el actual
   if (groups.value.length === 0) {
-    groups.value = [selectedGroup.value]
+    groups.value = [{ ...groupStore.selectedGroup }]
   }
   isLoading.value = false
 })
@@ -143,7 +146,7 @@ onUnmounted(() => {
 })
 
 const selectGroup = (group: Group) => {
-  setGroup(group)
+  groupStore.setGroup(group)
   closeMenu()
 }
 
@@ -184,7 +187,7 @@ const refreshPage = async () => {
   sincronizarGrupoSeleccionado()
   
   if (groups.value.length === 0) {
-    groups.value = [selectedGroup.value]
+    groups.value = [{ ...groupStore.selectedGroup }]
   }
   
   setTimeout(() => {
@@ -199,7 +202,7 @@ const refreshPage = async () => {
       <!-- Botón Menú Móvil - Estilo -->
       <button 
         @click="toggleMobileSidebar"
-        class="md:hidden w-11 h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 bg-white dark:bg-[#13161C] rounded-xl border border-slate-200 dark:border-white/10 shadow-sm active:scale-90 transition-all duration-300"
+        class="md:hidden w-11 h-11 flex items-center justify-center text-slate-500 dark:text-slate-400 bg-white dark:bg-[#13161C] rounded-xl border border-slate-200 dark:border-white/10 shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] hover:bg-slate-50 dark:hover:bg-[#1A1D24] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none"
       >
         <HugeiconsIcon :icon="Menu01Icon" :size="24" :stroke-width="1.8" />
       </button>
@@ -217,7 +220,7 @@ const refreshPage = async () => {
               :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/10' : ''"
             >
               <span class="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tight truncate max-w-[200px] md:max-w-xs leading-none">
-                {{ selectedGroup.nombre }}
+                {{ groupStore.selectedGroup.nombre }}
               </span>
               <HugeiconsIcon 
                 v-if="groups.length > 1"
@@ -282,7 +285,7 @@ const refreshPage = async () => {
                       @click="selectGroup(group)"
                       class="w-full flex items-center justify-between px-4 py-3 text-sm transition-all duration-200 rounded-xl outline-none group/item"
                       :class="[
-                        selectedGroup.id === group.id 
+                        groupStore.selectedGroup.id === group.id 
                           ? 'bg-[#3b82f6]/5 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold' 
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                       ]"
@@ -291,7 +294,7 @@ const refreshPage = async () => {
                         <HugeiconsIcon :icon="UserGroupIcon" :size="18" :stroke-width="2" class="opacity-40 group-hover/item:opacity-100 transition-opacity" />
                         <span class="truncate max-w-[200px] tracking-tight">{{ group.nombre }}</span>
                       </div>
-                      <HugeiconsIcon v-if="selectedGroup.id === group.id" :icon="Tick01Icon" :size="18" :stroke-width="3" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                      <HugeiconsIcon v-if="groupStore.selectedGroup.id === group.id" :icon="Tick01Icon" :size="18" :stroke-width="3" class="text-[#3b82f6] dark:text-[#5da6fc]" />
                     </button>
                   </template>
                 </div>
@@ -320,36 +323,36 @@ const refreshPage = async () => {
         <button 
           @click="openTrackingWindow"
           :title="t('header.tracking')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#2A313A] shadow-sm transition-all duration-300 active:scale-95 group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
         >
           <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.playback')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#2A313A] shadow-sm transition-all duration-300 active:scale-95 group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
         >
           <HugeiconsIcon :icon="PlayIcon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.alarms')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#2A313A] shadow-sm transition-all duration-300 active:scale-95 group focus:outline-none relative"
+          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none relative"
         >
           <HugeiconsIcon :icon="Notification03Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-          <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#1A1D24]"></span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.5)]"></span>
         </button>
 
         <button 
           :title="t('header.services')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#2A313A] shadow-sm transition-all duration-300 active:scale-95 group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
         >
           <HugeiconsIcon :icon="Settings02Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.reports')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#2A313A] shadow-sm transition-all duration-300 active:scale-95 group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
         >
           <HugeiconsIcon :icon="Note01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>

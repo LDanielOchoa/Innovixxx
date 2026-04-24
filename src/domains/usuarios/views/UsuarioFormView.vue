@@ -25,12 +25,14 @@ import {
 import type { Grupo, RoleOption, Usuario } from '../types/usuario'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 import DataLayout from '../../../components/common/DataLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 
 const isEditMode = computed(() => route.name === 'usuarios-editar' || !!route.params.id)

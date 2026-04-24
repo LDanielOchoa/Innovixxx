@@ -35,7 +35,8 @@ import {
 import type { Grupo, Usuario } from '../types/usuario'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 
 // Shared Components
 import AppButton from '../../../components/common/AppButton.vue'
@@ -45,7 +46,8 @@ import AppTableCard from '../../../components/common/AppTableCard.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 
 const usuarios = ref<Usuario[]>([])
 const grupos = ref<Grupo[]>([])

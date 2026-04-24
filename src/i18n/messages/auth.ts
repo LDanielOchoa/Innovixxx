@@ -18,7 +18,9 @@ export const authMessages = {
     invalidToken: 'Token de recuperación no válido o ausente.',
     resetError: 'Error al restablecer la contraseña.',
     resetSuccessDefault: '¡Password actualizado con éxito!',
-    testLink: 'ENLACE DE PRUEBA'
+    testLink: 'ENLACE DE PRUEBA',
+    rememberPassword: '¿Ya recordaste tu contraseña?',
+    backToLogin: 'Volver al inicio de sesión'
   },
   en: {
     recoverTitle: 'RECOVER PASSWORD',
@@ -39,6 +41,8 @@ export const authMessages = {
     invalidToken: 'Invalid or missing recovery token.',
     resetError: 'Error resetting the password.',
     resetSuccessDefault: 'Password successfully updated!',
-    testLink: 'TEST LINK'
+    testLink: 'TEST LINK',
+    rememberPassword: 'Did you remember your password?',
+    backToLogin: 'Back to login'
   }
 }

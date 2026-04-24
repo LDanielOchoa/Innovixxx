@@ -627,7 +627,8 @@ import {
 
 import { fetchRutasApi, createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi, setRutaEstadoApi } from '../services/rutas.api'
 import type { Ruta, TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
-import { useGroup } from '../../../composables/useGroup'
+import { useGroupStore } from '../../../stores/group.store'
+import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '../../../components/common/BaseModal.vue'
@@ -650,7 +651,8 @@ const isDarkMapMode = ref(document.documentElement.classList.contains('dark'))
 const htmlClassObserver = ref<MutationObserver | null>(null)
 
 // State for Routes
-const { selectedGroup } = useGroup()
+const groupStore = useGroupStore()
+const { selectedGroup } = storeToRefs(groupStore)
 const isFetchingRoutes = ref(true)
 const routesList = ref<Ruta[]>([])
 const updatingEstadoId = ref<string | null>(null) // Para tracking de ruta en actualización de estado

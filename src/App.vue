@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { useTheme } from './composables/useTheme'
+import { useThemeStore } from './stores/theme.store'
+import { storeToRefs } from 'pinia'
 
 // Initializes the singleton theme on app mount — applies .dark to <html>
 // This is the single source of truth for the rest of the app
-useTheme()
+useThemeStore()
 </script>
 
 <template>
