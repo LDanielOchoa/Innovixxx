@@ -25,6 +25,7 @@ import {
 interface Group {
   id: string
   nombre: string
+  logo?: string
 }
 
 const groupStore = useGroupStore()
@@ -88,7 +89,8 @@ const fetchGroupsApi = async () => {
       if (data.done && Array.isArray(data.data)) {
         groups.value = data.data.map((g: any) => ({
           id: g.id_grupo || g.id,
-          nombre: g.nombre || g.id_grupo
+          nombre: g.nombre || g.id_grupo,
+          logo: g.logo
         }))
       }
     }
@@ -106,9 +108,7 @@ const sincronizarGrupoSeleccionado = () => {
     : undefined
 
   if (grupoPorId) {
-    if (groupStore.selectedGroup.nombre !== grupoPorId.nombre) {
-      groupStore.setGroup(grupoPorId)
-    }
+    groupStore.setGroup(grupoPorId)
     return
   }
 
@@ -220,9 +220,9 @@ const refreshPage = async () => {
               :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/10 border-slate-200 dark:border-white/10' : ''"
             >
               <!-- Espacio para Foto de Grupo -->
-              <div class="w-11 h-11 rounded-[16px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-sm group-hover/btn:scale-105 transition-transform duration-500 overflow-hidden">
-                <HugeiconsIcon :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
-                <!-- v-if="groupStore.selectedGroup.foto" <img ... /> -->
+              <div class="w-11 h-11 shrink-0 rounded-[16px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-sm group-hover/btn:scale-105 transition-transform duration-500 overflow-hidden">
+                <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover" />
+                <HugeiconsIcon v-else :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
               </div>
 
               <div class="flex items-center gap-3">
@@ -301,8 +301,9 @@ const refreshPage = async () => {
                       ]"
                     >
                       <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-lg bg-slate-50 dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover/item:text-[#3b82f6] transition-all duration-300 group-hover/item:scale-105">
-                           <HugeiconsIcon :icon="UserGroupIcon" :size="16" />
+                        <div class="w-9 h-9 shrink-0 rounded-lg bg-slate-50 dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover/item:text-[#3b82f6] transition-all duration-300 group-hover/item:scale-105 overflow-hidden">
+                           <img v-if="group.logo" :src="group.logo" class="w-full h-full object-cover" />
+                           <HugeiconsIcon v-else :icon="UserGroupIcon" :size="16" />
                         </div>
                         <span class="truncate max-w-[180px] font-bold tracking-tight">{{ group.nombre }}</span>
                       </div>

@@ -16,7 +16,7 @@ import {
   RotateRight01Icon,
   RotateLeft01Icon
 } from '@hugeicons/core-free-icons'
-import { createGrupoApi } from '../services/grupos.api'
+import { createGrupoApi, fetchGruposApi } from '../services/grupos.api'
 import { useI18n } from 'vue-i18n'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
@@ -30,6 +30,27 @@ const router = useRouter()
 const { t } = useI18n()
 
 const isEditMode = computed(() => route.name === 'grupos-editar' || !!route.params.id)
+
+onMounted(async () => {
+  if (isEditMode.value && route.params.id) {
+    try {
+      const grupos = await fetchGruposApi()
+      const grupoToEdit = grupos.find(g => g.id === route.params.id)
+      if (grupoToEdit) {
+        formData.value = {
+          nombre: grupoToEdit.nombre,
+          time_zone: grupoToEdit.time_zone,
+          i18n: grupoToEdit.i18n
+        }
+        if (grupoToEdit.logo) {
+          previewImage.value = grupoToEdit.logo
+        }
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+})
 
 interface GrupoForm {
   nombre: string
@@ -192,9 +213,11 @@ const saveGrupo = async () => {
   saving.value = true
   try {
     const result = await createGrupoApi({
+      id: isEditMode.value && route.params.id ? String(route.params.id) : undefined,
       nombre: formData.value.nombre,
       time_zone: formData.value.time_zone,
-      i18n: formData.value.i18n
+      i18n: formData.value.i18n,
+      logo: selectedFile.value
     })
 
     if (result?.done !== false) {

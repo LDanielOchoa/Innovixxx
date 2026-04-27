@@ -4,6 +4,7 @@ import { ref } from 'vue'
 interface Group {
   id: string
   nombre: string
+  logo?: string
 }
 
 const LONGITUD_ID_GRUPO = 8
@@ -20,7 +21,8 @@ export const useGroupStore = defineStore('group', () => {
 
     selectedGroup.value = {
       id: idEntranteValido || idActualValido,
-      nombre: group?.nombre || selectedGroup.value.nombre || ''
+      nombre: group?.nombre || selectedGroup.value.nombre || '',
+      logo: group?.logo !== undefined ? group.logo : selectedGroup.value.logo
     }
   }
 

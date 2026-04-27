@@ -19,7 +19,12 @@ const { t } = useI18n()
 interface Permission {
   id: number
   category: string
-  descripcion: string
+  descripcion?: string
+  description?: string
+  descripcion_es?: string
+  descripcion_en?: string
+  nombre?: string
+  name?: string
 }
 
 interface RoleSummary {
@@ -322,7 +327,7 @@ watch(() => props.role?.id_role, () => {
                         class="text-[13px] font-bold leading-tight transition-colors duration-300"
                         :class="isPermissionSelected(permission.id) ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'"
                       >
-                        {{ permission.descripcion }}
+                        {{ permission.descripcion_es || permission.descripcion_en || permission.nombre || permission.name || permission.descripcion || permission.description || `Permiso ${permission.id}` }}
                       </p>
                     </div>
                   </div>

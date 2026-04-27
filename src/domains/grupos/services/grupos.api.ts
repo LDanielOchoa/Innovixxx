@@ -25,10 +25,23 @@ export const fetchGruposApi = async (): Promise<Grupo[]> => {
 }
 
 export const createGrupoApi = async (payload: GrupoCreatePayload): Promise<{ done: boolean; message?: string }> => {
+  const formData = new FormData()
+  formData.append('nombre', payload.nombre)
+  formData.append('time_zone', payload.time_zone)
+  formData.append('i18n', payload.i18n)
+  
+  if (payload.logo) {
+    formData.append('logo', payload.logo)
+  }
+
+  if (payload.id) {
+    formData.append('id_grupo', payload.id) // o 'id', dependiendo del backend
+  }
+
   const response = await fetch('/api/v1/grupo/crear/', {
     method: 'POST',
-    headers: getAuthHeaders(true),
-    body: JSON.stringify(payload)
+    headers: getAuthHeaders(), // No enviamos JSON header para que el navegador ponga el boundary de FormData
+    body: formData
   })
 
   if (!response.ok) {

@@ -316,8 +316,9 @@ const deleteGrupo = async () => {
         <Column field="nombre" :header="$t('grupos.colGroup')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-4 group/avatar py-1">
-              <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm">
-                <HugeiconsIcon :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
+              <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm overflow-hidden">
+                <img v-if="data.logo" :src="data.logo" class="w-full h-full object-cover" />
+                <HugeiconsIcon v-else :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
               </div>
               <div class="flex flex-col">
                 <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
@@ -366,7 +367,7 @@ const deleteGrupo = async () => {
           <template #body="{ data }">
             <div class="flex items-center justify-end gap-3 py-1">
               <button 
-                @click="openCreateModal"
+                @click="router.push(`/grupos/${data.id}/editar`)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 hover:border-[#3b82f6]/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
                 title="Editar"
               >
@@ -394,115 +395,7 @@ const deleteGrupo = async () => {
         :rowsPerPage="itemsPerPage"
       />
     </AppTableCard>
-    <AppModal
-      v-model:isOpen="isModalOpen"
-      :title="$t('grupos.modalCreateTitle')"
-      confirmText=""
-      cancelText=""
-      @confirm="saveGrupo"
-      :show-footer="false"
-      size="lg"
-    >
-        <template #icon>
-          <HugeiconsIcon :icon="UserGroupIcon" :size="20" class="text-[#3b82f6]" />
-        </template>
-        
-        <form @submit.prevent="saveGrupo" class="space-y-6 relative py-2">
-          <!-- Feedback Minimalista -->
-          <Transition name="message-fade">
-            <div v-if="modalMessage && !isSubmitting" 
-                 class="flex items-center gap-2 py-2.5 px-3 rounded-xl text-[11px] font-black tracking-widest uppercase transition-all duration-300 mb-6 border border-current/10"
-                 :class="{
-                   'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
-                 }">
-                  <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="14" />
-                  <HugeiconsIcon v-else :icon="Tick01Icon" :size="14" class="text-[#3b82f6]" />
-                  {{ modalMessage.text }}
-            </div>
-          </Transition>
 
-          <AppFormInput 
-            v-model="formData.nombre"
-            :label="$t('grupos.formName')"
-            :placeholder="$t('grupos.formNamePlaceholder')"
-            :icon="UserGroupIcon"
-            required
-          />
-
-          <div class="space-y-4">
-             <!-- Selector Zona Horaria (Custom Searchable) -->
-             <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('grupos.formTimeZone') }}</label>
-                <div class="relative z-50">
-                   <div 
-                    @click="isTimezoneDropdownOpen = !isTimezoneDropdownOpen" 
-                    class="w-full px-5 py-3.5 border border-slate-200 dark:border-white/5 rounded-2xl bg-slate-50 dark:bg-white/[0.03] text-slate-800 dark:text-white cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-slate-300 dark:hover:border-white/10 hover:bg-white dark:hover:bg-white/[0.05] shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
-                  >
-                     <div class="flex items-center gap-3">
-                       <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-slate-400 dark:text-slate-500" />
-                       <span class="text-sm font-bold truncate" :class="formData.time_zone ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-600'">
-                         {{ formData.time_zone || $t('grupos.formTimeZonePlaceholder') }}
-                       </span>
-                     </div>
-                     <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 transition-transform duration-300" :class="{ 'rotate-180': isTimezoneDropdownOpen }" />
-                  </div>
-                  
-                  <Transition name="fade-slide">
-                    <div v-if="isTimezoneDropdownOpen" class="absolute left-0 right-0 mt-2 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 backdrop-blur-xl bg-opacity-95">
-                      <div class="p-3 border-b border-slate-100 dark:border-white/5">
-                        <div class="relative">
-                          <HugeiconsIcon :icon="Search01Icon" :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input 
-                            type="text" 
-                            v-model="timezoneSearch" 
-                            :placeholder="$t('grupos.searchTimeZone')" 
-                            class="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-[#3b82f6]/40 transition-colors"
-                            autocomplete="off"
-                            @click.stop
-                          >
-                        </div>
-                      </div>
-                      <ul class="max-h-48 overflow-y-auto custom-scrollbar p-1.5">
-                        <li v-for="tz in filteredTimezones" :key="tz" @click="formData.time_zone = tz; isTimezoneDropdownOpen = false" class="px-4 py-2 text-[13px] font-bold rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-[#3b82f6] transition-all">
-                          {{ tz }}
-                        </li>
-                      </ul>
-                    </div>
-                  </Transition>
-                </div>
-             </div>
-
-             <AppSelect 
-                v-model="formData.i18n"
-                :label="$t('grupos.formLang')"
-                :options="langOptions"
-                :placeholder="$t('grupos.formLangPlaceholder')"
-             />
-          </div>
-
-          <!-- Botones de Acción Premium -->
-          <div class="flex items-center gap-4 pt-6 mt-4">
-            <AppButton 
-              type="button"
-              variant="secondary" 
-              class="flex-1"
-              @click="isModalOpen = false"
-            >
-              {{ $t('grupos.btnCancel') }}
-            </AppButton>
-            <AppButton 
-              type="submit"
-              variant="primary" 
-              class="flex-1 shadow-blue-500/20"
-              :loading="isSubmitting"
-            >
-              {{ $t('grupos.btnSave') }}
-            </AppButton>
-          </div>
-        </form>
-      </AppModal>
 
     <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
