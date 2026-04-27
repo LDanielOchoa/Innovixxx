@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WidgetCard from '../ui/WidgetCard.vue'
 import { Car01Icon, Search01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 
 const { t } = useI18n()
 
@@ -57,12 +58,12 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <WidgetCard :title="t('dashboard.widgets.vehicles.title')" :icon="Car01Icon" :loading="isLoading">
-    <div class="flex flex-col gap-4">
+  <WidgetCard :title="t('dashboard.widgets.vehicles.title')" :icon="Car01Icon" :loading="isLoading" class="h-full">
+    <div class="flex flex-col gap-4 h-full">
       <!-- Buscador Compacto -->
       <div class="relative group/search">
         <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-[#3b82f6] transition-colors">
-          <Search01Icon :size="14" />
+          <HugeiconsIcon :icon="Search01Icon" :size="14" />
         </div>
         <input 
           v-model="vehicleSearch" 
@@ -73,7 +74,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Lista de Vehículos -->
-      <div class="flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-1 flex flex-col gap-2 min-h-0">
         <div 
           v-for="(car, i) in filteredVehicles" 
           :key="i"
@@ -86,12 +87,17 @@ onUnmounted(() => {
             ]"></div>
             <div>
               <p class="text-xs font-black text-slate-700 dark:text-white tracking-widest uppercase">{{car.plate}}</p>
-              <p class="text-[8px] font-black uppercase tracking-widest mt-0.5" :class="car.hasAlarm ? 'text-red-500 dark:text-red-400' : 'text-slate-400 dark:text-slate-500'">
-                {{ getStatusLabel(car.status) }}
-              </p>
+              <div class="mt-1.5 flex">
+                <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border backdrop-blur-md transition-colors duration-300" 
+                      :class="car.hasAlarm 
+                        ? 'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 dark:border-red-500/10' 
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200/50 dark:border-white/5'">
+                  {{ getStatusLabel(car.status) }}
+                </span>
+              </div>
             </div>
           </div>
-          <ArrowRight01Icon :size="14" class="text-slate-300 dark:text-slate-700 group-hover/item:text-[#3b82f6] transition-colors" />
+          <HugeiconsIcon :icon="ArrowRight01Icon" :size="14" class="text-slate-300 dark:text-slate-700 group-hover/item:text-[#3b82f6] transition-colors" />
         </div>
       </div>
     </div>

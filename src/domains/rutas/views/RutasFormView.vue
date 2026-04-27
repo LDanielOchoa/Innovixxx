@@ -45,313 +45,28 @@
         isAddingParadas ? 'md:-translate-x-full md:opacity-0 md:pointer-events-none -translate-x-full opacity-0 pointer-events-none' : 'translate-x-0 opacity-100'
       ]"
     >
-      <!-- Cabecera del Sidebar -->
-      <div class="p-8 border-b border-slate-200/80 dark:border-white/5 space-y-8">
-        <AppPageHeader 
-          :title="$t('rutas.title')" 
-          :subtitle="$t('rutas.subtitle')" 
-          :count="filteredRoutes.length"
-        >
-          <template #actions>
-            <div class="flex items-center gap-3">
-              <AppButton 
-                variant="secondary" 
-                :icon="RefreshIcon"
-                :loading="isFetchingRoutes"
-                @click="fetchRoutes"
-                class="!px-3"
-              />
-              <AppButton 
-                variant="secondary" 
-                :icon="isSidebarFullScreen ? ArrowShrink01Icon : ArrowExpand01Icon"
-                @click="toggleFullScreen"
-                class="!px-3 hidden md:flex"
-              />
-              <AppButton 
-                variant="primary" 
-                :icon="Add01Icon" 
-                @click="openCreateModal"
-              >
-                <span>{{ $t('rutas.btnNew') }}</span>
-              </AppButton>
-            </div>
-          </template>
-        </AppPageHeader>
-
-        <!-- Barra de Búsqueda -->
-        <AppSearch 
-          v-model="searchQuery" 
-          :placeholder="$t('rutas.searchPlaceholder')" 
-        >
-          <template #extra>
-            <button class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.1em] uppercase whitespace-nowrap hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95">
-              <HugeiconsIcon :icon="FilterIcon" :size="14" />
-              <span>Filtrar</span>
-              <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" />
-            </button>
-          </template>
-        </AppSearch>
-      </div>
-            <!-- Listado de Contenido (Tabla) -->
-      <div class="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-4 custom-scrollbar relative">
-        <div class="relative z-10 w-full grid">
-          <Transition name="fade-cross">
-            <!-- Skeletons -->
-            <div v-if="isFetchingRoutes" key="loading" class="w-full space-y-4" style="grid-area: 1 / 1;">
-              <div v-for="n in 5" :key="`skeleton-${n}`" class="w-full h-[72px] bg-white/50 dark:bg-white/5 rounded-2xl animate-pulse border border-slate-200 dark:border-white/5"></div>
-            </div>
-            
-            <div v-else key="content" class="w-full space-y-4" style="grid-area: 1 / 1;">
-              <!-- Móvil -->
-              <TransitionGroup tag="div" name="list-rows" class="md:hidden flex flex-col gap-3">
-                <div 
-                  v-for="ruta in paginatedRoutes" 
-                  :key="'m-'+ruta.id_ruta" 
-                  @click="showRouteDetails(ruta.id_ruta)" 
-                  class="p-5 bg-white/70 dark:bg-[#1A1D24]/80 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 group cursor-pointer active:scale-[0.98]"
-                >
-                  <div class="flex justify-between items-start mb-4">
-                    <div class="flex items-center gap-4">
-                      <div class="w-12 h-12 shrink-0 rounded-2xl bg-slate-50 dark:bg-[#0F1115] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/5 flex items-center justify-center group-hover:border-[#3b82f6]/30 dark:group-hover:border-[#5da6fc]/30 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
-                        <HugeiconsIcon :icon="Route01Icon" :size="24" :stroke-width="1.5" />
-                      </div>
-                      <div class="flex flex-col">
-                        <span class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ ruta.nombre }}</span>
-                        <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-1 flex items-center gap-1.5 uppercase tracking-wide">
-                          <HugeiconsIcon :icon="Location01Icon" :size="12" /> {{ ruta.id_ruta }}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div class="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border flex items-center gap-2"
-                        :class="ruta.estado === 'Habilitada' ? 'bg-green-50/50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'">
-                      <span class="w-1.5 h-1.5 rounded-full" :class="ruta.estado === 'Habilitada' ? 'bg-green-500' : 'bg-slate-400'"></span>
-                      {{ ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled') }}
-                    </div>
-                  </div>
-
-                  <p class="text-xs text-slate-500 dark:text-slate-400 font-medium line-clamp-2 leading-relaxed mb-4 pl-1">
-                    {{ ruta.descripcion || $t('rutas.noDescription') }}
-                  </p>
-
-                  <div class="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-white/5">
-                    <div class="flex items-center gap-2">
-                       <button
-                          @click.stop="openEditModal(ruta)"
-                          class="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] bg-slate-50 dark:bg-white/5 hover:bg-white dark:hover:bg-[#1A1D24] rounded-xl transition-all duration-300 border border-transparent hover:border-slate-200 dark:hover:border-white/10 shadow-sm active:scale-90"
-                          :title="$t('rutas.tooltipEdit')"
-                        >
-                          <HugeiconsIcon :icon="Edit02Icon" :size="18" />
-                        </button>
-                        <button
-                          @click.stop="toggleRutaEstado(ruta)"
-                          :disabled="updatingEstadoId === ruta.id_ruta"
-                          class="w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-300 border border-transparent shadow-sm active:scale-90"
-                          :class="ruta.estado === 'Habilitada' ? 'text-red-400 hover:text-red-500 bg-red-50 dark:bg-red-500/5 hover:bg-white dark:hover:bg-red-500/10 hover:border-red-200 dark:hover:border-red-500/20' : 'text-green-400 hover:text-green-500 bg-green-50 dark:bg-green-500/5 hover:bg-white dark:hover:bg-green-500/10 hover:border-green-200 dark:hover:border-green-500/20'"
-                          :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
-                        >
-                          <HugeiconsIcon :icon="Settings02Icon" :size="18" />
-                        </button>
-                    </div>
-                    
-                    <div class="flex items-center gap-2">
-                      <div class="w-4 h-4 rounded-full border border-white/20 shadow-sm" :style="{ backgroundColor: ruta.color || '#60a5fa' }"></div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-if="filteredRoutes.length === 0" key="mobile-empty-state" class="py-12 text-center flex flex-col items-center justify-center">
-                  <div class="w-20 h-20 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl flex items-center justify-center text-slate-300 dark:text-slate-600 mb-6 shadow-sm animate-[float_6s_ease-in-out_infinite]">
-                    <HugeiconsIcon :icon="Search01Icon" :size="32" />
-                  </div>
-                  <h3 class="text-base font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ $t('rutas.noRoutes') }}</h3>
-                  <p class="text-xs text-slate-500 dark:text-slate-400 font-medium mt-2">{{ $t('rutas.trySearch') }}</p>
-                </div>
-              </TransitionGroup>
-
-              <!-- Desktop -->
-              <AppTableCard class="hidden md:block mx-6 mb-6">
-                <table class="w-full table-fixed">
-                  <thead>
-                    <tr class="bg-transparent border-b border-slate-200/60 dark:border-white/5">
-                      <th class="px-6 py-5 text-left" :class="isSidebarFullScreen ? 'w-[40%]' : 'w-[60%]'">
-                        <button @click="toggleSort('nombre')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
-                          {{ $t('rutas.colRoute') }}
-                          <HugeiconsIcon :icon="sortKey==='nombre' ? (sortOrder==='asc' ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
-                        </button>
-                      </th>
-                      <th v-if="isSidebarFullScreen" class="px-6 py-5 text-left w-[30%]">
-                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">{{ $t('rutas.colDesc') }}</span>
-                      </th>
-                      <th class="px-6 py-5 text-left" :class="isSidebarFullScreen ? 'w-[18%]' : 'w-[40%]'">
-                         <button @click="toggleSort('estado')" class="group flex items-center gap-2.5 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors focus:outline-none">
-                          {{ $t('rutas.colStatus') }}
-                          <HugeiconsIcon :icon="sortKey==='estado' ? (sortOrder==='asc' ? ArrowUp01Icon : ArrowDown01Icon) : Sorting05Icon" :size="14" class="opacity-50 group-hover:opacity-100 transition-opacity" />
-                        </button>
-                      </th>
-                      <th v-if="isSidebarFullScreen" class="px-6 py-5 text-center w-[12%]">
-                        <span class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">{{ $t('rutas.colActions') }}</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <TransitionGroup tag="tbody" name="table-rows">
-                    <tr 
-                      v-for="ruta in paginatedRoutes" 
-                      :key="ruta.id_ruta" 
-                      @click="showRouteDetails(ruta.id_ruta)" 
-                      class="border-b border-slate-100/50 dark:border-white/5 last:border-none hover:bg-slate-50/50 dark:hover:bg-white/[0.02] transition-all duration-200 group cursor-pointer"
-                    >
-                      <td class="px-6 py-5">
-                        <div class="flex items-center gap-4 group/avatar">
-                          <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm">
-                            <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="1.8" />
-                          </div>
-                          <div class="flex flex-col">
-                            <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ ruta.nombre }}</span>
-                            <span v-if="isSidebarFullScreen" class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 uppercase tracking-widest truncate">{{ ruta.id_ruta }}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td v-if="isSidebarFullScreen" class="px-6 py-5">
-                        <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors group/desc">
-                          <p class="text-[13px] font-medium tracking-tight truncate max-w-[200px]" :title="ruta.descripcion">
-                            {{ ruta.descripcion || '—' }}
-                          </p>
-                        </div>
-                      </td>
-                      <td class="px-6 py-5">
-                        <div class="inline-flex items-center gap-3 px-3.5 py-2 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/status shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                          <span class="w-2 h-2 rounded-full shadow-sm transition-all duration-500 group-hover/status:scale-125" :class="ruta.estado === 'Habilitada' ? 'bg-green-500 shadow-green-500/20' : 'bg-slate-400 shadow-slate-400/20'"></span>
-                          <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-l border-slate-300/80 dark:border-white/10 pl-3">
-                            {{ ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled') }}
-                          </span>
-                        </div>
-                      </td>
-                      <td v-if="isSidebarFullScreen" class="px-6 py-5">
-                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <button
-                            @click.stop="openEditModal(ruta)"
-                            class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all active:scale-90 shadow-sm"
-                            :title="$t('rutas.tooltipEdit')"
-                          >
-                            <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.2" />
-                          </button>
-                          <button
-                            @click.stop="toggleRutaEstado(ruta)"
-                            :disabled="updatingEstadoId === ruta.id_ruta"
-                            class="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-300 border shadow-sm active:scale-90"
-                            :class="ruta.estado === 'Habilitada' ? 'text-red-400 hover:text-red-500 bg-red-50 dark:bg-red-500/5 hover:bg-red-500/10 border-red-100 dark:border-red-500/10' : 'text-green-400 hover:text-green-500 bg-green-50 dark:bg-green-500/5 hover:bg-green-500/10 border-green-100 dark:border-green-500/10'"
-                            :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
-                          >
-                            <HugeiconsIcon :icon="Settings02Icon" :size="16" :stroke-width="2.2" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr v-if="filteredRoutes.length === 0">
-                      <td colspan="4" class="px-6 py-20 text-center">
-                        <div class="flex flex-col items-center justify-center">
-                          <div class="w-24 h-24 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl flex items-center justify-center text-slate-200 dark:text-slate-600 mb-8 shadow-sm animate-[float_6s_ease-in-out_infinite]">
-                            <HugeiconsIcon :icon="Route01Icon" :size="40" />
-                          </div>
-                          <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ $t('rutas.noRoutes') }}</h3>
-                          <p class="text-sm text-slate-500 dark:text-slate-400 font-medium mt-3">{{ $t('rutas.trySearch') }}</p>
-                        </div>
-                      </td>
-                    </tr>
-                  </TransitionGroup>
-                </table>
-              </AppTableCard>
-            </div>
-          </Transition>
+      
+      <div class="p-8 border-b border-slate-200/80 dark:border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button @click="router.push('/rutas')" class="w-10 h-10 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-[#3b82f6] transition-all shadow-sm">
+            <HugeiconsIcon :icon="ArrowLeft01Icon" :size="20" />
+          </button>
+          <div>
+            <h1 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
+            <p class="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Detalles de la ruta</p>
+          </div>
         </div>
+        <AppButton 
+          variant="primary" 
+          @click="saveRuta"
+          :loading="isSubmitting"
+        >
+          <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
+        </AppButton>
       </div>
       
-      <!-- Paginación -->
-      <div v-if="!isFetchingRoutes && routesList.length > 0" class="px-6 py-3.5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-4 flex-wrap bg-white/30 dark:bg-black/20 backdrop-blur-md">
-        <!-- Info -->
-        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
-          {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredRoutes.length) }}
-          <span class="text-slate-300 dark:text-slate-600">de</span>
-          {{ filteredRoutes.length }}
-        </p>
-
-        <!-- Controles -->
-        <div v-if="totalPages > 1" class="flex items-center gap-1">
-          <button
-            @click="currentPage > 1 && currentPage--"
-            :disabled="currentPage === 1"
-            class="pagination-btn"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-
-          <template v-for="p in visiblePages" :key="p">
-            <span v-if="p === '...'" class="pagination-ellipsis">…</span>
-            <button
-              v-else
-              @click="currentPage = p"
-              :class="['pagination-btn', currentPage === p ? 'pagination-btn--active' : '']"
-            >{{ p }}</button>
-          </template>
-
-          <button
-            @click="currentPage < totalPages && currentPage++"
-            :disabled="currentPage === totalPages"
-            class="pagination-btn"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Panel de Paradas: Modo Edición (Floating Side Panel) -->
-    <Transition name="panel-float">
-      <ParadasListPanel
-        v-if="isAddingParadas"
-        :paradas="paradasTemporales"
-        :tipos-parada="tiposParada"
-        :selected-index="selectedParadaIndex"
-        @select="onParadaSelect"
-        @delete="onParadaDelete"
-        @save="finishAddingParadas"
-        @clear="clearParadasTemporales"
-        @close="finishAddingParadas"
-      />
-    </Transition>
-
-    <!-- Modales -->
-    <BaseModal
-      v-model:isOpen="isModalOpen"
-      :title="isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle')"
-      :confirmText="isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave')"
-      :cancelText="$t('rutas.btnCancel')"
-      @confirm="saveRuta"
-    >
-      <template #icon>
-        <HugeiconsIcon :icon="Route01Icon" :size="20" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-      </template>
-      <!-- Step indicator -->
-      <div class="flex items-center gap-3 mb-6 px-1">
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded-full bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center shadow-[0_2px_0_#2563eb]">
-            <span class="text-[10px] font-black text-white">1</span>
-          </div>
-          <span class="text-[11px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wide">Información</span>
-        </div>
-        <div class="flex-1 h-px bg-gradient-to-r from-[#3b82f6]/40 to-slate-200 dark:to-white/5"></div>
-        <div class="flex items-center gap-2">
-          <div class="w-6 h-6 rounded-full flex items-center justify-center border-2 border-slate-200 dark:border-white/10"
-               :class="paradasTemporales.length > 0 ? 'bg-emerald-500 border-emerald-500' : 'bg-slate-100 dark:bg-white/5'">
-            <HugeiconsIcon v-if="paradasTemporales.length > 0" :icon="Tick01Icon" :size="12" class="text-white" />
-            <span v-else class="text-[10px] font-black text-slate-400">2</span>
-          </div>
-          <span class="text-[11px] font-black uppercase tracking-wide"
-                :class="paradasTemporales.length > 0 ? 'text-emerald-500' : 'text-slate-400 dark:text-slate-500'">Paradas</span>
-        </div>
-      </div>
-      <form @submit.prevent="saveRuta" class="space-y-5 relative p-1">
+      <div class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+        <form @submit.prevent="saveRuta" class="space-y-5 relative p-1">
         <Transition name="loader-fade">
           <div v-if="isSubmitting" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#0F1115]/60 backdrop-blur-md rounded-2xl overflow-hidden">
             <div class="flex flex-col items-center gap-4 p-8">
@@ -379,17 +94,17 @@
           </div>
         </Transition>
 
-        <div class="space-y-2">
-          <label for="nombre" class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em] ml-1">{{ $t('rutas.formName') }}</label>
-          <div class="relative group/input bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-4 focus-within:ring-[#3b82f6]/10 dark:focus-within:ring-[#5da6fc]/10 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
-            <input type="text" id="nombre" v-model="formData.nombre" required :placeholder="$t('rutas.formNamePlaceholder')" class="w-full bg-transparent border-none px-4 py-3 text-sm font-bold text-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0">
-          </div>
-        </div>
+        <AppFormInput 
+          v-model="formData.nombre"
+          :label="$t('rutas.formName')"
+          :placeholder="$t('rutas.formNamePlaceholder')"
+          :icon="Route01Icon"
+        />
         
-        <div class="space-y-2">
-          <label for="descripcion" class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em] ml-1">{{ $t('rutas.formDesc') }}</label>
-          <div class="relative group/input bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-4 focus-within:ring-[#3b82f6]/10 dark:focus-within:ring-[#5da6fc]/10 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
-            <textarea id="descripcion" v-model="formData.descripcion" required rows="3" :placeholder="$t('rutas.formDescPlaceholder')" class="w-full bg-transparent border-none px-4 py-3 text-sm font-bold text-slate-700 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-0 resize-none"></textarea>
+        <div class="space-y-2 w-full">
+          <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formDesc') }}</label>
+          <div class="relative group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] overflow-hidden focus-within:border-[#3b82f6]/40 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+            <textarea id="descripcion" v-model="formData.descripcion" required rows="3" :placeholder="$t('rutas.formDescPlaceholder')" class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
           </div>
         </div>
 
@@ -397,13 +112,13 @@
           <label class="block text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em] ml-1">{{ $t('rutas.formColor') }}</label>
           <div class="flex items-center gap-4">
             <div ref="pickrContainer" class="pickr-container"></div>
-            <div class="relative flex-1 group/input bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] transition-all duration-300">
+            <div class="relative flex-1 group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-xl overflow-hidden focus-within:border-[#3b82f6]/40 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
               <input
                 type="text"
                 v-model="formData.color"
                 maxlength="7"
                 :placeholder="$t('rutas.formColorPlaceholder')"
-                class="w-full bg-transparent border-none px-4 py-2.5 text-sm font-black text-slate-700 dark:text-white uppercase focus:outline-none focus:ring-0"
+                class="w-full bg-transparent border-none px-4 py-2.5 text-[13px] font-bold text-slate-700 dark:text-slate-200 uppercase focus:outline-none focus:ring-0"
               />
             </div>
             <div
@@ -459,9 +174,26 @@
           </div>
         </div>
       </form>
-    </BaseModal>
+      </div>
+    </div>
+    <!-- Panel de Paradas: Modo Edición (Floating Side Panel) -->
+    <Transition name="panel-float">
+      <ParadasListPanel
+        v-if="isAddingParadas"
+        :paradas="paradasTemporales"
+        :tipos-parada="tiposParada"
+        :selected-index="selectedParadaIndex"
+        @select="onParadaSelect"
+        @delete="onParadaDelete"
+        @save="finishAddingParadas"
+        @clear="clearParadasTemporales"
+        @close="finishAddingParadas"
+      />
+    </Transition>
 
-    <BaseModal
+    
+
+    <AppModal
       v-model:isOpen="isTipoModalOpen"
       :title="$t('rutas.modalStopTypeTitle')"
       @cancel="isTipoModalOpen = false; selectedTipoParada = null"
@@ -512,10 +244,10 @@
           </button>
         </div>
       </template>
-    </BaseModal>
+    </AppModal>
 
     <!-- Modal de Edición de Parada -->
-    <BaseModal
+    <AppModal
       v-model:isOpen="isEditParadaModalOpen"
       :title="$t('rutas.modalEditStopTitle')"
       @cancel="isEditParadaModalOpen = false; editingTipoParada = null"
@@ -573,33 +305,7 @@
           </div>
         </div>
       </template>
-    </BaseModal>
-
-    <!-- Modal Confirmación Estado Ruta -->
-    <BaseModal
-      v-model:isOpen="isConfirmStatusModalOpen"
-      :title="statusConfirmData.nuevoEstado ? $t('rutas.modalEnableTitle') : $t('rutas.modalDisableTitle')"
-      :confirmText="statusConfirmData.nuevoEstado ? $t('rutas.btnEnable') : $t('rutas.btnDisable')"
-      :confirmButtonClass="statusConfirmData.nuevoEstado ? 'bg-green-500' : 'bg-red-500'"
-      :cancelText="$t('rutas.btnCancel')"
-      @confirm="processToggleEstado"
-    >
-      <template #icon>
-        <div :class="statusConfirmData.nuevoEstado ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'" class="w-12 h-12 rounded-2xl flex items-center justify-center transition-colors border border-current opacity-30">
-          <HugeiconsIcon :icon="Route01Icon" :size="24" />
-        </div>
-      </template>
-      <div class="py-4 flex flex-col items-center text-center gap-6">
-        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-[280px]">
-          {{ $t('rutas.confirmStatusChange', { action: statusConfirmData.nuevoEstado ? $t('rutas.actionEnable') : $t('rutas.actionDisable') }) }}
-        </p>
-        <div class="px-5 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
-          <span class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">
-            {{ statusConfirmData.ruta?.nombre }}
-          </span>
-        </div>
-      </div>
-    </BaseModal>
+    </AppModal>
   </div>
 </template>
 
@@ -610,34 +316,25 @@ import {
   Location01Icon,
   Route01Icon,
   Add01Icon,
-  RefreshIcon,
-  ArrowExpand01Icon,
-  ArrowShrink01Icon,
-  Search01Icon,
-  Edit02Icon,
+  ArrowLeft01Icon,
   Delete01Icon,
   Shield01Icon,
-  Sorting05Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
   Tick01Icon,
-  Settings02Icon,
-  FilterIcon
 } from '@hugeicons/core-free-icons'
 
-import { fetchRutasApi, createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi, setRutaEstadoApi } from '../services/rutas.api'
-import type { Ruta, TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
+import { createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi } from '../services/rutas.api'
+import type { TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import BaseModal from '../../../components/common/BaseModal.vue'
-import AppSearch from '../../../components/common/AppSearch.vue'
-import AppTableCard from '../../../components/common/AppTableCard.vue'
-import AppPageHeader from '../../../components/common/AppPageHeader.vue'
-import AppButton from '../../../components/common/AppButton.vue'
+
+import AppModal from '../../../components/ui/AppModal.vue'
+import AppButton from '../../../components/ui/AppButton.vue'
+import AppFormInput from '../../../components/ui/AppFormInput.vue'
 import ParadasListPanel from '../../../components/rutas/ParadasListPanel.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -653,163 +350,8 @@ const htmlClassObserver = ref<MutationObserver | null>(null)
 // State for Routes
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
-const isFetchingRoutes = ref(true)
-const routesList = ref<Ruta[]>([])
-const updatingEstadoId = ref<string | null>(null) // Para tracking de ruta en actualización de estado
-const isConfirmStatusModalOpen = ref(false)
-const statusConfirmData = ref<{ ruta: Ruta | null, nuevoEstado: boolean }>({ ruta: null, nuevoEstado: false })
 
-// Table/List features
-const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
-const RUTA_SORT_KEYS: Array<keyof Ruta> = ['id_ruta', 'nombre', 'descripcion', 'estado']
-const initialSortKey = typeof route.query.sort === 'string' && RUTA_SORT_KEYS.includes(route.query.sort as keyof Ruta)
-  ? (route.query.sort as keyof Ruta)
-  : 'nombre'
-const sortKey = ref<keyof Ruta>(initialSortKey)
-const sortOrder = ref<'asc' | 'desc'>(route.query.order === 'desc' ? 'desc' : 'asc')
-
-const initialPage = typeof route.query.page === 'string' ? Number.parseInt(route.query.page, 10) : 1
-const currentPage = ref(Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1)
-const itemsPerPage = 10
-
-watch([searchQuery, sortKey, sortOrder, currentPage], () => {
-  const nextQuery: Record<string, string> = {}
-  if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
-  if (sortKey.value !== 'nombre') nextQuery.sort = String(sortKey.value)
-  if (sortOrder.value !== 'asc') nextQuery.order = sortOrder.value
-  if (currentPage.value > 1) nextQuery.page = String(currentPage.value)
-  void router.replace({ query: nextQuery })
-})
-
-const filteredRoutes = computed(() => {
-  let result = routesList.value
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(r => r.nombre.toLowerCase().includes(query) || (r.descripcion && r.descripcion.toLowerCase().includes(query)))
-  }
-  result.sort((a, b) => {
-    let aValue = a[sortKey.value] || ''
-    let bValue = b[sortKey.value] || ''
-    if (typeof aValue === 'string') aValue = aValue.toLowerCase()
-    if (typeof bValue === 'string') bValue = bValue.toLowerCase()
-    if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1
-    if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1
-    return 0
-  })
-  return result
-})
-
-const paginatedRoutes = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return filteredRoutes.value.slice(start, start + itemsPerPage)
-})
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRoutes.value.length / itemsPerPage)))
-
-const visiblePages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | '...')[] = []
-  if (current <= 4) {
-    pages.push(1, 2, 3, 4, 5, '...', total)
-  } else if (current >= total - 3) {
-    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total)
-  } else {
-    pages.push(1, '...', current - 1, current, current + 1, '...', total)
-  }
-  return pages
-})
-
-const toggleSort = (key: keyof Ruta) => {
-  if (sortKey.value === key) {
-    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortOrder.value = 'asc'
-  }
-  currentPage.value = 1
-}
-
-const toggleFullScreen = () => {
-  isSidebarFullScreen.value = !isSidebarFullScreen.value
-  
-  // Trigger map resize if collapsing back so it renders properly immediately
-  if (!isSidebarFullScreen.value && map.value) {
-    setTimeout(() => {
-      if ((window as any).google && map.value) {
-         (window as any).google.maps.event.trigger(map.value, 'resize')
-      }
-    }, 750) // wait for animation
-  }
-}
-
-const fetchRoutes = async () => {
-  if (!selectedGroup.value?.id) {
-    routesList.value = []
-    isFetchingRoutes.value = false
-    return
-  }
-  
-  isFetchingRoutes.value = true
-  
-  try {
-    const data = await fetchRutasApi(selectedGroup.value.id)
-    routesList.value = data
-  } catch (error) {
-    console.error("Error fetching routes:", error)
-    routesList.value = []
-  } finally {
-    isFetchingRoutes.value = false
-  }
-}
-
-// Toggle estado de ruta (habilitar/deshabilitar)
-const toggleRutaEstado = (ruta: Ruta) => {
-  if (!selectedGroup.value?.id || updatingEstadoId.value === ruta.id_ruta) return
-  
-  const nuevoEstado = ruta.estado !== 'Habilitada'
-  statusConfirmData.value = { ruta, nuevoEstado }
-  isConfirmStatusModalOpen.value = true
-}
-
-// Proceso real de cambio después de confirmar en el modal
-const processToggleEstado = async () => {
-  const { ruta, nuevoEstado } = statusConfirmData.value
-  if (!ruta || !selectedGroup.value?.id) return
-  
-  isConfirmStatusModalOpen.value = false
-  updatingEstadoId.value = ruta.id_ruta
-  
-  try {
-    const result = await setRutaEstadoApi(
-      selectedGroup.value.id,
-      ruta.id_ruta,
-      nuevoEstado
-    )
-    
-    if (result.done) {
-      // Actualizar el estado localmente
-      const index = routesList.value.findIndex(r => r.id_ruta === ruta.id_ruta)
-      if (index !== -1) {
-        routesList.value[index] = {
-          ...routesList.value[index]!,
-          estado: nuevoEstado ? 'Habilitada' : 'Deshabilitada'
-        }
-      }
-    } else {
-      alert(result.message || 'Error al cambiar el estado de la ruta')
-    }
-  } catch (error) {
-    console.error('Error toggling ruta estado:', error)
-    alert('Error de red al cambiar el estado de la ruta')
-  } finally {
-    updatingEstadoId.value = null
-  }
-}
-
-// Modal and Form State
-const isModalOpen = ref(false)
+// Form State
 const isSubmitting = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 const formData = ref({ nombre: '', descripcion: '', color: '#60a5fa' })
@@ -892,55 +434,49 @@ const initPickr = async () => {
   })
 }
 
-const openCreateModal = () => {
-  modalMessage.value = null
-  formData.value = { nombre: '', descripcion: '', color: '#60a5fa' }
-  paradasTemporales.value = []
-  clearParadasMarkers()
-  isEditMode.value = false
-  editingRutaId.value = null
-  isModalOpen.value = true
-  initPickr()
-}
-
-const openEditModal = async (ruta: Ruta) => {
-  modalMessage.value = null
-  isEditMode.value = true
-  editingRutaId.value = ruta.id_ruta
+const loadRouteData = async (id_ruta: string) => {
+  if (!selectedGroup.value?.id) return
   
-  // Cargar paradas y color de la ruta
-  if (selectedGroup.value?.id) {
-    try {
-      const detalle = await fetchRutaDetallesApi(selectedGroup.value.id, ruta.id_ruta)
-      if (detalle?.paradas) {
+  isSubmitting.value = true
+  try {
+    const detalle = await fetchRutaDetallesApi(selectedGroup.value.id, id_ruta)
+    if (detalle) {
+      isEditMode.value = true
+      editingRutaId.value = id_ruta
+      formData.value = {
+        nombre: detalle.nombre,
+        descripcion: detalle.descripcion,
+        color: detalle.color || '#60a5fa'
+      }
+      
+      if (detalle.paradas) {
         paradasTemporales.value = detalle.paradas.map(p => ({
           lat: parseFloat(p.lat),
           lon: parseFloat(p.lon),
           tipo: p.id_tipo_parada
         }))
-      } else {
-        paradasTemporales.value = []
       }
-      // Usar el color de la ruta o default
-      formData.value = { 
-        nombre: ruta.nombre, 
-        descripcion: ruta.descripcion, 
-        color: detalle?.color || '#60a5fa' 
+      
+      // Inicializar marcadores en el mapa si hay paradas
+      clearParadasMarkers()
+      if (paradasTemporales.value.length > 0 && map.value) {
+        paradasTemporales.value.forEach((p, idx) => {
+          const tipoNombre = tiposParada.value.find(t => t.id_tipo === p.tipo)?.nombre || 'Parada'
+          addParadaToMap(p.lat, p.lon, tipoNombre, idx)
+        })
+        if (paradasTemporales.value.length >= 2) {
+          recalculateRouteFromIndex(0)
+        }
       }
-    } catch (error) {
-      console.error('Error cargando detalles para edición:', error)
-      paradasTemporales.value = []
-      formData.value = { 
-        nombre: ruta.nombre, 
-        descripcion: ruta.descripcion, 
-        color: '#60a5fa' 
-      }
+      
+      initPickr()
     }
+  } catch (error) {
+    console.error('Error cargando detalles para edición:', error)
+    showModalMessage(t('rutas.alertNetErrorUpdate'), 'error')
+  } finally {
+    isSubmitting.value = false
   }
-  
-  clearParadasMarkers()
-  isModalOpen.value = true
-  initPickr()
 }
 
 const startAddingParadas = async () => {
@@ -951,7 +487,6 @@ const startAddingParadas = async () => {
       console.error("Error fetching tipos parada", e)
     }
   }
-  isModalOpen.value = false
   isAddingParadas.value = true
 
   // Asegurar que el mapa esté limpio antes de redibujar
@@ -971,7 +506,6 @@ const startAddingParadas = async () => {
 
 const finishAddingParadas = () => {
   isAddingParadas.value = false
-  isModalOpen.value = true
   initPickr()
 }
 
@@ -1019,16 +553,12 @@ const saveRuta = async () => {
       showModalMessage(isEditMode.value ? t('rutas.alertSuccessUpdate') : t('rutas.alertSuccessCreate'), 'success')
       clearParadasMarkers()
       paradasTemporales.value = []
-      // Destruir pickr antes de cerrar
       if (pickrInstance) {
         pickrInstance.destroyAndRemove()
         pickrInstance = null
       }
-      await fetchRoutes()
       setTimeout(() => { 
-        isModalOpen.value = false 
-        isEditMode.value = false
-        editingRutaId.value = null
+        router.push('/rutas')
       }, 1500)
     } else {
       showModalMessage(data.message || (isEditMode.value ? t('rutas.alertErrorUpdate') : t('rutas.alertErrorCreate')), 'error')
@@ -1087,9 +617,11 @@ const clearParadasMarkers = () => {
   }
 }
 
-// Reconectar la recolección de rutas cuando cambia el grupo actual
-watch(() => selectedGroup.value?.id, () => {
-  fetchRoutes()
+// Cargar datos cuando cambia el grupo o al montar
+watch(() => selectedGroup.value?.id, (newId) => {
+  if (newId && route.params.id) {
+    loadRouteData(route.params.id as string)
+  }
 }, { immediate: true })
 
 
@@ -1726,11 +1258,19 @@ onMounted(() => {
     attributeFilter: ['class']
   })
   loadGoogleMapsScript()
+  initPickr()
+  
+  if (route.params.id && selectedGroup.value?.id) {
+    loadRouteData(route.params.id as string)
+  }
 })
 
 onUnmounted(() => {
   htmlClassObserver.value?.disconnect()
   htmlClassObserver.value = null
+  if (pickrInstance) {
+    pickrInstance.destroyAndRemove()
+  }
 })
 </script>
 
@@ -1764,11 +1304,13 @@ onUnmounted(() => {
   background: rgba(93, 166, 252, 0.4);
 }
 
-.table-rows-enter-active, .table-rows-leave-active, .table-rows-move, .list-rows-enter-active, .list-rows-leave-active, .list-rows-move { transition: all 0.24s ease; }
-.table-rows-enter-from, .table-rows-leave-to, .list-rows-enter-from, .list-rows-leave-to { opacity: 0; transform: translateY(8px); }
-
-.fade-cross-enter-active, .fade-cross-leave-active { transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-.fade-cross-enter-from, .fade-cross-leave-to { opacity: 0; }
+.loader-fade-enter-active, .loader-fade-leave-active, .message-fade-enter-active, .message-fade-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.loader-fade-enter-from, .loader-fade-leave-to, .message-fade-enter-from, .message-fade-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
 
 .tutorial-fade-enter-active { transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .tutorial-fade-leave-active { transition: all 0.3s ease; }
@@ -1779,22 +1321,6 @@ onUnmounted(() => {
 .panel-float-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .panel-float-enter-from { opacity: 0; transform: translateY(24px) scale(0.95); }
 .panel-float-leave-to { opacity: 0; transform: translateY(16px) scale(0.97); }
-
-.pagination-btn {
-  @apply inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-semibold
-    text-slate-500 dark:text-slate-400
-    hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white
-    disabled:opacity-30 disabled:cursor-not-allowed
-    transition-all duration-150 select-none;
-}
-
-.pagination-btn--active {
-  @apply bg-[#3b82f6] text-white hover:bg-[#2563eb] dark:hover:bg-[#2563eb] hover:text-white dark:hover:text-white !important;
-}
-
-.pagination-ellipsis {
-  @apply inline-flex items-center justify-center w-8 h-8 text-[13px] text-slate-400 dark:text-slate-600 select-none;
-}
 
 .scrollbar-hide::-webkit-scrollbar {
   display: none;

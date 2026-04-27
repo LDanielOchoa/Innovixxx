@@ -11,7 +11,8 @@ import {
   Alert01Icon,
   Sorting05Icon,
   CheckmarkCircle01Icon,
-  Loading01Icon
+  Loading01Icon,
+  MoreHorizontalIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { useRoute, useRouter } from 'vue-router'
@@ -22,7 +23,6 @@ import Column from 'primevue/column'
 import Avatar from 'primevue/avatar'
 
 
-import BaseModal from '../../../components/common/BaseModal.vue'
 import PermissionsAssignModal from '../../../components/roles/PermissionsAssignModal.vue'
 import { createRoleApi, fetchRolesApi, updateRoleApi } from '../services/roles.api'
 import type { Role } from '../types/role'
@@ -31,11 +31,16 @@ import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 
-// Shared Components
-import AppButton from '../../../components/common/AppButton.vue'
-import AppPageHeader from '../../../components/common/AppPageHeader.vue'
-import AppSearch from '../../../components/common/AppSearch.vue'
-import AppTableCard from '../../../components/common/AppTableCard.vue'
+// Shared Components (Premium UI)
+import AppButton from '../../../components/ui/AppButton.vue'
+import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
+import AppSearch from '../../../components/ui/AppSearch.vue'
+import AppTableCard from '../../../components/ui/AppTableCard.vue'
+import AppModal from '../../../components/ui/AppModal.vue'
+import AppPagination from '../../../components/ui/AppPagination.vue'
+import AppTable from '../../../components/ui/AppTable.vue'
+import AppBadge from '../../../components/ui/AppBadge.vue'
+import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -101,42 +106,6 @@ const initialPage = typeof route.query.page === 'string' ? Number.parseInt(route
 const currentPage = ref(Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1)
 const itemsPerPage = 10
 
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredRoles.value.length / itemsPerPage)))
-
-const visiblePages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | '...')[] = []
-  if (current <= 4) {
-    pages.push(1, 2, 3, 4, 5, '...', total)
-  } else if (current >= total - 3) {
-    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total)
-  } else {
-    pages.push(1, '...', current - 1, current, current + 1, '...', total)
-  }
-  return pages
-})
-
-const goToPage = (p: number | '...') => {
-  if (typeof p !== 'number') return
-  currentPage.value = p
-}
-
-const prevPage = () => { if (currentPage.value > 1) currentPage.value-- }
-const nextPage = () => { if (currentPage.value < totalPages.value) currentPage.value++ }
-
-watch([searchQuery, sortKey, sortOrder, currentPage], () => {
-  const nextQuery: Record<string, string> = {}
-  
-  if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
-  if (sortKey.value !== 'nombre') nextQuery.sort = String(sortKey.value)
-  if (sortOrder.value !== 'asc') nextQuery.order = sortOrder.value
-  if (currentPage.value > 1) nextQuery.page = String(currentPage.value)
-
-  void router.replace({ query: nextQuery })
-})
-
 const formData = ref({ nombre: '', descripcion: '' })
 const currentEditId = ref<string | null>(null)
 
@@ -146,21 +115,7 @@ const filteredRoles = computed(() => {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(r => r.nombre.toLowerCase().includes(query) || (r.descripcion && r.descripcion.toLowerCase().includes(query)))
   }
-  result.sort((a, b) => {
-    let aValue = a[sortKey.value] || ''
-    let bValue = b[sortKey.value] || ''
-    if (typeof aValue === 'string') aValue = aValue.toLowerCase()
-    if (typeof bValue === 'string') bValue = bValue.toLowerCase()
-    if (aValue < bValue) return sortOrder.value === 'asc' ? -1 : 1
-    if (aValue > bValue) return sortOrder.value === 'asc' ? 1 : -1
-    return 0
-  })
   return result
-})
-
-const paginatedRoles = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return filteredRoles.value.slice(start, start + itemsPerPage)
 })
 
 const toggleSort = (key: keyof Role) => {
@@ -172,6 +127,7 @@ const toggleSort = (key: keyof Role) => {
   }
   currentPage.value = 1
 }
+
 
 const exportToExcel = () => {
   const dataToExport = filteredRoles.value.map(r => ({
@@ -317,31 +273,31 @@ const onPageChange = (event: any) => {
       </template>
     </AppPageHeader>
 
-    <!-- Toolbar de Filtros -->
-    <AppSearch 
-      v-model="searchQuery" 
-      :placeholder="t('roles.searchPlaceholder')" 
-    />
+    <!-- Área de Búsqueda y Filtros Simplificada -->
+    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
+      <div class="flex-1 w-full max-w-2xl">
+        <AppSearch 
+          v-model="searchQuery" 
+          :placeholder="t('roles.searchPlaceholder', 'Buscar por nombre o descripción...')"
+        />
+      </div>
+    </div>
 
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
-      <DataTable 
-        :value="paginatedRoles" 
+      <AppTable 
+        :value="filteredRoles" 
         :loading="loading"
-        responsiveLayout="scroll"
-        class="modern-table"
-        dataKey="id_role"
-        @sort="toggleSort($event.sortField)"
-        :sortField="sortKey"
-        :sortOrder="sortOrder === 'asc' ? 1 : -1"
-        :pt="{
-          root: { class: 'bg-transparent' },
-          table: { class: 'w-full border-collapse' },
-          thead: { class: 'bg-[#09090b]/50 dark:bg-[#09090b]/50 border-b border-white/5' },
-          tbody: { class: 'divide-y divide-white/5' },
-          bodyrow: { class: 'hover:bg-white/[0.02] transition-colors' }
-        }"
+        :rows="itemsPerPage"
+        :first="(currentPage - 1) * itemsPerPage"
+        removableSort
+        :empty-message="t('roles.noRoles', 'No se encontraron roles')"
       >
+        <template #empty-icon>
+          <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
+        </template>
+        <template #empty-subtitle>{{ t('roles.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+
         <Column field="nombre" :header="t('roles.colRole')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
@@ -358,114 +314,67 @@ const onPageChange = (event: any) => {
 
         <Column field="is_admin" :header="t('roles.colType')" sortable>
           <template #body="{ data }">
-            <div class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border"
-                 :class="data.is_admin ? 'bg-blue-500/5 text-[#3b82f6] border-[#3b82f6]/20' : 'bg-slate-500/5 text-slate-400 border-slate-500/10'">
-              {{ data.is_admin ? $t('roles.typeAdmin') : $t('roles.typeStandard') }}
-            </div>
+            <AppBadge 
+              :variant="data.is_admin ? 'glass' : 'glass'"
+              :class="data.is_admin ? '!text-[#3b82f6] !bg-[#3b82f6]/10 !border-[#3b82f6]/20' : '!text-slate-400 !bg-slate-500/5 !border-slate-500/10'"
+            >
+              <div class="flex items-center gap-2">
+                <HugeiconsIcon :icon="Shield02Icon" :size="12" :stroke-width="2.5" />
+                <span>{{ data.is_admin ? $t('roles.typeAdmin') : $t('roles.typeStandard') }}</span>
+              </div>
+            </AppBadge>
           </template>
         </Column>
 
-        <Column headerStyle="text-align: right" bodyStyle="text-align: right" :header="t('roles.colActions')">
+        <Column :header="t('roles.colActions')" headerStyle="width: 14rem">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-2">
+            <div class="flex items-center justify-end gap-3 py-1">
               <button 
                 @click="openPermissionsModal(data)" 
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-[#0F1115]/40 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all active:scale-90 shadow-sm"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 hover:border-[#3b82f6]/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
                 :title="t('roles.btnAssignPermissions')"
               >
                 <HugeiconsIcon :icon="Shield02Icon" :size="16" :stroke-width="2" />
               </button>
               <button 
                 @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-[#0F1115]/40 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all active:scale-90 shadow-sm"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 hover:border-[#3b82f6]/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                title="Editar"
               >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.2" />
+                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
               </button>
               <button 
                 @click="confirmDelete(data.id_role)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-red-500/5 border border-slate-200 dark:border-red-500/10 text-slate-500 dark:text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-90 shadow-sm"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-red-500/5 border border-slate-200 dark:border-red-500/10 text-slate-400 dark:text-red-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                title="Eliminar"
               >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.2" />
+                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
+              </button>
+              <button class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-300 dark:text-slate-600 hover:text-[#3b82f6] transition-all duration-300 hover:bg-slate-50 dark:hover:bg-white/5">
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
               </button>
             </div>
           </template>
         </Column>
+      </AppTable>
 
-        <template #empty>
-          <div class="px-6 py-20 text-center">
-            <div class="flex flex-col items-center justify-center">
-              <div class="w-20 h-20 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
-                <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
-              </div>
-              <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight mb-2">{{ t('roles.noRoles') }}</h3>
-              <p class="text-sm text-slate-400 dark:text-slate-500 font-medium">{{ t('roles.trySearch') }}</p>
-            </div>
-          </div>
-        </template>
-      </DataTable>
-
-      <!-- Paginador -->
-      <div class="px-6 py-3.5 border-t border-white/5 flex items-center justify-between gap-4 flex-wrap">
-        <!-- Info -->
-        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
-          {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredRoles.length) }}
-          <span class="text-slate-300 dark:text-slate-600">de</span>
-          {{ filteredRoles.length }}
-        </p>
-
-        <!-- Controles -->
-        <div v-if="totalPages > 1" class="flex items-center gap-1">
-          <!-- Prev -->
-          <button
-            @click="prevPage"
-            :disabled="currentPage === 1"
-            class="pagination-btn"
-            aria-label="Página anterior"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-
-          <!-- Pages -->
-          <template v-for="p in visiblePages" :key="p === '...' ? `ellipsis-${Math.random()}` : p">
-            <span v-if="p === '...'" class="pagination-ellipsis">…</span>
-            <button
-              v-else
-              @click="goToPage(p)"
-              :class="['pagination-btn', currentPage === p ? 'pagination-btn--active' : '']"
-            >{{ p }}</button>
-          </template>
-
-          <!-- Next -->
-          <button
-            @click="nextPage"
-            :disabled="currentPage === totalPages"
-            class="pagination-btn"
-            aria-label="Página siguiente"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
+      <!-- Paginación Premium -->
+      <AppPagination 
+        v-model:current-page="currentPage"
+        :total-records="filteredRoles.length"
+        :rows-per-page="itemsPerPage"
+      />
     </AppTableCard>
 
     <!-- Modales -->
-    <BaseModal 
+    <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
       :title="$t('common.confirmDeleteTitle')"
-      :confirm-text="$t('common.delete')"
-      :cancel-text="$t('common.cancel')"
-      confirmButtonClass="bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-500/20 border-red-500/20"
+      :message="$t('common.confirmDeleteMsg')"
       @confirm="deleteRole"
-    >
-      <template #icon>
-        <HugeiconsIcon :icon="Alert01Icon" :size="20" class="text-red-500" />
-      </template>
-      <p class="text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
-        {{ $t('common.confirmDeleteMsg') }}
-      </p>
-    </BaseModal>
+    />
 
-    <BaseModal
+    <AppModal
       v-model:isOpen="isModalOpen"
       :title="modalMode==='crear' ? $t('roles.modalCreateTitle') : $t('roles.modalEditTitle')"
       :confirmText="modalMode==='crear' ? $t('roles.btnSave') : $t('roles.btnUpdate')"
@@ -524,7 +433,7 @@ const onPageChange = (event: any) => {
           </div>
         </div>
       </form>
-    </BaseModal>
+    </AppModal>
 
     <PermissionsAssignModal
       :isOpen="isPermissionsModalOpen"
@@ -537,9 +446,7 @@ const onPageChange = (event: any) => {
 </template>
 
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
+<style scoped>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -548,30 +455,6 @@ const onPageChange = (event: any) => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.modern-table .p-datatable-header-cell {
-  @apply px-6 py-4 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-none select-none !important;
-}
-
-.modern-table .p-datatable-column-title {
-  @apply tracking-[0.15em] !important;
-}
-
-.pagination-btn {
-  @apply inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-semibold
-    text-slate-500 dark:text-slate-400
-    hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white
-    disabled:opacity-30 disabled:cursor-not-allowed
-    transition-all duration-150 select-none;
-}
-
-.pagination-btn--active {
-  @apply bg-[#3b82f6] text-white hover:bg-[#2563eb] dark:hover:bg-[#2563eb] hover:text-white dark:hover:text-white !important;
-}
-
-.pagination-ellipsis {
-  @apply inline-flex items-center justify-center w-8 h-8 text-[13px] text-slate-400 dark:text-slate-600 select-none;
 }
 
 .scrollbar-hide::-webkit-scrollbar {

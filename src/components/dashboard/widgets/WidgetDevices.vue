@@ -53,13 +53,23 @@ onUnmounted(() => {
 <template>
   <WidgetCard :title="t('dashboard.widgets.devices.title')" :icon="CpuIcon" :loading="isLoading">
     <div class="flex justify-between items-stretch gap-4">
-      <div class="flex-1 bg-white/50 dark:bg-[#13161C]/60 rounded-xl border border-slate-200/60 dark:border-white/5 p-3 text-center transition-transform duration-300 hover:scale-[1.02] shadow-sm">
-        <p class="text-3xl font-black text-[#3b82f6] dark:text-[#5da6fc] leading-none tracking-tighter">{{linkedDevices.online}}</p>
-        <p class="text-[8px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mt-2 font-black">{{ t('dashboard.widgets.devices.online') }}</p>
+      <div class="flex-1 bg-white/50 dark:bg-[#13161C]/60 rounded-xl border border-slate-200/60 dark:border-white/5 p-3.5 text-center transition-all duration-300 hover:scale-[1.02] hover:bg-white dark:hover:bg-white/10 shadow-sm group/device">
+        <div class="flex flex-col items-center">
+          <p class="text-3xl font-black text-[#3b82f6] dark:text-[#5da6fc] leading-none tracking-tighter group-hover/device:scale-110 transition-transform duration-500">{{linkedDevices.online}}</p>
+          <div class="flex items-center gap-1.5 mt-2.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] font-black">{{ t('dashboard.widgets.devices.online') }}</p>
+          </div>
+        </div>
       </div>
-      <div class="flex-1 bg-white/50 dark:bg-[#13161C]/60 rounded-xl border border-slate-200/60 dark:border-white/5 p-3 text-center transition-transform duration-300 hover:scale-[1.02] shadow-sm">
-        <p class="text-3xl font-black text-slate-700 dark:text-white leading-none tracking-tighter">{{linkedDevices.total}}</p>
-        <p class="text-[8px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mt-2 font-black">{{ t('dashboard.widgets.devices.linked') }}</p>
+      <div class="flex-1 bg-white/50 dark:bg-[#13161C]/60 rounded-xl border border-slate-200/60 dark:border-white/5 p-3.5 text-center transition-all duration-300 hover:scale-[1.02] hover:bg-white dark:hover:bg-white/10 shadow-sm group/device">
+        <div class="flex flex-col items-center">
+          <p class="text-3xl font-black text-slate-700 dark:text-white leading-none tracking-tighter group-hover/device:scale-110 transition-transform duration-500">{{linkedDevices.total}}</p>
+          <div class="flex items-center gap-1.5 mt-2.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+            <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em] font-black">{{ t('dashboard.widgets.devices.linked') }}</p>
+          </div>
+        </div>
       </div>
     </div>
   </WidgetCard>

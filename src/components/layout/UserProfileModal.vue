@@ -17,13 +17,16 @@ import {
   Mail01Icon,
   CheckmarkCircle01Icon,
   RotateRight01Icon,
-  RotateLeft01Icon
+  RotateLeft01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../stores/group.store'
+import { useAuthStore } from '../../stores/auth.store'
 import { storeToRefs } from 'pinia'
 import { useI18n } from 'vue-i18n'
 import type { PropType } from 'vue'
 import { apiClient } from '../../utils/api-client'
+import { CookieAuth } from '../../utils/cookie-auth'
 import AppInput from '../common/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
 import { obtenerUrlImagen } from '../../utils/imagenes'
@@ -31,6 +34,7 @@ import { Cropper, CircleStencil } from 'vue-advanced-cropper'
 import 'vue-advanced-cropper/dist/style.css'
 
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 
@@ -171,6 +175,12 @@ const handleSaveProfile = async () => {
     formData.append('nombre', profileForm.nombre)
     formData.append('email', profileForm.email)
     
+    // Incluir id_grupo si está disponible, ya que muchos endpoints lo requieren en el body
+    const idGrupo = selectedGroup.value?.id || localStorage.getItem('auth-grupo-id')
+    if (idGrupo) {
+      formData.append('id_grupo', idGrupo)
+    }
+    
     if (profileForm.password && profileForm.new_password) {
       formData.append('password', profileForm.password)
       formData.append('new_password', profileForm.new_password)
@@ -186,11 +196,32 @@ const handleSaveProfile = async () => {
     })
 
     if (response.done) {
+      // SI EL BACKEND DEVUELVE UN NUEVO TOKEN (por cambio de email/pass), LO GUARDAMOS
+      // Esto evita que la siguiente petición falle con 401 y saque al usuario
+      if (response.data?.token) {
+        CookieAuth.setToken(response.data.token)
+      }
+
+      // Actualizar el store localmente para que los cambios sean instantáneos y no dependan de fetchUserProfile
+      if (response.data) {
+        authStore.userData.nombre = profileForm.nombre
+        authStore.userData.email = profileForm.email
+        if (response.data.foto) {
+          authStore.userData.foto = response.data.foto
+        }
+      }
+
       modalMessage.value = { text: response.message || t('common.successUpdate'), type: 'success' }
+      
+      // Emitimos para que otros componentes se enteren, pero ya actualizamos el store
       emit('profileUpdated')
+      
+      // Autoclear success message after 5 seconds
       setTimeout(() => {
-        emit('update:isOpen', false)
-      }, 1500)
+        if (modalMessage.value?.type === 'success') {
+          modalMessage.value = null
+        }
+      }, 5000)
     } else {
       modalMessage.value = { text: response.message || t('common.error'), type: 'error' }
     }
@@ -215,7 +246,24 @@ const handleSaveProfile = async () => {
       <HugeiconsIcon :icon="CpuIcon" :size="22" class="text-[#3b82f6]" />
     </template>
     
-    <div class="flex flex-col gap-8 relative p-1">
+    <div class="flex flex-col gap-8 relative p-1 min-h-[400px]">
+      <!-- OVERLAY DE CARGA PREMIUM -->
+      <Transition name="fade">
+        <div v-if="saving" class="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-[32px] transition-all duration-300">
+          <div class="relative">
+            <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+            <HugeiconsIcon :icon="Loading03Icon" :size="48" class="text-[#3b82f6] animate-spin relative z-10" />
+          </div>
+          <div class="mt-6 flex flex-col items-center animate-fade-in">
+             <span class="text-xs font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('common.saving') }}</span>
+             <div class="flex gap-1">
+               <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+               <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+               <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce"></span>
+             </div>
+          </div>
+        </div>
+      </Transition>
       <!-- SKELETON STATE -->
       <div v-if="isInitializing" class="space-y-10 animate-pulse">
         <div class="flex flex-col md:flex-row gap-10 items-center md:items-start">
@@ -322,15 +370,17 @@ const handleSaveProfile = async () => {
             </div>
           </div>
 
-          <!-- Feedback Messages -->
-          <Transition name="fade">
-            <div v-if="modalMessage" 
-                 class="flex items-center gap-3 p-4 rounded-2xl text-sm font-bold shadow-sm border animate-fade-in-up"
-                 :class="modalMessage.type === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' : 'bg-[#3b82f6]/10 text-[#3b82f6] border-[#3b82f6]/20'">
-              <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : CheckmarkCircle01Icon" :size="20" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
+          <!-- Feedback Messages Container (Fixed Height to avoid Layout Shift) -->
+          <div class="h-16 flex items-center">
+            <Transition name="fade">
+              <div v-if="modalMessage" 
+                   class="w-full flex items-center gap-3 p-4 rounded-2xl text-sm font-bold shadow-sm border animate-fade-in-up"
+                   :class="modalMessage.type === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' : 'bg-[#3b82f6]/10 text-[#3b82f6] border-[#3b82f6]/20'">
+                <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : CheckmarkCircle01Icon" :size="20" />
+                {{ modalMessage.text }}
+              </div>
+            </Transition>
+          </div>
         </div>
       </div>
 
@@ -436,8 +486,19 @@ const handleSaveProfile = async () => {
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: #2A313A; }
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
-.fade-enter-active, .fade-leave-active { transition: all 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: scale(0.95); }
+.fade-enter-active, .fade-leave-active { 
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+}
+.fade-enter-from, .fade-leave-to { 
+  opacity: 0; 
+  transform: scale(1.05);
+  backdrop-filter: blur(0px);
+}
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+  backdrop-filter: blur(12px);
+}
 
 /* Estilos personalizados para el Cropper */
 :deep(.vue-advanced-cropper) {

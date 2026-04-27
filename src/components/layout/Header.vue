@@ -216,20 +216,28 @@ const refreshPage = async () => {
           <div class="relative">
             <button 
               @click="toggleMenu"
-              class="flex items-center gap-3 transition-all duration-300 outline-none px-4 py-2 rounded-2xl group/btn hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95"
-              :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/10' : ''"
+              class="flex items-center gap-4 transition-all duration-300 outline-none p-1.5 pr-4 rounded-[22px] group/btn hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+              :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/10 border-slate-200 dark:border-white/10' : ''"
             >
-              <span class="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tight truncate max-w-[200px] md:max-w-xs leading-none">
-                {{ groupStore.selectedGroup.nombre }}
-              </span>
-              <HugeiconsIcon 
-                v-if="groups.length > 1"
-                :icon="ArrowDown01Icon" 
-                :size="18" 
-                :stroke-width="3"
-                class="text-slate-300 dark:text-slate-500 transition-all duration-500 group-hover/btn:text-[#3b82f6] dark:group-hover/btn:text-[#5da6fc]"
-                :class="{ 'rotate-180': isMenuOpen }"
-              />
+              <!-- Espacio para Foto de Grupo -->
+              <div class="w-11 h-11 rounded-[16px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-sm group-hover/btn:scale-105 transition-transform duration-500 overflow-hidden">
+                <HugeiconsIcon :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
+                <!-- v-if="groupStore.selectedGroup.foto" <img ... /> -->
+              </div>
+
+              <div class="flex items-center gap-3">
+                <span class="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tighter truncate max-w-[200px] md:max-w-xs leading-none pt-0.5">
+                  {{ groupStore.selectedGroup.nombre }}
+                </span>
+                <HugeiconsIcon 
+                  v-if="groups.length > 1"
+                  :icon="ArrowDown01Icon" 
+                  :size="16" 
+                  :stroke-width="3"
+                  class="text-slate-300 dark:text-slate-500 transition-all duration-500 group-hover/btn:text-[#3b82f6] dark:group-hover/btn:text-[#5da6fc]"
+                  :class="{ 'rotate-180': isMenuOpen }"
+                />
+              </div>
             </button>
 
             <!-- Dropdown Menu Glassmorphic -->
@@ -254,13 +262,15 @@ const refreshPage = async () => {
                   </div>
                   
                   <!-- Buscador Minimalista -->
-                  <div v-if="groups.length > 5" class="relative">
-                    <HugeiconsIcon :icon="Search01Icon" :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <div v-if="groups.length > 5" class="relative group/search">
+                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within/search:text-[#3b82f6] transition-colors">
+                      <HugeiconsIcon :icon="Search01Icon" :size="16" />
+                    </div>
                     <input 
                       v-model="searchQuery"
                       type="text"
-                      :placeholder="t('header.searchPlaceholder') || 'Buscar...'"
-                      class="w-full bg-slate-50 dark:bg-white/5 border-none rounded-xl pl-10 pr-4 py-2.5 text-[13px] font-medium text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-[#3b82f6]/20 transition-all"
+                      :placeholder="t('header.searchPlaceholder')"
+                      class="w-full bg-slate-50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 rounded-xl pl-12 pr-4 py-3 text-[13px] font-medium text-slate-700 dark:text-white outline-none focus:border-[#3b82f6]/50 transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                     />
                   </div>
                 </div>
@@ -283,18 +293,23 @@ const refreshPage = async () => {
                       v-for="group in filteredGroups" 
                       :key="group.id"
                       @click="selectGroup(group)"
-                      class="w-full flex items-center justify-between px-4 py-3 text-sm transition-all duration-200 rounded-xl outline-none group/item"
+                      class="w-full flex items-center justify-between px-3 py-2.5 text-sm transition-all duration-300 rounded-xl outline-none group/item border border-transparent"
                       :class="[
                         groupStore.selectedGroup.id === group.id 
-                          ? 'bg-[#3b82f6]/5 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold' 
+                          ? 'bg-[#3b82f6]/5 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/10' 
                           : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
                       ]"
                     >
                       <div class="flex items-center gap-3">
-                        <HugeiconsIcon :icon="UserGroupIcon" :size="18" :stroke-width="2" class="opacity-40 group-hover/item:opacity-100 transition-opacity" />
-                        <span class="truncate max-w-[200px] tracking-tight">{{ group.nombre }}</span>
+                        <div class="w-9 h-9 rounded-lg bg-slate-50 dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover/item:text-[#3b82f6] transition-all duration-300 group-hover/item:scale-105">
+                           <HugeiconsIcon :icon="UserGroupIcon" :size="16" />
+                        </div>
+                        <span class="truncate max-w-[180px] font-bold tracking-tight">{{ group.nombre }}</span>
                       </div>
-                      <HugeiconsIcon v-if="groupStore.selectedGroup.id === group.id" :icon="Tick01Icon" :size="18" :stroke-width="3" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                      
+                      <div v-if="groupStore.selectedGroup.id === group.id" class="w-6 h-6 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                        <HugeiconsIcon :icon="Tick01Icon" :size="14" :stroke-width="4" />
+                      </div>
                     </button>
                   </template>
                 </div>

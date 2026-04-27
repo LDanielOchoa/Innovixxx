@@ -6,7 +6,10 @@ export const headerMessages = {
     playback: 'Reproducción',
     alarms: 'Alarmas',
     services: 'Servicios',
-    reports: 'Reportes'
+    reports: 'Reportes',
+    tracking: 'Rastreo',
+    searchPlaceholder: 'Buscar grupo...',
+    noResults: 'No se encontraron grupos'
   },
   en: {
     availableGroups: 'Available Groups',
@@ -15,6 +18,9 @@ export const headerMessages = {
     playback: 'Playback',
     alarms: 'Alarms',
     services: 'Services',
-    reports: 'Reports'
+    reports: 'Reports',
+    tracking: 'Tracking',
+    searchPlaceholder: 'Search group...',
+    noResults: 'No groups found'
   }
 }

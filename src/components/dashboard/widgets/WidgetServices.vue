@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WidgetCard from '../ui/WidgetCard.vue'
 import { Calendar01Icon, ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 
 const { t } = useI18n()
 
@@ -68,7 +69,7 @@ onUnmounted(() => {
           <option value="week">{{ t('dashboard.widgets.services.filter.week') }}</option>
           <option value="month">{{ t('dashboard.widgets.services.filter.month') }}</option>
         </select>
-        <ArrowDown01Icon class="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+        <HugeiconsIcon :icon="ArrowDown01Icon" :size="12" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       </div>
       
       <!-- Grid de Estados -->

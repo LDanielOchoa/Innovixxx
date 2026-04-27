@@ -67,9 +67,31 @@ const router = createRouter({
           component: () => import('../domains/grupos/views/GruposListView.vue')
         },
         {
+          path: 'grupos/nuevo',
+          name: 'grupos-crear',
+          component: () => import('../domains/grupos/views/GrupoFormView.vue')
+        },
+        {
+          path: 'grupos/:id/editar',
+          name: 'grupos-editar',
+          component: () => import('../domains/grupos/views/GrupoFormView.vue'),
+          props: true
+        },
+        {
           path: 'vehiculos',
           name: 'vehiculos',
           component: () => import('../domains/vehiculos/views/VehiculosListView.vue')
+        },
+        {
+          path: 'vehiculos/nuevo',
+          name: 'vehiculos-crear',
+          component: () => import('../domains/vehiculos/views/VehiculoFormView.vue')
+        },
+        {
+          path: 'vehiculos/:id/editar',
+          name: 'vehiculos-editar',
+          component: () => import('../domains/vehiculos/views/VehiculoFormView.vue'),
+          props: true
         },
         {
           path: 'escoltas',
@@ -77,14 +99,47 @@ const router = createRouter({
           component: () => import('../domains/escoltas/views/EscoltasListView.vue')
         },
         {
+          path: 'escoltas/nuevo',
+          name: 'escoltas-crear',
+          component: () => import('../domains/escoltas/views/EscoltaFormView.vue')
+        },
+        {
+          path: 'escoltas/:id/editar',
+          name: 'escoltas-editar',
+          component: () => import('../domains/escoltas/views/EscoltaFormView.vue'),
+          props: true
+        },
+        {
           path: 'hardware',
           name: 'hardware',
           component: () => import('../domains/hardware/views/HardwareListView.vue')
         },
         {
+          path: 'hardware/nuevo',
+          name: 'hardware-crear',
+          component: () => import('../domains/hardware/views/HardwareFormView.vue')
+        },
+        {
+          path: 'hardware/:id/editar',
+          name: 'hardware-editar',
+          component: () => import('../domains/hardware/views/HardwareFormView.vue'),
+          props: true
+        },
+        {
           path: 'rutas',
           name: 'rutas',
-          component: () => import('../domains/rutas/views/RutasView.vue')
+          component: () => import('../domains/rutas/views/RutasListView.vue')
+        },
+        {
+          path: 'rutas/nueva',
+          name: 'rutas-crear',
+          component: () => import('../domains/rutas/views/RutasFormView.vue')
+        },
+        {
+          path: 'rutas/:id/editar',
+          name: 'rutas-editar',
+          component: () => import('../domains/rutas/views/RutasFormView.vue'),
+          props: true
         }
       ]
     },

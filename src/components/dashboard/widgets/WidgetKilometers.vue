@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WidgetCard from '../ui/WidgetCard.vue'
 import { Route01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
 
 const { t } = useI18n()
 
@@ -67,7 +68,7 @@ onUnmounted(() => {
           <p class="text-xl font-black text-slate-800 dark:text-white tracking-tighter">{{kmData.total}} <span class="text-[9px] text-slate-400 dark:text-slate-600">KM</span></p>
         </div>
         <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-300 dark:text-slate-700">
-           <Route01Icon :size="18" />
+           <HugeiconsIcon :icon="Route01Icon" :size="18" />
         </div>
       </div>
 
@@ -77,7 +78,7 @@ onUnmounted(() => {
           <p class="text-xl font-black text-[#3b82f6] dark:text-[#5da6fc] tracking-tighter">{{kmData.today}} <span class="text-[9px] opacity-60">KM</span></p>
         </div>
         <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6]">
-           <Route01Icon :size="18" />
+           <HugeiconsIcon :icon="Route01Icon" :size="18" />
         </div>
       </div>
     </div>

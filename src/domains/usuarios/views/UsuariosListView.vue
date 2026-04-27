@@ -18,14 +18,6 @@ import {
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { obtenerUrlImagen } from '../../../utils/imagenes'
-
-// PrimeVue Components
-import DataTable from 'primevue/datatable'
-import Column from 'primevue/column'
-import Avatar from 'primevue/avatar'
-
-
-import BaseModal from '../../../components/common/BaseModal.vue'
 import {
   deleteUsuarioApi,
   fetchGruposApi,
@@ -37,12 +29,15 @@ import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-
-// Shared Components
 import AppButton from '../../../components/common/AppButton.vue'
 import AppPageHeader from '../../../components/common/AppPageHeader.vue'
 import AppSearch from '../../../components/common/AppSearch.vue'
 import AppTableCard from '../../../components/common/AppTableCard.vue'
+import AppTable from '../../../components/common/AppTable.vue'
+import BasePagination from '../../../components/common/BasePagination.vue'
+import AppDeleteConfirm from '../../../components/common/AppDeleteConfirm.vue'
+import Column from 'primevue/column'
+import Avatar from 'primevue/avatar'
 
 const route = useRoute()
 const router = useRouter()
@@ -257,48 +252,46 @@ const getStatusType = (usuario: Usuario) => {
         </AppButton>
       </template>
     </AppPageHeader>
-
-    <!-- Toolbar de Filtros -->
-    <AppSearch 
-      v-model="searchQuery" 
-      :placeholder="t('users.searchPlaceholder')" 
-    >
-      <template #extra>
-        <div class="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0 scrollbar-hide">
-          <button class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-white/5 border border-slate-200/50 dark:border-white/5 text-slate-400 dark:text-slate-500 text-[10px] font-black tracking-[0.1em] uppercase whitespace-nowrap hover:bg-slate-50 dark:hover:bg-white/10 transition-all active:scale-95">
-            <HugeiconsIcon :icon="FilterIcon" :size="14" />
-            <span>Filtrar por Grupo</span>
-            <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" />
-          </button>
-        </div>
-      </template>
-    </AppSearch>
-
+    <!-- Área de Búsqueda y Filtros Simplificada -->
+    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
+      <div class="flex-1 w-full max-w-2xl">
+        <AppSearch 
+          v-model="searchQuery" 
+          :placeholder="t('users.searchPlaceholder', 'Buscar por nombre o email...')"
+        />
+      </div>
+      
+      <div class="w-full md:w-auto min-w-[240px]">
+        <AppSelect 
+          v-model="selectedGroup"
+          :options="grupos.map(g => ({ label: g.nombre, value: g.id }))"
+          :placeholder="t('users.filterByGroup', 'Filtrar por Grupo')"
+        />
+      </div>
+    </div>
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
-      <DataTable 
-        :value="paginatedUsuarios" 
+      <AppTable 
+        :value="filteredUsuarios" 
         :loading="loading"
-        responsiveLayout="scroll"
-        class="modern-table"
-        :pt="{
-          root: { class: 'bg-transparent' },
-          table: { class: 'w-full border-collapse' },
-          thead: { class: 'bg-slate-50/30 dark:bg-[#13161C]/30 border-b border-slate-200/60 dark:border-white/5' },
-          tbody: { class: 'divide-y divide-slate-100/50 dark:divide-white/5' }
-        }"
+        :rows="itemsPerPage"
+        :first="(currentPage - 1) * itemsPerPage"
+        removableSort
+        :empty-message="t('users.noUsersFound', 'No se encontraron usuarios')"
       >
-        <Column field="nombre" header="Usuario" class="px-6 py-5">
+        <template #empty-icon>
+          <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
+        </template>
+        <template #empty-subtitle>{{ t('users.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+
+        <Column field="nombre" header="Usuario" sortable>
           <template #body="{ data }">
-            <div class="flex items-center gap-4 group/avatar">
-              <div class="relative">
-                <Avatar 
-                  :image="data.foto ? obtenerUrlImagen(data.foto) : undefined"
-                  :label="!data.foto ? data.nombre.charAt(0).toUpperCase() : undefined" 
-                  shape="circle" 
-                  class="w-10 h-10 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white font-black border border-white dark:border-white/10 shadow-sm transition-transform duration-300 group-hover/avatar:scale-110" 
-                />
-              </div>
+            <div class="flex items-center gap-4 py-1">
+              <AppAvatar 
+                :image="data.foto ? obtenerUrlImagen(data.foto) : undefined"
+                :label="data.nombre"
+                size="normal"
+              />
               <div class="flex flex-col">
                 <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
               </div>
@@ -306,123 +299,79 @@ const getStatusType = (usuario: Usuario) => {
           </template>
         </Column>
 
-        <Column field="email" header="Email" class="px-6 py-5">
+        <Column field="email" header="Email" sortable>
           <template #body="{ data }">
-            <div class="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors cursor-pointer group/mail">
-              <HugeiconsIcon :icon="Mail01Icon" :size="14" class="opacity-20 group-hover/mail:opacity-100" />
-              <span class="text-[13px] font-medium tracking-tight">{{ data.email }}</span>
+            <div class="flex items-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 cursor-pointer group/mail py-1">
+              <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center border border-slate-200/50 dark:border-white/5 group-hover/mail:border-[#3b82f6]/30 group-hover/mail:bg-[#3b82f6]/5">
+                <HugeiconsIcon :icon="Mail01Icon" :size="14" class="opacity-40 group-hover/mail:opacity-100 transition-opacity" />
+              </div>
+              <span class="text-[13px] font-bold tracking-tight">{{ data.email }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="lang" header="Idioma" class="px-6 py-5">
+        <Column field="lang" header="Idioma" sortable>
           <template #body="{ data }">
-            <div class="inline-flex items-center gap-3 px-3.5 py-2 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30 group/lang shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-              <img 
-                :src="data.lang.toLowerCase() === 'es' ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
-                :alt="data.lang"
-                class="w-4 h-3 object-cover rounded-[2px] shadow-sm grayscale-[0.5] group-hover/lang:grayscale-0 transition-all duration-500"
-              />
-              <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-l border-slate-300/80 dark:border-white/10 pl-3">
-                {{ data.lang }}
-              </span>
-            </div>
+            <AppBadge variant="glass" class="group/lang">
+              <div class="flex items-center gap-2">
+                <img 
+                  :src="data.lang.toLowerCase() === 'es' ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
+                  :alt="data.lang"
+                  class="w-4 h-3 object-cover rounded-[2px] shadow-sm group-hover/lang:scale-110 transition-transform duration-500"
+                />
+                <div class="w-[1px] h-3 bg-slate-200 dark:bg-white/10 mx-0.5"></div>
+                <span class="text-slate-600 dark:text-slate-300 font-bold uppercase">
+                  {{ data.lang }}
+                </span>
+              </div>
+            </AppBadge>
           </template>
         </Column>
 
-        <Column header="Acciones" class="px-6 py-5 text-right">
+        <Column header="Acciones" class="text-right">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-2">
+            <div class="flex items-center justify-end gap-3">
               <button 
                 @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-all active:scale-90 shadow-sm"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 hover:border-[#3b82f6]/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                title="Editar"
               >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.2" />
+                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
               </button>
               <button 
                 @click="confirmDelete(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-red-500/5 border border-slate-200 dark:border-red-500/10 text-slate-500 dark:text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all active:scale-90 shadow-sm"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-red-500/5 border border-slate-200 dark:border-red-500/10 text-slate-400 dark:text-red-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                title="Eliminar"
               >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.2" />
+                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
               </button>
-              <button class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-300 dark:text-slate-600 hover:text-slate-900 dark:hover:text-white transition-all">
+              <button class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-300 dark:text-slate-600 hover:text-[#3b82f6] transition-all duration-300 hover:bg-slate-50 dark:hover:bg-white/5">
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
               </button>
             </div>
           </template>
         </Column>
-
-        <template #empty>
-          <div class="py-20 flex flex-col items-center justify-center text-center px-4">
-            <div class="w-20 h-20 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
-              <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
-            </div>
-            <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight mb-2">{{ t('users.noUsersFound') }}</h3>
-            <p class="text-sm text-slate-400 dark:text-slate-500 font-medium max-w-[300px]">{{ t('users.trySearch') }}</p>
-          </div>
-        </template>
-      </DataTable>
+      </AppTable>
 
       <!-- Paginador -->
-      <div class="px-6 py-3.5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-4 flex-wrap">
-        <!-- Info -->
-        <p class="text-[11px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">
-          {{ (currentPage - 1) * itemsPerPage + 1 }}–{{ Math.min(currentPage * itemsPerPage, filteredUsuarios.length) }}
-          <span class="text-slate-300 dark:text-slate-600">de</span>
-          {{ filteredUsuarios.length }}
-        </p>
-
-        <!-- Controles -->
-        <div v-if="totalPages > 1" class="flex items-center gap-1">
-          <!-- Prev -->
-          <button
-            @click="prevPage"
-            :disabled="currentPage === 1"
-            class="pagination-btn"
-            aria-label="Página anterior"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-
-          <!-- Pages -->
-          <template v-for="p in visiblePages" :key="p === '...' ? `ellipsis-${Math.random()}` : p">
-            <span v-if="p === '...'" class="pagination-ellipsis">…</span>
-            <button
-              v-else
-              @click="goToPage(p)"
-              :class="['pagination-btn', currentPage === p ? 'pagination-btn--active' : '']"
-            >{{ p }}</button>
-          </template>
-
-          <!-- Next -->
-          <button
-            @click="nextPage"
-            :disabled="currentPage === totalPages"
-            class="pagination-btn"
-            aria-label="Página siguiente"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-      </div>
+      <AppPagination 
+        :totalRecords="filteredUsuarios.length"
+        v-model:currentPage="currentPage"
+        :rowsPerPage="itemsPerPage"
+      />
     </AppTableCard>
 
-    <!-- Modals -->
-    <BaseModal 
+    <!-- Modal de Eliminación Premium Reutilizable -->
+    <AppDeleteConfirm 
       v-model:is-open="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle')"
-      :confirm-text="$t('common.delete')"
-      :cancel-text="$t('common.cancel')"
-      confirmButtonClass="bg-red-500/10 text-red-600 dark:text-red-500 hover:bg-red-500/20 border-red-500/20"
+      :title="t('users.deleteTitle', 'Eliminar Usuario')"
+      :item-name="itemToDelete?.nombre"
       @confirm="deleteUsuario"
     >
-      <template #icon>
-        <HugeiconsIcon :icon="Alert01Icon" :size="20" class="text-red-500" />
+      <template #question>
+        {{ t('users.deleteConfirmQuestion', '¿Eliminar usuario?') }}
       </template>
-      <p class="text-sm font-medium text-slate-600 dark:text-slate-300 leading-relaxed">
-        {{ $t('common.confirmDeleteMsg') }}
-      </p>
-    </BaseModal>
+    </AppDeleteConfirm>
   </div>
 </template>
 
@@ -439,34 +388,6 @@ const getStatusType = (usuario: Usuario) => {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.modern-table .p-datatable-header-cell {
-  @apply px-6 py-4 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-none select-none !important;
-}
-
-.modern-table .p-datatable-column-title {
-  @apply tracking-[0.15em] !important;
-}
-
-.modern-table .p-datatable-loading-overlay {
-  @apply bg-white/40 dark:bg-black/40 backdrop-blur-sm !important;
-}
-
-.pagination-btn {
-  @apply inline-flex items-center justify-center min-w-[32px] h-8 px-2 rounded-lg text-[13px] font-semibold
-    text-slate-500 dark:text-slate-400
-    hover:bg-slate-100 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white
-    disabled:opacity-30 disabled:cursor-not-allowed
-    transition-all duration-150 select-none;
-}
-
-.pagination-btn--active {
-  @apply bg-[#3b82f6] text-white hover:bg-[#2563eb] dark:hover:bg-[#2563eb] hover:text-white dark:hover:text-white !important;
-}
-
-.pagination-ellipsis {
-  @apply inline-flex items-center justify-center w-8 h-8 text-[13px] text-slate-400 dark:text-slate-600 select-none;
-}
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -475,5 +396,6 @@ const getStatusType = (usuario: Usuario) => {
   scrollbar-width: none;
 }
 </style>
+
 
 

@@ -14,16 +14,16 @@ import WidgetVehicles from './widgets/WidgetVehicles.vue'
     <DashboardBackground />
 
     <!-- LEFT PANEL (WIDGETS) -->
-    <div class="absolute left-6 top-6 bottom-6 w-[260px] lg:w-[280px] xl:w-[300px] z-30 flex flex-col gap-5 overflow-y-auto scrollbar-hide pointer-events-auto">
+    <div class="absolute left-6 top-6 bottom-6 w-[260px] lg:w-[280px] xl:w-[300px] z-30 flex flex-col gap-5 pointer-events-auto">
       <WidgetDevices />
       <WidgetKilometers />
-      <WidgetAlarms />
+      <WidgetAlarms class="flex-1 min-h-0" />
     </div>
 
     <!-- RIGHT PANEL (WIDGETS) -->
-    <div class="absolute right-6 top-6 bottom-6 w-[260px] lg:w-[280px] xl:w-[300px] z-30 flex flex-col gap-5 overflow-y-auto scrollbar-hide pointer-events-auto">
+    <div class="absolute right-6 top-6 bottom-6 w-[260px] lg:w-[280px] xl:w-[300px] z-30 flex flex-col gap-5 pointer-events-auto">
       <WidgetServices />
-      <WidgetVehicles />
+      <WidgetVehicles class="flex-1 min-h-0" />
     </div>
 
   </div>

@@ -32,7 +32,8 @@ const isExpanded = ref(false)
 const router = useRouter()
 const route = useRoute()
 const isLoading = ref(true)
-const { locale } = useI18n()
+const i18n = useI18n()
+const { locale, t } = i18n
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
@@ -46,7 +47,11 @@ onMounted(() => {
   }
 
   authStore.fetchUserProfile(router, (lang: string) => {
-    locale.value = lang
+    if (typeof i18n.locale === 'string') {
+      (i18n.locale as any) = lang
+    } else {
+      i18n.locale.value = lang
+    }
   })
 })
 
@@ -55,7 +60,7 @@ const toggleSidebar = () => {
   localStorage.setItem('sidebarExpanded', String(isExpanded.value))
 }
 
-const { t } = useI18n()
+// t ya está extraído arriba
 
 watch(() => route.path, () => {
   if (isMobileSidebarOpen.value) {
@@ -223,32 +228,39 @@ const cerrarSesion = () => {
     </nav>
 
     <!-- Footer / Perfil -->
-    <div class="p-3 bg-slate-50/50 dark:bg-white/[0.02] border-t border-slate-200/50 dark:border-white/5 space-y-3">
+    <div class="p-4 bg-white/40 dark:bg-[#13161C]/40 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/5 space-y-4">
+
       <!-- Card Usuario -->
       <button
         @click="showProfileModal = true"
-        class="w-full flex items-center gap-3 p-2 rounded-2xl transition-all duration-300 hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 active:scale-[0.97] active:translate-y-[1px] group/user shadow-none active:shadow-none"
+        class="w-full flex items-center gap-3 p-2.5 rounded-[20px] transition-all duration-500 bg-white/50 dark:bg-white/[0.03] border border-slate-200/50 dark:border-white/5 hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30 hover:bg-white dark:hover:bg-white/5 active:scale-[0.97] active:translate-y-[1px] group/user shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.04)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.2)]"
       >
-        <div class="w-10 h-10 flex items-center justify-center shrink-0">
-          <img :src="authStore.userAvatar" class="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-[#1A1D24] shadow-sm" />
+        <div class="w-11 h-11 flex items-center justify-center shrink-0 relative">
+          <div class="absolute inset-0 bg-[#3b82f6]/20 blur-lg rounded-full opacity-0 group-hover/user:opacity-100 transition-opacity duration-500"></div>
+          <img :src="authStore.userAvatar" class="w-11 h-11 rounded-[14px] object-cover border-2 border-white dark:border-[#1A1D24] shadow-md relative z-10 transition-transform duration-500 group-hover/user:scale-105" />
         </div>
         
         <div 
           class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap"
-          :class="isExpanded ? 'opacity-100' : 'opacity-0 w-0'"
+          :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0'"
         >
-          <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
-          <p class="text-[9px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-widest opacity-80 truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
+          <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight mb-0.5">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
+            <p class="text-[9px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] opacity-80 truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
+          </div>
         </div>
         
-        <HugeiconsIcon v-if="isExpanded" :icon="Settings02Icon" :size="14" class="text-slate-300 dark:text-slate-600 group-hover/user:rotate-90 transition-transform duration-500" />
+        <div v-if="isExpanded" class="w-7 h-7 rounded-lg bg-slate-100/50 dark:bg-white/5 flex items-center justify-center text-slate-400 dark:text-slate-600 group-hover/user:text-[#3b82f6] transition-all duration-300">
+          <HugeiconsIcon :icon="Settings02Icon" :size="14" class="group-hover/user:rotate-90 transition-transform duration-500" />
+        </div>
       </button>
 
       <!-- Controles Rápidos -->
-      <div class="flex gap-2" :class="isExpanded ? 'flex-row' : 'flex-col items-center'">
+      <div class="flex gap-2.5" :class="isExpanded ? 'flex-row' : 'flex-col items-center'">
         <button
           @click="themeStore.toggle"
-          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 active:scale-90 shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:translate-y-[1px] active:shadow-none shrink-0"
+          class="h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 active:translate-y-[2px] active:shadow-none shrink-0 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a]"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
           <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="18" :stroke-width="2" />
@@ -256,7 +268,7 @@ const cerrarSesion = () => {
 
         <button
           @click="cerrarSesion"
-          class="h-11 rounded-xl bg-white dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-red-500 transition-all duration-300 active:scale-90 shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:translate-y-[1px] active:shadow-none shrink-0"
+          class="h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all duration-300 active:translate-y-[2px] active:shadow-none shrink-0 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a]"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
           <HugeiconsIcon :icon="Logout01Icon" :size="18" :stroke-width="2" />
@@ -268,7 +280,13 @@ const cerrarSesion = () => {
   <UserProfileModal 
     :isOpen="showProfileModal" 
     @update:isOpen="showProfileModal = $event" 
-    @profileUpdated="() => authStore.fetchUserProfile(router, (lang: string) => { locale.value = lang })"
+    @profileUpdated="() => authStore.fetchUserProfile(router, (lang: string) => { 
+      if (typeof i18n.locale === 'string') {
+        (i18n.locale as any) = lang
+      } else {
+        i18n.locale.value = lang
+      }
+    })"
     :userData="authStore.userData" 
   />
 </template>

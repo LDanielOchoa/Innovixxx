@@ -94,8 +94,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <WidgetCard :title="t('dashboard.widgets.alarms.title')" :icon="Alert02Icon" :loading="isLoading">
-    <div class="flex flex-col gap-4">
+  <WidgetCard :title="t('dashboard.widgets.alarms.title')" :icon="Alert02Icon" :loading="isLoading" class="h-full">
+    <div class="flex flex-col gap-4 h-full">
       <!-- Resumen Crítico -->
       <div class="flex items-center gap-3 bg-red-500/5 dark:bg-red-500/10 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 hover:bg-red-500/10">
         <div class="relative w-12 h-12 shrink-0 flex items-center justify-center rounded-xl bg-red-500 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] group-hover/alert:scale-105 transition-transform duration-500">
@@ -111,15 +111,18 @@ onUnmounted(() => {
       </div>
 
       <!-- Lista de Alarmas -->
-      <div class="flex flex-col gap-1.5 relative">
-        <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5">
+      <div class="flex-1 relative overflow-hidden">
+        <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5 h-full overflow-y-auto custom-scrollbar pr-1">
           <div v-for="alarm in alarmsData.list" :key="alarm.id" class="flex items-center justify-between p-2.5 bg-white/50 dark:bg-[#13161C]/60 rounded-lg border border-slate-200/60 dark:border-white/5 transition-all duration-300 hover:translate-x-1 hover:border-[#3b82f6]/30">
             <div class="flex items-center gap-2.5">
                <div class="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
                <span class="text-slate-400 dark:text-slate-500 text-[9px] font-black w-10 uppercase tracking-tighter">{{alarm.time}}</span>
                <span class="text-slate-700 dark:text-white font-black text-xs tracking-tight">{{alarm.car}}</span>
             </div>
-            <span class="text-[8px] font-black uppercase text-red-500 dark:text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded-md border border-red-500/20 tracking-wider">
+            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border tracking-[0.1em] backdrop-blur-md transition-colors duration-300"
+                  :class="[
+                    'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 dark:border-red-500/10 hover:bg-red-500/20'
+                  ]">
               {{ getAlarmLabel(alarm.issue) }}
             </span>
           </div>

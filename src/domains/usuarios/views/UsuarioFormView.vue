@@ -13,6 +13,7 @@ import {
   Tick01Icon,
   Alert01Icon,
   Loading01Icon,
+  Loading03Icon,
   LockPasswordIcon
 } from '@hugeicons/core-free-icons'
 import {
@@ -27,7 +28,10 @@ import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-import DataLayout from '../../../components/common/DataLayout.vue'
+import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
+import AppButton from '../../../components/ui/AppButton.vue'
+import AppFormInput from '../../../components/ui/AppFormInput.vue'
+import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -142,7 +146,7 @@ const initData = async () => {
       }
       
       const list = await listUsuariosByGrupoApi(formData.value.id_grupo || grupos.value[0]?.id || '', 'es')
-      const targetUser = list.body.find((u: any) => String(u.id) === String(editId.value))
+      const targetUser = list.find((u: any) => String(u.id_usuario ?? u.id) === String(editId.value))
       
       if (targetUser) {
         formData.value = {
@@ -264,29 +268,29 @@ const saveUsuario = async () => {
 </script>
 
 <template>
-  <DataLayout 
+  <AppDataLayout 
     class="theme-sync" 
     :title="isEditMode ? t('users.modalEditTitle', 'Editar Usuario') : t('users.modalCreateTitle', 'Nuevo Usuario')" 
     :subtitle="isEditMode ? 'Actualiza los datos del usuario seleccionado' : 'Configura un nuevo usuario para el sistema'"
   >
     <template #actions>
-      <button 
+      <AppButton 
+        variant="secondary" 
+        :icon="ArrowLeft01Icon"
         @click="router.push('/usuarios')" 
-        class="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 font-black text-[11px] tracking-widest uppercase transition-all duration-200 shadow-[0_4px_0_rgba(0,0,0,0.05),0_8px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_rgba(0,0,0,0.3),0_8px_20px_rgba(0,0,0,0.2)] active:translate-y-[4px] active:shadow-none focus:outline-none"
       >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="1.8" />
         <span>{{ t('common.cancel', 'Cancelar') }}</span>
-      </button>
+      </AppButton>
 
-      <button 
+      <AppButton 
+        variant="primary" 
+        :icon="isEditMode ? FloppyDiskIcon : FloppyDiskIcon"
+        :loading="saving"
+        :disabled="loadingInit"
         @click="saveUsuario" 
-        :disabled="saving || loadingInit" 
-        class="inline-flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] text-white font-black text-[11px] tracking-widest uppercase transition-all duration-200 shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.15)] active:translate-y-[4px] active:shadow-none focus:outline-none border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <HugeiconsIcon v-if="saving" :icon="Loading01Icon" :size="18" class="animate-spin" />
-        <HugeiconsIcon v-else :icon="FloppyDiskIcon" :size="18" :stroke-width="2.2" />
         <span>{{ isEditMode ? t('users.btnUpdate', 'Actualizar') : t('users.btnSave', 'Guardar') }}</span>
-      </button>
+      </AppButton>
     </template>
 
     <div class="max-w-3xl mx-auto w-full px-4 py-6">
@@ -305,62 +309,57 @@ const saveUsuario = async () => {
         </div>
       </Transition>
 
-      <div v-if="loadingInit" class="w-full h-80 flex flex-col items-center justify-center gap-5 bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-2xl rounded-[32px] border border-slate-200/60 dark:border-white/5 shadow-2xl">
-        <div class="w-14 h-14 border-4 border-slate-200 dark:border-white/10 border-t-[#3b82f6] dark:border-t-[#5da6fc] rounded-full animate-spin shadow-inner"></div>
-        <p class="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Sincronizando datos...</p>
-      </div>
+      <Transition name="fade-slide" mode="out-in">
+        <!-- Skeleton Loading State (Simplified & Faster feel) -->
+        <div v-if="loadingInit" key="loading" class="space-y-12 py-10 px-6 md:px-12 max-w-4xl mx-auto animate-pulse">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10">
+            <div v-for="i in 4" :key="i" class="space-y-3">
+              <div class="h-2 w-24 bg-slate-200 dark:bg-white/[0.03] rounded-full mx-1"></div>
+              <div class="h-12 w-full bg-slate-100/50 dark:bg-white/[0.02] rounded-[20px] border border-slate-200/40 dark:border-white/[0.02]"></div>
+            </div>
+          </div>
+          
+          <div class="pt-10 border-t border-slate-100/60 dark:border-white/5">
+            <div class="space-y-3">
+              <div class="h-2 w-32 bg-slate-200 dark:bg-white/[0.03] rounded-full mx-1"></div>
+              <div class="h-12 w-full bg-slate-100/50 dark:bg-white/[0.02] rounded-[20px] border border-slate-200/40 dark:border-white/[0.02]"></div>
+            </div>
+          </div>
+        </div>
 
-      <div v-else class="space-y-6">
-        <!-- Contenido del Formulario (Sin doble card) -->
-        <div class="p-4 md:p-6">
-
+        <div v-else key="content" class="space-y-10 py-10 px-6 md:px-12 max-w-4xl mx-auto pb-64">
           <div class="space-y-8">
             <!-- Fila 1: Nombre y Email -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div class="space-y-3">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Nombre Completo</label>
-                <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#13161C] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500">
-                  <div class="pl-4 pr-2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-[#3b82f6] transition-colors">
-                    <HugeiconsIcon :icon="User02Icon" :size="18" :stroke-width="1.8" />
-                  </div>
-                  <input
-                    type="text"
-                    v-model="formData.nombre"
-                    placeholder="Ej. Juan Pérez"
-                    class="w-full bg-transparent border-none py-4 pr-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0"
-                  />
-                </div>
-              </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <AppFormInput 
+                v-model="formData.nombre"
+                label="Nombre Completo"
+                placeholder="Ej. Juan Pérez"
+                :icon="User02Icon"
+              />
 
-              <div class="space-y-3">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Correo Electrónico</label>
-                <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#13161C] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500" :class="isEditMode && 'opacity-60 bg-slate-100/50 dark:bg-[#13161C]'">
-                  <div class="pl-4 pr-2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-[#3b82f6] transition-colors">
-                    <HugeiconsIcon :icon="Mail01Icon" :size="18" :stroke-width="1.8" />
-                  </div>
-                  <input
-                    type="email"
-                    v-model="formData.email"
-                    :disabled="isEditMode"
-                    placeholder="ejemplo@empresa.com"
-                    class="w-full bg-transparent border-none py-4 pr-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0 disabled:cursor-not-allowed"
-                  />
-                </div>
-              </div>
+              <AppFormInput 
+                v-model="formData.email"
+                label="Correo Electrónico"
+                placeholder="ejemplo@empresa.com"
+                :icon="Mail01Icon"
+                type="email"
+                :disabled="isEditMode"
+              />
             </div>
 
             <!-- Fila 2: Rol y Idioma -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <!-- Custom Role Dropdown -->
-              <div class="space-y-3 relative">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Rol de Usuario</label>
+              <div class="space-y-2 relative">
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Rol de Usuario</label>
                 <div 
                   @click="toggleRoleDropdown"
-                  class="relative flex items-center justify-between group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] px-4 py-4 cursor-pointer hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]"
+                  class="relative flex items-center justify-between group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
                 >
                   <div class="flex items-center gap-3">
-                    <HugeiconsIcon :icon="Shield02Icon" :size="18" :stroke-width="1.8" class="text-slate-400 dark:text-slate-600" />
-                    <span class="text-sm font-extrabold" :class="formData.id_role ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
+                    <HugeiconsIcon :icon="Shield02Icon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
+                    <span class="text-[13px] font-bold" :class="formData.id_role ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
                       {{ rolesForCreate.find(r => r.id_role === formData.id_role)?.nombre || 'Seleccionar Rol' }}
                     </span>
                   </div>
@@ -368,7 +367,8 @@ const saveUsuario = async () => {
                   <HugeiconsIcon v-else :icon="ArrowLeft01Icon" :size="16" class="-rotate-90 text-slate-400 group-hover/input:text-[#3b82f6] transition-all" :class="isRoleDropdownOpen && 'rotate-90'" />
                 </div>
 
-                <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#13161C] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500">
+                <!-- Dropdown Menu Rol -->
+                <div v-if="isRoleDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white/70 dark:bg-[#0F1115]/70 backdrop-blur-[32px] border border-white/40 dark:border-white/[0.08] rounded-[24px] shadow-[0_16px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] z-[50] overflow-hidden p-2 space-y-1 ring-1 ring-black/5 dark:ring-white/5">
                   <div v-if="rolesForCreate.length === 0" class="p-4 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
                     No hay roles disponibles
                   </div>
@@ -376,28 +376,28 @@ const saveUsuario = async () => {
                     v-for="role in rolesForCreate"
                     :key="role.id_role"
                     @click="selectRole(role)"
-                    class="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group/item"
-                    :class="formData.id_role === role.id_role ? 'bg-[#3b82f6]/10 text-[#3b82f6]' : 'hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                    class="w-full flex items-center justify-between px-4 py-3.5 rounded-[14px] transition-all duration-200 group/item"
+                    :class="formData.id_role === role.id_role ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'"
                   >
                     <span class="text-sm font-extrabold">{{ role.nombre }}</span>
-                    <HugeiconsIcon v-if="formData.id_role === role.id_role" :icon="Tick01Icon" :size="16" stroke-width="3" />
+                    <HugeiconsIcon v-if="formData.id_role === role.id_role" :icon="Tick01Icon" :size="18" stroke-width="3" />
                   </button>
                 </div>
               </div>
 
               <!-- Idioma Selector Personalizado -->
-              <div class="space-y-3 relative">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">Idioma Preferido</label>
+              <div class="space-y-2 relative">
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Idioma Preferido</label>
                 <div 
                   @click="toggleLangDropdown"
-                  class="relative flex items-center justify-between group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] px-4 py-4 cursor-pointer hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)]"
+                  class="relative flex items-center justify-between group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
                 >
                   <div class="flex items-center gap-3">
                     <img 
                       :src="langOptions.find(l => l.value === formData.lang)?.flag" 
-                      class="w-4 h-3 object-cover rounded-[2px] shadow-sm" 
+                      class="w-5 h-3.5 object-cover rounded-[3px] shadow-sm" 
                     />
-                    <span class="text-sm font-extrabold text-slate-700 dark:text-slate-200">
+                    <span class="text-[13px] font-bold text-slate-700 dark:text-slate-200">
                       {{ langOptions.find(l => l.value === formData.lang)?.label }}
                     </span>
                   </div>
@@ -405,55 +405,43 @@ const saveUsuario = async () => {
                 </div>
 
                 <!-- Dropdown Menu Idioma -->
-                <div v-if="isLangDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white dark:bg-[#13161C] border border-slate-200/60 dark:border-white/10 rounded-[22px] shadow-2xl z-[50] overflow-hidden animate-fade-in-up p-2 space-y-1">
+                <div v-if="isLangDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white/70 dark:bg-[#0F1115]/70 backdrop-blur-[32px] border border-white/40 dark:border-white/[0.08] rounded-[24px] shadow-[0_16px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] z-[50] overflow-hidden p-2 space-y-1 ring-1 ring-black/5 dark:ring-white/5">
                   <button
                     v-for="lang in langOptions"
                     :key="lang.value"
                     @click="selectLang(lang)"
-                    class="w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group/item"
-                    :class="formData.lang === lang.value ? 'bg-[#3b82f6]/10 text-[#3b82f6]' : 'hover:bg-slate-50 dark:hover:bg-white/5 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                    class="w-full flex items-center justify-between px-4 py-3.5 rounded-[14px] transition-all duration-200 group/item"
+                    :class="formData.lang === lang.value ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-white/10 hover:text-slate-900 dark:hover:text-white'"
                   >
                     <div class="flex items-center gap-3">
-                      <img :src="lang.flag" class="w-4 h-3 object-cover rounded-[1px]" />
+                      <img :src="lang.flag" class="w-5 h-3.5 object-cover rounded-[3px] shadow-sm" />
                       <span class="text-sm font-extrabold">{{ lang.label }}</span>
                     </div>
-                    <HugeiconsIcon v-if="formData.lang === lang.value" :icon="Tick01Icon" :size="16" stroke-width="3" />
+                    <HugeiconsIcon v-if="formData.lang === lang.value" :icon="Tick01Icon" :size="18" stroke-width="3" />
                   </button>
                 </div>
               </div>
             </div>
 
-            <!-- Fila 3: Contraseña -->
             <div class="pt-6 border-t border-slate-100 dark:border-white/5">
-              <div class="space-y-3">
-                <div class="flex items-center justify-between ml-1">
-                  <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
-                    {{ isEditMode ? 'Restablecer Contraseña' : 'Crear Contraseña' }}
-                  </label>
-                </div>
-                <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500">
-                  <div class="pl-4 pr-2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-[#3b82f6] transition-colors">
-                    <HugeiconsIcon :icon="LockPasswordIcon" :size="18" :stroke-width="1.8" />
-                  </div>
-                  <input
-                    type="password"
-                    v-model="formData.pass"
-                    :placeholder="isEditMode ? '••••••••' : 'Mínimo 8 caracteres'"
-                    class="w-full bg-transparent border-none py-4 pr-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0"
-                  />
-                </div>
-                <p class="text-[11px] text-slate-400 dark:text-slate-600 mt-2 pl-1 font-medium italic">
-                  {{ isEditMode ? 'Dejar en blanco si no deseas cambiar la clave actual.' : '' }}
-                </p>
-              </div>
+              <AppFormInput 
+                v-model="formData.pass"
+                :label="isEditMode ? 'Restablecer Contraseña' : 'Crear Contraseña'"
+                :placeholder="isEditMode ? '••••••••' : 'Mínimo 8 caracteres'"
+                :icon="LockPasswordIcon"
+                type="password"
+              />
+              <p v-if="isEditMode" class="text-[11px] text-slate-400 dark:text-slate-600 mt-2 pl-1 font-medium italic">
+                Dejar en blanco si no deseas cambiar la clave actual.
+              </p>
             </div>
           </div>
-
         </div>
-      </div>
+      </Transition>
     </div>
-  </DataLayout>
+  </AppDataLayout>
 </template>
+
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
 
@@ -479,6 +467,22 @@ const saveUsuario = async () => {
   animation: fadeInUp 0.3s ease-out forwards;
 }
 
+/* Transición fluida entre estados */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(15px) scale(0.98);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-15px) scale(1.02);
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -487,5 +491,3 @@ const saveUsuario = async () => {
   scrollbar-width: none;
 }
 </style>
-
-
