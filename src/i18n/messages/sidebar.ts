@@ -11,7 +11,8 @@ export const sidebarMessages = {
       bodyguards: 'Escoltas',
       routes: 'Rutas',
       hardware: 'Hardware',
-      service: 'Servicio'
+      service: 'Servicio',
+      geofences: 'Geocercas'
     },
     defaultUser: 'USUARIO',
     defaultGroup: 'GRUPO',
@@ -48,7 +49,8 @@ export const sidebarMessages = {
       bodyguards: 'Bodyguards',
       routes: 'Routes',
       hardware: 'Hardware',
-      service: 'Service'
+      service: 'Service',
+      geofences: 'Geofences'
     },
     defaultUser: 'USER',
     defaultGroup: 'GROUP',

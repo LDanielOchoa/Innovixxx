@@ -140,6 +140,16 @@ const router = createRouter({
           name: 'rutas-editar',
           component: () => import('../domains/rutas/views/RutasFormView.vue'),
           props: true
+        },
+        {
+          path: 'geocercas',
+          name: 'geocercas',
+          component: () => import('../domains/geocercas/views/GeocercasListView.vue')
+        },
+        {
+          path: 'geocercas/nueva',
+          name: 'geocerca-nueva',
+          component: () => import('../domains/geocercas/views/GeocercaFormView.vue')
         }
       ]
     },

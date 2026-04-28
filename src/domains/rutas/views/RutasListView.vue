@@ -17,6 +17,7 @@ import type { Ruta } from '../types/ruta'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useGoogleMaps } from '../composables/useGoogleMaps'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
@@ -72,7 +73,7 @@ const fetchRutas = async () => {
 }
 
 const selectedRuta = ref<Ruta | null>(null)
-const MAP_KEY = 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
+const { loadGoogleMaps } = useGoogleMaps()
 const map = shallowRef<any>(null)
 const directionsService = shallowRef<any>(null)
 const directionsRenderers = shallowRef<any[]>([])
@@ -136,29 +137,6 @@ const initializeMap = async (googleMapsApi: any) => {
   directionsService.value = new googleMapsApi.DirectionsService()
 }
 
-const loadGoogleMapsScript = () => {
-  if ((window as any).google && (window as any).google.maps) {
-    initializeMap((window as any).google.maps)
-    return
-  }
-  
-  // Si ya existe el script, esperar a que cargue
-  const existingScript = document.getElementById('google-maps-script')
-  if (existingScript) {
-    existingScript.addEventListener('load', () => initializeMap((window as any).google.maps))
-    return
-  }
-
-  const script = document.createElement('script')
-  script.id = 'google-maps-script'
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${MAP_KEY}&libraries=places&language=es`
-  script.async = true
-  script.defer = true
-  script.onload = () => {
-    initializeMap((window as any).google.maps)
-  }
-  document.head.appendChild(script)
-}
 
 watch(isDarkMapMode, (isDark) => {
   if (map.value) {
@@ -335,7 +313,13 @@ onMounted(() => {
     attributes: true,
     attributeFilter: ['class']
   })
-  loadGoogleMapsScript()
+
+  // Usar el composable singleton — si Maps ya está cargado, resolve inmediato
+  loadGoogleMaps().then(initializeMap).catch(err => {
+    console.error('[RutasListView] Error cargando Google Maps:', err)
+    isLoadingMap.value = false
+  })
+
   fetchRutas()
 })
 
@@ -422,8 +406,8 @@ const processToggleEstado = async () => {
 </script>
 
 <template>
-  <div class="h-[calc(100vh-80px)] w-full p-3 md:p-5 lg:p-6 animate-fade-in">
-    <div class="relative w-full h-full rounded-[1.75rem] overflow-hidden shadow-2xl">
+  <div class="h-[calc(100vh-80px)] w-full">
+    <div class="relative w-full h-full overflow-hidden">
       
       <!-- MAP: ocupa todo el espacio del contenedor relativo -->
       <div
@@ -436,10 +420,9 @@ const processToggleEstado = async () => {
       <Transition name="fade-overlay">
         <div 
           v-if="isLoadingMap" 
-          class="absolute inset-0 z-[8] flex flex-col items-center justify-center bg-[#0d1116] gap-5"
-          style="padding-left:440px"
+          class="absolute inset-0 z-[8] flex flex-col items-center justify-center gap-5 pointer-events-none"
         >
-          <div class="w-16 h-16 rounded-2xl bg-[#1A1D24] border border-white/10 flex items-center justify-center text-[#5da6fc] shadow-xl animate-[float_3s_ease-in-out_infinite]">
+          <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#5da6fc] shadow-xl animate-[float_3s_ease-in-out_infinite]">
             <HugeiconsIcon :icon="Location01Icon" :size="32" :stroke-width="1.5" />
           </div>
           <p class="text-[11px] font-black text-[#5da6fc] uppercase tracking-[0.25em] animate-pulse">{{ $t('rutas.initializingMap') }}</p>
@@ -453,7 +436,7 @@ const processToggleEstado = async () => {
           class="absolute z-[8] flex items-end justify-end"
           style="bottom:24px;right:24px;"
         >
-          <div class="bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl px-5 py-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl flex items-center gap-4">
+          <div class="bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl px-5 py-4 rounded-xl border border-white/20 dark:border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_25px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-4">
             <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
               <div class="absolute inset-0 border-[3px] border-[#3b82f6]/15 border-t-[#3b82f6] rounded-full animate-spin"></div>
               <HugeiconsIcon :icon="Route01Icon" :size="16" class="text-[#3b82f6]" />
@@ -473,8 +456,8 @@ const processToggleEstado = async () => {
           class="absolute z-[6] flex items-end justify-end pointer-events-none"
           style="bottom:24px;right:24px;"
         >
-          <div class="bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-xl px-4 py-3 rounded-2xl border border-slate-200/60 dark:border-white/5 shadow-xl flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6]">
+          <div class="bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl px-4 py-3 rounded-xl border border-white/20 dark:border-white/5 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] shadow-inner">
               <HugeiconsIcon :icon="Location01Icon" :size="16" :stroke-width="1.5" />
             </div>
             <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Selecciona una ruta para ver su trayectoria</p>
@@ -483,9 +466,9 @@ const processToggleEstado = async () => {
       </Transition>
 
       <!-- FLOATING SIDEBAR -->
-      <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col">
+      <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
         <!-- Glassmorphic panel -->
-        <div class="flex-1 flex flex-col m-3 rounded-[1.25rem] bg-white/90 dark:bg-[#0C0E13]/95 backdrop-blur-2xl border border-slate-200/70 dark:border-white/[0.06] shadow-[0_20px_80px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_80px_rgba(0,0,0,0.6)] overflow-hidden">
+        <div class="flex-1 flex flex-col m-4 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden">
           
           <!-- Header -->
           <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
@@ -495,7 +478,7 @@ const processToggleEstado = async () => {
             
             <div class="relative flex items-start justify-between">
               <div class="flex items-center gap-3.5">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#2563eb] flex items-center justify-center text-white shadow-[0_4px_16px_rgba(59,130,246,0.35)]">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#2563eb] flex items-center justify-center text-white shadow-[0_8px_20px_-4px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.3)] border border-white/10">
                   <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
                 </div>
                 <div>
@@ -511,12 +494,12 @@ const processToggleEstado = async () => {
               
               <div class="flex items-center gap-2">
                 <button @click="exportToExcel"
-                  class="w-9 h-9 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 hover:border-[#3b82f6]/20 transition-all active:scale-95 shadow-sm"
+                  class="w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 hover:border-[#3b82f6]/20 transition-all active:scale-95 shadow-[0_4px_8px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.05)]"
                   title="Exportar">
                   <HugeiconsIcon :icon="Download01Icon" :size="16" :stroke-width="2" />
                 </button>
                 <button @click="openCreateModal"
-                  class="w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_4px_12px_rgba(59,130,246,0.4)] hover:shadow-[0_6px_20px_rgba(59,130,246,0.5)] transition-all active:scale-95 border border-[#2563eb]"
+                  class="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_8px_20px_-4px_rgba(59,130,246,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_12px_24px_-4px_rgba(59,130,246,0.6),inset_0_1px_1px_rgba(255,255,255,0.5)] transition-all active:scale-95 border border-[#2563eb]/50 active:shadow-inner"
                   title="Nueva Ruta">
                   <HugeiconsIcon :icon="PlusSignIcon" :size="18" :stroke-width="2.5" />
                 </button>
@@ -555,10 +538,10 @@ const processToggleEstado = async () => {
                 v-for="ruta in paginatedRutas"
                 :key="ruta.id_ruta"
                 @click="onRowClick(ruta)"
-                class="group relative cursor-pointer rounded-2xl transition-all duration-300 select-none border"
+                class="group relative cursor-pointer rounded-xl transition-all duration-300 select-none border"
                 :class="selectedRuta?.id_ruta === ruta.id_ruta
-                  ? 'bg-white dark:bg-[#15181E] shadow-[0_8px_30px_rgba(59,130,246,0.15)] dark:shadow-[0_12px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.06)] border-[#3b82f6]/40 dark:border-[#3b82f6]/30 translate-x-1 ring-1 ring-[#3b82f6]/20'
-                  : 'bg-slate-50/60 dark:bg-white/[0.01] border-transparent dark:border-white/[0.02] hover:bg-white dark:hover:bg-[#1A1D24]/80 hover:border-slate-300 dark:hover:border-white/[0.08] shadow-sm hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.02)]'"
+                  ? 'bg-white dark:bg-[#15181E] shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] border-[#3b82f6]/50 dark:border-[#3b82f6]/40 -translate-y-0.5'
+                  : 'bg-slate-50/60 dark:bg-white/[0.02] border-transparent dark:border-white/[0.03] hover:bg-white dark:hover:bg-[#1A1D24] hover:border-slate-300 dark:hover:border-white/[0.1] shadow-sm hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.03)] hover:-translate-y-0.5'"
               >
                 <!-- Barra lateral activa -->
                 <div
@@ -570,9 +553,9 @@ const processToggleEstado = async () => {
                   <div class="flex items-center gap-3.5">
                     <!-- Icon -->
                     <div
-                      class="w-11 h-11 rounded-[14px] flex items-center justify-center shrink-0 transition-all duration-300 border"
+                      class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 border"
                       :class="selectedRuta?.id_ruta === ruta.id_ruta
-                        ? 'bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white border-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_6px_16px_rgba(59,130,246,0.4)]'
+                        ? 'bg-gradient-to-b from-[#3b82f6] to-[#1d4ed8] text-white border-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.3),0_8px_16px_-4px_rgba(59,130,246,0.5)]'
                         : 'bg-white dark:bg-[#1A1D24] text-slate-400 dark:text-slate-500 border-slate-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.02)] group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:border-[#3b82f6]/30'"
                     >
                       <HugeiconsIcon :icon="Route01Icon" :size="22" :stroke-width="1.8" />
@@ -619,7 +602,7 @@ const processToggleEstado = async () => {
 
                     <button
                       @click.stop="toggleRutaEstado(ruta)"
-                      class="w-8 h-8 flex items-center justify-center rounded-xl transition-all text-slate-400 dark:text-slate-500 bg-white dark:bg-[#1E232E] border border-slate-200 dark:border-white/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.2),inset_0_1px_1px_rgba(255,255,255,0.04)] hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#252A36] active:scale-95"
+                      class="w-8 h-8 flex items-center justify-center rounded-lg transition-all text-slate-400 dark:text-slate-500 bg-white dark:bg-[#1E232E] border border-slate-200 dark:border-white/[0.08] shadow-[0_4px_8px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.04)] hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-[#252A36] active:scale-95 active:shadow-inner"
                       :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
                     >
                       <HugeiconsIcon :icon="Settings02Icon" :size="14" />

@@ -5,21 +5,26 @@
     style="max-height: calc(100vh - 80px);"
   >
     <!-- Glass Card -->
-    <div class="flex flex-col bg-white/80 dark:bg-[#0F1115]/90 backdrop-blur-2xl rounded-3xl border border-slate-200/80 dark:border-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] overflow-hidden">
+    <div class="flex flex-col bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl rounded-xl border border-slate-200 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden">
 
       <!-- ═══ HEADER ═══ -->
       <div class="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-white/5">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
             <!-- Route Icon -->
-            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3b82f6]/15 to-[#3b82f6]/5 dark:from-[#5da6fc]/15 dark:to-[#5da6fc]/5 border border-[#3b82f6]/20 dark:border-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shadow-sm">
-              <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="1.8" />
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.3)] border border-white/10 relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+              <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" class="relative z-10" />
             </div>
             <div class="flex flex-col">
               <span class="text-[11px] font-black tracking-[0.15em] uppercase text-[#3b82f6] dark:text-[#5da6fc]">Asignación de Paradas</span>
-              <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5">
-                <span v-if="paradas.length === 0" class="text-slate-400 dark:text-slate-500 font-bold">Sin nodos aún</span>
-                <span v-else>{{ paradas.length }} {{ paradas.length === 1 ? 'Parada' : 'Paradas' }}</span>
+              <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5 flex items-center gap-2">
+                <span v-if="paradas.length === 0" class="text-slate-400 dark:text-slate-500 font-bold">Inicia a trazar en el mapa</span>
+                <template v-else>
+                  <span>{{ paradas.length }} {{ paradas.length === 1 ? 'Parada' : 'Paradas' }}</span>
+                  <span class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+                  <span class="text-[#3b82f6] dark:text-[#5da6fc]">{{ totalDistanceStr }}</span>
+                </template>
               </span>
             </div>
           </div>
@@ -33,21 +38,6 @@
           </button>
         </div>
 
-        <!-- Stats Row -->
-        <div v-if="paradas.length > 0" class="flex items-center gap-2 mt-4">
-          <div class="flex-1 bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 flex flex-col items-center">
-            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Distancia</span>
-            <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight mt-0.5">{{ totalDistanceStr }}</span>
-          </div>
-          <div class="flex-1 bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 flex flex-col items-center">
-            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Nodos</span>
-            <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight mt-0.5">{{ paradas.length }}</span>
-          </div>
-          <div class="flex-1 bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 rounded-xl px-3 py-2 flex flex-col items-center">
-            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Segmentos</span>
-            <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight mt-0.5">{{ Math.max(0, paradas.length - 1) }}</span>
-          </div>
-        </div>
       </div>
 
       <!-- ═══ STOPS LIST ═══ -->
@@ -55,8 +45,8 @@
 
         <!-- Empty State -->
         <div v-if="paradas.length === 0" class="flex flex-col items-center justify-center py-10 text-center">
-          <div class="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5 flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4 animate-[float_6s_ease-in-out_infinite]">
-            <HugeiconsIcon :icon="Location01Icon" :size="28" :stroke-width="1.5" />
+          <div class="w-16 h-16 rounded-[20px] bg-slate-100/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4 animate-[float_6s_ease-in-out_infinite] shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.02),0_10px_20px_rgba(0,0,0,0.2)]">
+            <HugeiconsIcon :icon="Location01Icon" :size="32" :stroke-width="1.5" />
           </div>
           <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Sin paradas</p>
           <p class="text-[10px] text-slate-400 dark:text-slate-600 mt-1 font-medium">Haz clic en el mapa para agregar nodos</p>
@@ -68,11 +58,11 @@
             v-for="(parada, index) in paradas"
             :key="index"
             @click="$emit('select', index)"
-            class="group flex items-center gap-3 px-3 py-2.5 rounded-2xl border cursor-pointer transition-all duration-300 relative"
+            class="group flex items-center gap-3 px-3 py-2.5 rounded-[16px] border cursor-pointer transition-all duration-300 relative"
             :class="[
               selectedIndex === index
-                ? 'bg-[#3b82f6]/8 dark:bg-[#5da6fc]/8 border-[#3b82f6]/30 dark:border-[#5da6fc]/20 shadow-[inset_0_1px_3px_rgba(59,130,246,0.08)]'
-                : 'bg-white/60 dark:bg-white/[0.02] border-slate-100 dark:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:border-slate-200 dark:hover:border-white/10 hover:shadow-sm'
+                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_3px_rgba(59,130,246,0.1)]'
+                : 'bg-white/80 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-white/5 hover:border-[#3b82f6]/20 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_-4px_rgba(59,130,246,0.1)] dark:hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)]'
             ]"
           >
             <!-- Node Index + Type Icon -->
@@ -89,33 +79,28 @@
               <div class="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border transition-all"
                    :class="[
                      selectedIndex === index
-                       ? 'bg-[#3b82f6] dark:bg-[#5da6fc] text-white border-[#2563eb] dark:border-[#3b82f6] shadow-[0_2px_0_#2563eb]'
+                       ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb] shadow-[0_4px_10px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]'
                        : isNodePassed(index)
-                         ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#5da6fc]/15'
-                         : 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/5'
+                         ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#5da6fc]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
+                         : 'bg-slate-50 dark:bg-[#0A0C10] text-slate-400 dark:text-slate-500 border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]'
                    ]">
                 {{ index + 1 }}
               </div>
             </div>
 
             <!-- Stop Info -->
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] font-black uppercase tracking-wider truncate"
-                      :class="selectedIndex === index ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">
-                  {{ getTipoNombre(parada.tipo) }}
-                </span>
-                <!-- Distance badge (between stops) -->
-                <span v-if="index > 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto"
-                      :class="isNodePassed(index) ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' : 'bg-slate-100 dark:bg-white/5 text-slate-400'">
-                  {{ getDistanceStr(paradas[index - 1], parada) }}
-                </span>
-                <span v-else class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 ml-auto uppercase tracking-wide">
-                  Inicio
-                </span>
-              </div>
-              <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 tracking-tighter">
-                {{ parada.lat.toFixed(5) }}, {{ parada.lon.toFixed(5) }}
+            <div class="flex-1 min-w-0 flex items-center">
+              <span class="text-[11px] font-black uppercase tracking-wider truncate"
+                    :class="selectedIndex === index ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">
+                {{ getTipoNombre(parada.tipo) }}
+              </span>
+              <!-- Distance badge (between stops) -->
+              <span v-if="index > 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto"
+                    :class="isNodePassed(index) ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' : 'bg-slate-100 dark:bg-white/5 text-slate-400'">
+                {{ getDistanceStr(paradas[index - 1], parada) }}
+              </span>
+              <span v-else class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 ml-auto uppercase tracking-wide">
+                Inicio
               </span>
             </div>
 
@@ -143,9 +128,9 @@
         <button
           @click="$emit('save')"
           :disabled="paradas.length < 2"
-          class="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-black text-[12px] uppercase tracking-widest transition-all duration-200 border disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
+          class="w-full h-12 flex items-center justify-center gap-2 rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all duration-200 border disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
           :class="paradas.length >= 2
-            ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.25)] active:translate-y-[3px] active:shadow-[0_1px_0_#2563eb,0_3px_8px_rgba(59,130,246,0.2)] hover:from-[#3b82f6] hover:to-[#2563eb]'
+            ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border-[#2563eb] shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb]'
             : 'bg-slate-100 dark:bg-white/5 text-slate-400 border-slate-200 dark:border-white/5'"
         >
           <HugeiconsIcon :icon="Tick01Icon" :size="18" :stroke-width="2.5" />
@@ -157,14 +142,14 @@
           <button
             @click="$emit('clear')"
             :disabled="paradas.length === 0"
-            class="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-black uppercase tracking-wide text-red-500 bg-red-500/5 hover:bg-red-500/10 border border-red-500/15 hover:border-red-500/25 transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
+            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-[12px] text-[11px] font-black uppercase tracking-wide text-red-500 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 hover:border-red-500/50 transition-all active:scale-[0.98] active:translate-y-[1px] disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_2px_0_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_rgba(255,255,255,0.02)]"
           >
             <HugeiconsIcon :icon="Delete01Icon" :size="15" />
             Limpiar
           </button>
           <button
             @click="$emit('close')"
-            class="flex-1 h-9 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/5 transition-all active:scale-[0.98]"
+            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-[12px] text-[11px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-300 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 hover:border-slate-400 dark:hover:border-white/20 transition-all active:scale-[0.98] active:translate-y-[1px] shadow-[0_2px_0_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_rgba(255,255,255,0.02)]"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="15" />
             Cancelar
@@ -173,19 +158,6 @@
       </div>
 
     </div>
-
-    <!-- Instruction Card (shown when no stops) -->
-    <Transition name="hint-fade">
-      <div v-if="paradas.length === 0" class="mt-3 px-4 py-3 bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5 border border-[#3b82f6]/15 dark:border-[#5da6fc]/10 rounded-2xl backdrop-blur-xl">
-        <div class="flex items-start gap-3">
-          <HugeiconsIcon :icon="TouchInteraction01Icon" :size="20" class="text-[#3b82f6] dark:text-[#5da6fc] shrink-0 mt-0.5" />
-          <div>
-            <p class="text-[11px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wide">¿Cómo funciona?</p>
-            <p class="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">Haz clic en cualquier punto del mapa para añadir una parada. Cada clic añade un nodo conectado a la ruta.</p>
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 

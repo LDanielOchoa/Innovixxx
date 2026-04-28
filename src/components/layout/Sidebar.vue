@@ -24,7 +24,8 @@ import {
   Sun01Icon,
   Moon01Icon,
   Cancel01Icon,
-  Settings02Icon
+  Settings02Icon,
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 import { obtenerUrlImagen } from '../../utils/imagenes'
 
@@ -97,7 +98,8 @@ const displayedMenuItems = computed(() => {
     { separator: true },
     
     { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas' },
-    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas' }
+    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas' },
+    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas' }
   ]
   return menuItems.filter(item => {
     return !item.adminOnly || authStore.isAdmin
