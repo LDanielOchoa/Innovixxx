@@ -10,11 +10,12 @@ import {
   Settings02Icon,
   Location01Icon,
   MapsIcon,
+  Delete02Icon,
   CircleIcon,
   SquareIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
-import { fetchGeocercasApi, fetchGeocercaDetallesApi } from '../services/geocercas.api'
+import { fetchGeocercasApi, fetchGeocercaDetallesApi, deleteGeocercaApi } from '../services/geocercas.api'
 import type { Geocerca, GeocercaDetalle } from '../types/geocerca'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
@@ -22,6 +23,7 @@ import { storeToRefs } from 'pinia'
 import { useGoogleMaps } from '../../rutas/composables/useGoogleMaps'
 import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
+import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,6 +94,9 @@ const initializeMap = async (googleMapsApi: any) => {
   await nextTick()
   const container = document.getElementById('geocercas-map-container')
   if (!container) return
+
+  // Darle tiempo a la animación de carga inicial para que se vea premium
+  await new Promise(resolve => setTimeout(resolve, 2000))
 
   isLoadingMap.value = false
   map.value = new googleMapsApi.Map(container, {
@@ -165,6 +170,79 @@ const clearDrawings = () => {
   }
 }
 
+// Custom Cinematic Fly-To Animation
+const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number | null, bounds?: any) => {
+  return new Promise<void>((resolve) => {
+    const startZoom = mapInstance.getZoom()
+    const startCenter = mapInstance.getCenter()
+    
+    // Si estamos muy cerca, usar nativo para evitar salto brusco
+    const dist = (window as any).google.maps.geometry.spherical.computeDistanceBetween(startCenter, targetLatLng)
+    if (dist < 2000 && startZoom >= 13) {
+      mapInstance.panTo(targetLatLng)
+      setTimeout(() => {
+        if (bounds) mapInstance.fitBounds(bounds)
+        else mapInstance.setZoom(targetZoom)
+        resolve()
+      }, 500)
+      return
+    }
+
+    const duration = 1800 // 1.8 seconds cinematic flight
+    const startTime = performance.now()
+    
+    // Zoom out farther if distance is huge
+    const finalZoom = targetZoom || 15
+    let midZoom = Math.min(startZoom, finalZoom) - 3
+    if (dist > 50000) midZoom = Math.min(startZoom, 8)
+    if (dist > 500000) midZoom = Math.min(startZoom, 6)
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // Easing In-Out Cubic
+      const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+      // Interpolar centro
+      const currentLat = startCenter.lat() + (targetLatLng.lat() - startCenter.lat()) * ease
+      const currentLng = startCenter.lng() + (targetLatLng.lng() - startCenter.lng()) * ease
+      mapInstance.setCenter({ lat: currentLat, lng: currentLng })
+
+      // Interpolar zoom (parábola)
+      let currentZoom
+      if (progress < 0.5) {
+        const p2 = progress * 2
+        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
+        currentZoom = startZoom + (midZoom - startZoom) * easeZoom
+      } else {
+        const p2 = (progress - 0.5) * 2
+        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
+        currentZoom = midZoom + (finalZoom - midZoom) * easeZoom
+      }
+      
+      // Si tenemos bounds, al final hacemos fitBounds, mientras tanto animamos zoom manual
+      if (!bounds || progress < 0.95) {
+        mapInstance.setZoom(currentZoom)
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        mapInstance.setCenter(targetLatLng)
+        if (bounds) {
+          mapInstance.fitBounds(bounds)
+        } else if (targetZoom) {
+          mapInstance.setZoom(targetZoom)
+        }
+        resolve()
+      }
+    }
+
+    requestAnimationFrame(animate)
+  })
+}
+
 const onGeocercaClick = async (geocerca: Geocerca) => {
   if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) return
   selectedGeocerca.value = geocerca
@@ -179,12 +257,13 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
     if (!detalle) return
     
     const color = detalle.color || '#3b82f6'
-    
+
     if (detalle.tipo === 'Circular' && detalle.puntos && detalle.puntos.length > 0) {
       const p = detalle.puntos[0]
       const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
       const radius = parseFloat(p.radio || '0')
       
+      // 1. Dibujar la figura primero
       currentDrawing.value = new (window as any).google.maps.Circle({
         strokeColor: color,
         strokeOpacity: 0.8,
@@ -196,12 +275,16 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         radius: radius
       })
       
-      map.value.setCenter(center)
-      map.value.setZoom(15)
+      // 2. Vuelo parabólico personalizado
+      const targetLatLng = new (window as any).google.maps.LatLng(center.lat, center.lng)
+      await flyToMap(map.value, targetLatLng, 15)
       
     } else if (detalle.tipo === 'Poligonal' && detalle.puntos && detalle.puntos.length > 0) {
       const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+      const bounds = new (window as any).google.maps.LatLngBounds()
+      paths.forEach(p => bounds.extend(p))
       
+      // 1. Dibujar la figura primero
       currentDrawing.value = new (window as any).google.maps.Polygon({
         paths: paths,
         strokeColor: color,
@@ -212,9 +295,9 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         map: map.value
       })
       
-      const bounds = new (window as any).google.maps.LatLngBounds()
-      paths.forEach(p => bounds.extend(p))
-      map.value.fitBounds(bounds)
+      // 2. Vuelo parabólico hacia el centro del polígono
+      const center = bounds.getCenter()
+      await flyToMap(map.value, center, 15, bounds)
     }
     
   } catch (error) {
@@ -238,6 +321,38 @@ const exportToExcel = () => {
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Geocercas')
   XLSX.writeFile(workbook, 'Listado_Geocercas.xlsx')
 }
+
+// Borrar Geocerca
+const isDeleteDialogOpen = ref(false)
+const geocercaToDelete = ref<Geocerca | null>(null)
+const isDeleting = ref(false)
+
+const confirmDelete = (geocerca: Geocerca) => {
+  geocercaToDelete.value = geocerca
+  isDeleteDialogOpen.value = true
+}
+
+const handleDeleteGeocerca = async () => {
+  if (!selectedGroup.value?.id || !geocercaToDelete.value) return
+  
+  isDeleting.value = true
+  try {
+    const success = await deleteGeocercaApi(selectedGroup.value.id, geocercaToDelete.value.id_geocerca)
+    if (success) {
+      if (selectedGeocerca.value?.id_geocerca === geocercaToDelete.value.id_geocerca) {
+        selectedGeocerca.value = null
+        clearDrawings()
+      }
+      await fetchGeocercas()
+      isDeleteDialogOpen.value = false
+    }
+  } catch (error) {
+    console.error('Error al borrar geocerca:', error)
+  } finally {
+    isDeleting.value = false
+    geocercaToDelete.value = null
+  }
+}
 </script>
 
 <template>
@@ -251,34 +366,38 @@ const exportToExcel = () => {
         style="width:100%;height:100%;"
       ></div>
 
-      <!-- Overlay Carga Mapa -->
-      <Transition name="fade-overlay">
-        <div 
-          v-if="isLoadingMap" 
-          class="absolute inset-0 z-[8] flex flex-col items-center justify-center gap-5 pointer-events-none"
-        >
-          <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#5da6fc] shadow-xl animate-[float_3s_ease-in-out_infinite]">
-            <HugeiconsIcon :icon="MapsIcon" :size="32" :stroke-width="1.5" />
-          </div>
-          <p class="text-[11px] font-black text-[#5da6fc] uppercase tracking-[0.25em] animate-pulse">{{ $t('geocercas.initializingMap') }}</p>
-        </div>
-      </Transition>
 
-      <!-- Overlay Carga Detalles -->
+
+      <!-- Overlay Carga Detalles (High-Impact Design) -->
       <Transition name="fade-overlay">
         <div 
           v-if="isLoadingDetails" 
-          class="absolute z-[8] flex items-end justify-end"
-          style="bottom:24px;right:24px;"
+          class="absolute inset-0 z-[20] flex items-center justify-center bg-slate-900/10 backdrop-blur-[2px] pointer-events-none"
         >
-          <div class="bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl px-5 py-4 rounded-xl border border-white/20 dark:border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.2)] dark:shadow-[0_25px_50px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-4">
-            <div class="relative w-10 h-10 flex items-center justify-center shrink-0">
-              <div class="absolute inset-0 border-[3px] border-[#3b82f6]/15 border-t-[#3b82f6] rounded-full animate-spin"></div>
-              <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6]" />
+          <!-- Grid Background Effect (appearing only during load) -->
+          <div class="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_10%,transparent_100%)] animate-[pulse_4s_ease-in-out_infinite]"></div>
+
+          <div class="relative group flex flex-col items-center">
+            <!-- Central Radar Scanner -->
+            <div class="relative w-40 h-40 flex items-center justify-center">
+              <div class="absolute inset-0 border-2 border-[#3b82f6]/20 rounded-full animate-[ping_3s_infinite]"></div>
+              <div class="absolute inset-4 border border-[#3b82f6]/30 rounded-full animate-[ping_2s_infinite]"></div>
+              <div class="absolute inset-0 border-t-2 border-l-2 border-[#3b82f6] rounded-full animate-spin [animation-duration:1.5s]"></div>
+              
+              <!-- Core Icon -->
+              <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center text-white shadow-[0_0_50px_rgba(59,130,246,0.5)] border border-white/20 transform rotate-45 group-hover:rotate-0 transition-transform duration-700">
+                <HugeiconsIcon :icon="Location01Icon" :size="36" :stroke-width="1.5" class="-rotate-45 group-hover:rotate-0 transition-transform duration-700" />
+              </div>
             </div>
-            <div>
-              <p class="text-[11px] font-black text-slate-700 dark:text-white uppercase tracking-wider">Cargando Geocerca</p>
-              <p class="text-[10px] font-medium text-slate-400 mt-0.5">{{ selectedGeocerca?.nombre }}</p>
+
+            <!-- Text Content -->
+            <div class="mt-8 text-center">
+              <div class="flex flex-col items-center gap-1">
+                <p class="text-[14px] font-black text-slate-800 dark:text-white uppercase tracking-[0.5em] leading-none [text-shadow:0_0_20px_rgba(59,130,246,0.3)]">Cargando...</p>
+                <div class="h-0.5 w-24 bg-gradient-to-r from-transparent via-[#3b82f6] to-transparent mt-3 overflow-hidden">
+                  <div class="h-full bg-white w-full animate-[scan-line_2s_infinite]"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -352,10 +471,10 @@ const exportToExcel = () => {
                 v-for="geocerca in paginatedGeocercas"
                 :key="geocerca.id_geocerca"
                 @click="onGeocercaClick(geocerca)"
-                class="group relative cursor-pointer rounded-xl transition-all duration-300 select-none border"
+                class="group relative cursor-pointer rounded-2xl transition-all duration-300 select-none border overflow-hidden"
                 :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca
-                  ? 'bg-white dark:bg-[#15181E] shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.08)] border-[#3b82f6]/50 dark:border-[#3b82f6]/40 -translate-y-0.5'
-                  : 'bg-slate-50/60 dark:bg-white/[0.02] border-transparent dark:border-white/[0.03] hover:bg-white dark:hover:bg-[#1A1D24] hover:border-slate-300 dark:hover:border-white/[0.1] shadow-sm hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.03)] hover:-translate-y-0.5'"
+                  ? 'bg-gradient-to-br from-white to-slate-50 dark:from-[#15181E] dark:to-[#0A0C10] shadow-[0_15px_35px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] border-[#3b82f6]/40 dark:border-[#3b82f6]/30'
+                  : 'bg-white/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/[0.04] hover:bg-white dark:hover:bg-white/[0.04] hover:border-slate-300 dark:hover:border-white/[0.08] shadow-sm hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.4)]'"
               >
                 <!-- Active Sidebar -->
                 <div
@@ -363,15 +482,15 @@ const exportToExcel = () => {
                   :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'opacity-100 h-[70%]' : 'opacity-0 h-0'"
                 ></div>
 
-                <div class="pl-5 pr-4 py-4">
+                <div class="p-4 pl-5">
                   <div class="flex items-center gap-3.5">
                     <!-- Icon based on type -->
                     <div
                       class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 border"
                       :style="{ backgroundColor: selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? geocerca.color : 'transparent', borderColor: geocerca.color }"
                       :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca
-                        ? 'text-white border-transparent shadow-[inset_0_1px_1px_rgba(255,255,255,0.3)]'
-                        : 'bg-white dark:bg-[#1A1D24] text-slate-400 dark:text-slate-500 shadow-[0_2px_8px_rgba(0,0,0,0.04)]'"
+                        ? 'text-white border-transparent shadow-[inset_0_1px_2px_rgba(255,255,255,0.4)]'
+                        : 'bg-slate-50 dark:bg-[#1A1D24] text-slate-400 dark:text-slate-500 shadow-sm'"
                     >
                       <HugeiconsIcon :icon="geocerca.tipo === 'Circular' ? CircleIcon : SquareIcon" :size="22" :stroke-width="1.8" :style="{ color: selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'white' : geocerca.color }" />
                     </div>
@@ -384,26 +503,48 @@ const exportToExcel = () => {
                           :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-white'"
                         >{{ geocerca.nombre }}</h3>
                         
-                        <div class="text-[9px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                        <!-- Badge Tipo -->
+                        <div class="text-[9px] font-black px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/[0.05] text-slate-500 dark:text-slate-400 uppercase tracking-widest shadow-sm">
                           {{ geocerca.tipo }}
                         </div>
                       </div>
 
-                      <div class="flex items-center gap-2 mt-1">
+                      <div class="flex items-center gap-2 mt-1.5">
                         <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">{{ geocerca.id_geocerca }}</span>
-                        <span class="text-slate-200 dark:text-white/10">·</span>
-                        <span class="text-[10px] font-medium text-slate-400 truncate">{{ geocerca.descripcion || 'Sin descripción' }}</span>
+                        <span class="text-slate-300 dark:text-white/10">·</span>
+                        <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">{{ geocerca.descripcion || 'Sin descripción' }}</span>
                       </div>
                     </div>
                   </div>
 
                   <!-- Footer -->
                   <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                    <div class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest">
                       {{ geocerca.fecha_creada }}
                     </div>
                     
-                    <div class="w-3 h-3 rounded-full shadow-[0_0_8px_currentColor]" :style="{ backgroundColor: geocerca.color, color: geocerca.color }"></div>
+                    <div class="flex items-center gap-2">
+                      <!-- Botón Editar -->
+                      <button
+                        @click.stop="router.push(`/geocercas/${geocerca.id_geocerca}/editar`)"
+                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-500/10 border border-blue-500/20 text-[#3b82f6] hover:bg-[#3b82f6] hover:text-white hover:border-[#3b82f6] transition-all duration-300 shadow-sm active:scale-95"
+                        title="Editar Geocerca"
+                      >
+                        <HugeiconsIcon :icon="Edit02Icon" :size="14" :stroke-width="2" />
+                      </button>
+                      
+                      <!-- Botón Borrar siempre visible -->
+                      <button
+                        @click.stop="confirmDelete(geocerca)"
+                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-300 shadow-sm active:scale-95"
+                        title="Eliminar Geocerca"
+                      >
+                        <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" />
+                      </button>
+                      
+                      <!-- Indicador de color -->
+                      <div class="w-3 h-3 ml-1 rounded-full shadow-[0_0_10px_currentColor] border border-white/20" :style="{ backgroundColor: geocerca.color, color: geocerca.color }"></div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -428,6 +569,14 @@ const exportToExcel = () => {
       </div>
     </div>
   </div>
+
+  <!-- Confirmación de Eliminación -->
+  <AppDeleteConfirm
+    v-model:isOpen="isDeleteDialogOpen"
+    :itemName="geocercaToDelete?.nombre"
+    :loading="isDeleting"
+    @confirm="handleDeleteGeocerca"
+  />
 </template>
 
 <style scoped>
@@ -457,5 +606,32 @@ const exportToExcel = () => {
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-150%) rotate(45deg); }
+  100% { transform: translateX(150%) rotate(45deg); }
+}
+
+@keyframes scan-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes progress-ind {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+.fade-overlay-enter-active,
+.fade-overlay-leave-active {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.fade-overlay-enter-from,
+.fade-overlay-leave-to {
+  opacity: 0;
+  transform: scale(1.1);
+  filter: blur(20px);
 }
 </style>

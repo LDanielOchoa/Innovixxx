@@ -216,17 +216,21 @@ const refreshPage = async () => {
           <div class="relative">
             <button 
               @click="toggleMenu"
-              class="flex items-center gap-4 transition-all duration-300 outline-none p-1.5 pr-4 rounded-[22px] group/btn hover:bg-slate-100 dark:hover:bg-white/5 active:scale-95 border border-transparent hover:border-slate-200 dark:hover:border-white/10"
-              :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/10 border-slate-200 dark:border-white/10' : ''"
+              class="flex items-center gap-4 transition-all duration-500 outline-none p-1.5 pr-4 rounded-[22px] group/btn active:scale-[0.97] active:translate-y-[1px] relative overflow-hidden"
+              :class="isMenuOpen ? 'bg-white/60 dark:bg-white/10 border-slate-200/50 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02)] dark:shadow-[0_4px_15px_rgba(0,0,0,0.2)]' : 'bg-transparent border border-transparent hover:bg-white/50 dark:hover:bg-white/5 hover:border-slate-200/50 dark:hover:border-white/10 hover:shadow-sm'"
             >
+              <!-- Glass Shimmer Effect -->
+              <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 dark:via-white/10 to-transparent group-hover/btn:animate-[shimmer_1.5s_ease-in-out]"></div>
+
               <!-- Espacio para Foto de Grupo -->
-              <div class="w-11 h-11 shrink-0 rounded-[16px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-sm group-hover/btn:scale-105 transition-transform duration-500 overflow-hidden">
-                <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover" />
-                <HugeiconsIcon v-else :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
+              <div class="w-11 h-11 shrink-0 rounded-[14px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover/btn:text-[#3b82f6] shadow-sm group-hover/btn:scale-105 transition-all duration-500 overflow-hidden relative z-10">
+                <div class="absolute inset-0 bg-[#3b82f6]/5 blur-md rounded-full opacity-0 group-hover/btn:opacity-100 transition-opacity duration-500"></div>
+                <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover relative z-10" />
+                <HugeiconsIcon v-else :icon="UserGroupIcon" :size="20" :stroke-width="1.8" class="relative z-10" />
               </div>
 
-              <div class="flex items-center gap-3">
-                <span class="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tighter truncate max-w-[200px] md:max-w-xs leading-none pt-0.5">
+              <div class="flex items-center gap-3 relative z-10">
+                <span class="text-xl md:text-2xl font-black text-slate-800 dark:text-white tracking-tighter truncate max-w-[200px] md:max-w-xs leading-none pt-0.5 group-hover/btn:text-[#3b82f6] dark:group-hover/btn:text-[#5da6fc] transition-colors duration-300">
                   {{ groupStore.selectedGroup.nombre }}
                 </span>
                 <HugeiconsIcon 
@@ -334,46 +338,46 @@ const refreshPage = async () => {
     
     <!-- Acciones Rápidas - Iconos -->
     <div class="flex items-center gap-2 animate-fade-in">
-      <div class="hidden xl:flex items-center gap-2 mr-2">
+      <div class="hidden xl:flex items-center gap-2.5 mr-2">
         
         <button 
           @click="openTrackingWindow"
           :title="t('header.tracking')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] transition-all duration-300 active:translate-y-[2px] active:shadow-none group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.playback')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] transition-all duration-300 active:translate-y-[2px] active:shadow-none group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="PlayIcon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="PlayIcon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.alarms')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none relative"
+          class="flex items-center justify-center w-11 h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] transition-all duration-300 active:translate-y-[2px] active:shadow-none group focus:outline-none relative shrink-0"
         >
-          <HugeiconsIcon :icon="Notification03Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-          <span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.5)]"></span>
+          <HugeiconsIcon :icon="Notification03Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <span class="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
         </button>
 
         <button 
           :title="t('header.services')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] transition-all duration-300 active:translate-y-[2px] active:shadow-none group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Settings02Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Settings02Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.reports')"
-          class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-[#1A1D24] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] transition-all duration-200 active:scale-95 active:translate-y-[1px] active:shadow-none group focus:outline-none"
+          class="flex items-center justify-center w-11 h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] transition-all duration-300 active:translate-y-[2px] active:shadow-none group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Note01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Note01Icon" :size="20" :stroke-width="2" class="text-slate-400 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
         
-        <div class="h-6 w-px bg-slate-200/60 dark:bg-white/5 mx-2"></div>
+        <div class="h-6 w-px bg-slate-200/60 dark:bg-white/10 mx-2"></div>
       </div>
     </div>
   </header>
@@ -413,6 +417,11 @@ header {
 
 .animate-fade-in {
   animation: fade-in 0.6s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 </style>
 

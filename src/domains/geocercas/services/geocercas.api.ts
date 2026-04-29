@@ -32,3 +32,19 @@ export const createGeocercaApi = async (payload: GeocercaCreatePayload): Promise
   })
   return data.done
 }
+
+export const deleteGeocercaApi = async (id_grupo: string, id_geocerca: string): Promise<boolean> => {
+  const data = await apiClient<BackendResponse<any>>('/api/v1/geocerca/borrar/', {
+    method: 'POST',
+    body: JSON.stringify({ id_grupo, id_geocerca })
+  })
+  return data.done
+}
+
+export const updateGeocercaApi = async (payload: GeocercaCreatePayload & { id_geocerca: string }): Promise<boolean> => {
+  const data = await apiClient<BackendResponse<any>>('/api/v1/geocerca/actualizar/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  return data.done
+}
