@@ -69,7 +69,6 @@ export const mapUsuariosFromApi = (items: any[], grupo: Grupo, fallbackLang: str
     nombre: item.nombre ?? item.name ?? '',
     email: item.email ?? '',
     lang: item.lang ?? fallbackLang,
-    pass: item.pass ?? '',
     id_role: item.id_role ?? item.role_id ?? '',
     id_grupo: grupo.id,
     grupo_nombre: item.grupo ?? item.grupo_nombre ?? grupo.nombre,

@@ -31,6 +31,8 @@ import {
 import type { Escolta } from '../types/escolta'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
@@ -45,6 +47,7 @@ import Column from 'primevue/column'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const router = useRouter()
 const escoltas = ref<Escolta[]>([])
@@ -251,6 +254,7 @@ watch(selectedGroup, async (newGroup) => {
         </AppButton>
 
         <AppButton 
+          v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_CREATE)"
           variant="primary" 
           :icon="PlusSignIcon" 
           @click="openCreateModal"
@@ -320,22 +324,25 @@ watch(selectedGroup, async (newGroup) => {
           <template #body="{ data }">
             <div class="flex items-center justify-end gap-3">
               <button 
+                v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_VALIDATE)"
                 @click="openValidateModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-emerald-50 hover:border-emerald-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                 title="Validar Escolta"
               >
                 <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="16" :stroke-width="2.5" />
               </button>
               <button 
+                v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)"
                 @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 hover:border-[#3b82f6]/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                 title="Editar"
               >
                 <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
               </button>
               <button 
+                v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_DELETE)"
                 @click="confirmDelete(data.id_escolta)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-white dark:bg-red-500/5 border border-slate-200 dark:border-red-500/10 text-slate-400 dark:text-red-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#000000] active:shadow-none"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                 title="Eliminar"
               >
                 <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
@@ -381,13 +388,16 @@ watch(selectedGroup, async (newGroup) => {
         
         <!-- Pantalla de Éxito -->
         <Transition name="fade-slide" mode="out-in">
-          <div v-if="isValidationSuccess" class="py-8 flex flex-col items-center justify-center text-center space-y-4">
-            <div class="w-16 h-16 rounded-full bg-[#5da6fc]/10 flex items-center justify-center mb-2 shadow-[inset_0_2px_10px_rgba(93,166,252,0.2)]">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-[#5da6fc]" />
+          <div v-if="isValidationSuccess" class="py-10 flex flex-col items-center justify-center text-center space-y-4">
+            <div class="relative group mb-4">
+              <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
+              <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
+                <HugeiconsIcon :icon="Tick01Icon" :size="40" class="text-white drop-shadow-sm" />
+              </div>
             </div>
-            <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">¡Validación Exitosa!</h3>
-            <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[280px]">
-              El dispositivo y número de este escolta han sido validados correctamente en el sistema.
+            <h3 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight">¡Validación Exitosa!</h3>
+            <p class="text-[14px] text-slate-500 dark:text-slate-400 max-w-[280px]">
+              El dispositivo y número de este escolta han sido validados correctamente en el sistema de seguridad.
             </p>
           </div>
 
@@ -397,13 +407,14 @@ watch(selectedGroup, async (newGroup) => {
               <div v-if="isValidating" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#16191D]/60 backdrop-blur-md rounded-2xl overflow-hidden">
                 <div class="flex flex-col items-center gap-4 p-8">
                   <div class="relative flex items-center justify-center">
-                    <div class="w-14 h-14 border-[3px] border-[#5da6fc]/10 border-t-[#5da6fc] rounded-full animate-spin"></div>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                      <HugeiconsIcon :icon="Loading03Icon" :size="20" class="text-[#5da6fc] animate-pulse" />
+                    <div class="absolute inset-0 bg-[#3b82f6]/20 dark:bg-[#5da6fc]/20 rounded-full blur-xl animate-pulse"></div>
+                    <div class="w-16 h-16 border-[3px] border-[#3b82f6]/10 dark:border-[#5da6fc]/10 border-t-[#3b82f6] dark:border-t-[#5da6fc] rounded-full animate-spin relative z-10"></div>
+                    <div class="absolute inset-0 flex items-center justify-center z-10">
+                      <HugeiconsIcon :icon="Loading03Icon" :size="24" class="text-[#3b82f6] dark:text-[#5da6fc] animate-pulse" />
                     </div>
                   </div>
-                  <p class="text-[10px] font-bold text-slate-500 dark:text-white/50 tracking-[0.2em] uppercase animate-pulse">
-                    {{ smsCodeGenerated ? 'Validando' : 'Enviando SMS' }}
+                  <p class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] tracking-[0.2em] uppercase animate-pulse">
+                    {{ smsCodeGenerated ? 'Validando...' : 'Enviando SMS...' }}
                   </p>
                 </div>
               </div>
@@ -411,51 +422,79 @@ watch(selectedGroup, async (newGroup) => {
 
             <Transition name="message-fade">
               <div v-if="validateMessage && !isValidating"
-                    class="flex items-center gap-2 py-1.5 px-2.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase"
+                    class="flex items-center gap-2 py-2 px-3 rounded-[12px] text-[12px] font-semibold tracking-wide"
                     :class="{
-                      'text-red-400 bg-red-400/5 border border-red-400/10': validateMessage.type === 'error',
-                      'text-amber-400 bg-amber-400/5 border border-amber-400/10': validateMessage.type === 'warning',
-                      'text-[#5da6fc] bg-[#5da6fc]/5 border border-[#5da6fc]/10': validateMessage.type === 'success'
+                      'text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20': validateMessage.type === 'error',
+                      'text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-400/10 border border-amber-200 dark:border-amber-400/20': validateMessage.type === 'warning',
+                      'text-emerald-500 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20': validateMessage.type === 'success'
                     }">
-                    <HugeiconsIcon v-if="validateMessage.type === 'error' || validateMessage.type === 'warning'" :icon="Alert01Icon" :size="14" />
-                    <HugeiconsIcon v-else :icon="Tick01Icon" :size="14" class="text-[#5da6fc]" />
+                    <HugeiconsIcon v-if="validateMessage.type === 'error' || validateMessage.type === 'warning'" :icon="Alert01Icon" :size="16" />
+                    <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
                     {{ validateMessage.text }}
               </div>
             </Transition>
 
-            <template v-if="!smsCodeGenerated">
-              <AppFormInput 
-                :modelValue="currentValidateEscolta.nombre"
-                :label="t('escoltas.labelEscolta') || 'Escolta'"
-                :icon="User02Icon"
-                disabled
-                class="uppercase"
-              />
+            <!-- Card de Datos Estilo Glassmorphic -->
+            <div class="p-5 rounded-[20px] bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/5 shadow-[0_8px_30px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden group">
+               <!-- Decorative ambient glow -->
+               <div class="absolute -top-10 -right-10 w-40 h-40 bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 rounded-full blur-3xl group-hover:bg-[#3b82f6]/20 transition-all duration-700 pointer-events-none"></div>
 
-              <AppFormInput 
-                :modelValue="currentValidateEscolta.celular"
-                :label="t('escoltas.labelDestMobile') || 'Número Destino SMS'"
-                :icon="SmartPhone01Icon"
-                disabled
-                class="font-mono tracking-widest"
-              />
-            </template>
+              <template v-if="!smsCodeGenerated">
+                <div class="flex items-center gap-3 mb-4 relative z-10">
+                  <div class="w-10 h-10 rounded-[12px] bg-slate-100 dark:bg-[#20242D] border border-slate-200/50 dark:border-white/5 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shadow-inner">
+                    <HugeiconsIcon :icon="SmartPhone01Icon" :size="20" />
+                  </div>
+                  <div>
+                    <h4 class="text-[14px] font-bold text-slate-800 dark:text-white">Verificación por SMS</h4>
+                    <p class="text-[12px] text-slate-500 dark:text-slate-400">Se enviará un código al número registrado.</p>
+                  </div>
+                </div>
 
-            <template v-else>
-              <div class="space-y-1.5">
-                <AppFormInput 
-                  v-model="smsCodeInput"
-                  label="Código SMS"
-                  :icon="MessageQuestionIcon"
-                  placeholder="Ej: 5579"
-                  maxlength="6"
-                  class="font-mono tracking-widest text-lg"
-                />
-                <p class="text-[11px] text-slate-500 mt-2 px-1 text-center">
-                  Ingresa el código de 4 a 6 dígitos enviado al celular del escolta.
-                </p>
-              </div>
-            </template>
+                <div class="space-y-4 relative z-10">
+                  <AppFormInput 
+                    :modelValue="currentValidateEscolta.nombre"
+                    :label="t('escoltas.labelEscolta') || 'Escolta'"
+                    :icon="User02Icon"
+                    disabled
+                    class="uppercase"
+                  />
+
+                  <AppFormInput 
+                    :modelValue="currentValidateEscolta.celular"
+                    :label="t('escoltas.labelDestMobile') || 'Número Destino SMS'"
+                    :icon="SmartPhone01Icon"
+                    disabled
+                    class="font-mono tracking-widest text-[#3b82f6] dark:text-[#5da6fc]"
+                  />
+                </div>
+              </template>
+
+              <template v-else>
+                <div class="flex items-center gap-3 mb-4 relative z-10">
+                  <div class="w-10 h-10 rounded-[12px] bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 flex items-center justify-center text-emerald-500 shadow-inner">
+                    <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="20" />
+                  </div>
+                  <div>
+                    <h4 class="text-[14px] font-bold text-slate-800 dark:text-white">Código Enviado</h4>
+                    <p class="text-[12px] text-slate-500 dark:text-slate-400">Ingresa el código que recibió el escolta.</p>
+                  </div>
+                </div>
+                
+                <div class="space-y-2 relative z-10">
+                  <AppFormInput 
+                    v-model="smsCodeInput"
+                    label="Código SMS"
+                    :icon="MessageQuestionIcon"
+                    placeholder="Ej: 5579"
+                    maxlength="6"
+                    class="font-mono tracking-widest text-xl text-center text-[#3b82f6] dark:text-[#5da6fc]"
+                  />
+                  <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center font-medium mt-1">
+                    {{ t('escoltas.msgSmsSent') || 'Un SMS ha sido enviado al celular del escolta.' }}
+                  </p>
+                </div>
+              </template>
+            </div>
           </div>
         </Transition>
       </form>

@@ -5,6 +5,8 @@ import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '../stores/theme.store'
 import { storeToRefs } from 'pinia'
 import { CookieAuth } from '../utils/cookie-auth'
+import { useFormValidator } from '../composables/useFormValidator'
+import { loginSchema } from '../schemas/auth.schema'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import logoImg from '../assets/logo.png'
@@ -72,17 +74,18 @@ const obtenerTokenRecaptcha = async () => {
   return await window.grecaptcha.execute(recaptchaSiteKey, { action: 'login' })
 }
 
+const { validate, getFirstError, resetErrors } = useFormValidator(loginSchema)
+
 const iniciarSesion = async () => {
-  if (!correo.value || !contrasena.value) {
+  resetErrors('login-form')
+  if (!validate({ email: correo.value, password: contrasena.value }, 'login-form')) {
+    errorMensaje.value = getFirstError('login-form') || ''
     errorVisible.value = true
-    errorMensaje.value = ''
-    exitoMensaje.value = ''
     setTimeout(() => { errorVisible.value = false }, 3000)
     return
   }
   cargando.value = true
   errorMensaje.value = ''
-  exitoMensaje.value = ''
   try {
     if (!recaptchaReady.value) throw new Error(t('errors.recaptchaNotReady'))
     const gcToken = await obtenerTokenRecaptcha()
@@ -106,8 +109,7 @@ const iniciarSesion = async () => {
         nombre: data?.data?.grupo || ''
       }))
     }
-    exitoMensaje.value = t('login.success')
-    setTimeout(() => { router.push('/dashboard') }, 1500)
+    router.push('/dashboard')
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'Error al iniciar sesión.'
     errorMensaje.value = mensaje.toLowerCase().includes('invalid credentials')
@@ -192,21 +194,7 @@ onUnmounted(() => { mostrarBadgeRecaptcha(false) })
       <div class="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 rounded-full blur-[120px] pointer-events-none z-0"></div>
     </div>
 
-    <!-- Top-right Controls: Theme Toggle -->
-    <div class="fixed top-6 right-6 md:top-10 md:right-10 flex items-center z-50">
-      <!-- Theme Toggle -->
-      <button
-        @click="toggle"
-        type="button"
-        :title="isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'"
-        class="w-10 h-10 flex items-center justify-center rounded-[12px] border transition-all duration-500 ease-in-out bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border-slate-200 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/40 dark:hover:border-[#5da6fc]/30 shadow-sm hover:shadow-md hover:scale-105 active:scale-95"
-      >
-        <Transition name="theme-icon" mode="out-in">
-          <HugeiconsIcon v-if="isDark" :key="'sun'" :icon="Sun01Icon" class="text-[18px]" />
-          <HugeiconsIcon v-else :key="'moon'" :icon="Moon01Icon" class="text-[18px]" />
-        </Transition>
-      </button>
-    </div>
+
 
     <!-- Main Content Grid -->
     <div class="relative z-10 w-full px-6 lg:px-20 grid grid-cols-1 lg:grid-cols-[1fr_1.3fr] gap-12 lg:gap-20 items-center animate-fade-in mt-12 lg:mt-0">
@@ -216,7 +204,7 @@ onUnmounted(() => { mostrarBadgeRecaptcha(false) })
         
         <!-- Huge Background Number/Text mimicking "24/7" from image -->
         <div 
-          class="absolute -top-16 lg:-top-24 left-1/2 -translate-x-1/2 text-[10rem] md:text-[14rem] font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-200/40 to-transparent dark:from-white/[0.04] dark:to-transparent tracking-tighter select-none pointer-events-none z-0 leading-none transition-transform duration-500 ease-out will-change-transform"
+          class="absolute -top-16 lg:-top-24 left-1/2 -translate-x-1/2 text-[10rem] md:text-[14rem] font-black text-transparent bg-clip-text bg-gradient-to-b from-slate-300/80 to-transparent dark:from-white/[0.04] dark:to-transparent tracking-tighter select-none pointer-events-none z-0 leading-none transition-transform duration-500 ease-out will-change-transform"
           :style="{ transform: `translateX(calc(-50% + ${-rotateY * 1.5}px)) translateY(${-rotateX * 1.5}px)` }"
         >
           LOGIN
@@ -338,8 +326,8 @@ onUnmounted(() => { mostrarBadgeRecaptcha(false) })
 
           </form>
 
-          <!-- Language Selector -->
-          <div class="mt-8 pt-6 border-t border-slate-200/50 dark:border-white/5 flex flex-col items-center relative z-10">
+          <!-- Settings: Language & Theme -->
+          <div class="mt-8 pt-6 border-t border-slate-200/50 dark:border-white/5 flex flex-col items-center gap-4 relative z-10">
             <div class="flex items-center gap-1 bg-slate-100/50 dark:bg-[#0F1115] p-1 rounded-full border border-slate-200/50 dark:border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
               <button
                 type="button"
@@ -358,6 +346,21 @@ onUnmounted(() => { mostrarBadgeRecaptcha(false) })
               >
                 <img src="https://flagcdn.com/us.svg" alt="United States" class="w-4 h-auto rounded-[2px] transition-all duration-500" :class="locale !== 'en' && 'opacity-40 saturate-0'" />
                 <span>English</span>
+              </button>
+            </div>
+
+            <!-- Theme Selector -->
+            <div class="flex items-center gap-1 bg-slate-100/50 dark:bg-[#0F1115] p-1 rounded-full border border-slate-200/50 dark:border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+              <button
+                @click="toggle"
+                type="button"
+                class="flex items-center justify-center gap-2 px-6 py-2 rounded-full text-[12px] font-bold transition-all duration-500 ease-in-out text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent hover:bg-slate-200/30 dark:hover:bg-white/5 active:scale-95"
+              >
+                <Transition name="theme-icon" mode="out-in">
+                  <HugeiconsIcon v-if="isDark" :key="'sun'" :icon="Sun01Icon" class="text-[16px]" />
+                  <HugeiconsIcon v-else :key="'moon'" :icon="Moon01Icon" class="text-[16px]" />
+                </Transition>
+                <span>{{ isDark ? 'Modo Claro' : 'Modo Oscuro' }}</span>
               </button>
             </div>
           </div>
@@ -390,7 +393,7 @@ onUnmounted(() => { mostrarBadgeRecaptcha(false) })
         >
           <img 
             :src="bannerImg" alt="Innovix Banner" 
-            class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+            class="w-full h-full object-cover object-[100%] transition-transform duration-700 group-hover:scale-320" 
             :style="{ transform: `translateZ(20px)` }"
           />
           

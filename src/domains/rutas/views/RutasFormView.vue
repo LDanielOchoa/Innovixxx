@@ -334,8 +334,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 // ── Composables de rutas ─────────────────────────────────────
-import { useGoogleMaps }      from '../composables/useGoogleMaps'
-import { useMapSetup }        from '../composables/useMapSetup'
+import { useGoogleMaps }      from '../../../composables/useGoogleMaps'
+import { useMapSetup }         from '../../../composables/useMapSetup'
 import { useParadasManager }  from '../composables/useParadasManager'
 import { useRouteDrawer }     from '../composables/useRouteDrawer'
 
@@ -564,6 +564,11 @@ const saveRuta = async () => {
     let data
 
     if (isEditMode.value && editingRutaId.value) {
+      if (!authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)) {
+        showModalMessage(t('rutas.alertErrorUpdate') || 'No tienes permiso para editar rutas', 'error')
+        isSubmitting.value = false
+        return
+      }
       const updatePayload: RutaUpdatePayload = {
         id_grupo:    idGrupo,
         id_ruta:     editingRutaId.value,

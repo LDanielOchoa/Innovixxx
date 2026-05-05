@@ -20,7 +20,8 @@ import type { GeocercaCreatePayload } from '../types/geocerca'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-import { useGoogleMaps } from '../../rutas/composables/useGoogleMaps'
+import { useGoogleMaps } from '../../../composables/useGoogleMaps'
+import { useMapSetup } from '../../../composables/useMapSetup'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
 
@@ -46,65 +47,25 @@ const isSubmitting = ref(false)
 const isLoadingData = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
-// Google Maps Setup
+// Google Maps Setup (shared composable)
 const { loadGoogleMaps } = useGoogleMaps()
-const map = shallowRef<any>(null)
-const isLoadingMap = ref(true)
-const isDarkMapMode = ref(document.documentElement.classList.contains('dark'))
-const htmlClassObserver = ref<MutationObserver | null>(null)
+const {
+  map,
+  isLoadingMap,
+  initMap,
+  startDarkModeObserver
+} = useMapSetup('geocerca-form-map-container', {
+  defaultZoom: 12,
+  gestureHandling: 'cooperative'
+})
 const currentDrawing = shallowRef<any>(null)
 const markers = shallowRef<any[]>([])
 
-// ... themes ...
-const themes = [
-  {
-    id: 'tactical',
-    getStyle: (isDark: boolean) => {
-      const land = isDark ? '#0f172a' : '#e2e8f0'
-      const water = isDark ? '#020617' : '#cbd5e1'
-      const road = isDark ? '#1e293b' : '#f1f5f9'
-      const highway = isDark ? '#334155' : '#ffffff'
-      const text = '#64748b'
-      const accent = isDark ? '#3b82f6' : '#2563eb'
-
-      return [
-        { elementType: 'geometry', stylers: [{ color: land }] },
-        { elementType: 'labels.text.stroke', stylers: [{ color: land }, { weight: 2 }] },
-        { elementType: 'labels.text.fill', stylers: [{ color: text }] },
-        { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: accent }] },
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: isDark ? '#020617' : '#d1d5db' }] },
-        { featureType: 'road', elementType: 'geometry', stylers: [{ color: road }] },
-        { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: highway }] },
-        { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: accent }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: water }] }
-      ]
-    }
-  }
-]
-
 const initializeMap = async (googleMapsApi: any) => {
-  await nextTick()
-  const container = document.getElementById('geocerca-form-map-container')
-  if (!container) return
-
-  isLoadingMap.value = false
-  map.value = new googleMapsApi.Map(container, {
-    center: { lat: 4.6097, lng: -74.0817 },
-    zoom: 6,
-    styles: themes[0].getStyle(isDarkMapMode.value),
-    disableDefaultUI: true,
-    zoomControl: true,
-    gestureHandling: 'cooperative',
+  initMap(googleMapsApi, (lat, lng) => {
+    handleMapClick(lat, lng)
   })
 
-  map.value.addListener('click', (e: any) => {
-    const lat = e.latLng.lat()
-    const lon = e.latLng.lng()
-    handleMapClick(lat, lon)
-  })
-  
   if (isEditing.value) {
     loadGeocercaData()
   }
@@ -382,16 +343,7 @@ watch(() => formData.value.color, () => {
 })
 
 onMounted(() => {
-  htmlClassObserver.value = new MutationObserver(() => {
-    isDarkMapMode.value = document.documentElement.classList.contains('dark')
-    if (map.value) {
-      map.value.setOptions({ styles: themes[0].getStyle(isDarkMapMode.value) })
-    }
-  })
-  htmlClassObserver.value.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class']
-  })
+  startDarkModeObserver()
 
   loadGoogleMaps().then(initializeMap).catch(err => {
     console.error('Error cargando Google Maps:', err)
@@ -400,7 +352,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  htmlClassObserver.value?.disconnect()
+  // Cleanup handled by useMapSetup onUnmounted
 })
 
 const saveGeocerca = async () => {
@@ -437,6 +389,11 @@ const saveGeocerca = async () => {
 
     let success = false
     if (isEditing.value && props.id) {
+      if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)) {
+        showModalMessage('No tienes permiso para editar geocercas', 'error')
+        isSubmitting.value = false
+        return
+      }
       payload.id_geocerca = props.id
       success = await updateGeocercaApi(payload)
     } else {

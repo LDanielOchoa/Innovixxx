@@ -24,6 +24,9 @@ import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escoltas.schema'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
@@ -33,6 +36,9 @@ const router = useRouter()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
+const activeSchema = computed(() => isEditMode.value ? updateEscoltaSchema : createEscoltaSchema)
+const { validate } = useFormValidator(activeSchema as any)
+const { getError } = useFormError('escolta-form')
 
 const isEditMode = computed(() => route.name === 'escoltas-editar' || !!route.params.id)
 const editId = computed(() => route.params.id as string)
@@ -98,13 +104,25 @@ const saveEscolta = async () => {
   saving.value = true
   pageMessage.value = null
 
-  try {
-    const payload = {
-      ...formData.value,
-      id_grupo: selectedGroup.value.id
-    }
+  const payload = {
+    ...formData.value,
+    id_grupo: selectedGroup.value.id,
+    email: formData.value.email || '',
+    celular: formData.value.celular || ''
+  }
 
+  if (!validate(payload, 'escolta-form')) {
+    saving.value = false
+    return
+  }
+
+  try {
     if (isEditMode.value && editId.value) {
+      if (!authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)) {
+        showMessage(t('escoltas.alertErrorUpdate') || 'No tienes permiso para actualizar escoltas', 'error')
+        saving.value = false
+        return
+      }
       const data = await updateEscoltaApi({ ...payload, id_escolta: editId.value })
       if (data.done) {
         showMessage(t('escoltas.alertSuccessUpdate') || 'Escolta actualizado exitosamente', 'success')
@@ -199,6 +217,7 @@ const saveEscolta = async () => {
               :label="t('escoltas.labelName') || 'Nombre Completo'"
               :placeholder="t('escoltas.placeholderName') || 'Ej: Pepito Pérez'"
               :icon="User02Icon"
+              :error="getError('nombre') ?? undefined"
             />
 
             <!-- Fila 2: Cédula y Celular -->
@@ -208,6 +227,7 @@ const saveEscolta = async () => {
                 :label="t('escoltas.labelDoc') || 'Documento (Cédula)'"
                 :placeholder="t('escoltas.placeholderDoc') || 'Ej: 79065744'"
                 :icon="ContactBookIcon"
+                :error="getError('cedula') ?? undefined"
               />
 
               <AppFormInput
@@ -215,6 +235,7 @@ const saveEscolta = async () => {
                 :label="t('escoltas.labelMobile') || 'Celular'"
                 :placeholder="t('escoltas.placeholderMobile') || 'Ej: 3023014514'"
                 :icon="SmartPhone01Icon"
+                :error="getError('celular') ?? undefined"
               />
             </div>
 
@@ -225,6 +246,7 @@ const saveEscolta = async () => {
                 :label="t('escoltas.labelEmail') || 'Correo Electrónico'"
                 :placeholder="t('escoltas.placeholderEmail') || 'Ej: escolta@email.com'"
                 :icon="Mail01Icon"
+                :error="getError('email') ?? undefined"
                 type="email"
               />
               <p class="text-[11px] text-slate-400 dark:text-slate-600 mt-1 pl-1 font-medium italic">

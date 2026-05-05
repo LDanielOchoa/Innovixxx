@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -10,10 +10,9 @@ import {
   Tag01Icon,
   TextNumberSignIcon,
   SmartPhone01Icon,
-  NanochipIcon,
-  UnlockIcon,
+  CpuIcon,
+  LockIcon,
   ArrowDown01Icon,
-  Cpu01Icon,
   CheckmarkCircle02Icon
 } from '@hugeicons/core-free-icons'
 
@@ -24,11 +23,14 @@ import {
   fetchFamiliasApi
 } from '../services/hardware.api'
 
-import type { Hardware, FamiliaHardware } from '../types/hardware'
+import type { FamiliaHardware } from '../types/hardware'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createHardwareSchema, updateHardwareSchema } from '../../../schemas/hardware.schema'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
@@ -38,6 +40,9 @@ const router = useRouter()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
+const activeSchema = computed(() => isEditMode.value ? updateHardwareSchema : createHardwareSchema)
+const { validate } = useFormValidator(activeSchema as any)
+const { getError } = useFormError('hardware-form')
 
 const isEditMode = computed(() => route.name === 'hardware-editar' || !!route.params.id)
 const editId = computed(() => route.params.id as string)
@@ -131,23 +136,33 @@ const saveHardware = async () => {
   saving.value = true
   pageMessage.value = null
 
-  try {
-    const payload: any = {
-      serial: formData.value.serial,
-      id_grupo: selectedGroup.value.id,
-      id_familia: Number(formData.value.id_familia),
-      nombre: formData.value.nombre,
-      descripcion: formData.value.descripcion,
-      imei: formData.value.imei,
-      mac: formData.value.mac,
-      estado: 0,
-      id_ruta: isEditMode.value ? "" : 0,
-      numero_sms: formData.value.numero_sms,
-      id_binario: formData.value.id_binario,
-      clave_open: formData.value.clave_open
-    }
+  const payload = {
+    serial: formData.value.serial,
+    id_grupo: selectedGroup.value.id,
+    id_familia: Number(formData.value.id_familia),
+    nombre: formData.value.nombre,
+    descripcion: formData.value.descripcion || '',
+    imei: formData.value.imei || '',
+    mac: formData.value.mac || '',
+    estado: 1,
+    id_ruta: isEditMode.value ? '' : 0,
+    numero_sms: formData.value.numero_sms || '',
+    id_binario: formData.value.id_binario || '',
+    clave_open: formData.value.clave_open || ''
+  }
 
+  if (!validate(payload, 'hardware-form')) {
+    saving.value = false
+    return
+  }
+
+  try {
     if (isEditMode.value && editId.value) {
+      if (!authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)) {
+        showMessage(t('hardware.alertErrorUpdate') || 'No tienes permiso para editar hardware', 'error')
+        saving.value = false
+        return
+      }
       const data = await updateHardwareApi({ ...payload, id_hardware: editId.value })
       if (data.done) {
         showMessage(t('hardware.alertSuccessUpdate') || 'Dispositivo actualizado exitosamente', 'success')
@@ -238,84 +253,91 @@ const saveHardware = async () => {
           <div class="space-y-8">
             <!-- Fila 1: Nombre y Descripción -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.nombre"
                 :label="t('hardware.labelName') || 'Nombre (Alias)'"
                 :placeholder="t('hardware.placeholderName') || 'Ej: gps gl800 3'"
                 :icon="Tag01Icon"
+                :error="getError('nombre') ?? undefined"
               />
 
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.descripcion"
                 :label="t('hardware.labelDescription') || 'Descripción'"
                 :placeholder="t('hardware.placeholderDescription') || 'Ej: 10000 mah'"
                 :icon="Tag01Icon"
+                :error="getError('descripcion') ?? undefined"
               />
             </div>
 
             <!-- Fila 2: Identificadores (Serial, IMEI, MAC) -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.serial"
                 :label="t('hardware.labelSerial') || 'Serial'"
                 :placeholder="t('hardware.placeholderSerial') || 'B123RZZR'"
                 :icon="TextNumberSignIcon"
+                :error="getError('serial') ?? undefined"
               />
 
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.imei"
                 :label="t('hardware.labelImei') || 'IMEI'"
                 :placeholder="t('hardware.placeholderImei') || '1234567...'"
                 :icon="TextNumberSignIcon"
+                :error="getError('imei') ?? undefined"
               />
 
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.mac"
                 :label="t('hardware.labelMac') || 'MAC'"
                 :placeholder="t('hardware.placeholderMac') || 'sw:ki:pl...'"
                 :icon="TextNumberSignIcon"
+                :error="getError('mac') ?? undefined"
               />
             </div>
 
             <!-- Fila 3: Configuración Técnica -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-6 border-t border-slate-100 dark:border-white/5">
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.numero_sms"
                 label="Número SMS"
                 placeholder="Ej: 9103166133"
                 :icon="SmartPhone01Icon"
               />
 
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.id_binario"
                 label="ID Binario"
                 placeholder="Ej: 2512001917"
-                :icon="NanochipIcon"
+                :icon="CpuIcon"
               />
 
-              <AppFormInput 
+              <AppFormInput
                 v-model="formData.clave_open"
                 label="Clave Open"
                 placeholder="Ej: 888888"
-                :icon="UnlockIcon"
+                :icon="LockIcon"
               />
             </div>
 
             <div class="grid grid-cols-1 gap-5 pt-6 border-t border-slate-100 dark:border-white/5">
               <div class="space-y-2 relative">
                 <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ t('hardware.labelFamily') || 'Familia Receptora' }}</label>
-                <div 
+                <div
                   @click="isFamilyDropdownOpen = !isFamilyDropdownOpen"
                   class="relative flex items-center justify-between group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
+                  :class="{ '!border-red-500/50': getError('id_familia') }"
                 >
                   <div class="flex items-center gap-3">
-                    <HugeiconsIcon :icon="Cpu01Icon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
+                    <HugeiconsIcon :icon="CpuIcon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
                     <span class="text-[13px] font-bold uppercase tracking-wider" :class="formData.id_familia ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
                       {{ formData.id_familia ? familias.find(f => f.id_familia === formData.id_familia)?.nombre : (t('hardware.placeholderFamily') || 'Seleccione familia...') }}
                     </span>
                   </div>
                   <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2.2" class="text-slate-400 group-hover/input:text-[#3b82f6] transition-transform duration-200" :class="isFamilyDropdownOpen && '-rotate-180'" />
                 </div>
+                <span v-if="getError('id_familia')" class="text-xs text-red-500 font-bold ml-1.5">{{ getError('id_familia') }}</span>
 
                 <!-- Dropdown Menu Familia -->
                 <div v-if="isFamilyDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white/70 dark:bg-[#0F1115]/70 backdrop-blur-[32px] border border-white/40 dark:border-white/[0.08] rounded-[24px] shadow-[0_16px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] z-[50] overflow-hidden p-2 ring-1 ring-black/5 dark:ring-white/5">

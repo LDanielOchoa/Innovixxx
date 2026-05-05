@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, shallowRef, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -12,7 +12,8 @@ import {
   MapsIcon,
   Delete02Icon,
   CircleIcon,
-  SquareIcon
+  SquareIcon,
+  Alert01Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi, deleteGeocercaApi } from '../services/geocercas.api'
@@ -20,14 +21,18 @@ import type { Geocerca, GeocercaDetalle } from '../types/geocerca'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-import { useGoogleMaps } from '../../rutas/composables/useGoogleMaps'
+import { useGoogleMaps } from '../../../composables/useGoogleMaps'
+import { useMapSetup } from '../../../composables/useMapSetup'
 import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 
@@ -54,75 +59,29 @@ const fetchGeocercas = async () => {
   }
 }
 
-// Google Maps Setup (Pattern from RutasListView)
+// Google Maps Setup (shared composable)
 const { loadGoogleMaps } = useGoogleMaps()
-const map = shallowRef<any>(null)
-const isLoadingMap = ref(true)
-const isDarkMapMode = ref(document.documentElement.classList.contains('dark'))
-const htmlClassObserver = ref<MutationObserver | null>(null)
-
-const themes = [
-  {
-    id: 'tactical',
-    name: 'Tactical',
-    getStyle: (isDark: boolean) => {
-      const land = isDark ? '#0f172a' : '#e2e8f0'
-      const water = isDark ? '#020617' : '#cbd5e1'
-      const road = isDark ? '#1e293b' : '#f1f5f9'
-      const highway = isDark ? '#334155' : '#ffffff'
-      const text = '#64748b'
-      const accent = isDark ? '#3b82f6' : '#2563eb'
-
-      return [
-        { elementType: 'geometry', stylers: [{ color: land }] },
-        { elementType: 'labels.text.stroke', stylers: [{ color: land }, { weight: 2 }] },
-        { elementType: 'labels.text.fill', stylers: [{ color: text }] },
-        { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: accent }] },
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: isDark ? '#020617' : '#d1d5db' }] },
-        { featureType: 'road', elementType: 'geometry', stylers: [{ color: road }] },
-        { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: highway }] },
-        { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: accent }] },
-        { featureType: 'water', elementType: 'geometry', stylers: [{ color: water }] }
-      ]
-    }
-  }
-]
+const {
+  map,
+  isLoadingMap,
+  mapLoadError,
+  initMap,
+  startDarkModeObserver
+} = useMapSetup('geocercas-map-container', {
+  defaultZoom: 12,
+  gestureHandling: 'cooperative'
+})
 
 const initializeMap = async (googleMapsApi: any) => {
-  await nextTick()
-  const container = document.getElementById('geocercas-map-container')
-  if (!container) return
-
-  // Darle tiempo a la animación de carga inicial para que se vea premium
-  await new Promise(resolve => setTimeout(resolve, 2000))
-
-  isLoadingMap.value = false
-  map.value = new googleMapsApi.Map(container, {
-    center: { lat: 4.6097, lng: -74.0817 },
-    zoom: 6,
-    styles: themes[0].getStyle(isDarkMapMode.value),
-    disableDefaultUI: true,
-    zoomControl: true,
-    gestureHandling: 'cooperative',
-  })
+  initMap(googleMapsApi)
 }
 
 onMounted(() => {
-  htmlClassObserver.value = new MutationObserver(() => {
-    isDarkMapMode.value = document.documentElement.classList.contains('dark')
-    if (map.value) {
-      map.value.setOptions({ styles: themes[0].getStyle(isDarkMapMode.value) })
-    }
-  })
-  htmlClassObserver.value.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ['class']
-  })
+  startDarkModeObserver()
 
   loadGoogleMaps().then(initializeMap).catch(err => {
     console.error('Error cargando Google Maps:', err)
+    mapLoadError.value = true
     isLoadingMap.value = false
   })
 
@@ -130,7 +89,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  htmlClassObserver.value?.disconnect()
+  // Cleanup handled by useMapSetup onUnmounted
 })
 
 watch(selectedGroup, async (newGroup) => {
@@ -366,6 +325,35 @@ const handleDeleteGeocerca = async () => {
         style="width:100%;height:100%;"
       ></div>
 
+      <!-- Map Loading State -->
+      <Transition name="fade-overlay">
+        <div 
+          v-if="isLoadingMap && !mapLoadError"
+          class="absolute inset-0 z-[5] flex items-center justify-center bg-slate-100 dark:bg-[#0d1116]"
+        >
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-14 h-14 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
+            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando mapa...</p>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- Map Error State -->
+      <Transition name="fade-overlay">
+        <div 
+          v-if="mapLoadError"
+          class="absolute inset-0 z-[5] flex items-center justify-center bg-slate-100 dark:bg-[#0d1116]"
+        >
+          <div class="flex flex-col items-center gap-3 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <HugeiconsIcon :icon="Alert01Icon" :size="28" class="text-red-500" />
+            </div>
+            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Error al cargar el mapa</p>
+            <p class="text-xs text-slate-400">Verifica tu conexión a internet</p>
+          </div>
+        </div>
+      </Transition>
+
 
 
       <!-- Overlay Carga Detalles (High-Impact Design) -->
@@ -428,7 +416,8 @@ const handleDeleteGeocerca = async () => {
               </div>
               
               <div class="flex items-center gap-2">
-                <button @click="router.push('/geocercas/nueva')"
+                <button v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)" 
+                  @click="router.push('/geocercas/nueva')"
                   class="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_8px_20px_-4px_rgba(59,130,246,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_12px_24px_-4px_rgba(59,130,246,0.6),inset_0_1px_1px_rgba(255,255,255,0.5)] transition-all active:scale-95 border border-[#2563eb]/50 active:shadow-inner"
                   title="Nueva Geocerca">
                   <HugeiconsIcon :icon="PlusSignIcon" :size="18" :stroke-width="2.5" />
@@ -526,20 +515,22 @@ const handleDeleteGeocerca = async () => {
                     <div class="flex items-center gap-2">
                       <!-- Botón Editar -->
                       <button
+                        v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)"
                         @click.stop="router.push(`/geocercas/${geocerca.id_geocerca}/editar`)"
-                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-blue-500/10 border border-blue-500/20 text-[#3b82f6] hover:bg-[#3b82f6] hover:text-white hover:border-[#3b82f6] transition-all duration-300 shadow-sm active:scale-95"
+                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                         title="Editar Geocerca"
                       >
-                        <HugeiconsIcon :icon="Edit02Icon" :size="14" :stroke-width="2" />
+                        <HugeiconsIcon :icon="Edit02Icon" :size="14" :stroke-width="2.5" />
                       </button>
                       
                       <!-- Botón Borrar siempre visible -->
                       <button
+                        v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_DELETE)"
                         @click.stop="confirmDelete(geocerca)"
-                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all duration-300 shadow-sm active:scale-95"
+                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                         title="Eliminar Geocerca"
                       >
-                        <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" />
+                        <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2.5" />
                       </button>
                       
                       <!-- Indicador de color -->

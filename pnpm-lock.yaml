@@ -56,6 +56,9 @@ importers:
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
+      zod:
+        specifier: ^4.4.1
+        version: 4.4.1
     devDependencies:
       '@types/dompurify':
         specifier: ^3.2.0
@@ -1105,6 +1108,9 @@ packages:
     engines: {node: '>=0.8'}
     hasBin: true
 
+  zod@4.4.1:
+    resolution: {integrity: sha512-a6ENMBBGZBsnlSebQ/eKCguSBeGKSf4O7BPnqVPmYGtpBYI7VSqoVqw+QcB7kPRjbqPwhYTpFbVj/RqNz/CT0Q==}
+
 snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
@@ -1989,3 +1995,5 @@ snapshots:
       ssf: 0.11.2
       wmf: 1.0.2
       word: 0.3.0
+
+  zod@4.4.1: {}

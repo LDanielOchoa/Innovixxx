@@ -57,7 +57,7 @@ const handleMouseUp = () => {
     @mouseleave="handleMouseLeave"
     @mousedown="handleMouseDown"
     @mouseup="handleMouseUp"
-    class="relative group/widget overflow-hidden rounded-[24px] bg-white/40 dark:bg-[#13161C]/40 backdrop-blur-2xl border border-slate-200/80 dark:border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.3)] transition-all duration-300 ease-out hover:shadow-[0_30px_60px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_30px_60px_rgba(0,0,0,0.5)] cursor-pointer"
+    class="relative group/widget overflow-hidden rounded-[24px] bg-gradient-to-b from-white/90 to-white/50 dark:from-[#20242D]/80 dark:to-[#13161C]/80 backdrop-blur-2xl border border-slate-200/80 dark:border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_32px_rgba(0,0,0,0.03)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_20px_50px_rgba(0,0,0,0.4)] transition-all duration-300 ease-out hover:shadow-[inset_0_1px_0_rgba(255,255,255,1),0_30px_60px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_30px_60px_rgba(0,0,0,0.5)] active:shadow-[inset_0_4px_15px_rgba(0,0,0,0.05)] dark:active:shadow-[inset_0_6px_20px_rgba(0,0,0,0.5)] cursor-pointer"
     :style="{
       transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${isPressed ? 0.98 : 1})`,
       transformStyle: 'preserve-3d',

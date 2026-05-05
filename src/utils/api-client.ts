@@ -57,19 +57,28 @@ export async function apiClient<T>(
       // Si no es JSON, capturamos el status
     }
 
-    // Interceptor 401 y 403
-    if (response.status === 401 || response.status === 403) {
-      // Importación dinámica para evitar dependencias circulares con Pinia/Router en utilitarios
+    // Interceptor 401 (sesión expirada) - logout automático
+    if (response.status === 401) {
       import('../stores/auth.store').then(({ useAuthStore }) => {
         import('../router').then(({ default: router }) => {
           const authStore = useAuthStore()
           authStore.logout(router)
         })
       }).catch(err => console.error('Error al invocar logout automático:', err))
-      
+
       throw new ApiError(
         response.status as ApiErrorCode,
-        'Tu sesión ha expirado o no tienes permisos suficientes.',
+        'Tu sesión ha expirado.',
+        errorData
+      )
+    }
+
+    // 403 - No tienes permiso para este endpoint, pero la sesión sigue válida
+    // No hacemos logout, solo lanzamos error
+    if (response.status === 403) {
+      throw new ApiError(
+        response.status as ApiErrorCode,
+        errorData?.message || 'No tienes permisos para realizar esta acción.',
         errorData
       )
     }

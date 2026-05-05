@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, markRaw, onMounted, reactive, computed, watch } from 'vue'
+import { ref, markRaw, onMounted, computed, watch } from 'vue'
 import UserProfileModal from './UserProfileModal.vue'
 import { useRoute, useRouter } from 'vue-router'
 import logoImg from '../../assets/logo.png'
@@ -7,7 +7,6 @@ import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '../../stores/theme.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { useGroupStore } from '../../stores/group.store'
-import { CookieAuth } from '../../utils/cookie-auth'
 import { isMobileSidebarOpen, closeMobileSidebar } from '../../composables/useSidebar'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -23,18 +22,15 @@ import {
   Shield02Icon,
   Sun01Icon,
   Moon01Icon,
-  Cancel01Icon,
   Settings02Icon,
   MapsIcon
 } from '@hugeicons/core-free-icons'
-import { obtenerUrlImagen } from '../../utils/imagenes'
 
 const isExpanded = ref(false)
 const router = useRouter()
 const route = useRoute()
-const isLoading = ref(true)
 const i18n = useI18n()
-const { locale, t } = i18n
+const { t } = i18n
 const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
@@ -75,35 +71,79 @@ type MenuItem = {
   text?: string;
   route?: string;
   adminOnly?: boolean;
+  permissionId?: number;
 };
 
 const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
-    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios' },
-    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles' },
+    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: 7 },
+    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: 2 },
     { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
-    
+
     { separator: true },
-    
+
     { icon: markRaw(Layout01Icon), text: t('sidebar.menu.dashboard') || 'Dashboard', route: '/dashboard' },
-    
+
     { separator: true },
-    
+
     { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos' },
-    
+
     { separator: true },
-    
-    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware' },
-    
+
+    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: 11 },
+
     { separator: true },
-    
-    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas' },
-    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas' },
-    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas' }
+
+    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: 20 },
+    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: 22 },
+    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: 26 }
   ]
-  return menuItems.filter(item => {
-    return !item.adminOnly || authStore.isAdmin
+
+  // Si es superadmin, mostrar todos los items (excepto adminOnly que requiere isAdmin)
+  if (authStore.isSuperAdmin) {
+    const allowedItems = menuItems.filter(item => {
+      if (item.separator) return true
+      if (item.adminOnly && !authStore.isAdmin) return false
+      return true
+    })
+
+    const finalItems: MenuItem[] = []
+    for (let i = 0; i < allowedItems.length; i++) {
+      const item = allowedItems[i]
+      if (!item) continue
+      if (item.separator) {
+        if (finalItems.length === 0) continue
+        if (finalItems[finalItems.length - 1]?.separator) continue
+        const hasValidItemAfter = allowedItems.slice(i + 1).some(x => !x?.separator)
+        if (!hasValidItemAfter) continue
+      }
+      finalItems.push(item)
+    }
+    return finalItems
+  }
+
+  // Usuario normal: filtrar por permisos de "List"
+  const allowedItems = menuItems.filter(item => {
+    if (item.separator) return true
+    if (item.adminOnly) return false
+    if (item.permissionId && !authStore.hasPermission(item.permissionId)) return false
+    return true
   })
+
+  const finalItems: MenuItem[] = []
+  for (let i = 0; i < allowedItems.length; i++) {
+    const item = allowedItems[i]
+    if (!item) continue
+    if (item.separator) {
+      if (finalItems.length === 0) continue
+      if (finalItems[finalItems.length - 1]?.separator) continue
+      const hasValidItemAfter = allowedItems.slice(i + 1).some(x => !x?.separator)
+      if (!hasValidItemAfter) continue
+    }
+    finalItems.push(item)
+  }
+
+  return finalItems
 })
 
 const isActiveRoute = (menuRoute: string | undefined): boolean => {
@@ -123,7 +163,7 @@ const prefetchRoute = (routePath: string | undefined) => {
   
   const targetRoute = router.getRoutes().find(r => r.path === routePath || r.path === `/${routePath.replace(/^\//, '')}`)
   if (targetRoute && typeof targetRoute.components?.default === 'function') {
-    targetRoute.components.default() // Inicia la descarga
+    (targetRoute.components.default as () => Promise<any>)()
     prefetchedRoutes.add(routePath)
   }
 }
@@ -152,7 +192,7 @@ const cerrarSesion = () => {
     <!-- Botón Toggle 3D -->
     <button
       @click="toggleSidebar"
-      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#000000] transition-all duration-300 z-50 cursor-pointer active:translate-y-[2px] active:shadow-none"
+      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[14px] items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 z-50 cursor-pointer shadow-[0_3px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
     >
       <HugeiconsIcon 
         :icon="ArrowRight01Icon"
@@ -196,11 +236,11 @@ const cerrarSesion = () => {
             :to="item.route || ''"
             @mouseenter="prefetchRoute(item.route)"
             @focusin="prefetchRoute(item.route)"
-            class="group relative flex items-center h-[52px] rounded-2xl transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
+            class="group relative flex items-center h-[52px] rounded-[18px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
             :class="[
               isActiveRoute(item.route)
-                ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 border border-[#3b82f6]/20 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]'
-                : 'hover:bg-slate-50/50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/5 shadow-none'
+                ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
+                : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
             ]"
           >
             <!-- Background Glow on Hover -->
@@ -233,39 +273,41 @@ const cerrarSesion = () => {
     <div class="p-4 bg-white/40 dark:bg-[#13161C]/40 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/5 space-y-4">
 
       <!-- Card Usuario -->
-      <button
-        @click="showProfileModal = true"
-        class="w-full flex items-center gap-3 p-2.5 rounded-[20px] transition-all duration-500 bg-white/50 dark:bg-white/[0.03] border border-slate-200/50 dark:border-white/5 hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30 hover:bg-gradient-to-b hover:from-white/60 hover:to-white/40 dark:hover:from-white/10 dark:hover:to-white/5 active:scale-[0.97] active:translate-y-[2px] group/user shadow-sm hover:shadow-[0_8px_20px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.4)] dark:hover:shadow-[0_8px_30px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden"
-      >
-        <!-- Glass Shimmer Effect -->
-        <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 dark:via-white/10 to-transparent group-hover/user:animate-[shimmer_1.5s_ease-in-out]"></div>
-
-        <div class="w-11 h-11 flex items-center justify-center shrink-0 relative">
-          <div class="absolute inset-0 bg-[#3b82f6] blur-xl rounded-full opacity-0 group-hover/user:opacity-40 transition-opacity duration-500"></div>
-          <img :src="authStore.userAvatar" class="w-11 h-11 rounded-[14px] object-cover border-2 border-white dark:border-[#1A1D24] shadow-md relative z-10 transition-transform duration-500 group-hover/user:scale-110" />
-        </div>
-        
-        <div 
-          class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap relative z-10"
-          :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0'"
+      <div class="w-full">
+        <button
+          @click="showProfileModal = true"
+          class="w-full flex items-center gap-3 p-2.5 rounded-[20px] transition-all duration-300 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#20242D]/80 dark:to-[#13161C]/80 border border-slate-200/80 dark:border-white/10 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/50 active:scale-[0.98] group/user shadow-[0_4px_12px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[0_4px_15px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_8px_25px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,1)] dark:hover:shadow-[0_10px_30px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.05)] dark:active:shadow-[inset_0_6px_15px_rgba(0,0,0,0.4)] active:translate-y-[2px] relative overflow-hidden"
         >
-          <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
-          <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse"></span>
-            <p class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
+          <!-- Glass Shimmer Effect -->
+          <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 dark:via-white/10 to-transparent group-hover/user:animate-[shimmer_1.5s_ease-in-out]"></div>
+
+          <div class="w-11 h-11 flex items-center justify-center shrink-0 relative">
+            <div class="absolute inset-0 bg-[#3b82f6] blur-xl rounded-full opacity-0 group-hover/user:opacity-50 transition-opacity duration-500"></div>
+            <img :src="authStore.userAvatar" class="w-11 h-11 rounded-[14px] object-cover border-2 border-white dark:border-[#1A1D24] shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] relative z-10 transition-transform duration-500 group-hover/user:scale-110" />
           </div>
-        </div>
-        
-        <div v-if="isExpanded" class="w-8 h-8 rounded-xl bg-slate-100/50 dark:bg-[#1A1D24] flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover/user:bg-[#3b82f6] group-hover/user:text-white group-hover/user:shadow-[0_4px_10px_rgba(59,130,246,0.3)] transition-all duration-300 relative z-10">
-          <HugeiconsIcon :icon="Settings02Icon" :size="16" class="group-hover/user:rotate-90 transition-transform duration-500" />
-        </div>
-      </button>
+          
+          <div 
+            class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap relative z-10"
+            :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0'"
+          >
+            <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+            <div class="flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse"></span>
+              <p class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
+            </div>
+          </div>
+          
+          <div v-if="isExpanded" class="w-8 h-8 rounded-[12px] bg-slate-100/50 dark:bg-[#1A1D24] flex items-center justify-center text-slate-400 dark:text-slate-500 group-hover/user:bg-[#3b82f6] group-hover/user:text-white group-hover/user:shadow-[0_4px_10px_rgba(59,130,246,0.3)] transition-all duration-300 relative z-10 border border-slate-200/50 dark:border-white/5 shadow-inner">
+            <HugeiconsIcon :icon="Settings02Icon" :size="16" class="group-hover/user:rotate-90 transition-transform duration-500" />
+          </div>
+        </button>
+      </div>
 
       <!-- Controles Rápidos -->
       <div class="flex gap-2.5" :class="isExpanded ? 'flex-row' : 'flex-col items-center'">
         <button
           @click="themeStore.toggle"
-          class="h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 active:translate-y-[2px] active:shadow-none shrink-0 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] hover:bg-slate-50 dark:hover:bg-white/10"
+          class="h-11 rounded-[16px] bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 shrink-0 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_4px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[4px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
           <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="18" :stroke-width="2" />
@@ -273,7 +315,7 @@ const cerrarSesion = () => {
 
         <button
           @click="cerrarSesion"
-          class="h-11 rounded-[16px] bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white dark:hover:text-white transition-all duration-300 active:translate-y-[2px] active:shadow-none shrink-0 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#11141a] hover:bg-red-500 dark:hover:bg-red-500 hover:border-red-500 dark:hover:border-red-500 hover:shadow-[0_4px_15px_rgba(239,68,68,0.4)]"
+          class="h-11 rounded-[16px] bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white dark:hover:text-white transition-all duration-200 shrink-0 hover:bg-red-500 hover:border-red-600 dark:hover:bg-red-500 dark:hover:border-red-600 shadow-[0_4px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_0_#dc2626,0_8px_20px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_4px_0_#991b1b,0_8px_25px_rgba(239,68,68,0.3)] active:translate-y-[4px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] hover:active:shadow-[0_0px_0_#dc2626,0_2px_5px_rgba(239,68,68,0.4)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)] dark:hover:active:shadow-[0_0px_0_#991b1b,0_2px_5px_rgba(239,68,68,0.3)]"
           :class="isExpanded ? 'flex-1' : 'w-11'"
         >
           <HugeiconsIcon :icon="Logout01Icon" :size="18" :stroke-width="2" />

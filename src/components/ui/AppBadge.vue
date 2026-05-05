@@ -12,13 +12,13 @@ withDefaults(defineProps<Props>(), {
 
 <template>
   <div 
-    class="inline-flex !flex-row !items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all duration-300 backdrop-blur-md shadow-sm whitespace-nowrap min-w-fit"
+    class="inline-flex !flex-row !items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] border transition-all duration-500 backdrop-blur-xl shadow-[0_2px_10px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.1)] whitespace-nowrap min-w-fit"
     :class="{
-      'bg-blue-50/50 dark:bg-blue-500/5 border-blue-200/50 dark:border-blue-500/10 text-blue-600 dark:text-blue-400': variant === 'primary',
-      'bg-emerald-50/50 dark:bg-emerald-500/5 border-emerald-200/50 dark:border-emerald-500/10 text-emerald-600 dark:text-emerald-400': variant === 'success',
-      'bg-amber-50/50 dark:bg-amber-500/5 border-amber-200/50 dark:border-amber-500/10 text-amber-600 dark:text-amber-400': variant === 'warning',
-      'bg-red-50/50 dark:bg-red-500/5 border-red-200/50 dark:border-red-500/10 text-red-600 dark:text-red-400': variant === 'danger',
-      'bg-slate-50/50 dark:bg-white/5 border-slate-200/50 dark:border-white/10 text-slate-500 dark:text-slate-400': variant === 'info' || variant === 'glass',
+      'bg-blue-500/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/20 dark:border-[#3b82f6]/30 text-[#3b82f6] dark:text-[#5da6fc]': variant === 'primary',
+      'bg-emerald-500/10 dark:bg-emerald-500/10 border-emerald-500/20 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400': variant === 'success',
+      'bg-amber-500/10 dark:bg-amber-500/10 border-amber-500/20 dark:border-amber-500/30 text-amber-600 dark:text-amber-400': variant === 'warning',
+      'bg-red-500/10 dark:bg-red-500/10 border-red-500/20 dark:border-red-500/30 text-red-600 dark:text-red-400': variant === 'danger',
+      'bg-slate-100/80 dark:bg-white/5 border-slate-200/60 dark:border-white/10 text-slate-500 dark:text-slate-400': variant === 'info' || variant === 'glass',
     }"
   >
     <div v-if="dot" class="w-1.5 h-1.5 rounded-full animate-pulse" :class="{

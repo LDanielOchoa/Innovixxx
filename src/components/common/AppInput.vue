@@ -29,11 +29,11 @@ defineEmits(['update:modelValue'])
     </label>
     
     <div 
-      class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)]"
+      class="relative flex items-center group/input bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden focus-within:border-[#3b82f6] dark:focus-within:border-[#5da6fc] focus-within:ring-1 focus-within:ring-[#3b82f6] dark:focus-within:ring-[#5da6fc] transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
       :class="{ 'opacity-60 cursor-not-allowed': disabled }"
     >
-      <div v-if="icon" class="pl-4 pr-2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-[#3b82f6] transition-colors duration-300">
-        <HugeiconsIcon :icon="icon" :size="18" :stroke-width="1.8" />
+      <div v-if="icon" class="pl-4 pr-2 text-slate-400 dark:text-slate-500 group-focus-within/input:text-[#3b82f6] dark:group-focus-within/input:text-[#5da6fc] transition-colors duration-300">
+        <HugeiconsIcon :icon="icon" :size="20" :stroke-width="1.8" />
       </div>
       
       <textarea
@@ -44,7 +44,7 @@ defineEmits(['update:modelValue'])
         :required="required"
         :disabled="disabled"
         :rows="rows"
-        class="w-full bg-transparent border-none p-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0 transition-all resize-none"
+        class="w-full bg-transparent border-none px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-0 transition-all resize-none"
       ></textarea>
       
       <input
@@ -55,7 +55,7 @@ defineEmits(['update:modelValue'])
         :placeholder="placeholder"
         :required="required"
         :disabled="disabled"
-        class="w-full bg-transparent border-none py-4 px-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0 transition-all"
+        class="w-full bg-transparent border-none px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-0 transition-all"
         :class="{ 'pl-0': icon }"
       />
     </div>

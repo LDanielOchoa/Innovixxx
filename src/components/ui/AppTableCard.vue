@@ -3,7 +3,7 @@
 </script>
 
 <template>
-  <div class="bg-white/40 dark:bg-[#1A1D24]/30 backdrop-blur-xl rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_30px_rgba(0,0,0,0.3)] overflow-x-hidden">
+  <div class="bg-white/50 dark:bg-[#0F1115]/40 backdrop-blur-3xl rounded-3xl border border-slate-200/60 dark:border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-x-hidden transition-all duration-500">
     <slot></slot>
   </div>
 </template>

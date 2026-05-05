@@ -69,7 +69,7 @@ onUnmounted(() => {
           v-model="vehicleSearch" 
           type="text" 
           :placeholder="t('dashboard.widgets.vehicles.searchPlaceholder')"
-          class="w-full bg-slate-50/50 dark:bg-[#13161C]/60 border border-slate-200/60 dark:border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-[11px] font-black text-slate-700 dark:text-white outline-none focus:ring-4 focus:ring-[#3b82f6]/5 transition-all placeholder-slate-400 dark:placeholder-slate-700 uppercase tracking-widest"
+          class="w-full bg-slate-50/50 dark:bg-[#0F1115]/50 border border-slate-200/50 dark:border-white/5 rounded-xl py-2.5 pl-10 pr-4 text-[11px] font-black text-slate-700 dark:text-white outline-none focus:ring-4 focus:ring-[#3b82f6]/5 transition-all placeholder-slate-400 dark:placeholder-slate-700 uppercase tracking-widest shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] focus:bg-white dark:focus:bg-[#0A0C10]/80"
         />
       </div>
 
@@ -78,7 +78,7 @@ onUnmounted(() => {
         <div 
           v-for="(car, i) in filteredVehicles" 
           :key="i"
-          class="flex items-center justify-between p-3 bg-white/50 dark:bg-[#13161C]/60 rounded-xl border border-slate-200/60 dark:border-white/5 transition-all duration-300 hover:translate-x-1 hover:border-[#3b82f6]/30 group/item cursor-pointer"
+          class="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-[#0F1115]/50 rounded-xl border border-slate-200/50 dark:border-white/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/30 group/item cursor-pointer"
         >
           <div class="flex items-center gap-3">
             <div :class="[

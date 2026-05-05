@@ -27,7 +27,7 @@ import { useI18n } from 'vue-i18n'
 import type { PropType } from 'vue'
 import { apiClient } from '../../utils/api-client'
 import { CookieAuth } from '../../utils/cookie-auth'
-import AppInput from '../common/AppInput.vue'
+import AppInput from '../ui/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
 import { obtenerUrlImagen } from '../../utils/imagenes'
 import { Cropper, CircleStencil } from 'vue-advanced-cropper'
@@ -246,7 +246,7 @@ const handleSaveProfile = async () => {
       <HugeiconsIcon :icon="CpuIcon" :size="22" class="text-[#3b82f6]" />
     </template>
     
-    <div class="flex flex-col gap-8 relative p-1 min-h-[400px]">
+    <div class="flex flex-col gap-6 relative p-1 min-h-[320px]">
       <!-- OVERLAY DE CARGA PREMIUM -->
       <Transition name="fade">
         <div v-if="saving" class="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-[32px] transition-all duration-300">
@@ -265,23 +265,23 @@ const handleSaveProfile = async () => {
         </div>
       </Transition>
       <!-- SKELETON STATE -->
-      <div v-if="isInitializing" class="space-y-10 animate-pulse">
-        <div class="flex flex-col md:flex-row gap-10 items-center md:items-start">
-          <div class="w-44 h-44 rounded-[32px] bg-slate-100 dark:bg-white/5"></div>
-          <div class="flex-1 space-y-6 w-full text-center md:text-left pt-4">
+      <div v-if="isInitializing" class="space-y-8 animate-pulse">
+        <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+          <div class="w-36 h-36 rounded-[28px] bg-slate-100 dark:bg-white/5"></div>
+          <div class="flex-1 space-y-5 w-full text-center md:text-left pt-3">
             <div class="space-y-3">
-              <div class="h-10 w-3/4 bg-slate-100 dark:bg-white/5 rounded-full mx-auto md:mx-0"></div>
+              <div class="h-8 w-3/4 bg-slate-100 dark:bg-white/5 rounded-full mx-auto md:mx-0"></div>
               <div class="h-4 w-1/2 bg-slate-100 dark:bg-white/5 rounded-full mx-auto md:mx-0"></div>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div v-for="i in 3" :key="i" class="h-20 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5"></div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div v-for="i in 3" :key="i" class="h-16 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5"></div>
             </div>
           </div>
         </div>
-        <div class="space-y-8 bg-slate-50/30 dark:bg-white/5 p-8 rounded-[32px] border border-slate-100 dark:border-white/5">
-           <div class="h-6 w-40 bg-slate-100 dark:bg-white/5 rounded-full mb-8"></div>
-           <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-             <div v-for="i in 4" :key="i" class="h-14 bg-slate-100 dark:bg-white/5 rounded-xl"></div>
+        <div class="space-y-6 bg-white/40 dark:bg-white/5 p-5 rounded-xl border border-slate-100 dark:border-white/5">
+           <div class="h-5 w-32 bg-slate-100 dark:bg-white/5 rounded-full mb-6"></div>
+           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+             <div v-for="i in 4" :key="i" class="h-12 bg-slate-100 dark:bg-white/5 rounded-lg"></div>
            </div>
         </div>
       </div>
@@ -289,26 +289,28 @@ const handleSaveProfile = async () => {
       <!-- REAL CONTENT -->
       <div v-else class="animate-fade-in flex flex-col gap-8">
         <!-- Header de Perfil -->
-        <div class="flex flex-col md:flex-row gap-10 items-center md:items-start">
+        <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
           <!-- Avatar 3D con Upload -->
-          <div class="relative group">
-            <label for="profilePhotoUpload" class="block w-44 h-44 rounded-[32px] bg-white dark:bg-[#13161C] border border-slate-200 dark:border-white/5 p-2 relative shadow-[0_10px_30px_rgba(0,0,0,0.05)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.3)] transition-all duration-500 hover:border-[#3b82f6]/50 cursor-pointer overflow-hidden active:scale-95 group-hover:-translate-y-1">
-              <div class="w-full h-full rounded-[24px] overflow-hidden bg-slate-50 dark:bg-[#13161C] flex items-center justify-center border border-slate-100 dark:border-white/5 shadow-inner">
+          <div class="relative group" style="perspective: 1200px;">
+            <label for="profilePhotoUpload" class="block w-36 h-36 rounded-[32px] bg-gradient-to-b from-white to-slate-100 dark:from-[#2A313A] dark:to-[#13161C] p-2 relative shadow-[0_15px_35px_rgba(0,0,0,0.1),0_5px_15px_rgba(0,0,0,0.05),inset_0_2px_0_rgba(255,255,255,0.8)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6),0_5px_15px_rgba(0,0,0,0.4),inset_0_2px_0_rgba(255,255,255,0.08),inset_0_-2px_0_rgba(0,0,0,0.4)] transition-all duration-500 cursor-pointer active:scale-95 group-hover:-translate-y-2 group-hover:rotate-x-6 group-hover:-rotate-y-6">
+              
+              <!-- Inner Container with deep well -->
+              <div class="w-full h-full rounded-[26px] overflow-hidden bg-slate-50 dark:bg-[#0B0D11] flex items-center justify-center shadow-[inset_0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] relative z-10 border border-slate-200/50 dark:border-black/50">
                 <img v-if="fotoMostrada && !imageError" :src="fotoMostrada" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Profile" @error="imageError = true" />
-                <HugeiconsIcon v-else :icon="User02Icon" :size="64" :stroke-width="1" class="text-slate-300 dark:text-slate-600 transition-all duration-500 group-hover:scale-110 group-hover:text-[#3b82f6]" />
+                <HugeiconsIcon v-else :icon="User02Icon" :size="64" :stroke-width="1.5" class="text-slate-300 dark:text-slate-600 transition-all duration-500 group-hover:scale-110 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]" />
               </div>
 
+              <!-- Ambient Glow on Hover -->
+              <div class="absolute inset-0 bg-[#3b82f6]/30 dark:bg-[#5da6fc]/20 rounded-[32px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>
+
               <!-- Upload Overlay Glass -->
-              <div class="absolute inset-0 bg-[#3b82f6]/40 dark:bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300 backdrop-blur-sm">
-                 <HugeiconsIcon :icon="Camera01Icon" :size="28" class="text-white mb-2" />
-                 <span class="text-[10px] font-black text-white uppercase tracking-widest">{{ t('sidebar.changePhoto') }}</span>
+              <div class="absolute inset-2 rounded-[26px] bg-gradient-to-t from-[#3b82f6]/90 to-[#3b82f6]/30 dark:from-[#5da6fc]/90 dark:to-[#5da6fc]/30 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-500 backdrop-blur-md z-20 shadow-[inset_0_2px_1px_rgba(255,255,255,0.4)] overflow-hidden">
+                 <HugeiconsIcon :icon="Camera01Icon" :size="28" class="text-white mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
+                 <span class="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">{{ t('sidebar.changePhoto') }}</span>
               </div>
             </label>
             
-            <!-- Admin Badge 3D -->
-            <div class="absolute -bottom-3 -right-3 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] p-3 rounded-2xl text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] z-10 transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6">
-              <HugeiconsIcon :icon="userData.isAdmin ? Shield02Icon : User02Icon" :size="22" :stroke-width="2.5" />
-            </div>
+
 
             <input id="profilePhotoUpload" type="file" accept="image/*" class="hidden" @change="handleFileUpload" />
           </div>
@@ -316,7 +318,7 @@ const handleSaveProfile = async () => {
           <!-- Info Principal -->
           <div class="flex-1 space-y-6 w-full text-center md:text-left">
             <div class="space-y-1">
-              <h2 class="text-4xl font-black text-slate-800 dark:text-white tracking-tight">{{ userData.nombre || t('sidebar.unidentifiedOperator') }}</h2>
+              <h2 class="text-3xl font-black text-slate-800 dark:text-white tracking-tight">{{ userData.nombre || t('sidebar.unidentifiedOperator') }}</h2>
               <div class="flex items-center justify-center md:justify-start gap-2 text-slate-400 dark:text-slate-500">
                 <HugeiconsIcon :icon="Mail01Icon" :size="16" />
                 <span class="text-sm font-bold">{{ userData.email || 'No email' }}</span>
@@ -324,58 +326,70 @@ const handleSaveProfile = async () => {
             </div>
 
             <!-- Stats / Info Grid -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="bg-slate-50/50 dark:bg-[#13161C] p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 shadow-sm group/card hover:-translate-y-1 transition-all duration-300">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">{{ t('sidebar.groupAssign') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ selectedGroup.nombre || userData.grupo || t('sidebar.none') }}</p>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3" style="perspective: 1000px;">
+              <div class="relative group/stat">
+                <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
+                <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
+                  <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.groupAssign') }}</p>
+                  <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ selectedGroup.nombre || userData.grupo || t('sidebar.none') }}</p>
+                </div>
               </div>
-              <div class="bg-slate-50/50 dark:bg-[#13161C] p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 shadow-sm group/card hover:-translate-y-1 transition-all duration-300">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">{{ t('sidebar.systemLang') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ userData.idioma || 'ES' }}</p>
+              <div class="relative group/stat">
+                <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
+                <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
+                  <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.systemLang') }}</p>
+                  <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ userData.idioma || 'ES' }}</p>
+                </div>
               </div>
-              <div class="bg-slate-50/50 dark:bg-[#13161C] p-4 rounded-2xl border border-slate-200/60 dark:border-white/5 shadow-sm group/card hover:-translate-y-1 transition-all duration-300">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">{{ t('sidebar.timezone') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ userData.tz || t('sidebar.notConfigured') }}</p>
+              <div class="relative group/stat">
+                <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
+                <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
+                  <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.timezone') }}</p>
+                  <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ userData.tz || t('sidebar.notConfigured') }}</p>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         <!-- Formulario de Edición -->
-        <div class="space-y-8 bg-white/40 dark:bg-[#13161C]/30 backdrop-blur-xl p-6 rounded-[32px] border border-slate-200/80 dark:border-white/5 shadow-sm relative overflow-hidden">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-[#3b82f6] border border-blue-100 dark:border-blue-500/20">
-              <HugeiconsIcon :icon="User02Icon" :size="16" />
+        <div class="space-y-6 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#1A1D24]/90 dark:to-[#0F1115]/90 backdrop-blur-2xl p-6 rounded-[24px] border border-white dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden group/form">
+          
+          <div class="absolute -top-32 -right-32 w-64 h-64 bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5 rounded-full blur-3xl group-hover/form:bg-[#3b82f6]/10 transition-colors duration-700 pointer-events-none"></div>
+
+          <div class="flex items-center gap-3 relative z-10">
+            <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+              <HugeiconsIcon :icon="User02Icon" :size="20" class="drop-shadow-sm" />
             </div>
-            <h3 class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">{{ t('sidebar.editProfileInfo') }}</h3>
+            <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ t('sidebar.editProfileInfo') }}</h3>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
             <AppInput v-model="profileForm.nombre" :label="t('users.formName')" :icon="User02Icon" :placeholder="t('users.formNamePlaceholder')" />
             <AppInput v-model="profileForm.email" :label="t('users.formEmail')" :icon="Mail01Icon" type="email" :placeholder="t('users.formEmailPlaceholder')" />
           </div>
 
           <!-- Seguridad -->
-          <div class="space-y-6 pt-4 border-t border-slate-100 dark:border-white/5">
+          <div class="space-y-6 pt-5 border-t border-slate-200/60 dark:border-white/5 relative z-10">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/10">
-                <HugeiconsIcon :icon="Shield02Icon" :size="16" />
+              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                <HugeiconsIcon :icon="Shield02Icon" :size="20" class="drop-shadow-sm" />
               </div>
-              <h3 class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-widest">{{ t('users.formPasswordChangeTitle') }}</h3>
+              <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ t('users.formPasswordChangeTitle') }}</h3>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <AppInput v-model="profileForm.password" :label="t('users.formPasswordCurrent')" :icon="Shield02Icon" type="password" placeholder="••••••••" />
               <AppInput v-model="profileForm.new_password" :label="t('users.formPasswordNew')" :icon="Shield02Icon" type="password" :placeholder="t('common.optional')" />
             </div>
           </div>
 
           <!-- Feedback Messages Container (Fixed Height to avoid Layout Shift) -->
-          <div class="h-16 flex items-center">
+          <div class="h-14 flex items-center relative z-10 mt-2">
             <Transition name="fade">
               <div v-if="modalMessage" 
-                   class="w-full flex items-center gap-3 p-4 rounded-2xl text-sm font-bold shadow-sm border animate-fade-in-up"
-                   :class="modalMessage.type === 'error' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' : 'bg-[#3b82f6]/10 text-[#3b82f6] border-[#3b82f6]/20'">
+                   class="w-full flex items-center gap-3 p-4 rounded-2xl text-sm font-bold shadow-[0_4px_12px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] border animate-fade-in-up"
+                   :class="modalMessage.type === 'error' ? 'bg-gradient-to-r from-red-50 to-red-50/50 dark:from-red-500/10 dark:to-red-500/5 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20' : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#3b82f6] border-[#3b82f6]/20'">
                 <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : CheckmarkCircle01Icon" :size="20" />
                 {{ modalMessage.text }}
               </div>
@@ -385,11 +399,11 @@ const handleSaveProfile = async () => {
       </div>
 
       <!-- Footer Buttons -->
-      <div class="flex flex-col sm:flex-row gap-4 justify-end pt-2">
+      <div class="flex flex-col sm:flex-row gap-3 justify-end pt-1">
         <AppButton variant="secondary" :icon="Cancel01Icon" @click="$emit('update:isOpen', false)">
           {{ t('common.cancel') }}
         </AppButton>
-        <AppButton variant="primary" :icon="FloppyDiskIcon" :loading="saving" @click="handleSaveProfile">
+        <AppButton variant="primary" size="md" :icon="FloppyDiskIcon" :loading="saving" @click="handleSaveProfile">
           {{ t('common.saveChanges') }}
         </AppButton>
       </div>
@@ -410,11 +424,11 @@ const handleSaveProfile = async () => {
       <HugeiconsIcon :icon="Camera01Icon" :size="20" class="text-[#3b82f6]" />
     </template>
 
-    <div class="cropper-wrapper bg-slate-900/5 dark:bg-black/20 rounded-3xl overflow-hidden border border-slate-200 dark:border-white/5 relative group">
+    <div class="cropper-wrapper bg-slate-900/5 dark:bg-black/20 rounded-2xl overflow-hidden border border-slate-200 dark:border-white/5 relative group">
       <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.2)_100%)] pointer-events-none z-10"></div>
       <Cropper
         ref="cropper"
-        class="cropper min-h-[450px] max-h-[60vh]"
+        class="cropper min-h-[350px] max-h-[50vh]"
         :src="imageToCrop"
         :stencil-component="CircleStencil"
         :stencil-props="{

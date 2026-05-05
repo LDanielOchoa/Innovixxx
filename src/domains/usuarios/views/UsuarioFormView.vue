@@ -6,14 +6,11 @@ import {
   ArrowLeft01Icon,
   FloppyDiskIcon,
   User02Icon,
-  UserMultiple02Icon,
-  LanguageCircleIcon,
   Mail01Icon,
   Shield02Icon,
   Tick01Icon,
   Alert01Icon,
   Loading01Icon,
-  Loading03Icon,
   LockPasswordIcon
 } from '@hugeicons/core-free-icons'
 import {
@@ -23,15 +20,17 @@ import {
   fetchRolesByGrupoApi,
   listUsuariosByGrupoApi
 } from '../services/usuarios.api'
-import type { Grupo, RoleOption, Usuario } from '../types/usuario'
+import type { Grupo, RoleOption } from '../types/usuario'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createUsuarioSchema, updateUsuarioSchema } from '../../../schemas/usuarios.schema'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
-import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -50,6 +49,10 @@ interface UsuarioForm {
   id_role: string
   id_grupo: string
 }
+
+const activeSchema = computed(() => isEditMode.value ? updateUsuarioSchema : createUsuarioSchema)
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('usuario-form')
 
 const formData = ref<UsuarioForm>({
   nombre: '',
@@ -189,12 +192,8 @@ watch(() => selectedGroup.value, async (newVal, oldVal) => {
 
 const saveUsuario = async () => {
   if (saving.value) return
+  clearErrors()
   pageMessage.value = null
-
-  if (!isEditMode.value && (formData.value.pass || '').trim().length < 8) {
-    showMessage(t('users.alertMinPassword', 'La contraseña debe tener mínimo 8 caracteres'), 'warning')
-    return
-  }
 
   saving.value = true
   try {
@@ -204,8 +203,9 @@ const saveUsuario = async () => {
         saving.value = false
         return
       }
-      if (!formData.value.id_role) {
-        showMessage(t('users.alertNoRole', 'Debe seleccionar un rol.'), 'warning')
+
+      if (!validate(formData.value, 'usuario-form')) {
+        showMessage(getFirstError('usuario-form') || '', 'warning')
         saving.value = false
         return
       }
@@ -228,10 +228,24 @@ const saveUsuario = async () => {
         showMessage(data.message || t('users.alertErrorCreate'), 'error')
       }
     } else {
+      if (!authStore.hasPermission(PERMISSIONS.USERS_EDIT)) {
+        showMessage(t('users.alertErrorUpdate') || 'No tienes permiso para editar usuarios', 'error')
+        saving.value = false
+        return
+      }
+
       if (!formData.value.id_role) {
         showMessage(t('users.alertNoRole'), 'warning')
         saving.value = false
         return
+      }
+
+      if (formData.value.pass.trim().length > 0) {
+        if (!validate({ ...formData.value, id_usuario: editId.value }, 'usuario-form')) {
+          showMessage(getFirstError('usuario-form') || '', 'warning')
+          saving.value = false
+          return
+        }
       }
 
       const updatePayload = {
@@ -336,6 +350,7 @@ const saveUsuario = async () => {
                 label="Nombre Completo"
                 placeholder="Ej. Juan Pérez"
                 :icon="User02Icon"
+                :error="getError('nombre')"
               />
 
               <AppFormInput 
@@ -344,6 +359,7 @@ const saveUsuario = async () => {
                 placeholder="ejemplo@empresa.com"
                 :icon="Mail01Icon"
                 type="email"
+                :error="getError('email')"
                 :disabled="isEditMode"
               />
             </div>

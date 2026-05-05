@@ -5,12 +5,12 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   ArrowLeft01Icon,
   FloppyDiskIcon,
-  Car01Icon,
   LicenseIcon,
   FingerPrintIcon,
   TruckIcon,
   Alert01Icon,
-  Tick01Icon
+  Tick01Icon,
+  Search01Icon
 } from '@hugeicons/core-free-icons'
 import {
   fetchVehiculosApi,
@@ -23,16 +23,21 @@ import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createVehiculoSchema, updateVehiculoSchema } from '../../../schemas/vehiculos.schema'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
-import AppSelect from '../../../components/ui/AppSelect.vue'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
+const activeSchema = computed(() => isEditMode.value ? updateVehiculoSchema : createVehiculoSchema)
+const { validate } = useFormValidator(activeSchema as any)
+const { getError } = useFormError('vehiculo-form')
 
 const isEditMode = computed(() => route.name === 'vehiculos-editar' || !!route.params.id)
 
@@ -40,7 +45,8 @@ const formData = ref({
   nombre: '',
   placa: '',
   serial: '',
-  tipo: '' as number | string
+  tipo: '' as number | string,
+  id_grupo: ''
 })
 
 const saving = ref(false)
@@ -99,7 +105,8 @@ const loadVehicle = async () => {
         nombre: vehicle.nombre,
         placa: vehicle.placa,
         serial: vehicle.serial || '',
-        tipo: tipoEncontrado ? tipoEncontrado.id_tipo : (typeof vehicle.tipo === 'number' ? vehicle.tipo : '')
+        tipo: tipoEncontrado ? tipoEncontrado.id_tipo : (typeof vehicle.tipo === 'number' ? vehicle.tipo : ''),
+        id_grupo: selectedGroup.value.id
       }
     }
   } catch (error) {
@@ -115,19 +122,20 @@ onMounted(async () => {
 
 const handleSubmit = async () => {
   if (saving.value) return
-  if (!formData.value.nombre || !formData.value.placa) {
-    showMessage('El nombre y la placa son obligatorios.', 'error')
-    return
-  }
   saving.value = true
   pageMessage.value = null
 
-  try {
-    const payload = {
-      ...formData.value,
-      id_grupo: selectedGroup.value.id
-    }
+  const payload = {
+    ...formData.value,
+    id_grupo: selectedGroup.value.id
+  }
 
+  if (!validate(payload, 'vehiculo-form')) {
+    saving.value = false
+    return
+  }
+
+  try {
     if (isEditMode.value && route.params.id) {
       const data = await updateVehiculoApi({ ...payload, id_vehiculo: String(route.params.id) })
       if (data.done) {
@@ -199,6 +207,7 @@ const handleSubmit = async () => {
           :label="t('vehiculos.labelName', 'Nombre del Vehículo')"
           :placeholder="t('vehiculos.placeholderName', 'Ej. Camión Principal')"
           :icon="LicenseIcon"
+          :error="getError('nombre') ?? undefined"
           required
         />
 
@@ -209,6 +218,7 @@ const handleSubmit = async () => {
             :label="t('vehiculos.labelPlate', 'Placa')"
             :placeholder="t('vehiculos.placeholderPlate', 'Ej. ABC-123')"
             :icon="LicenseIcon"
+            :error="getError('placa') ?? undefined"
             required
           />
           <AppFormInput
@@ -216,6 +226,7 @@ const handleSubmit = async () => {
             :label="t('vehiculos.labelSerial', 'Serial / VIN')"
             :placeholder="t('vehiculos.placeholderSerial', 'Ej. 1HGBH41JXMN109186')"
             :icon="FingerPrintIcon"
+            :error="getError('serial') ?? undefined"
           />
         </div>
 
@@ -224,10 +235,11 @@ const handleSubmit = async () => {
           <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">
             {{ t('vehiculos.labelType', 'Tipo de Vehículo') }}
           </label>
-          
+
           <div
             @click="isTypeOpen = !isTypeOpen"
             class="relative flex items-center justify-between group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
+            :class="{ '!border-red-500/50': getError('tipo') }"
           >
             <div class="flex items-center gap-3">
               <HugeiconsIcon :icon="TruckIcon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
@@ -237,6 +249,7 @@ const handleSubmit = async () => {
             </div>
             <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" class="transition-all text-slate-400 group-hover/input:text-[#3b82f6]" :class="isTypeOpen ? 'rotate-90' : '-rotate-90'" />
           </div>
+          <span v-if="getError('tipo')" class="text-xs text-red-500 font-bold ml-1.5">{{ getError('tipo') }}</span>
 
           <!-- Type Dropdown -->
           <Transition name="fade-slide">

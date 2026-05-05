@@ -25,7 +25,7 @@ defineEmits(['update:modelValue'])
         :value="modelValue"
         @change="$emit('update:modelValue', ($event.target as HTMLSelectElement).value)"
         :disabled="disabled"
-        class="w-full h-[46px] bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none focus:outline-none focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-4 focus:ring-[#3b82f6]/5 dark:focus:ring-[#5da6fc]/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+        class="w-full h-[46px] bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 text-sm font-bold text-slate-700 dark:text-slate-200 appearance-none focus:outline-none focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-4 focus:ring-[#3b82f6]/5 dark:focus:ring-[#5da6fc]/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <option v-if="placeholder" value="" disabled selected>{{ placeholder }}</option>
         <option v-for="opt in options" :key="opt.value" :value="opt.value">

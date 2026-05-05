@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '../../stores/theme.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
+import { useFormValidator } from '../../composables/useFormValidator'
+import { resetPasswordSchema } from '../../schemas/auth.schema'
 import {
   ArrowLeft01Icon,
   Mail01Icon,
@@ -43,16 +45,16 @@ const alternarContrasena = () => {
   mostrarContrasena.value = !mostrarContrasena.value
 }
 
-const restablecerClave = async () => {
-  if (!correo.value || !nuevaClave.value) {
-    errorMensaje.value = t('auth.missingAllFields')
-    setTimeout(() => { errorMensaje.value = '' }, 3000)
-    return
-  }
+const { validate, getFirstError, resetErrors } = useFormValidator(resetPasswordSchema)
 
+const restablecerClave = async () => {
+  resetErrors('reset-form')
   if (!tokenRecover.value) {
     errorMensaje.value = t('auth.invalidToken')
-    setTimeout(() => { errorMensaje.value = '' }, 3000)
+    return
+  }
+  if (!validate({ email: correo.value, token_recover: tokenRecover.value, new_pass: nuevaClave.value }, 'reset-form')) {
+    errorMensaje.value = getFirstError('reset-form') || ''
     return
   }
 
@@ -119,9 +121,6 @@ onMounted(() => {
   if (!tokenRecover.value) {
     errorMensaje.value = t('auth.invalidToken') || 'Token de recuperación no encontrado o inválido.'
   }
-})
-
-onUnmounted(() => {
 })
 </script>
 

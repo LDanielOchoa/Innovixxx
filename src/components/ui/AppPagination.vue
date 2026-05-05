@@ -17,13 +17,13 @@
       <button
         @click="$emit('update:currentPage', currentPage - 1)"
         :disabled="currentPage <= 1"
-        class="h-9 px-3 flex items-center justify-center rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-[#1A1D24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] hover:border-[#3b82f6]/30 dark:hover:border-[#5da6fc]/30 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 active:scale-95 shadow-sm"
+        class="h-9 px-3 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)] disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
       >
         <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" />
       </button>
 
       <!-- Páginas numeradas (sm+) -->
-      <div class="hidden sm:flex items-center gap-1">
+      <div class="hidden sm:flex items-center gap-1.5">
         <template v-for="page in pageRange" :key="page">
           <span v-if="page === '...'" class="h-8 w-6 flex items-center justify-center text-slate-400 dark:text-slate-500 text-[13px] font-bold select-none">…</span>
           <button
@@ -31,8 +31,8 @@
             @click="$emit('update:currentPage', page as number)"
             class="h-9 min-w-[2.25rem] px-2.5 flex items-center justify-center rounded-xl text-[13px] font-black transition-all duration-200 active:scale-95"
             :class="currentPage === page
-              ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_4px_0_#2563eb,0_8px_15px_rgba(59,130,246,0.2)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb]'
-              : 'border border-slate-200 dark:border-white/5 bg-white dark:bg-[#1A1D24] text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-[#2A313A] hover:border-[#3b82f6]/30 dark:hover:border-[#5da6fc]/30 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] shadow-sm'"
+              ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_3px_0_#2563eb,0_6px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_3px_0_#1d4ed8,0_6px_15px_rgba(59,130,246,0.2)] active:translate-y-[3px] active:shadow-none'
+              : 'bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-none'"
           >
             {{ page }}
           </button>
@@ -48,7 +48,7 @@
       <button
         @click="$emit('update:currentPage', currentPage + 1)"
         :disabled="currentPage >= totalPages"
-        class="h-9 px-3 flex items-center justify-center rounded-xl border border-slate-200 dark:border-white/5 bg-white dark:bg-[#1A1D24] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] hover:border-[#3b82f6]/30 dark:hover:border-[#5da6fc]/30 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 active:scale-95 shadow-sm"
+        class="h-9 px-3 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)] disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
       >
         <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" />
       </button>

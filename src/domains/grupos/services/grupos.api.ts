@@ -1,25 +1,10 @@
 import type { Grupo, GrupoCreatePayload } from '../types/grupo'
-import { CookieAuth } from '../../../utils/cookie-auth'
-
-const getAuthHeaders = (withJson = false) => {
-  const token = CookieAuth.getToken()
-  return {
-    Authorization: `Bearer ${token}`,
-    ...(withJson ? { 'Content-Type': 'application/json' } : {})
-  }
-}
+import { apiClient } from '../../../utils/api-client'
 
 export const fetchGruposApi = async (): Promise<Grupo[]> => {
-  const response = await fetch('/api/v1/grupo/listar/', {
-    method: 'POST',
-    headers: getAuthHeaders()
+  const data = await apiClient<{ done: boolean; data: Grupo[] }>('/api/v1/grupo/listar/', {
+    method: 'POST'
   })
-
-  if (!response.ok) {
-    throw new Error('Error al obtener grupos')
-  }
-
-  const data = await response.json()
   if (data.done && Array.isArray(data.data)) return data.data
   return []
 }
@@ -35,19 +20,12 @@ export const createGrupoApi = async (payload: GrupoCreatePayload): Promise<{ don
   }
 
   if (payload.id) {
-    formData.append('id_grupo', payload.id) // o 'id', dependiendo del backend
+    formData.append('id_grupo', payload.id)
   }
 
-  const response = await fetch('/api/v1/grupo/crear/', {
+  const data = await apiClient<{ done: boolean; message?: string }>('/api/v1/grupo/crear/', {
     method: 'POST',
-    headers: getAuthHeaders(), // No enviamos JSON header para que el navegador ponga el boundary de FormData
     body: formData
   })
-
-  if (!response.ok) {
-    throw new Error('Error al crear grupo')
-  }
-
-  const data = await response.json()
-  return { done: Boolean(data?.done || response.status === 200), message: data?.message }
+  return { done: Boolean(data?.done), message: data?.message }
 }

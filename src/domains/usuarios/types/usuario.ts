@@ -3,7 +3,6 @@ export interface Usuario {
   nombre: string
   email: string
   lang: string
-  pass: string
   id_role: string
   id_grupo: string
   grupo_nombre: string

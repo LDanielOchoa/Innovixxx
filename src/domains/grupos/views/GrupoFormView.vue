@@ -10,7 +10,6 @@ import {
   LanguageCircleIcon,
   Tick01Icon,
   Alert01Icon,
-  Loading01Icon,
   Search01Icon,
   Camera01Icon,
   RotateRight01Icon,
@@ -18,6 +17,9 @@ import {
 } from '@hugeicons/core-free-icons'
 import { createGrupoApi, fetchGruposApi } from '../services/grupos.api'
 import { useI18n } from 'vue-i18n'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createGrupoSchema } from '../../../schemas/grupos.schema'
 import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
@@ -30,6 +32,9 @@ const router = useRouter()
 const { t } = useI18n()
 
 const isEditMode = computed(() => route.name === 'grupos-editar' || !!route.params.id)
+
+const { validate, getFirstError } = useFormValidator(createGrupoSchema)
+const { getError, clearErrors } = useFormError('grupo-form')
 
 onMounted(async () => {
   if (isEditMode.value && route.params.id) {
@@ -184,10 +189,6 @@ const selectLang = (lang: typeof langOptions[0]) => {
   isLangOpen.value = false
 }
 
-const selectedLangOption = computed(() =>
-  langOptions.find(l => l.value === formData.value.i18n) || langOptions[0]
-)
-
 const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
   pageMessage.value = { text, type }
   if (type === 'success') {
@@ -199,14 +200,11 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
 
 const saveGrupo = async () => {
   if (saving.value) return
+  clearErrors()
   pageMessage.value = null
 
-  if (!formData.value.nombre.trim()) {
-    showMessage(t('grupos.alertNoName', 'El nombre del grupo es requerido'), 'warning')
-    return
-  }
-  if (!formData.value.time_zone) {
-    showMessage(t('grupos.alertNoTimezone', 'Selecciona una zona horaria'), 'warning')
+  if (!validate(formData.value, 'grupo-form')) {
+    showMessage(getFirstError('grupo-form') || '', 'warning')
     return
   }
 
@@ -312,6 +310,7 @@ const saveGrupo = async () => {
               :label="t('grupos.formName', 'Nombre del Grupo')"
               :placeholder="t('grupos.formNamePlaceholder', 'Ej. Grupo Principal')"
               :icon="UserGroupIcon"
+              :error="getError('nombre')"
             />
 
             <!-- Zona Horaria -->

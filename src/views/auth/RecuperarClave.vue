@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '../../stores/theme.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
+import { useFormValidator } from '../../composables/useFormValidator'
+import { recoverEmailSchema } from '../../schemas/auth.schema'
 import {
   ArrowLeft01Icon,
   Mail01Icon,
@@ -15,7 +17,6 @@ import {
   Moon01Icon
 } from '@hugeicons/core-free-icons'
 import logoImg from '../../assets/logo.png'
-import bannerImg from '../../assets/Banner_principal_V2.d1597e1e.svg'
 
 const router = useRouter()
 const { t, locale } = useI18n()
@@ -31,10 +32,12 @@ const errorMensaje = ref('')
 const urlRecuperacion = ref('')
 
 
+const { validate, getFirstError, resetErrors } = useFormValidator(recoverEmailSchema)
+
 const recuperarClave = async () => {
-  if (!correo.value) {
-    errorMensaje.value = t('auth.missingEmail')
-    setTimeout(() => { errorMensaje.value = '' }, 3000)
+  resetErrors('recover-form')
+  if (!validate({ email: correo.value }, 'recover-form')) {
+    errorMensaje.value = getFirstError('recover-form') || ''
     return
   }
 
@@ -81,10 +84,6 @@ const cardRef = ref<HTMLElement | null>(null)
 const rotateX = ref(0)
 const rotateY = ref(0)
 
-const bannerCardRef = ref<HTMLElement | null>(null)
-const bannerRotateX = ref(0)
-const bannerRotateY = ref(0)
-
 const handleMouseMove = (e: MouseEvent) => {
   if (!cardRef.value) return
   const card = cardRef.value
@@ -93,7 +92,7 @@ const handleMouseMove = (e: MouseEvent) => {
   const y = e.clientY - rect.top
   const centerX = rect.width / 2
   const centerY = rect.height / 2
-  
+
   rotateX.value = -((y - centerY) / 40)
   rotateY.value = (x - centerX) / 40
 }
@@ -102,28 +101,6 @@ const handleMouseLeave = () => {
   rotateX.value = 0
   rotateY.value = 0
 }
-
-const handleBannerMouseMove = (e: MouseEvent) => {
-  if (!bannerCardRef.value) return
-  const card = bannerCardRef.value
-  const rect = card.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-  const centerX = rect.width / 2
-  const centerY = rect.height / 2
-  
-  bannerRotateX.value = -((y - centerY) / 35)
-  bannerRotateY.value = (x - centerX) / 35
-}
-
-const handleBannerMouseLeave = () => {
-  bannerRotateX.value = 0
-  bannerRotateY.value = 0
-}
-
-
-onMounted(() => {
-})
 
 onUnmounted(() => {
 })

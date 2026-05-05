@@ -97,7 +97,7 @@ onUnmounted(() => {
   <WidgetCard :title="t('dashboard.widgets.alarms.title')" :icon="Alert02Icon" :loading="isLoading" class="h-full">
     <div class="flex flex-col gap-4 h-full">
       <!-- Resumen Crítico -->
-      <div class="flex items-center gap-3 bg-red-500/5 dark:bg-red-500/10 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 hover:bg-red-500/10">
+      <div class="flex items-center gap-3 bg-red-500/5 dark:bg-[#0F1115]/80 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 shadow-[inset_0_2px_8px_rgba(239,68,68,0.05)] dark:shadow-[inset_0_2px_12px_rgba(239,68,68,0.15)] hover:shadow-[inset_0_4px_12px_rgba(239,68,68,0.1)] dark:hover:shadow-[inset_0_4px_16px_rgba(239,68,68,0.25)] hover:bg-red-500/10">
         <div class="relative w-12 h-12 shrink-0 flex items-center justify-center rounded-xl bg-red-500 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] group-hover/alert:scale-105 transition-transform duration-500">
           <span class="text-xl font-black">{{alarmsData.today}}</span>
           <div class="absolute inset-0 rounded-xl border border-red-400 animate-ping opacity-20"></div>
@@ -113,7 +113,7 @@ onUnmounted(() => {
       <!-- Lista de Alarmas -->
       <div class="flex-1 relative overflow-hidden">
         <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5 h-full overflow-y-auto custom-scrollbar pr-1">
-          <div v-for="alarm in alarmsData.list" :key="alarm.id" class="flex items-center justify-between p-2.5 bg-white/50 dark:bg-[#13161C]/60 rounded-lg border border-slate-200/60 dark:border-white/5 transition-all duration-300 hover:translate-x-1 hover:border-[#3b82f6]/30">
+          <div v-for="alarm in alarmsData.list" :key="alarm.id" class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-[#0F1115]/50 rounded-lg border border-slate-200/50 dark:border-white/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/30">
             <div class="flex items-center gap-2.5">
                <div class="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
                <span class="text-slate-400 dark:text-slate-500 text-[9px] font-black w-10 uppercase tracking-tighter">{{alarm.time}}</span>
