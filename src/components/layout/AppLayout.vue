@@ -34,7 +34,7 @@ const route = useRoute()
       <Sidebar />
 
       <!-- Panel de Contenido Principal -->
-      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-[#F1F4F8] dark:bg-[#16191D]">
+      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-[#F1F4F8] dark:bg-[#0D0F13]">
         <!-- Header — también persiste -->
         <Header />
 
@@ -47,7 +47,7 @@ const route = useRoute()
               :reset-key="route.path"
             >
               <Transition name="page">
-                <div :key="route.path" class="w-full min-h-full flex flex-col bg-[#F1F4F8] dark:bg-[#16191D]">
+                <div :key="route.path" class="w-full min-h-full flex flex-col bg-[#F1F4F8] dark:bg-[#0D0F13]">
                   <component :is="Component" />
                 </div>
               </Transition>

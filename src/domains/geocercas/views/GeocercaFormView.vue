@@ -450,22 +450,44 @@ const clearParadas = () => {
 
       <!-- FLOATING SIDEBAR -->
       <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
-        <div class="flex-1 flex flex-col m-4 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden">
+        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
           
           <!-- Header -->
-          <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0">
-            <div class="flex items-center gap-4">
-              <button @click="router.push('/geocercas')" class="w-10 h-10 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-[#3b82f6] transition-all shadow-sm active:scale-95">
-                <HugeiconsIcon :icon="ArrowLeft01Icon" :size="20" />
-              </button>
-              <div class="flex-1">
+          <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
+            <!-- Fondo decorativo -->
+            <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
+            <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+            <div class="relative flex items-center gap-3.5">
+              <!-- Botón Volver 3D -->
+              <div class="relative group/back shrink-0">
+                <button @click="router.push('/geocercas')"
+                  class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]">
+                  <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.5" />
+                </button>
+              </div>
+
+              <!-- Ícono principal con glow -->
+              <div class="relative group/icon shrink-0">
+                <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10">
+                  <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
+                </div>
+              </div>
+
+              <div class="flex-1 min-w-0">
                 <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ isEditing ? 'Editar Geocerca' : 'Nueva Geocerca' }}</h1>
-                <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">Configuración y Trazado</p>
+                <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
+                    Configuración y Trazado
+                  </span>
+                </p>
               </div>
             </div>
-            
-            <div class="mt-6 flex gap-3">
-              <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="flex-1">
+
+            <div class="relative mt-5">
+              <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full">
                 {{ $t('geocercas.btnSave', 'Guardar Geocerca') }}
               </AppButton>
             </div>
@@ -493,28 +515,39 @@ const clearParadas = () => {
             />
 
             <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5 text-balance">Descripción</label>
-              <div class="relative group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-2xl overflow-hidden focus-within:border-[#3b82f6]/40 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <textarea v-model="formData.descripcion" rows="3" placeholder="Describe el propósito de esta geocerca..." class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
+              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Descripción</label>
+              <div class="relative bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6]/40 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
+                <textarea v-model="formData.descripcion" rows="3" placeholder="Describe el propósito de esta geocerca..." class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
               </div>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
+              <!-- Color -->
               <div class="space-y-2">
                 <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Color</label>
-                <div class="relative flex items-center gap-3 p-1.5 bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-2xl">
-                  <input type="color" v-model="formData.color" class="w-10 h-10 rounded-xl border-none bg-transparent cursor-pointer overflow-hidden shadow-sm" />
+                <div class="relative flex items-center gap-3 p-1.5 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
+                  <input type="color" v-model="formData.color" class="w-10 h-10 rounded-xl border-none bg-transparent cursor-pointer overflow-hidden shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#1D1D24]" />
                   <span class="text-[11px] font-black font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ formData.color }}</span>
                 </div>
               </div>
+
+              <!-- Tipo -->
               <div class="space-y-2">
                 <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Tipo</label>
-                <div class="flex p-1 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10">
-                  <button type="button" @click="changeTipo(1)" class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all" :class="formData.tipo === 1 ? 'bg-white dark:bg-[#1A1D24] text-[#3b82f6] shadow-sm' : 'text-slate-400'">
-                    <HugeiconsIcon :icon="CircleIcon" :size="16" />
+                <div class="flex p-1 bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-[#20242D] dark:to-[#1D1D24] rounded-[16px] border border-slate-200 dark:border-white/10 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24]">
+                  <button type="button" @click="changeTipo(1)"
+                    class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all duration-300 border"
+                    :class="formData.tipo === 1
+                      ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]'
+                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300'">
+                    <HugeiconsIcon :icon="CircleIcon" :size="16" :stroke-width="2" />
                   </button>
-                  <button type="button" @click="changeTipo(2)" class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all" :class="formData.tipo === 2 ? 'bg-white dark:bg-[#1A1D24] text-[#3b82f6] shadow-sm' : 'text-slate-400'">
-                    <HugeiconsIcon :icon="SquareIcon" :size="16" />
+                  <button type="button" @click="changeTipo(2)"
+                    class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all duration-300 border"
+                    :class="formData.tipo === 2
+                      ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]'
+                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300'">
+                    <HugeiconsIcon :icon="SquareIcon" :size="16" :stroke-width="2" />
                   </button>
                 </div>
               </div>
@@ -618,8 +651,8 @@ const clearParadas = () => {
           </div>
 
           <!-- Footer Info -->
-          <div class="shrink-0 px-5 py-4 border-t border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02]">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">
+          <div class="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
               Haz clic en el mapa para empezar a trazar
             </p>
           </div>

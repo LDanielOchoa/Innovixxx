@@ -391,24 +391,45 @@ const handleDeleteGeocerca = async () => {
         </div>
       </Transition>
 
+      <!-- Hint mapa vacio -->
+      <Transition name="fade-overlay">
+        <div
+          v-if="!isLoadingMap && !mapLoadError && !selectedGeocerca && !isLoadingDetails"
+          class="absolute z-[6] flex items-end justify-end pointer-events-none"
+          style="bottom:24px;right:24px;"
+        >
+          <div class="bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl px-4 py-3 rounded-xl border border-white/20 dark:border-white/5 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] shadow-inner">
+              <HugeiconsIcon :icon="Location01Icon" :size="16" :stroke-width="1.5" />
+            </div>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Selecciona una geocerca para verla en el mapa</p>
+          </div>
+        </div>
+      </Transition>
+
       <!-- FLOATING SIDEBAR -->
       <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
-        <div class="flex-1 flex flex-col m-4 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden">
+        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
           
           <!-- Header -->
           <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
+            <!-- Fondo decorativo -->
             <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
+            <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
             
             <div class="relative flex items-start justify-between">
               <div class="flex items-center gap-3.5">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3b82f6] to-[#2563eb] flex items-center justify-center text-white shadow-[0_8px_20px_-4px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.3)] border border-white/10">
-                  <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
+                <div class="relative group/icon shrink-0">
+                  <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
+                  <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10 transition-transform duration-300 group-hover/icon:scale-105">
+                    <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
+                  </div>
                 </div>
                 <div>
                   <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ $t('geocercas.title') }}</h1>
                   <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
                     <span class="inline-flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span>
+                      <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
                       {{ $t('geocercas.activeGeocercas', { count: filteredGeocercas.length }) }}
                     </span>
                   </p>
@@ -416,17 +437,21 @@ const handleDeleteGeocerca = async () => {
               </div>
               
               <div class="flex items-center gap-2">
-                <button v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)" 
-                  @click="router.push('/geocercas/nueva')"
-                  class="w-9 h-9 rounded-lg flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_8px_20px_-4px_rgba(59,130,246,0.5),inset_0_1px_1px_rgba(255,255,255,0.4)] hover:shadow-[0_12px_24px_-4px_rgba(59,130,246,0.6),inset_0_1px_1px_rgba(255,255,255,0.5)] transition-all active:scale-95 border border-[#2563eb]/50 active:shadow-inner"
-                  title="Nueva Geocerca">
-                  <HugeiconsIcon :icon="PlusSignIcon" :size="18" :stroke-width="2.5" />
-                </button>
+                <!-- Botón Exportar 3D -->
                 <button @click="exportToExcel"
-                  class="w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 hover:border-[#3b82f6]/20 transition-all active:scale-95 shadow-[0_4px_8px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.5)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.05)]"
+                  class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                   title="Exportar">
-                  <HugeiconsIcon :icon="Download01Icon" :size="16" :stroke-width="2" />
+                  <HugeiconsIcon :icon="Download01Icon" :size="18" :stroke-width="2" />
                 </button>
+                <!-- Botón Nueva Geocerca 3D -->
+                <div class="relative group/btn" v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)">
+                  <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/btn:opacity-60 transition-opacity duration-300"></div>
+                  <button @click="router.push('/geocercas/nueva')"
+                    class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border border-[#2563eb]/50 shadow-[0_4px_0_#1d4ed8,0_6px_15px_rgba(59,130,246,0.4),inset_0_1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_6px_0_#1d4ed8,0_10px_20px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all duration-200 active:translate-y-[4px] active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(59,130,246,0.3)] relative z-10"
+                    title="Nueva Geocerca">
+                    <HugeiconsIcon :icon="PlusSignIcon" :size="20" :stroke-width="2.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -445,12 +470,13 @@ const handleDeleteGeocerca = async () => {
             </div>
             
             <!-- Empty -->
-            <div v-else-if="filteredGeocercas.length === 0" class="flex flex-col items-center justify-center py-12 gap-3 text-center">
-              <div class="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-white/[0.03] flex items-center justify-center text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-white/[0.05]">
+            <div v-else-if="filteredGeocercas.length === 0" class="flex flex-col items-center justify-center py-16 gap-4 text-center">
+              <div class="w-16 h-16 rounded-2xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] flex items-center justify-center text-slate-300 dark:text-slate-600 border border-slate-200 dark:border-white/10 shadow-[0_4px_0_#e2e8f0,0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_#1D1D24,0_4px_16px_rgba(0,0,0,0.3)]">
                 <HugeiconsIcon :icon="Search01Icon" :size="28" :stroke-width="1.5" />
               </div>
-              <div>
+              <div class="space-y-1">
                 <p class="text-[13px] font-black text-slate-600 dark:text-slate-300">{{ $t('geocercas.noResults') }}</p>
+                <p class="text-[11px] font-medium text-slate-400 dark:text-slate-500">Prueba con otro término</p>
               </div>
             </div>
             
@@ -614,15 +640,18 @@ const handleDeleteGeocerca = async () => {
   100% { transform: translateX(250%); }
 }
 
-.fade-overlay-enter-active,
-.fade-overlay-leave-active {
-  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+.fade-overlay-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.fade-overlay-enter-from,
+.fade-overlay-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.fade-overlay-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
 .fade-overlay-leave-to {
   opacity: 0;
-  transform: scale(1.1);
-  filter: blur(20px);
+  transform: translateY(4px);
 }
 </style>

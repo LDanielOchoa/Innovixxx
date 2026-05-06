@@ -28,35 +28,55 @@
     >
       
       <!-- Glassmorphic panel -->
-      <div class="flex-1 flex flex-col m-4 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.2)] dark:shadow-[0_40px_80px_-15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden">
+      <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
         
         <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
-        <div class="flex items-center gap-4">
-          <button @click="router.push('/rutas')" class="w-10 h-10 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 hover:text-[#3b82f6] transition-all shadow-sm">
-            <HugeiconsIcon :icon="ArrowLeft01Icon" :size="20" />
-          </button>
-          <div class="flex-1">
-            <h1 class="text-xl font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
-            <p class="text-[11px] font-bold text-slate-400 mt-1 uppercase tracking-wider">Detalles de la ruta</p>
+          <!-- Fondo decorativo -->
+          <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
+          <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+          <div class="relative flex items-center gap-3.5">
+            <!-- Botón Volver 3D -->
+            <button @click="router.push('/rutas')"
+              class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24] shrink-0">
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.5" />
+            </button>
+
+            <!-- Ícono con glow -->
+            <div class="relative group/icon shrink-0">
+              <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
+              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10">
+                <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
+              </div>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
+              <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
+                  Detalles de la ruta
+                </span>
+              </p>
+            </div>
+
+            <!-- Collapse Sidebar Button -->
+            <button
+              v-if="isAddingParadas && !isFormHiddenDuringMap"
+              @click="isFormHiddenDuringMap = true"
+              class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_5px_0_#1d4ed8] transition-all duration-200 active:translate-y-[3px] active:shadow-[0_0px_0_#1d4ed8] shrink-0"
+              title="Ocultar panel"
+            >
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.5" class="rotate-180" />
+            </button>
           </div>
-          <!-- Collapse Sidebar Button (visible only when mapping but sidebar is open) -->
-          <button 
-            v-if="isAddingParadas && !isFormHiddenDuringMap" 
-            @click="isFormHiddenDuringMap = true" 
-            class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 text-[#3b82f6] border border-[#3b82f6]/20 flex items-center justify-center hover:bg-[#3b82f6]/20 transition-all active:scale-95 shadow-sm ml-auto"
-            title="Ocultar panel"
-          >
-            <HugeiconsIcon :icon="ArrowLeft01Icon" :size="20" class="rotate-180" />
-          </button>
+
+          <div class="relative mt-5">
+            <AppButton variant="primary" @click="saveRuta" :loading="isSubmitting" class="w-full">
+              <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
+            </AppButton>
+          </div>
         </div>
-        <AppButton 
-          variant="primary" 
-          @click="saveRuta"
-          :loading="isSubmitting"
-        >
-          <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
-        </AppButton>
-      </div>
       
         <div class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
         <form @submit.prevent="saveRuta" class="space-y-5 relative p-1">
@@ -96,14 +116,14 @@
         
         <div class="space-y-2 w-full">
           <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formDesc') }}</label>
-          <div class="relative group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] overflow-hidden focus-within:border-[#3b82f6]/40 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
-            <textarea id="descripcion" v-model="formData.descripcion" required rows="3" :placeholder="$t('rutas.formDescPlaceholder')" class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
+          <div class="relative bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6]/40 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
+            <textarea id="descripcion" v-model="formData.descripcion" required rows="3" :placeholder="$t('rutas.formDescPlaceholder')" class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
           </div>
         </div>
 
         <div class="space-y-2 w-full">
           <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formColor') }}</label>
-          <div class="w-full p-1.5 bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[18px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
+          <div class="w-full p-1.5 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
             <div ref="pickrContainer" class="pickr-container w-full"></div>
           </div>
         </div>
@@ -318,6 +338,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   ArrowLeft01Icon,
   Location01Icon,
+  Route01Icon,
   PlusSignIcon,
   Drag04Icon,
   Delete01Icon,
