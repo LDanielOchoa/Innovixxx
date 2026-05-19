@@ -103,6 +103,11 @@ const router = createRouter({
           props: true
         },
         {
+          path: 'vehiculos-servicio',
+          name: 'vehiculos-servicio',
+          component: () => import('../domains/vehiculos-servicio/views/VehiculosServicioListView.vue')
+        },
+        {
           path: 'escoltas',
           name: 'escoltas',
           component: () => import('../domains/escoltas/views/EscoltasListView.vue'),

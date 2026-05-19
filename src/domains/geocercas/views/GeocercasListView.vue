@@ -89,6 +89,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  clearHoverTimer()
   // Cleanup handled by useMapSetup onUnmounted
 })
 
@@ -121,6 +122,31 @@ const paginatedGeocercas = computed(() => {
 const selectedGeocerca = ref<Geocerca | null>(null)
 const currentDrawing = shallowRef<any>(null)
 const isLoadingDetails = ref(false)
+
+const hoverTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const hoveredGeocerca = ref<Geocerca | null>(null)
+
+const onGeocercaMouseEnter = (geocerca: Geocerca) => {
+  clearHoverTimer()
+  hoveredGeocerca.value = geocerca
+  hoverTimer.value = setTimeout(() => {
+    if (hoveredGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
+      onGeocercaClick(geocerca)
+    }
+  }, 3000)
+}
+
+const onGeocercaMouseLeave = () => {
+  clearHoverTimer()
+  hoveredGeocerca.value = null
+}
+
+const clearHoverTimer = () => {
+  if (hoverTimer.value) {
+    clearTimeout(hoverTimer.value)
+    hoverTimer.value = null
+  }
+}
 
 const clearDrawings = () => {
   if (currentDrawing.value) {
@@ -203,6 +229,8 @@ const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number 
 }
 
 const onGeocercaClick = async (geocerca: Geocerca) => {
+  clearHoverTimer()
+  hoveredGeocerca.value = null
   if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) return
   selectedGeocerca.value = geocerca
   
@@ -486,16 +514,31 @@ const handleDeleteGeocerca = async () => {
                 v-for="geocerca in paginatedGeocercas"
                 :key="geocerca.id_geocerca"
                 @click="onGeocercaClick(geocerca)"
+                @mouseenter="onGeocercaMouseEnter(geocerca)"
+                @mouseleave="onGeocercaMouseLeave()"
                 class="group relative cursor-pointer rounded-2xl transition-all duration-300 select-none border overflow-hidden"
-                :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca
-                  ? 'bg-gradient-to-br from-white to-slate-50 dark:from-[#15181E] dark:to-[#0A0C10] shadow-[0_15px_35px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] border-[#3b82f6]/40 dark:border-[#3b82f6]/30'
-                  : 'bg-white/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/[0.04] hover:bg-white dark:hover:bg-white/[0.04] hover:border-slate-300 dark:hover:border-white/[0.08] shadow-sm hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.4)]'"
+                :class="[
+                  selectedGeocerca?.id_geocerca === geocerca.id_geocerca
+                    ? 'bg-gradient-to-br from-white to-slate-50 dark:from-[#15181E] dark:to-[#0A0C10] shadow-[0_15px_35px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.05)] border-[#3b82f6]/40 dark:border-[#3b82f6]/30'
+                    : 'bg-white/50 dark:bg-white/[0.02] border-slate-200/60 dark:border-white/[0.04] hover:bg-white dark:hover:bg-white/[0.04] hover:border-slate-300 dark:hover:border-white/[0.08] shadow-sm hover:shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] dark:hover:shadow-[0_15px_30px_-10px_rgba(0,0,0,0.4)]',
+                  hoveredGeocerca?.id_geocerca === geocerca.id_geocerca && selectedGeocerca?.id_geocerca !== geocerca.id_geocerca
+                    ? 'ring-2 ring-[#3b82f6]/30 dark:ring-[#3b82f6]/20'
+                    : ''
+                ]"
               >
                 <!-- Active Sidebar -->
                 <div
                   class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-gradient-to-b from-[#60a5fa] to-[#2563eb] shadow-[1px_0_12px_rgba(59,130,246,0.8)] transition-all duration-400"
                   :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'opacity-100 h-[70%]' : 'opacity-0 h-0'"
                 ></div>
+
+                <!-- Hover progress bar (top) -->
+                <div
+                  v-if="hoveredGeocerca?.id_geocerca === geocerca.id_geocerca && selectedGeocerca?.id_geocerca !== geocerca.id_geocerca"
+                  class="absolute top-0 left-0 right-0 h-[2px] bg-[#3b82f6]/40 overflow-hidden"
+                >
+                  <div class="h-full bg-[#3b82f6] animate-[hover-progress_3s_linear_forwards]"></div>
+                </div>
 
                 <div class="p-4 pl-5">
                   <div class="flex items-center gap-3.5">
@@ -638,6 +681,11 @@ const handleDeleteGeocerca = async () => {
 @keyframes progress-ind {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(250%); }
+}
+
+@keyframes hover-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
 }
 
 .fade-overlay-enter-active {

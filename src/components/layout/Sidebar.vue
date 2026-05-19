@@ -19,6 +19,7 @@ import {
   CpuIcon,
   UserGroupIcon,
   Car01Icon,
+  ServiceIcon,
   Shield02Icon,
   Sun01Icon,
   Moon01Icon,
@@ -87,6 +88,7 @@ const displayedMenuItems = computed(() => {
     { separator: true },
 
     { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos' },
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.serviceVehicles') || 'Veh. Servicio', route: '/vehiculos-servicio' },
 
     { separator: true },
 

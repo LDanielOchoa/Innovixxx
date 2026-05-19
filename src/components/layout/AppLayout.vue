@@ -3,8 +3,10 @@ import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import RouteErrorBoundary from './RouteErrorBoundary.vue'
 import { useRoute } from 'vue-router'
+import { useVehiculosServicioPanel } from '../../composables/useVehiculosServicioPanel'
 
 const route = useRoute()
+const { isPanelOpen } = useVehiculosServicioPanel()
 </script>
 
 <template>
@@ -30,13 +32,13 @@ const route = useRoute()
     ></div>
 
     <div class="flex w-full h-full z-10 relative">
-      <!-- Sidebar — se monta UNA sola vez, nunca se destruye -->
-      <Sidebar />
+      <!-- Sidebar — se oculta cuando el panel de vehículos servicio está abierto -->
+      <Sidebar v-show="!isPanelOpen" />
 
       <!-- Panel de Contenido Principal -->
       <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-[#F1F4F8] dark:bg-[#0D0F13]">
-        <!-- Header — también persiste -->
-        <Header />
+        <!-- Header — también se oculta -->
+        <Header v-show="!isPanelOpen" />
 
         <!-- Zona de contenido: solo esto cambia entre páginas -->
         <main class="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
