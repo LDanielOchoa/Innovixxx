@@ -13,6 +13,7 @@ import { headerMessages } from './header'
 import { dashboard } from './dashboard'
 import { rutasMessages } from './rutas'
 import { geocercasMessages } from './geocercas'
+import { serviciosMessages } from './servicios'
 
 import { vehiculosServicioMessages } from './vehiculos-servicio'
 
@@ -33,7 +34,8 @@ export const messages = {
     header: headerMessages.es,
     dashboard: dashboard.es,
     rutas: rutasMessages.es,
-    geocercas: geocercasMessages.es
+    geocercas: geocercasMessages.es,
+    servicios: serviciosMessages.es
   },
   en: {
     common: commonMessages.en,
@@ -51,7 +53,8 @@ export const messages = {
     header: headerMessages.en,
     dashboard: dashboard.en,
     rutas: rutasMessages.en,
-    geocercas: geocercasMessages.en
+    geocercas: geocercasMessages.en,
+    servicios: serviciosMessages.en
   }
 }
 

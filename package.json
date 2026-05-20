@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@headlessui/vue": "^1.7.23",
     "@hugeicons/core-free-icons": "^4.1.1",
     "@hugeicons/vue": "^1.0.5",
     "@primevue/themes": "^4.5.4",

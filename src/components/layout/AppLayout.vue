@@ -36,7 +36,7 @@ const { isPanelOpen } = useVehiculosServicioPanel()
       <Sidebar v-show="!isPanelOpen" />
 
       <!-- Panel de Contenido Principal -->
-      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-[#F1F4F8] dark:bg-[#0D0F13]">
+      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-[#F1F4F8] dark:bg-[#12141A]">
         <!-- Header — también se oculta -->
         <Header v-show="!isPanelOpen" />
 
@@ -49,7 +49,7 @@ const { isPanelOpen } = useVehiculosServicioPanel()
               :reset-key="route.path"
             >
               <Transition name="page">
-                <div :key="route.path" class="w-full min-h-full flex flex-col bg-[#F1F4F8] dark:bg-[#0D0F13]">
+                <div :key="route.path" class="w-full min-h-full flex flex-col bg-[#F1F4F8] dark:bg-transparent">
                   <component :is="Component" />
                 </div>
               </Transition>

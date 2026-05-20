@@ -13,7 +13,8 @@ export const sidebarMessages = {
       routes: 'Rutas',
       hardware: 'Hardware',
       service: 'Servicio',
-      geofences: 'Geocercas'
+      geofences: 'Geocercas',
+      services: 'Servicios'
     },
     defaultUser: 'USUARIO',
     defaultGroup: 'GRUPO',
@@ -52,7 +53,8 @@ export const sidebarMessages = {
       routes: 'Routes',
       hardware: 'Hardware',
       service: 'Service',
-      geofences: 'Geofences'
+      geofences: 'Geofences',
+      services: 'Services'
     },
     defaultUser: 'USER',
     defaultGroup: 'GROUP',

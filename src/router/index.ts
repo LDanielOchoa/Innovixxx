@@ -182,6 +182,11 @@ const router = createRouter({
           component: () => import('../domains/geocercas/views/GeocercaFormView.vue'),
           props: true,
           meta: { permission: PERMISSIONS.GEOCERCAS_EDIT }
+        },
+        {
+          path: 'servicios',
+          name: 'servicios',
+          component: () => import('../domains/servicios/views/ServiciosListView.vue')
         }
       ]
     },

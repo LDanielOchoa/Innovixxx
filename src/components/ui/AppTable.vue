@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import type { DataTableProps } from 'primevue/datatable'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -31,7 +30,7 @@ withDefaults(defineProps<Props>(), {
       :pt="{
         root: { class: 'bg-transparent' },
         table: { class: 'w-full border-collapse' },
-        thead: { class: 'bg-slate-50/30 dark:bg-[#0D1116]/30 border-b border-slate-200/60 dark:border-white/5' },
+        thead: { class: 'bg-slate-50/30 dark:bg-transparent border-b border-slate-200/60 dark:border-white/5' },
         tbody: { class: 'divide-y divide-slate-100/50 dark:divide-white/5' },
         row: { class: 'group/row transition-all duration-300 hover:bg-[#3b82f6]/[0.02] dark:hover:bg-[#3b82f6]/[0.03]' },
         headercell: ({ context }: any) => ({
@@ -64,7 +63,7 @@ withDefaults(defineProps<Props>(), {
       
       <template #empty>
         <div class="py-20 flex flex-col items-center justify-center text-center px-4">
-          <div class="w-20 h-20 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-6 border border-slate-200 dark:border-white/5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
+          <div class="w-20 h-20 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center mb-6 border border-slate-200 dark:border-white/10 shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
             <slot name="empty-icon">
               <svg class="w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />

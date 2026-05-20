@@ -98,7 +98,11 @@ const displayedMenuItems = computed(() => {
 
     { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: 20 },
     { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: 22 },
-    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: 26 }
+    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: 26 },
+
+    { separator: true },
+
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' }
   ]
 
   // Si es superadmin, mostrar todos los items (excepto adminOnly que requiere isAdmin)
@@ -238,8 +242,9 @@ const cerrarSesion = () => {
             :to="item.route || ''"
             @mouseenter="prefetchRoute(item.route)"
             @focusin="prefetchRoute(item.route)"
-            class="group relative flex items-center h-[52px] rounded-[18px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
+            class="group relative flex items-center h-[52px] rounded-[18px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden"
             :class="[
+              isExpanded ? 'px-3' : 'px-0 justify-center',
               isActiveRoute(item.route)
                 ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
                 : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200/50 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
@@ -248,7 +253,7 @@ const cerrarSesion = () => {
             <!-- Background Glow on Hover -->
             <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
 
-            <div class="flex items-center gap-3 w-full relative z-10">
+            <div class="flex items-center w-full relative z-10" :class="isExpanded ? 'gap-3' : 'justify-center'">
               <div 
                 class="w-10 h-10 flex items-center justify-center shrink-0 transition-all duration-500 rounded-xl"
                 :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
@@ -279,6 +284,7 @@ const cerrarSesion = () => {
         <button
           @click="showProfileModal = true"
           class="w-full flex items-center gap-3 p-2.5 rounded-[20px] transition-all duration-300 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#20242D]/80 dark:to-[#13161C]/80 border border-slate-200/80 dark:border-white/10 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/50 active:scale-[0.98] group/user shadow-[0_4px_12px_rgba(0,0,0,0.03),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[0_4px_15px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_8px_25px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,1)] dark:hover:shadow-[0_10px_30px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.05)] dark:active:shadow-[inset_0_6px_15px_rgba(0,0,0,0.4)] active:translate-y-[2px] relative overflow-hidden"
+          :class="isExpanded ? '' : 'justify-center p-0 w-11 h-11 mx-auto'"
         >
           <!-- Glass Shimmer Effect -->
           <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 dark:via-white/10 to-transparent group-hover/user:animate-[shimmer_1.5s_ease-in-out]"></div>
@@ -290,7 +296,7 @@ const cerrarSesion = () => {
           
           <div 
             class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap relative z-10"
-            :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0'"
+            :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0 hidden'"
           >
             <p class="text-[13px] font-black text-slate-800 dark:text-white truncate tracking-tight mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
             <div class="flex items-center gap-1.5">

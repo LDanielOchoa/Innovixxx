@@ -43,6 +43,7 @@ import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
+import EscoltaCreateModal from '../components/EscoltaCreateModal.vue'
 import Column from 'primevue/column'
 
 const { t } = useI18n()
@@ -90,7 +91,7 @@ const fetchEscoltas = async () => {
 }
 
 const openCreateModal = () => {
-  router.push('/escoltas/nuevo')
+  isCreateModalOpen.value = true
 }
 
 const openEditModal = (escolta: Escolta) => {
@@ -100,6 +101,7 @@ const openEditModal = (escolta: Escolta) => {
 
 const isDeleteModalOpen = ref(false)
 const itemToDelete = ref<string | null>(null)
+const isCreateModalOpen = ref(false)
 
 const confirmDelete = (id_escolta: string) => {
   itemToDelete.value = id_escolta
@@ -370,6 +372,12 @@ watch(selectedGroup, async (newGroup) => {
         {{ t('common.confirmDeleteMsg') || '¿Está seguro de que desea eliminar este registro? Esta acción no se puede deshacer.' }}
       </template>
     </AppDeleteConfirm>
+
+    <!-- Modal de Creación de Escolta -->
+    <EscoltaCreateModal 
+      v-model:is-open="isCreateModalOpen"
+      @created="fetchEscoltas"
+    />
 
     <!-- El modal de crear/editar fue migrado a EscoltaFormView -->
 
