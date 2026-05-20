@@ -29,6 +29,40 @@ export interface RutaSimple {
   nombre: string
 }
 
+export interface VehiculoSimple {
+  id_vehiculo: string
+  nombre: string
+  placa: string
+  tipo: string
+  estado: string
+}
+
+export interface HardwareSimple {
+  id_hardware: string
+  nombre: string
+  familia: string
+  estado: string
+}
+
+export interface EscoltaSimple {
+  id_escolta: string
+  nombre: string
+  celular: string
+  estado: string
+}
+
+export interface ServicioAsignarRecursosPayload {
+  id_grupo: string
+  id_servicio: string
+  fecha_hora_inicio: string
+  modo_fin: number
+  nivel_riesgo: number
+  id_ruta: string
+  vehiculos_id: string[]
+  hardware_id: string[]
+  escoltas_id: string[]
+}
+
 export const SERVICIO_ESTADOS = {
   TODOS: 0,
   PRERCARGA: 1,

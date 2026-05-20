@@ -14,7 +14,8 @@ import {
   Alert01Icon,
   Clock01Icon,
   Cancel01Icon,
-  Loading03Icon
+  Loading03Icon,
+  CpuIcon
 } from '@hugeicons/core-free-icons'
 import { fetchServiciosApi } from '../services/servicios.api'
 import type { Servicio, ServicioListPayload } from '../types/servicio'
@@ -32,7 +33,9 @@ import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import ServicioCreateModal from '../components/ServicioCreateModal.vue'
+import ServicioAsignarRecursosModal from '../components/ServicioAsignarRecursosModal.vue'
 import Column from 'primevue/column'
+
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -44,6 +47,14 @@ const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
 const isCreateModalOpen = ref(false)
+const isAsignarModalOpen = ref(false)
+const selectedServicio = ref<Servicio | null>(null)
+
+const openAsignarModal = (servicio: Servicio) => {
+  selectedServicio.value = servicio
+  isAsignarModalOpen.value = true
+}
+
 
 const filtros = ref({
   estado: SERVICIO_ESTADOS.TODOS,
@@ -398,6 +409,23 @@ onMounted(() => {
             </div>
           </template>
         </Column>
+
+        <!-- Acciones -->
+        <Column header="Acciones" class="text-right">
+          <template #body="{ data }">
+            <div class="flex items-center justify-end gap-3" v-if="data.estado === 'PRERCARGA'">
+              <button
+                @click="openAsignarModal(data)"
+                class="px-3 py-1.5 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)] font-bold text-[11px]"
+                title="Asignar Recursos"
+              >
+                <HugeiconsIcon :icon="CpuIcon" :size="13" :stroke-width="2.5" />
+                <span>Asignar Recursos</span>
+              </button>
+            </div>
+            <span v-else class="text-[11px] text-slate-400 dark:text-slate-600 font-medium select-none px-2">---</span>
+          </template>
+        </Column>
       </AppTable>
 
       <!-- Paginador -->
@@ -412,6 +440,13 @@ onMounted(() => {
     <ServicioCreateModal
       v-model:is-open="isCreateModalOpen"
       @created="fetchServicios"
+    />
+
+    <!-- Modal de Asignación de Recursos -->
+    <ServicioAsignarRecursosModal
+      v-model:is-open="isAsignarModalOpen"
+      :servicio="selectedServicio"
+      @assigned="fetchServicios"
     />
   </div>
 </template>

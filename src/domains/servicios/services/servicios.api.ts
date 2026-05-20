@@ -1,5 +1,5 @@
 import { apiClient } from '../../../utils/api-client'
-import type { Servicio, ServicioListPayload, ServicioCreatePayload, RutaSimple } from '../types/servicio'
+import type { Servicio, ServicioListPayload, ServicioCreatePayload, RutaSimple, VehiculoSimple, HardwareSimple, EscoltaSimple, ServicioAsignarRecursosPayload } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
   const data = await apiClient<{ done: boolean; data: Servicio[] }>('/api/v1/servicio/listar_tabla/', {
@@ -23,3 +23,38 @@ export const fetchRutasSimplesApi = async (id_grupo: string): Promise<RutaSimple
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }
+
+export const fetchVehiculosSimplesApi = async (id_grupo: string): Promise<VehiculoSimple[]> => {
+  const data = await apiClient<{ done: boolean; data: VehiculoSimple[] }>('/api/v1/vehiculo/listar_simple/', {
+    method: 'POST',
+    body: JSON.stringify({ id_grupo, estado: 0 })
+  })
+  return data.done && Array.isArray(data.data) ? data.data : []
+}
+
+// Obtener dispositivos de hardware disponibles para el grupo
+export const fetchHardwareSimplesApi = async (id_grupo: string): Promise<HardwareSimple[]> => {
+  const data = await apiClient<{ done: boolean; data: HardwareSimple[] }>('/api/v1/hardware/listar_simple/', {
+    method: 'POST',
+    body: JSON.stringify({ id_grupo, estado: 1 })
+  })
+  return data.done && Array.isArray(data.data) ? data.data : []
+}
+
+// Obtener escoltas disponibles para el grupo
+export const fetchEscoltasSimplesApi = async (id_grupo: string): Promise<EscoltaSimple[]> => {
+  const data = await apiClient<{ done: boolean; data: EscoltaSimple[] }>('/api/v1/escolta/listar_simple/', {
+    method: 'POST',
+    body: JSON.stringify({ id_grupo, estado: 1 })
+  })
+  return data.done && Array.isArray(data.data) ? data.data : []
+}
+
+// Enviar los datos para asignar los recursos al servicio
+export const asignarRecursosServicioApi = async (payload: ServicioAsignarRecursosPayload): Promise<any> => {
+  return apiClient('/api/v1/servicio/asignar_src/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
