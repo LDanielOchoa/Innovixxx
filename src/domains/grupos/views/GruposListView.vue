@@ -23,8 +23,9 @@ import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import Column from 'primevue/column'
+import GrupoCreateModal from '../components/GrupoCreateModal.vue'
 
-import { createGrupoApi, fetchGruposApi } from '../services/grupos.api'
+import { fetchGruposApi } from '../services/grupos.api'
 import type { Grupo } from '../types/grupo'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
@@ -40,8 +41,10 @@ const grupos = ref<Grupo[]>([])
 const loading = ref(false)
 const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const selectedLang = ref(typeof route.query.lang === 'string' ? route.query.lang : '')
-const isModalOpen = ref(false)
-const isSubmitting = ref(false)
+
+const isCreateModalOpen = ref(false)
+const selectedGrupoForEdit = ref<Grupo | null>(null)
+
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const showModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
@@ -145,39 +148,13 @@ const fetchGrupos = async () => {
 }
 
 const openCreateModal = () => {
-  timezoneSearch.value = ''
-  isTimezoneDropdownOpen.value = false
-  isLangDropdownOpen.value = false
-  modalMessage.value = null
-  formData.value = { nombre: '', time_zone: '', i18n: locale.value.split('-')[0] }
-  isModalOpen.value = true
+  selectedGrupoForEdit.value = null
+  isCreateModalOpen.value = true
 }
 
-
-const saveGrupo = async () => {
-  if (isSubmitting.value) return
-  isSubmitting.value = true
-  modalMessage.value = null
-  
-  try {
-    const data = await createGrupoApi(formData.value)
-
-    if (data.done) {
-      showModalMessage(t('grupos.alertSuccessCreate'), 'success')
-      await fetchGrupos()
-    } else {
-      showModalMessage(data.message || t('grupos.alertErrorCreate'), 'error')
-    }
-  } catch (error) {
-    if (error instanceof ApiError) {
-      showModalMessage(getErrorMessage(error.code), 'error')
-    } else {
-      console.error('Error in saveGrupo:', error)
-      showModalMessage(t('grupos.alertNetError'), 'error')
-    }
-  } finally {
-    isSubmitting.value = false
-  }
+const openEditModal = (grupo: Grupo) => {
+  selectedGrupoForEdit.value = grupo
+  isCreateModalOpen.value = true
 }
 
 onMounted(() => {
@@ -267,7 +244,7 @@ const deleteGrupo = async () => {
           <AppButton 
             variant="primary" 
             :icon="Add01Icon" 
-            @click="router.push('/grupos/nuevo')"
+            @click="openCreateModal"
           >
             <span>{{ $t('grupos.btnNew') }}</span>
           </AppButton>
@@ -361,7 +338,7 @@ const deleteGrupo = async () => {
           <template #body="{ data }">
             <div class="flex items-center justify-end gap-3 py-1">
               <button 
-                @click="router.push(`/grupos/${data.id}/editar`)"
+                @click="openEditModal(data)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
                 title="Editar"
               >
@@ -396,6 +373,13 @@ const deleteGrupo = async () => {
       :title="$t('common.confirmDeleteTitle')"
       :message="$t('common.confirmDeleteMsg')"
       @confirm="deleteGrupo"
+    />
+
+    <!-- Modal de Creación / Edición Premium -->
+    <GrupoCreateModal
+      v-model:is-open="isCreateModalOpen"
+      :grupo="selectedGrupoForEdit"
+      @saved="fetchGrupos"
     />
   </div>
 </template>

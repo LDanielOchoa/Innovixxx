@@ -281,6 +281,42 @@ const getEscoltaLabel = (id: string) => {
   return e ? e.nombre : id
 }
 
+const selectAllVehiculos = () => {
+  filteredVehiculos.value.forEach(v => {
+    if (!selectedVehiculosIds.value.includes(v.id_vehiculo)) {
+      selectedVehiculosIds.value.push(v.id_vehiculo)
+    }
+  })
+}
+
+const clearVehiculos = () => {
+  selectedVehiculosIds.value = []
+}
+
+const selectAllHardware = () => {
+  filteredHardware.value.forEach(h => {
+    if (!selectedHardwareIds.value.includes(h.id_hardware)) {
+      selectedHardwareIds.value.push(h.id_hardware)
+    }
+  })
+}
+
+const clearHardware = () => {
+  selectedHardwareIds.value = []
+}
+
+const selectAllEscoltas = () => {
+  filteredEscoltas.value.forEach(e => {
+    if (!selectedEscoltasIds.value.includes(e.id_escolta)) {
+      selectedEscoltasIds.value.push(e.id_escolta)
+    }
+  })
+}
+
+const clearEscoltas = () => {
+  selectedEscoltasIds.value = []
+}
+
 // Escucha clics fuera para cerrar dropdowns de multiselección
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as Node
@@ -449,7 +485,7 @@ const handleClose = () => {
         <!-- FORMULARIO DE ASIGNACIÓN -->
         <div v-else class="animate-fade-in space-y-5">
           <!-- Tarjeta de Contenedor Principal (Glassmorphism) -->
-          <div class="space-y-6 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#1A1D24]/90 dark:to-[#0F1115]/90 backdrop-blur-2xl p-6 rounded-[24px] border border-white dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.04)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.3)] relative group/form">
+          <div class="space-y-6 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#1A1D24]/90 dark:to-[#0F1115]/90 backdrop-blur-2xl p-6 rounded-[24px] border border-white dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.04)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.3)] relative z-20 group/form">
             <!-- Brillo de ambiente superior derecho -->
             <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5 rounded-full blur-3xl group-hover/form:bg-[#3b82f6]/10 transition-colors duration-700 pointer-events-none"></div>
 
@@ -537,7 +573,7 @@ const handleClose = () => {
 
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 relative z-30">
                 <!-- 1. VEHÍCULOS DISPONIBLES -->
-                <div ref="vehiculosDropdownRef" class="space-y-2 relative">
+                <div ref="vehiculosDropdownRef" class="space-y-2 relative transition-all duration-300" :class="{ 'z-50': isVehiculosDropdownOpen }">
                   <label
                     class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isVehiculosDropdownOpen }"
@@ -565,20 +601,34 @@ const handleClose = () => {
 
                       <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 max-h-24 overflow-y-auto custom-scrollbar">
                         <template v-if="selectedVehiculosIds.length > 0">
-                          <div
-                            v-for="id in selectedVehiculosIds"
-                            :key="id"
-                            class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
-                          >
-                            <span>{{ getVehiculoLabel(id) }}</span>
-                            <button
-                              type="button"
-                              @click.stop="selectVehiculo(id)"
-                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                          <template v-if="selectedVehiculosIds.length <= 3">
+                            <div
+                              v-for="id in selectedVehiculosIds"
+                              :key="id"
+                              class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
                             >
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
-                            </button>
-                          </div>
+                              <span>{{ getVehiculoLabel(id) }}</span>
+                              <button
+                                type="button"
+                                @click.stop="selectVehiculo(id)"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <div class="flex items-center gap-1.5 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2.5 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 animate-fade-in">
+                              <span>{{ selectedVehiculosIds.length }} vehículos</span>
+                              <button
+                                type="button"
+                                @click.stop="clearVehiculos"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5 ml-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
                         </template>
                         <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
                           {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehículos' }}
@@ -618,7 +668,33 @@ const handleClose = () => {
                           </div>
                         </div>
 
-                        <div class="max-h-52 overflow-y-auto custom-scrollbar py-1.5">
+                        <!-- Barra de Control de Selección Múltiple y Contador -->
+                        <div class="px-3.5 py-1.5 bg-slate-50/60 dark:bg-[#15181F]/40 border-b border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 select-none">
+                          <span>
+                            {{ filteredVehiculos.length === vehiculos.length ? `${vehiculos.length} disponibles` : `${filteredVehiculos.length} de ${vehiculos.length}` }}
+                          </span>
+                          <div class="flex gap-2">
+                            <button
+                              type="button"
+                              @click.stop="selectAllVehiculos"
+                              class="text-[#3b82f6] dark:text-[#5da6fc] hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              :disabled="filteredVehiculos.length === 0"
+                            >
+                              Marcar todos
+                            </button>
+                            <span class="text-slate-300 dark:text-white/10">|</span>
+                            <button
+                              type="button"
+                              @click.stop="clearVehiculos"
+                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              :disabled="selectedVehiculosIds.length === 0"
+                            >
+                              Limpiar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="max-h-72 overflow-y-auto custom-scrollbar py-1.5">
                           <button
                             v-for="v in filteredVehiculos"
                             :key="v.id_vehiculo"
@@ -655,7 +731,7 @@ const handleClose = () => {
                 </div>
 
                 <!-- 2. DISPOSITIVOS DE HARDWARE -->
-                <div ref="hardwareDropdownRef" class="space-y-2 relative">
+                <div ref="hardwareDropdownRef" class="space-y-2 relative transition-all duration-300" :class="{ 'z-50': isHardwareDropdownOpen }">
                   <label
                     class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isHardwareDropdownOpen }"
@@ -683,20 +759,34 @@ const handleClose = () => {
 
                       <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 max-h-24 overflow-y-auto custom-scrollbar">
                         <template v-if="selectedHardwareIds.length > 0">
-                          <div
-                            v-for="id in selectedHardwareIds"
-                            :key="id"
-                            class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
-                          >
-                            <span>{{ getHardwareLabel(id) }}</span>
-                            <button
-                              type="button"
-                              @click.stop="selectHardware(id)"
-                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                          <template v-if="selectedHardwareIds.length <= 3">
+                            <div
+                              v-for="id in selectedHardwareIds"
+                              :key="id"
+                              class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
                             >
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
-                            </button>
-                          </div>
+                              <span>{{ getHardwareLabel(id) }}</span>
+                              <button
+                                type="button"
+                                @click.stop="selectHardware(id)"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <div class="flex items-center gap-1.5 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2.5 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 animate-fade-in">
+                              <span>{{ selectedHardwareIds.length }} dispositivos</span>
+                              <button
+                                type="button"
+                                @click.stop="clearHardware"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5 ml-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
                         </template>
                         <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
                           {{ loadingHardware ? 'Cargando...' : 'Seleccione hardware' }}
@@ -736,7 +826,33 @@ const handleClose = () => {
                           </div>
                         </div>
 
-                        <div class="max-h-52 overflow-y-auto custom-scrollbar py-1.5">
+                        <!-- Barra de Control de Selección Múltiple y Contador -->
+                        <div class="px-3.5 py-1.5 bg-slate-50/60 dark:bg-[#15181F]/40 border-b border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 select-none">
+                          <span>
+                            {{ filteredHardware.length === hardware.length ? `${hardware.length} disponibles` : `${filteredHardware.length} de ${hardware.length}` }}
+                          </span>
+                          <div class="flex gap-2">
+                            <button
+                              type="button"
+                              @click.stop="selectAllHardware"
+                              class="text-[#3b82f6] dark:text-[#5da6fc] hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              :disabled="filteredHardware.length === 0"
+                            >
+                              Marcar todos
+                            </button>
+                            <span class="text-slate-300 dark:text-white/10">|</span>
+                            <button
+                              type="button"
+                              @click.stop="clearHardware"
+                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              :disabled="selectedHardwareIds.length === 0"
+                            >
+                              Limpiar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="max-h-72 overflow-y-auto custom-scrollbar py-1.5">
                           <button
                             v-for="h in filteredHardware"
                             :key="h.id_hardware"
@@ -773,7 +889,7 @@ const handleClose = () => {
                 </div>
 
                 <!-- 3. ESCOLTAS DISPONIBLES -->
-                <div ref="escoltasDropdownRef" class="space-y-2 relative">
+                <div ref="escoltasDropdownRef" class="space-y-2 relative transition-all duration-300" :class="{ 'z-50': isEscoltasDropdownOpen }">
                   <label
                     class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isEscoltasDropdownOpen }"
@@ -801,20 +917,34 @@ const handleClose = () => {
 
                       <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 max-h-24 overflow-y-auto custom-scrollbar">
                         <template v-if="selectedEscoltasIds.length > 0">
-                          <div
-                            v-for="id in selectedEscoltasIds"
-                            :key="id"
-                            class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
-                          >
-                            <span>{{ getEscoltaLabel(id) }}</span>
-                            <button
-                              type="button"
-                              @click.stop="selectEscolta(id)"
-                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                          <template v-if="selectedEscoltasIds.length <= 3">
+                            <div
+                              v-for="id in selectedEscoltasIds"
+                              :key="id"
+                              class="flex items-center gap-1 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30"
                             >
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
-                            </button>
-                          </div>
+                              <span>{{ getEscoltaLabel(id) }}</span>
+                              <button
+                                type="button"
+                                @click.stop="selectEscolta(id)"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
+                          <template v-else>
+                            <div class="flex items-center gap-1.5 bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] text-[11px] font-bold px-2.5 py-0.5 rounded-lg border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 animate-fade-in">
+                              <span>{{ selectedEscoltasIds.length }} escoltas</span>
+                              <button
+                                type="button"
+                                @click.stop="clearEscoltas"
+                                class="hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5 ml-0.5"
+                              >
+                                <HugeiconsIcon :icon="Cancel01Icon" :size="10" :stroke-width="3" />
+                              </button>
+                            </div>
+                          </template>
                         </template>
                         <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
                           {{ loadingEscoltas ? 'Cargando...' : 'Seleccione escoltas' }}
@@ -854,7 +984,33 @@ const handleClose = () => {
                           </div>
                         </div>
 
-                        <div class="max-h-52 overflow-y-auto custom-scrollbar py-1.5">
+                        <!-- Barra de Control de Selección Múltiple y Contador -->
+                        <div class="px-3.5 py-1.5 bg-slate-50/60 dark:bg-[#15181F]/40 border-b border-slate-100 dark:border-white/5 flex items-center justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 select-none">
+                          <span>
+                            {{ filteredEscoltas.length === escoltas.length ? `${escoltas.length} disponibles` : `${filteredEscoltas.length} de ${escoltas.length}` }}
+                          </span>
+                          <div class="flex gap-2">
+                            <button
+                              type="button"
+                              @click.stop="selectAllEscoltas"
+                              class="text-[#3b82f6] dark:text-[#5da6fc] hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                              :disabled="filteredEscoltas.length === 0"
+                            >
+                              Marcar todos
+                            </button>
+                            <span class="text-slate-300 dark:text-white/10">|</span>
+                            <button
+                              type="button"
+                              @click.stop="clearEscoltas"
+                              class="hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                              :disabled="selectedEscoltasIds.length === 0"
+                            >
+                              Limpiar
+                            </button>
+                          </div>
+                        </div>
+
+                        <div class="max-h-72 overflow-y-auto custom-scrollbar py-1.5">
                           <button
                             v-for="e in filteredEscoltas"
                             :key="e.id_escolta"

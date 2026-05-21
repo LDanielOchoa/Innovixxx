@@ -40,12 +40,16 @@ import BasePagination from '../../../components/common/BasePagination.vue'
 import AppDeleteConfirm from '../../../components/common/AppDeleteConfirm.vue'
 import Column from 'primevue/column'
 import Avatar from 'primevue/avatar'
+import UsuarioCreateModal from '../components/UsuarioCreateModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
+
+const isCreateModalOpen = ref(false)
+const selectedUsuarioForEdit = ref<Usuario | null>(null)
 
 const usuarios = ref<Usuario[]>([])
 const grupos = ref<Grupo[]>([])
@@ -174,11 +178,13 @@ const exportToExcel = () => {
 }
 
 const openCreateModal = () => {
-  router.push('/usuarios/nuevo')
+  selectedUsuarioForEdit.value = null
+  isCreateModalOpen.value = true
 }
 
 const openEditModal = (usuario: Usuario) => {
-  router.push(`/usuarios/${usuario.id}/editar`)
+  selectedUsuarioForEdit.value = usuario
+  isCreateModalOpen.value = true
 }
 
 const isDeleteModalOpen = ref(false)
@@ -378,6 +384,13 @@ const getStatusType = (usuario: Usuario) => {
         {{ t('users.deleteConfirmQuestion', '¿Eliminar usuario?') }}
       </template>
     </AppDeleteConfirm>
+
+    <!-- Modal de Creación / Edición Premium -->
+    <UsuarioCreateModal
+      v-model:is-open="isCreateModalOpen"
+      :usuario="selectedUsuarioForEdit"
+      @saved="fetchUsuarios"
+    />
   </div>
 </template>
 
