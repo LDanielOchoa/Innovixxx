@@ -12,7 +12,13 @@ export const createEscoltaSchema = z.object({
     .regex(celularRegex, 'Formato de celular inválido')
     .optional()
     .or(z.literal('')),
-  id_grupo: z.string().length(8)
+  id_grupo: z.string().length(8),
+  id_servicio: z.string().optional().or(z.literal('')),
+  id_vehiculo: z.string().optional().or(z.literal('')),
+  id_hardware: z.string().optional().or(z.literal('')),
+  tipo_pase: z.string().optional().or(z.literal('')),
+  pase: z.string().optional().or(z.literal('')),
+  pase_vence: z.string().optional().or(z.literal(''))
 })
 
 export const updateEscoltaSchema = createEscoltaSchema.extend({

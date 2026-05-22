@@ -7,7 +7,7 @@ import {
   FingerPrintIcon,
   Calendar01Icon,
   EngineIcon,
-  Document,
+  DocumentAttachmentIcon,
   Tick01Icon,
   Alert01Icon,
   Cancel01Icon,
@@ -31,6 +31,7 @@ import {
   ListboxOptions,
   ListboxOption,
 } from '@headlessui/vue'
+
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -450,7 +451,7 @@ const confirmText = computed(() => {
             <div class="space-y-4 relative z-10">
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="Document" :size="18" class="drop-shadow-sm" />
+                  <HugeiconsIcon :icon="DocumentAttachmentIcon" :size="18" class="drop-shadow-sm" />
                 </div>
                 <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ $t('vehiculosServicio.sectionDocuments', 'Documentos') }}</h3>
               </div>
@@ -460,7 +461,7 @@ const confirmText = computed(() => {
                   v-model="formData.soat"
                   :label="$t('vehiculosServicio.labelSoat', 'SOAT')"
                   :placeholder="$t('vehiculosServicio.placeholderSoat', 'J456789')"
-                  :icon="Document"
+                  :icon="DocumentAttachmentIcon"
                 />
                 <AppInput
                   v-model="formData.soat_vence"
@@ -475,7 +476,7 @@ const confirmText = computed(() => {
                   v-model="formData.tecnomecanica"
                   :label="$t('vehiculosServicio.labelTecnomecanica', 'Tecnomecánica')"
                   :placeholder="$t('vehiculosServicio.placeholderTecnomecanica', 'u456790')"
-                  :icon="Document"
+                  :icon="DocumentAttachmentIcon"
                 />
                 <AppInput
                   v-model="formData.tecnomecanica_vence"

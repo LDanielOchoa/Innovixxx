@@ -39,7 +39,19 @@ export const escoltasMessages = {
     alertErrorSms: 'Error al enviar el SMS',
     smsSent: 'SMS enviado. Ingresa el código recibido.',
     alertSuccessValidate: 'El escolta fue validado correctamente',
-    alertErrorValidate: 'Error al validar el escolta'
+    alertErrorValidate: 'Error al validar el escolta',
+    labelService: 'Servicio',
+    placeholderService: 'Seleccione un servicio',
+    labelVehicle: 'Vehículo de Servicio',
+    placeholderVehicle: 'Seleccione un vehículo',
+    labelHardware: 'Dispositivo Hardware',
+    placeholderHardware: 'Seleccione un dispositivo',
+    labelPassType: 'Tipo de Pase',
+    placeholderPassType: 'Seleccione tipo de pase',
+    labelPass: 'Número de Pase',
+    placeholderPass: 'Ej: 79065744',
+    labelPassExpiry: 'Vencimiento del Pase',
+    sectionAssignments: 'Asignaciones del Escolta'
   },
   en: {
     title: 'Escorts',
@@ -81,6 +93,18 @@ export const escoltasMessages = {
     alertErrorSms: 'Error sending SMS',
     smsSent: 'SMS sent. Enter the code you received.',
     alertSuccessValidate: 'Escort successfully validated',
-    alertErrorValidate: 'Error validating escort'
+    alertErrorValidate: 'Error validating escort',
+    labelService: 'Service',
+    placeholderService: 'Select a service',
+    labelVehicle: 'Service Vehicle',
+    placeholderVehicle: 'Select a vehicle',
+    labelHardware: 'Hardware Device',
+    placeholderHardware: 'Select a device',
+    labelPassType: 'Pass Type',
+    placeholderPassType: 'Select pass type',
+    labelPass: 'Pass Number',
+    placeholderPass: 'e.g., 79065744',
+    labelPassExpiry: 'Pass Expiration',
+    sectionAssignments: 'Escort Assignments'
   }
 }

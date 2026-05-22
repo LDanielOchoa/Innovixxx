@@ -160,189 +160,187 @@ const handleModalSaved = () => {
 </script>
 
 <template>
-  <div class="relative">
-    <!-- Main Content -->
-    <div class="p-4 md:p-8 space-y-8 animate-fade-in font-inter">
-      <!-- Header -->
-      <AppPageHeader
-        :title="$t('vehiculosServicio.title')"
-        :subtitle="`${$t('vehiculosServicio.subtitle')} ${selectedGroup.nombre}`"
-        :count="filteredVehicles.length"
-      >
-        <template #actions>
-          <div class="flex items-center gap-3">
-            <AppButton
-              variant="secondary"
-              :icon="Download01Icon"
-              @click="exportToExcel"
-              class="!px-3"
-            />
-            <AppButton
-              variant="primary"
-              :icon="Add01Icon"
-              @click="openCreateModal"
-            >
-              <span>{{ $t('vehiculosServicio.btnNew') }}</span>
-            </AppButton>
-          </div>
-        </template>
-      </AppPageHeader>
-
-      <!-- Search -->
-      <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
-        <div class="flex-1 w-full max-w-2xl">
-          <AppSearch
-            v-model="searchQuery"
-            :placeholder="$t('vehiculosServicio.searchPlaceholder')"
+  <div class="p-4 md:p-8 space-y-8 animate-fade-in">
+    <!-- Header -->
+    <AppPageHeader
+      :title="$t('vehiculosServicio.title')"
+      :subtitle="`${$t('vehiculosServicio.subtitle')} ${selectedGroup.nombre}`"
+      :count="filteredVehicles.length"
+    >
+      <template #actions>
+        <div class="flex items-center gap-3">
+          <AppButton
+            variant="secondary"
+            :icon="Download01Icon"
+            @click="exportToExcel"
+            class="!px-3"
           />
+          <AppButton
+            variant="primary"
+            :icon="Add01Icon"
+            @click="openCreateModal"
+          >
+            <span>{{ $t('vehiculosServicio.btnNew') }}</span>
+          </AppButton>
         </div>
-      </div>
+      </template>
+    </AppPageHeader>
 
-      <!-- Table Card -->
-      <AppTableCard>
-        <AppTable
-          :value="filteredVehicles"
-          :loading="isLoading"
-          :rows="itemsPerPage"
-          :first="(currentPage - 1) * itemsPerPage"
-          removableSort
-          :empty-message="$t('vehiculosServicio.noResults', 'No se encontraron vehículos de servicio')"
-        >
-          <template #empty-icon>
-            <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
-          </template>
-          <template #empty-subtitle>{{ $t('common.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
-
-          <Column field="placa" :header="$t('vehiculosServicio.thPlate', 'Placa / Serial')" sortable>
-            <template #body="{ data }">
-              <div class="flex flex-col py-1">
-                <span class="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ data.placa || '---' }}</span>
-                <div class="flex items-center gap-1.5 mt-1 opacity-60">
-                  <HugeiconsIcon :icon="FingerPrintIcon" :size="10" />
-                  <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.serial_chasis || 'S/N' }}</span>
-                </div>
-              </div>
-            </template>
-          </Column>
-
-          <Column field="marca" :header="$t('vehiculosServicio.thBrand', 'Marca / Referencia')" sortable>
-            <template #body="{ data }">
-              <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/brand">
-                <HugeiconsIcon :icon="Car01Icon" :size="14" class="text-slate-400 group-hover/brand:text-[#3b82f6] transition-colors" />
-                <div class="flex flex-col">
-                  <span class="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wide">{{ data.marca || '---' }}</span>
-                  <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500">{{ data.referencia || '' }}</span>
-                </div>
-              </div>
-            </template>
-          </Column>
-
-          <Column field="tipo" :header="$t('vehiculosServicio.thType', 'Tipo')" sortable>
-            <template #body="{ data }">
-              <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">{{ data.tipo || '---' }}</span>
-            </template>
-          </Column>
-
-          <Column field="modelo" :header="$t('vehiculosServicio.thModel', 'Modelo')" sortable>
-            <template #body="{ data }">
-              <span class="text-[13px] font-black text-slate-700 dark:text-slate-200 tabular-nums">{{ data.modelo || '---' }}</span>
-            </template>
-          </Column>
-
-          <Column field="color" :header="$t('vehiculosServicio.thColor', 'Color')" sortable>
-            <template #body="{ data }">
-              <div class="flex items-center gap-2">
-                <div
-                  class="w-5 h-5 rounded-full border border-slate-200 dark:border-white/10 shadow-sm"
-                  :style="{ backgroundColor: data.color || '#ccc' }"
-                ></div>
-                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono uppercase">{{ data.color || '---' }}</span>
-              </div>
-            </template>
-          </Column>
-
-          <Column field="cilindrada" :header="$t('vehiculosServicio.thCc', 'Cilindrada')" sortable>
-            <template #body="{ data }">
-              <span class="text-[13px] font-black text-slate-700 dark:text-slate-200 tabular-nums">{{ data.cilindrada || 0 }}<span class="text-[10px] font-bold text-slate-400 ml-0.5">cc</span></span>
-            </template>
-          </Column>
-
-          <Column field="soat" :header="$t('vehiculosServicio.thSoat', 'SOAT')" sortable>
-            <template #body="{ data }">
-              <div class="flex flex-col gap-1">
-                <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 font-mono">{{ data.soat || '---' }}</span>
-                <div v-if="data.soat_vence" class="flex items-center gap-1">
-                  <HugeiconsIcon :icon="Calendar01Icon" :size="10" :class="isDateExpired(data.soat_vence) ? 'text-red-400' : 'text-emerald-400'" />
-                  <AppBadge
-                    :variant="isDateExpired(data.soat_vence) ? 'danger' : 'success'"
-                    class="!text-[9px] !px-1.5 !py-0"
-                  >
-                    {{ isDateExpired(data.soat_vence) ? $t('vehiculosServicio.expired', 'Vencido') : $t('vehiculosServicio.valid', 'Vigente') }}
-                  </AppBadge>
-                  <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.soat_vence }}</span>
-                </div>
-              </div>
-            </template>
-          </Column>
-
-          <Column field="tecnomecanica" :header="$t('vehiculosServicio.thTecnomecanica', 'Tecnomecánica')" sortable>
-            <template #body="{ data }">
-              <div class="flex flex-col gap-1">
-                <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 font-mono">{{ data.tecnomecanica || '---' }}</span>
-                <div v-if="data.tecnomecanica_vence" class="flex items-center gap-1">
-                  <HugeiconsIcon :icon="Calendar01Icon" :size="10" :class="isDateExpired(data.tecnomecanica_vence) ? 'text-red-400' : 'text-emerald-400'" />
-                  <AppBadge
-                    :variant="isDateExpired(data.tecnomecanica_vence) ? 'danger' : 'success'"
-                    class="!text-[9px] !px-1.5 !py-0"
-                  >
-                    {{ isDateExpired(data.tecnomecanica_vence) ? $t('vehiculosServicio.expired', 'Vencido') : $t('vehiculosServicio.valid', 'Vigente') }}
-                  </AppBadge>
-                  <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.tecnomecanica_vence }}</span>
-                </div>
-              </div>
-            </template>
-          </Column>
-
-          <Column field="estado" :header="$t('vehiculosServicio.thStatus', 'Estado')" sortable>
-            <template #body="{ data }">
-              <AppBadge
-                :variant="data.estado === 1 ? 'success' : 'danger'"
-                class="!text-[10px]"
-              >
-                {{ data.estado === 1 ? $t('vehiculosServicio.statusActive', 'Activo') : $t('vehiculosServicio.statusInactive', 'Inactivo') }}
-              </AppBadge>
-            </template>
-          </Column>
-
-          <Column header="Acciones" class="text-right">
-            <template #body="{ data }">
-              <div class="flex items-center justify-end gap-3">
-                <button
-                  @click="openEditModal(data)"
-                  class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                  title="Editar"
-                >
-                  <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
-                </button>
-                <button
-                  @click="confirmDelete(data)"
-                  class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                  title="Eliminar"
-                >
-                  <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
-                </button>
-              </div>
-            </template>
-          </Column>
-        </AppTable>
-
-        <AppPagination
-          :totalRecords="filteredVehicles.length"
-          v-model:currentPage="currentPage"
-          :rowsPerPage="itemsPerPage"
+    <!-- Search -->
+    <div class="flex flex-col md:flex-row gap-4 items-center">
+      <div class="flex-1 w-full max-w-2xl">
+        <AppSearch
+          v-model="searchQuery"
+          :placeholder="$t('vehiculosServicio.searchPlaceholder')"
         />
-      </AppTableCard>
+      </div>
     </div>
+
+    <!-- Table Card -->
+    <AppTableCard>
+      <AppTable
+        :value="filteredVehicles"
+        :loading="isLoading"
+        :rows="itemsPerPage"
+        :first="(currentPage - 1) * itemsPerPage"
+        removableSort
+        :empty-message="$t('vehiculosServicio.noResults', 'No se encontraron vehículos de servicio')"
+      >
+        <template #empty-icon>
+          <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
+        </template>
+        <template #empty-subtitle>{{ $t('common.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+
+        <Column field="placa" :header="$t('vehiculosServicio.thPlate', 'Placa')" sortable>
+          <template #body="{ data }">
+            <div class="flex flex-col py-1">
+              <span class="text-[14px] font-black text-slate-800 dark:text-white uppercase tracking-wider">{{ data.placa || '---' }}</span>
+              <div class="flex items-center gap-1.5 mt-1">
+                <HugeiconsIcon :icon="FingerPrintIcon" :size="9" class="text-slate-400" />
+                <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500 tabular-nums">{{ data.serial_chasis || 'S/N' }}</span>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="marca" :header="$t('vehiculosServicio.thBrand', 'Marca / Referencia')" sortable>
+          <template #body="{ data }">
+            <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/brand">
+              <HugeiconsIcon :icon="Car01Icon" :size="13" class="text-slate-400 group-hover/brand:text-[#3b82f6] transition-colors" />
+              <div class="flex flex-col">
+                <span class="text-[11px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-wide">{{ data.marca || '---' }}</span>
+                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500">{{ data.referencia || '' }}</span>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="tipo" :header="$t('vehiculosServicio.thType', 'Tipo')" sortable>
+          <template #body="{ data }">
+            <AppBadge :variant="Number(data.tipo) === 1 ? 'neutral' : 'info'">
+              {{ Number(data.tipo) === 1 ? 'Carro' : Number(data.tipo) === 2 ? 'Moto' : '---' }}
+            </AppBadge>
+          </template>
+        </Column>
+
+        <Column field="modelo" :header="$t('vehiculosServicio.thModel', 'Modelo')" sortable>
+          <template #body="{ data }">
+            <span class="text-[13px] font-bold text-slate-700 dark:text-slate-300 tabular-nums">{{ data.modelo || '---' }}</span>
+          </template>
+        </Column>
+
+        <Column field="cilindrada" :header="$t('vehiculosServicio.thCc', 'Cilindrada')" sortable>
+          <template #body="{ data }">
+            <span class="text-[13px] font-bold text-slate-700 dark:text-slate-300 tabular-nums">{{ data.cilindrada || 0 }}<span class="text-[11px] font-medium text-slate-400 ml-0.5">cc</span></span>
+          </template>
+        </Column>
+
+        <Column field="color" :header="$t('vehiculosServicio.thColor', 'Color')" sortable>
+          <template #body="{ data }">
+            <div class="flex items-center gap-2">
+              <div
+                class="w-4 h-4 rounded-full border border-slate-200 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10"
+                :style="{ backgroundColor: data.color || '#cbd5e1' }"
+              ></div>
+              <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase">{{ data.color || '---' }}</span>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="soat_vence" :header="$t('vehiculosServicio.thSoat', 'SOAT')" sortable>
+          <template #body="{ data }">
+            <div class="flex flex-col gap-1 py-1">
+              <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 font-mono">{{ data.soat || '---' }}</span>
+              <div v-if="data.soat_vence" class="flex items-center gap-1.5">
+                <HugeiconsIcon :icon="Calendar01Icon" :size="10" :class="isDateExpired(data.soat_vence) ? 'text-red-400' : 'text-emerald-400'" />
+                <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.soat_vence }}</span>
+                <AppBadge
+                  :variant="isDateExpired(data.soat_vence) ? 'danger' : 'success'"
+                  class="ml-0.5"
+                >
+                  {{ isDateExpired(data.soat_vence) ? 'Vencido' : 'Vigente' }}
+                </AppBadge>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="tecnomecanica_vence" :header="$t('vehiculosServicio.thTecnomecanica', 'Tecnomecánica')" sortable>
+          <template #body="{ data }">
+            <div class="flex flex-col gap-1 py-1">
+              <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 font-mono">{{ data.tecnomecanica || '---' }}</span>
+              <div v-if="data.tecnomecanica_vence" class="flex items-center gap-1.5">
+                <HugeiconsIcon :icon="Calendar01Icon" :size="10" :class="isDateExpired(data.tecnomecanica_vence) ? 'text-red-400' : 'text-emerald-400'" />
+                <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.tecnomecanica_vence }}</span>
+                <AppBadge
+                  :variant="isDateExpired(data.tecnomecanica_vence) ? 'danger' : 'success'"
+                  class="ml-0.5"
+                >
+                  {{ isDateExpired(data.tecnomecanica_vence) ? 'Vencido' : 'Vigente' }}
+                </AppBadge>
+              </div>
+            </div>
+          </template>
+        </Column>
+
+        <Column field="estado" :header="$t('vehiculosServicio.thStatus', 'Estado')" sortable>
+          <template #body="{ data }">
+            <AppBadge
+              :variant="data.estado === 1 ? 'success' : 'danger'"
+            >
+              {{ data.estado === 1 ? $t('vehiculosServicio.statusActive', 'Activo') : $t('vehiculosServicio.statusInactive', 'Inactivo') }}
+            </AppBadge>
+          </template>
+        </Column>
+
+        <Column header="Acciones" class="text-right">
+          <template #body="{ data }">
+            <div class="flex items-center justify-end gap-3">
+              <button
+                @click="openEditModal(data)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
+                title="Editar"
+              >
+                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
+              </button>
+              <button
+                @click="confirmDelete(data)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
+                title="Eliminar"
+              >
+                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
+              </button>
+            </div>
+          </template>
+        </Column>
+      </AppTable>
+
+      <AppPagination
+        :totalRecords="filteredVehicles.length"
+        v-model:currentPage="currentPage"
+        :rowsPerPage="itemsPerPage"
+      />
+    </AppTableCard>
 
     <!-- Delete Confirm Modal -->
     <AppDeleteConfirm
@@ -355,7 +353,6 @@ const handleModalSaved = () => {
       </template>
     </AppDeleteConfirm>
 
-    <!-- ── Vehiculo Servicio Modal ─────────────────────────────────────────── -->
     <VehiculoServicioModal
       v-model:isOpen="isModalOpen"
       :vehicle="editingVehicle"
@@ -364,13 +361,32 @@ const handleModalSaved = () => {
   </div>
 </template>
 
-<style scoped>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
 .animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: 'Inter', sans-serif;
+  animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.18); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.35); }
+
+.font-mono {
+  font-family: 'Share Tech Mono', monospace;
+}
+
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>

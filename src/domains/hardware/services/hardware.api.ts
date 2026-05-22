@@ -10,7 +10,7 @@ import type {
 export const fetchHardwareApi = async (id_grupo: string): Promise<Hardware[]> => {
   const data = await apiClient<{ done: boolean, data: Hardware[] }>('/api/v1/hardware/listar/', {
     method: 'POST',
-    body: JSON.stringify({ id_grupo })
+    body: JSON.stringify({ id_grupo, estado: 0 })
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }

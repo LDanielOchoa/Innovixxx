@@ -13,6 +13,12 @@ export interface EscoltaCreatePayload {
   email: string
   celular: string
   id_grupo: string
+  id_servicio: string
+  id_vehiculo: string
+  id_hardware: string
+  tipo_pase: string
+  pase: string
+  pase_vence: string
 }
 
 export interface EscoltaUpdatePayload extends EscoltaCreatePayload {

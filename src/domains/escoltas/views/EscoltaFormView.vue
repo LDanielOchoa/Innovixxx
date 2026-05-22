@@ -47,7 +47,13 @@ const formData = ref({
   nombre: '',
   cedula: '',
   email: '',
-  celular: ''
+  celular: '',
+  id_servicio: '',
+  id_vehiculo: '',
+  id_hardware: '',
+  tipo_pase: '',
+  pase: '',
+  pase_vence: ''
 })
 
 const loadingInit = ref(isEditMode.value)
@@ -74,7 +80,13 @@ const initData = async () => {
           nombre: target.nombre || '',
           cedula: target.cedula || '',
           email: target.email || '',
-          celular: target.celular || ''
+          celular: target.celular || '',
+          id_servicio: (target as any).id_servicio || '',
+          id_vehiculo: (target as any).id_vehiculo || '',
+          id_hardware: (target as any).id_hardware || '',
+          tipo_pase: (target as any).tipo_pase || '',
+          pase: (target as any).pase || '',
+          pase_vence: (target as any).pase_vence || ''
         }
       } else {
         showMessage('No se pudo cargar la información del escolta.', 'error')

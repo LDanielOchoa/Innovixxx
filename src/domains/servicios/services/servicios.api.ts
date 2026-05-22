@@ -50,6 +50,15 @@ export const fetchEscoltasSimplesApi = async (id_grupo: string): Promise<Escolta
   return data.done && Array.isArray(data.data) ? data.data : []
 }
 
+// Obtener servicios para dropdowns (listado simple por grupo)
+export const fetchServiciosDropdownApi = async (id_grupo: string): Promise<Servicio[]> => {
+  const data = await apiClient<{ done: boolean; data: Servicio[] }>('/api/v1/servicio/listar_tabla/', {
+    method: 'POST',
+    body: JSON.stringify({ id_grupo, estado: 0 })
+  })
+  return data.done && Array.isArray(data.data) ? data.data : []
+}
+
 // Enviar los datos para asignar los recursos al servicio
 export const asignarRecursosServicioApi = async (payload: ServicioAsignarRecursosPayload): Promise<any> => {
   return apiClient('/api/v1/servicio/asignar_src/', {

@@ -27,6 +27,7 @@ import bannerImg from '../assets/Banner_principal_V2.d1597e1e.svg'
 declare global {
   interface Window {
     grecaptcha?: {
+      ready: (callback: () => void) => void
       execute: (siteKey: string, options: { action: string }) => Promise<string>
     }
   }
@@ -60,18 +61,34 @@ const setLocale = (value: 'es' | 'en') => {
 }
 
 const cargarRecaptcha = () => {
+  if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+    recaptchaReady.value = true
+    return
+  }
   if (document.querySelector(`script[src*="recaptcha/api.js"]`)) return
   const script = document.createElement('script')
   script.src = `https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`
   script.async = true
   script.defer = true
-  script.onload = () => { recaptchaReady.value = true }
+  script.onload = () => {
+    if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+      recaptchaReady.value = true
+    }
+  }
   document.head.appendChild(script)
 }
 
 const obtenerTokenRecaptcha = async () => {
-  if (!window.grecaptcha) throw new Error('reCAPTCHA no está disponible.')
-  return await window.grecaptcha.execute(recaptchaSiteKey, { action: 'login' })
+  if (!window.grecaptcha || typeof window.grecaptcha.execute !== 'function') {
+    throw new Error('reCAPTCHA no está disponible.')
+  }
+  return await new Promise<string>((resolve, reject) => {
+    window.grecaptcha!.ready(() => {
+      window.grecaptcha!.execute(recaptchaSiteKey, { action: 'login' })
+        .then(resolve)
+        .catch(reject)
+    })
+  })
 }
 
 const { validate, getFirstError, resetErrors } = useFormValidator(loginSchema)
@@ -87,7 +104,6 @@ const iniciarSesion = async () => {
   cargando.value = true
   errorMensaje.value = ''
   try {
-    if (!recaptchaReady.value) throw new Error(t('errors.recaptchaNotReady'))
     const gcToken = await obtenerTokenRecaptcha()
     const respuesta = await fetch('/api/v1/login/', {
       method: 'POST',
@@ -176,7 +192,7 @@ const handleBannerMouseLeave = () => {
 
 onMounted(() => {
   cargarRecaptcha()
-  if (window.grecaptcha) recaptchaReady.value = true
+  if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') recaptchaReady.value = true
   setTimeout(() => mostrarBadgeRecaptcha(true), 500)
 })
 

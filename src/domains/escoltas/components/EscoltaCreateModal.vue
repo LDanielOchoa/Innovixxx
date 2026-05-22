@@ -11,15 +11,27 @@ import {
   Cancel01Icon,
   FloppyDiskIcon,
   Loading03Icon,
-  Shield02Icon
+  Shield02Icon,
+  Route01Icon,
+  Car01Icon,
+  CpuIcon,
+  LicenseIcon,
+  Calendar01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
 import { createEscoltaApi } from '../services/escoltas.api'
 import { createEscoltaSchema } from '../../../schemas/escoltas.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
+import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
+import { fetchVehiculosServicioApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
+import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
+import type { Servicio } from '../../servicios/types/servicio'
+import type { VehiculoServicio } from '../../vehiculos-servicio/types/vehiculo-servicio'
+import type { HardwareSimple } from '../../servicios/types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
+import AppSelect from '../../../components/ui/AppSelect.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 
 const { t } = useI18n()
@@ -42,10 +54,57 @@ const formData = reactive({
   nombre: '',
   cedula: '',
   email: '',
-  celular: ''
+  celular: '',
+  id_servicio: '',
+  id_vehiculo: '',
+  id_hardware: '',
+  tipo_pase: '',
+  pase: '',
+  pase_vence: ''
 })
 
-watch(() => props.isOpen, (isOpen) => {
+// Listas de datos maestros para dropdowns
+const servicios = ref<Servicio[]>([])
+const vehiculosServicio = ref<VehiculoServicio[]>([])
+const hardwareList = ref<HardwareSimple[]>([])
+
+const loadingServicios = ref(false)
+const loadingVehiculosServicio = ref(false)
+const loadingHardware = ref(false)
+
+const tipoPaseOptions = [
+  { value: 'A1', label: 'A1' },
+  { value: 'A2', label: 'A2' },
+  { value: 'B1', label: 'B1' },
+  { value: 'B2', label: 'B2' },
+  { value: 'B3', label: 'B3' },
+  { value: 'C1', label: 'C1' },
+  { value: 'C2', label: 'C2' },
+  { value: 'C3', label: 'C3' }
+]
+
+const servicioOptions = computed(() =>
+  servicios.value.map(s => ({
+    value: s.id_servicio,
+    label: `${s.id_servicio}${s.fecha_inicio ? ` - ${s.fecha_inicio}` : ''}`
+  }))
+)
+
+const vehiculoServicioOptions = computed(() =>
+  vehiculosServicio.value.map(v => ({
+    value: v.id_vehiculo,
+    label: `${v.placa}${v.marca ? ` (${v.marca}${v.referencia ? ` ${v.referencia}` : ''})` : ''}`
+  }))
+)
+
+const hardwareOptions = computed(() =>
+  hardwareList.value.map(h => ({
+    value: h.id_hardware,
+    label: h.nombre
+  }))
+)
+
+watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
     isSuccess.value = false
@@ -55,6 +114,36 @@ watch(() => props.isOpen, (isOpen) => {
     formData.cedula = ''
     formData.email = ''
     formData.celular = ''
+    formData.id_servicio = ''
+    formData.id_vehiculo = ''
+    formData.id_hardware = ''
+    formData.tipo_pase = ''
+    formData.pase = ''
+    formData.pase_vence = ''
+
+    // Cargar datos maestros para dropdowns
+    if (groupStore.selectedGroup?.id) {
+      loadingServicios.value = true
+      loadingVehiculosServicio.value = true
+      loadingHardware.value = true
+
+      try {
+        const [serviciosData, vehiculosServicioData, hardwareData] = await Promise.all([
+          fetchServiciosDropdownApi(groupStore.selectedGroup.id),
+          fetchVehiculosServicioApi(groupStore.selectedGroup.id),
+          fetchHardwareSimplesApi(groupStore.selectedGroup.id)
+        ])
+        servicios.value = serviciosData
+        vehiculosServicio.value = vehiculosServicioData
+        hardwareList.value = hardwareData
+      } catch (error) {
+        console.error('Error al cargar datos maestros:', error)
+      } finally {
+        loadingServicios.value = false
+        loadingVehiculosServicio.value = false
+        loadingHardware.value = false
+      }
+    }
 
     setTimeout(() => {
       isInitializing.value = false
@@ -77,7 +166,13 @@ const handleCreate = async () => {
     cedula: formData.cedula,
     email: formData.email || '',
     celular: formData.celular || '',
-    id_grupo: groupStore.selectedGroup.id
+    id_grupo: groupStore.selectedGroup.id,
+    id_servicio: formData.id_servicio || '',
+    id_vehiculo: formData.id_vehiculo || '',
+    id_hardware: formData.id_hardware || '',
+    tipo_pase: formData.tipo_pase || '',
+    pase: formData.pase || '',
+    pase_vence: formData.pase_vence || ''
   }
 
   if (!validate(payload, 'escolta-create-form')) {
@@ -164,6 +259,18 @@ const confirmText = computed(() => {
           <div class="h-2 w-32 bg-slate-100 dark:bg-white/5 rounded-full"></div>
           <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
         </div>
+        <div class="grid grid-cols-3 gap-4 pt-4">
+          <div v-for="i in 3" :key="i" class="space-y-3">
+            <div class="h-2 w-16 bg-slate-100 dark:bg-white/5 rounded-full"></div>
+            <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+          </div>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <div v-for="i in 3" :key="i" class="space-y-3">
+            <div class="h-2 w-16 bg-slate-100 dark:bg-white/5 rounded-full"></div>
+            <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+          </div>
+        </div>
       </div>
 
       <!-- SUCCESS STATE -->
@@ -208,7 +315,7 @@ const confirmText = computed(() => {
               </div>
             </Transition>
 
-            <!-- Fields -->
+            <!-- Fields: Datos Personales -->
             <div class="space-y-4 relative z-10">
               <!-- Nombre -->
               <AppInput
@@ -236,7 +343,7 @@ const confirmText = computed(() => {
               </div>
 
               <!-- Email -->
-              <div class="pt-4 border-t border-slate-200/60 dark:border-white/5 space-y-2">
+              <div class="pb-2">
                 <AppInput
                   v-model="formData.email"
                   :label="t('escoltas.labelEmail') || 'Correo Electrónico'"
@@ -244,9 +351,73 @@ const confirmText = computed(() => {
                   :icon="Mail01Icon"
                   type="email"
                 />
-                <p class="text-[10px] text-slate-400 dark:text-slate-600 pl-1 font-medium italic">
+                <p class="text-[10px] text-slate-400 dark:text-slate-600 pl-1 font-medium italic mt-2">
                   {{ t('escoltas.emailNote') || 'Opcional. Se utilizará para notificaciones del sistema.' }}
                 </p>
+              </div>
+            </div>
+
+            <!-- Sección: Asignaciones del Escolta -->
+            <div class="pt-5 border-t border-slate-200/60 dark:border-white/5 relative z-10">
+              <div class="flex items-center gap-3 mb-5">
+                <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-violet-50 to-violet-100/50 dark:from-violet-500/20 dark:to-violet-600/5 flex items-center justify-center text-[#7c3aed] border border-violet-200/60 dark:border-violet-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
+                  <HugeiconsIcon :icon="Route01Icon" :size="18" class="drop-shadow-sm" />
+                </div>
+                <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ t('escoltas.sectionAssignments') || 'Asignaciones del Escolta' }}</h3>
+              </div>
+
+              <div class="space-y-4">
+                <!-- Primera fila: Servicio + Vehículo + Hardware -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <AppSelect
+                    v-model="formData.id_servicio"
+                    :label="t('escoltas.labelService') || 'Servicio'"
+                    :placeholder="loadingServicios ? 'Cargando servicios...' : (t('escoltas.placeholderService') || 'Seleccione un servicio')"
+                    :icon="Route01Icon"
+                    :options="servicioOptions"
+                    :disabled="loadingServicios"
+                  />
+                  <AppSelect
+                    v-model="formData.id_vehiculo"
+                    :label="t('escoltas.labelVehicle') || 'Vehículo de Servicio'"
+                    :placeholder="loadingVehiculosServicio ? 'Cargando vehículos...' : (t('escoltas.placeholderVehicle') || 'Seleccione un vehículo')"
+                    :icon="Car01Icon"
+                    :options="vehiculoServicioOptions"
+                    :disabled="loadingVehiculosServicio"
+                  />
+                  <AppSelect
+                    v-model="formData.id_hardware"
+                    :label="t('escoltas.labelHardware') || 'Dispositivo Hardware'"
+                    :placeholder="loadingHardware ? 'Cargando hardware...' : (t('escoltas.placeholderHardware') || 'Seleccione un dispositivo')"
+                    :icon="CpuIcon"
+                    :options="hardwareOptions"
+                    :disabled="loadingHardware"
+                  />
+                </div>
+
+                <!-- Segunda fila: Tipo Pase + Número Pase + Vencimiento -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <AppSelect
+                    v-model="formData.tipo_pase"
+                    :label="t('escoltas.labelPassType') || 'Tipo de Pase'"
+                    :placeholder="t('escoltas.placeholderPassType') || 'Seleccione tipo de pase'"
+                    :icon="LicenseIcon"
+                    :options="tipoPaseOptions"
+                  />
+                  <AppInput
+                    v-model="formData.pase"
+                    :label="t('escoltas.labelPass') || 'Número de Pase'"
+                    :placeholder="t('escoltas.placeholderPass') || 'Ej: 79065744'"
+                    :icon="ContactBookIcon"
+                  />
+                  <AppInput
+                    v-model="formData.pase_vence"
+                    type="date"
+                    :label="t('escoltas.labelPassExpiry') || 'Vencimiento del Pase'"
+                    :icon="Calendar01Icon"
+                    class="custom-datetime-input"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -305,5 +476,24 @@ const confirmText = computed(() => {
 .fade-slide-enter-from, .fade-slide-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+:deep(.custom-datetime-input input[type="date"]) {
+  position: relative;
+  cursor: pointer;
+}
+
+:deep(.custom-datetime-input input[type="date"]::-webkit-calendar-picker-indicator) {
+  background: transparent;
+  bottom: 0;
+  color: transparent;
+  cursor: pointer;
+  height: auto;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: auto;
+  z-index: 10;
 }
 </style>
