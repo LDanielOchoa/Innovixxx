@@ -206,10 +206,10 @@ const confirmText = computed(() => {
       <HugeiconsIcon :icon="Car01Icon" :size="20" class="text-[#3b82f6]" />
     </template>
 
-    <div class="flex flex-col gap-5 relative p-1 max-h-[80vh] overflow-y-auto custom-scrollbar pr-2">
+    <div class="flex flex-col gap-5 relative p-1">
       <!-- OVERLAY DE CARGA -->
       <Transition name="fade">
-        <div v-if="saving" class="absolute inset-0 z-[100] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-[24px] transition-all duration-300">
+        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-[#13161C]/80 backdrop-blur-md rounded-[24px] transition-all duration-300">
           <div class="relative">
             <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
@@ -217,82 +217,90 @@ const confirmText = computed(() => {
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('common.saving') || 'Guardando' }}</span>
             <div class="flex gap-1">
-              <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span class="w-1 h-1 bg-[#3b82f6] rounded-full animate-bounce"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
             </div>
           </div>
         </div>
       </Transition>
 
       <!-- SKELETON STATE -->
-      <div v-if="isInitializing" class="space-y-6 animate-pulse">
+      <div v-if="isInitializing" class="space-y-6 animate-pulse p-4">
         <div class="space-y-3">
-          <div class="h-2 w-28 bg-slate-100 dark:bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+          <div class="h-2 w-16 bg-white/5 rounded-full"></div>
+          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
         </div>
         <div class="grid grid-cols-2 gap-4">
           <div class="space-y-3">
-            <div class="h-2 w-20 bg-slate-100 dark:bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
+            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
           </div>
           <div class="space-y-3">
-            <div class="h-2 w-20 bg-slate-100 dark:bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
+            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
           </div>
         </div>
         <div class="space-y-3">
-          <div class="h-2 w-32 bg-slate-100 dark:bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-slate-100 dark:bg-white/5 rounded-[20px]"></div>
+          <div class="h-2 w-32 bg-white/5 rounded-full"></div>
+          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
         </div>
       </div>
 
       <!-- SUCCESS STATE -->
       <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-8 flex flex-col items-center justify-center text-center space-y-4">
+        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
           <div class="relative group mb-2">
             <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
             <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
               <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
             </div>
           </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
-            {{ isEditMode ? 'Vehículo Actualizado' : 'Vehículo Registrado' }}
+          <h3 class="text-xl font-black text-white tracking-tight">
+            {{ isEditMode ? 'Vehículo Actualizado Correctamente' : 'Vehículo Registrado Correctamente' }}
           </h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[260px]">
-            {{ isEditMode ? 'El vehículo ha sido actualizado exitosamente.' : 'El vehículo ha sido registrado exitosamente en el sistema.' }}
+          <p class="text-[13px] text-slate-400 max-w-[320px]">
+            {{ isEditMode ? 'El vehículo ha sido actualizado exitosamente en el sistema.' : 'El vehículo ha sido registrado exitosamente en el sistema.' }}
           </p>
+          <div class="pt-4">
+            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
+              Cerrar Ventana
+            </AppButton>
+          </div>
         </div>
 
         <!-- FORM CONTENT -->
-        <div v-else class="animate-fade-in space-y-5">
-          <!-- Card Glassmorphic -->
-          <div class="space-y-5 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#1A1D24]/90 dark:to-[#0F1115]/90 backdrop-blur-2xl p-5 rounded-[24px] border border-white dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden group/form">
+        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
+          <!-- Card Glassmorphic Dark -->
+          <div class="modal-card space-y-8 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
             <!-- Ambient Glow -->
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5 rounded-full blur-3xl group-hover/form:bg-[#3b82f6]/10 transition-colors duration-700 pointer-events-none"></div>
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 rounded-full blur-3xl pointer-events-none"></div>
 
             <!-- Feedback Message -->
             <Transition name="fade">
               <div v-if="modalMessage"
-                   class="flex items-center gap-2.5 p-3.5 rounded-[14px] text-[12px] font-bold shadow-[0_4px_12px_rgba(0,0,0,0.05),inset_0_1px_0_rgba(255,255,255,0.4)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] border animate-fade-in-up relative z-10"
+                   class="flex items-center gap-2.5 p-3.5 rounded-[14px] text-[12px] font-bold border animate-fade-in-up relative z-10"
                    :class="modalMessage.type === 'error'
-                     ? 'bg-gradient-to-r from-red-50 to-red-50/50 dark:from-red-500/10 dark:to-red-500/5 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20'
-                     : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#3b82f6] border-[#3b82f6]/20'">
+                     ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-400 border-red-500/20'
+                     : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#5da6fc] border-[#3b82f6]/20'">
                 <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : Tick01Icon" :size="16" />
                 {{ modalMessage.text }}
               </div>
             </Transition>
 
             <!-- Identificacion -->
-            <div class="space-y-4 relative z-10">
+            <div class="space-y-5 relative z-10">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="LicenseIcon" :size="18" class="drop-shadow-sm" />
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                  <HugeiconsIcon :icon="LicenseIcon" :size="20" class="drop-shadow-sm" />
                 </div>
-                <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ $t('vehiculosServicio.sectionIdentity', 'Identificación') }}</h3>
+                <div>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ $t('vehiculosServicio.sectionIdentity', 'Identificación') }}</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Datos de placa, tipo y serial del vehículo.</p>
+                </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 modal-form-fields">
                 <AppInput
                   v-model="formData.placa"
                   :label="$t('vehiculosServicio.labelPlate', 'Placa')"
@@ -302,37 +310,30 @@ const confirmText = computed(() => {
                 
                 <div class="space-y-2 w-full">
                   <label 
-                    class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isTypeFocused }"
+                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                    :class="{ 'text-[#5da6fc]': isTypeFocused, 'text-slate-400': !isTypeFocused }"
                   >
                     {{ $t('vehiculosServicio.labelType', 'Tipo de Vehículo') }}
                   </label>
                   
                   <Listbox v-model="formData.tipo">
                     <div 
-                      class="relative flex items-center group/input bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl transition-all duration-300 h-[46px]"
+                      class="relative flex items-center group/input bg-[#0F1115] border border-white/5 rounded-[14px] transition-all duration-300 h-[48px]"
                       :class="{ 
-                        'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20': isTypeFocused,
-                        'hover:border-slate-300 dark:hover:border-white/10': !isTypeFocused
+                        'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20': isTypeFocused,
+                        'hover:border-white/15': !isTypeFocused
                       }"
                     >
-                      <!-- Sombra inset 3D -->
                       <div 
-                        class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+                        class="absolute inset-0 pointer-events-none rounded-[14px] transition-shadow duration-300"
                         :class="isTypeFocused 
-                          ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
-                          : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+                          ? 'shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                          : 'shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
                       ></div>
 
-                      <!-- Borde superior brillante en focus -->
                       <div 
-                        class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300"
-                        :class="{ 'opacity-100 left-2 right-2': isTypeFocused }"
-                      ></div>
-                      
-                      <div 
-                        class="relative z-10 pl-4 pr-2 text-slate-400 dark:text-slate-500 transition-all duration-300"
-                        :class="isTypeFocused ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'group-hover/input:text-slate-500 dark:group-hover/input:text-slate-400'"
+                        class="relative z-10 pl-4 pr-2 text-slate-400 transition-all duration-300"
+                        :class="isTypeFocused ? 'text-[#5da6fc]' : 'group-hover/input:text-slate-400'"
                       >
                         <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" />
                       </div>
@@ -340,16 +341,16 @@ const confirmText = computed(() => {
                       <ListboxButton
                         @focus="isTypeFocused = true"
                         @blur="isTypeFocused = false"
-                        class="relative z-10 w-full h-full bg-transparent border-none px-0 text-left text-sm font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-0 transition-colors duration-300 appearance-none cursor-pointer flex items-center"
+                        class="relative z-10 w-full h-full bg-transparent border-none px-0 text-left text-sm font-medium text-slate-200 focus:outline-none focus:ring-0 transition-colors duration-300 appearance-none cursor-pointer flex items-center"
                       >
                         <span class="block truncate">{{ currentTipoLabel }}</span>
                       </ListboxButton>
 
                       <div 
-                        class="relative z-10 pr-4 pl-2 text-slate-400 dark:text-slate-500 pointer-events-none transition-colors duration-300"
-                        :class="isTypeFocused ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'group-hover/input:text-slate-500 dark:group-hover/input:text-slate-400'"
+                        class="relative z-10 pr-4 pl-2 text-slate-400 pointer-events-none transition-colors duration-300"
+                        :class="isTypeFocused ? 'text-[#5da6fc]' : 'group-hover/input:text-slate-400'"
                       >
-                        <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="1.8" />
+                        <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                       </div>
 
                       <Transition
@@ -358,7 +359,7 @@ const confirmText = computed(() => {
                         leave-to-class="opacity-0"
                       >
                         <ListboxOptions
-                          class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white dark:bg-[#1A1D24] py-1 text-base shadow-lg ring-1 ring-black/5 dark:ring-white/10 focus:outline-none sm:text-sm top-full"
+                          class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-[#1A1D24] py-1 text-base shadow-lg ring-1 ring-white/10 focus:outline-none sm:text-sm top-full"
                         >
                           <ListboxOption
                             v-slot="{ active, selected }"
@@ -369,11 +370,11 @@ const confirmText = computed(() => {
                           >
                             <li
                               :class="[
-                                active ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200',
+                                active ? 'bg-[#5da6fc]/10 text-[#5da6fc]' : 'text-slate-200',
                                 'relative cursor-pointer select-none py-2.5 pl-4 pr-4 transition-colors duration-200 font-medium'
                               ]"
                             >
-                              <span :class="[selected ? 'font-black text-[#3b82f6] dark:text-[#5da6fc]' : 'font-medium', 'block truncate']">{{ option.label }}</span>
+                              <span :class="[selected ? 'font-black text-[#5da6fc]' : 'font-medium', 'block truncate']">{{ option.label }}</span>
                             </li>
                           </ListboxOption>
                         </ListboxOptions>
@@ -381,29 +382,32 @@ const confirmText = computed(() => {
                     </div>
                   </Listbox>
                 </div>
-              </div>
 
-              <AppInput
-                v-model="formData.serial_chasis"
-                :label="$t('vehiculosServicio.labelSerial', 'Serial de Chasis')"
-                :placeholder="$t('vehiculosServicio.placeholderSerial', 'A456')"
-                :icon="FingerPrintIcon"
-              />
+                <AppInput
+                  v-model="formData.serial_chasis"
+                  :label="$t('vehiculosServicio.labelSerial', 'Serial de Chasis')"
+                  :placeholder="$t('vehiculosServicio.placeholderSerial', 'A456')"
+                  :icon="FingerPrintIcon"
+                />
+              </div>
             </div>
 
             <!-- Divider -->
-            <div class="border-t border-slate-200/60 dark:border-white/5 relative z-10"></div>
+            <div class="border-t border-white/5 relative z-10"></div>
 
             <!-- Detalles -->
-            <div class="space-y-4 relative z-10">
+            <div class="space-y-5 relative z-10">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="Car01Icon" :size="18" class="drop-shadow-sm" />
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                  <HugeiconsIcon :icon="Car01Icon" :size="20" class="drop-shadow-sm" />
                 </div>
-                <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ $t('vehiculosServicio.sectionDetails', 'Detalles') }}</h3>
+                <div>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ $t('vehiculosServicio.sectionDetails', 'Detalles') }}</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Marca, referencia, modelo y especificaciones físicas.</p>
+                </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 modal-form-fields">
                 <AppInput
                   v-model="formData.marca"
                   :label="$t('vehiculosServicio.labelBrand', 'Marca')"
@@ -418,7 +422,7 @@ const confirmText = computed(() => {
                 />
               </div>
 
-              <div class="grid grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5 modal-form-fields">
                 <AppInput
                   v-model="formData.modelo"
                   :label="$t('vehiculosServicio.labelModel', 'Modelo')"
@@ -435,28 +439,31 @@ const confirmText = computed(() => {
                 />
                 <!-- Color -->
                 <div class="space-y-2 w-full">
-                  <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('vehiculosServicio.labelColor', 'Color') }}</label>
-                  <div class="relative flex items-center gap-3 px-4 h-[46px] bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10 rounded-xl overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] transition-all duration-300">
+                  <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400">{{ $t('vehiculosServicio.labelColor', 'Color') }}</label>
+                  <div class="relative flex items-center gap-3 px-4 h-[48px] bg-[#0F1115] border border-white/5 hover:border-white/15 rounded-[14px] overflow-hidden shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] transition-all duration-300">
                     <input type="color" v-model="formData.color" class="w-6 h-6 rounded border-none bg-transparent cursor-pointer overflow-hidden p-0" />
-                    <span class="text-sm font-medium text-slate-800 dark:text-slate-200 font-mono uppercase">{{ formData.color }}</span>
+                    <span class="text-sm font-medium text-slate-200 font-mono uppercase">{{ formData.color }}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             <!-- Divider -->
-            <div class="border-t border-slate-200/60 dark:border-white/5 relative z-10"></div>
+            <div class="border-t border-white/5 relative z-10"></div>
 
             <!-- Documentos -->
-            <div class="space-y-4 relative z-10">
+            <div class="space-y-5 relative z-10">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="DocumentAttachmentIcon" :size="18" class="drop-shadow-sm" />
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                  <HugeiconsIcon :icon="DocumentAttachmentIcon" :size="20" class="drop-shadow-sm" />
                 </div>
-                <h3 class="text-[12px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ $t('vehiculosServicio.sectionDocuments', 'Documentos') }}</h3>
+                <div>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ $t('vehiculosServicio.sectionDocuments', 'Documentos') }}</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">SOAT y tecnomecánica con fechas de vencimiento.</p>
+                </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 modal-form-fields">
                 <AppInput
                   v-model="formData.soat"
                   :label="$t('vehiculosServicio.labelSoat', 'SOAT')"
@@ -468,10 +475,11 @@ const confirmText = computed(() => {
                   :label="$t('vehiculosServicio.labelSoatVence', 'Vencimiento SOAT')"
                   type="date"
                   :icon="Calendar01Icon"
+                  class="custom-datetime-input"
                 />
               </div>
 
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 modal-form-fields">
                 <AppInput
                   v-model="formData.tecnomecanica"
                   :label="$t('vehiculosServicio.labelTecnomecanica', 'Tecnomecánica')"
@@ -483,13 +491,14 @@ const confirmText = computed(() => {
                   :label="$t('vehiculosServicio.labelTecnomecanicaVence', 'Venc. Tecnomecánica')"
                   type="date"
                   :icon="Calendar01Icon"
+                  class="custom-datetime-input"
                 />
               </div>
             </div>
           </div>
 
           <!-- Footer Buttons -->
-          <div class="flex flex-col sm:flex-row gap-3 justify-end pt-2">
+          <div class="flex flex-col sm:flex-row gap-3 justify-end pt-2 relative z-10">
             <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
               {{ t('common.cancel') || 'Cancelar' }}
             </AppButton>
@@ -506,8 +515,8 @@ const confirmText = computed(() => {
 <style scoped>
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.18); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.35); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #1A1D24; border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 .animate-fade-in {
   animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -533,12 +542,6 @@ const confirmText = computed(() => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: scale(1.03);
-  backdrop-filter: blur(0px);
-}
-.fade-enter-to, .fade-leave-from {
-  opacity: 1;
-  transform: scale(1);
-  backdrop-filter: blur(12px);
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active {
@@ -570,5 +573,34 @@ input[type="date"] {
 
 select {
   background-image: none !important;
+}
+
+/* Overrides para inputs dentro del modal - estilo glassmorphism dark */
+:deep(.modal-card .bg-slate-50) {
+  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
+}
+
+:deep(.modal-card .border-slate-200) {
+  border-color: rgba(255,255,255,0.08) !important;
+}
+
+:deep(.modal-card .text-slate-800) {
+  color: #e2e8f0 !important;
+}
+
+:deep(.modal-card .placeholder-slate-400) {
+  color: #475569 !important;
+}
+
+:deep(.modal-card .placeholder-slate-600) {
+  color: #475569 !important;
+}
+
+:deep(.modal-card .text-slate-700) {
+  color: #e2e8f0 !important;
+}
+
+:deep(.modal-card .bg-white) {
+  background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
 }
 </style>

@@ -57,6 +57,7 @@ export interface ServicioAsignarRecursosPayload {
   fecha_hora_inicio: string
   modo_fin: number
   nivel_riesgo: number
+  alcance_nacional: number
   id_ruta: string
   vehiculos_id: string[]
   hardware_id: string[]

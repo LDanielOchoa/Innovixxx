@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -10,20 +9,14 @@ import {
   Download01Icon,
   PlusSignIcon,
   Edit02Icon,
-  Delete01Icon,
-  Alert01Icon,
-  MoreHorizontalIcon
+  Delete01Icon
 } from '@hugeicons/core-free-icons'
 
-
-import { 
-  fetchHardwareApi, 
-  fetchFamiliasApi, 
-  createHardwareApi, 
-  updateHardwareApi, 
-  deleteHardwareApi 
+import {
+  fetchHardwareApi,
+  deleteHardwareApi
 } from '../services/hardware.api'
-import type { Hardware, FamiliaHardware } from '../types/hardware'
+import type { Hardware } from '../types/hardware'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../../stores/auth.store'
@@ -36,21 +29,19 @@ import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
+import HardwareFormModal from '../components/HardwareFormModal.vue'
 import Column from 'primevue/column'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
-const router = useRouter()
+
 const items = ref<Hardware[]>([])
-const familias = ref<FamiliaHardware[]>([])
 const isLoading = ref(true)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
-
-
 
 const fetchHardware = async () => {
   if (!selectedGroup.value?.id) {
@@ -58,7 +49,7 @@ const fetchHardware = async () => {
     isLoading.value = false
     return
   }
-  
+
   isLoading.value = true
   try {
     items.value = await fetchHardwareApi(selectedGroup.value.id)
@@ -69,23 +60,25 @@ const fetchHardware = async () => {
   }
 }
 
-const fetchFamilias = async () => {
-  try {
-    familias.value = await fetchFamiliasApi()
-  } catch (error) {
-    console.error('Error fetching familias:', error)
-  }
-}
+// Modal de crear/editar
+const isFormModalOpen = ref(false)
+const editItem = ref<Hardware | null>(null)
 
 const openCreateModal = () => {
-  router.push('/hardware/nuevo')
+  editItem.value = null
+  isFormModalOpen.value = true
 }
 
 const openEditModal = (item: Hardware) => {
-  router.push(`/hardware/${item.id_hardware}/editar`)
+  editItem.value = item
+  isFormModalOpen.value = true
 }
 
+const handleSaved = async () => {
+  await fetchHardware()
+}
 
+// Modal de eliminar
 const isDeleteModalOpen = ref(false)
 const itemToDelete = ref<string | null>(null)
 
@@ -134,8 +127,6 @@ const exportToExcel = () => {
   XLSX.writeFile(workbook, `hardware_${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
-
-
 watch(selectedGroup, async (newGroup) => {
   if (newGroup && newGroup.id) {
     currentPage.value = 1
@@ -148,7 +139,7 @@ watch(selectedGroup, async (newGroup) => {
 const filteredItems = computed(() => {
   if (!searchQuery.value) return items.value
   const query = searchQuery.value.toLowerCase()
-  return items.value.filter(item => 
+  return items.value.filter(item =>
     (item.nombre?.toLowerCase().includes(query)) ||
     (item.serial?.toLowerCase().includes(query)) ||
     (item.imei?.toLowerCase().includes(query)) ||
@@ -161,24 +152,24 @@ const filteredItems = computed(() => {
 <template>
   <div class="p-4 md:p-8 space-y-8 animate-fade-in">
     <!-- Header -->
-    <AppPageHeader 
-      :title="t('hardware.title') || 'Hardware'" 
-      :subtitle="`${t('hardware.subtitle') || 'Gestión de dispositivos para'} ${selectedGroup?.nombre || ''}`" 
+    <AppPageHeader
+      :title="t('hardware.title') || 'Hardware'"
+      :subtitle="`${t('hardware.subtitle') || 'Gestión de dispositivos para'} ${selectedGroup?.nombre || ''}`"
       :count="filteredItems.length"
     >
       <template #actions>
-        <AppButton 
-          variant="secondary" 
-          :icon="Download01Icon" 
+        <AppButton
+          variant="secondary"
+          :icon="Download01Icon"
           @click="exportToExcel"
         >
           <span>{{ t('hardware.btnExport') || 'Exportar' }}</span>
         </AppButton>
 
-        <AppButton 
+        <AppButton
           v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)"
-          variant="primary" 
-          :icon="PlusSignIcon" 
+          variant="primary"
+          :icon="PlusSignIcon"
           @click="openCreateModal"
         >
           <span>{{ t('hardware.btnNew') || 'Nuevo Dispositivo' }}</span>
@@ -186,11 +177,11 @@ const filteredItems = computed(() => {
       </template>
     </AppPageHeader>
 
-    <!-- Área de Búsqueda y Filtros Simplificada -->
+    <!-- Área de Búsqueda -->
     <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
       <div class="flex-1 w-full max-w-2xl">
-        <AppSearch 
-          v-model="searchQuery" 
+        <AppSearch
+          v-model="searchQuery"
           :placeholder="t('hardware.searchPlaceholder') || 'Buscar nombre, serial, IMEI, MAC...'"
         />
       </div>
@@ -198,8 +189,8 @@ const filteredItems = computed(() => {
 
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
-      <AppTable 
-        :value="filteredItems" 
+      <AppTable
+        :value="filteredItems"
         :loading="isLoading"
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
@@ -242,16 +233,16 @@ const filteredItems = computed(() => {
 
         <Column field="estado" header="Estado" sortable>
           <template #body="{ data }">
-             <span class="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-tight">
-               {{ data.estado || '---' }}
-             </span>
+            <span class="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-tight">
+              {{ data.estado || '---' }}
+            </span>
           </template>
         </Column>
 
         <Column header="Acciones" class="text-right">
           <template #body="{ data }">
             <div class="flex items-center justify-end gap-3">
-              <button 
+              <button
                 v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
                 @click="openEditModal(data)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
@@ -259,7 +250,7 @@ const filteredItems = computed(() => {
               >
                 <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
               </button>
-              <button 
+              <button
                 v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)"
                 @click="confirmDelete(data.id_hardware)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
@@ -273,14 +264,14 @@ const filteredItems = computed(() => {
       </AppTable>
 
       <!-- Paginador -->
-      <AppPagination 
+      <AppPagination
         :totalRecords="filteredItems.length"
         v-model:currentPage="currentPage"
         :rowsPerPage="itemsPerPage"
       />
     </AppTableCard>
 
-    <AppDeleteConfirm 
+    <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
       :title="t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"
       :item-name="items.find(i => i.id_hardware === itemToDelete)?.nombre"
@@ -291,7 +282,12 @@ const filteredItems = computed(() => {
       </template>
     </AppDeleteConfirm>
 
-    <!-- Modals (Solo Delete Confirm, Create/Edit is now a route) -->
+    <!-- Modal Crear/Editar Hardware -->
+    <HardwareFormModal
+      v-model:is-open="isFormModalOpen"
+      :edit-item="editItem"
+      @saved="handleSaved"
+    />
   </div>
 </template>
 
@@ -324,15 +320,6 @@ const filteredItems = computed(() => {
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 
-/* Overlay de Carga */
-.loader-fade-enter-active, .loader-fade-leave-active { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.loader-fade-enter-from, .loader-fade-leave-to { opacity: 0; transform: scale(0.9) translateY(10px); filter: blur(10px); }
-
-/* Mensajes de Feedback */
-.message-fade-enter-active, .message-fade-leave-active { transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1); }
-.message-fade-enter-from { opacity: 0; transform: translateY(-8px) scale(0.98); filter: blur(4px); }
-.message-fade-leave-to { opacity: 0; transform: translateY(4px); filter: blur(2px); }
-
 .custom-scrollbar::-webkit-scrollbar {
   height: 6px;
   width: 6px;
@@ -348,5 +335,3 @@ const filteredItems = computed(() => {
   background: #343b45;
 }
 </style>
-
-

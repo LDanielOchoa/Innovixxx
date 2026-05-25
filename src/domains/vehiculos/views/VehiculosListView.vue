@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -29,6 +28,7 @@ import {
 import type { Vehiculo } from '../types/vehiculo'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
+import VehiculoModal from '../components/VehiculoModal.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -50,12 +50,21 @@ const fetchVehicles = async () => {
   }
 }
 
-const router = useRouter()
+const isModalOpen = ref(false)
+const selectedVehicle = ref<Vehiculo | null>(null)
 
-const openCreateModal = () => router.push('/vehiculos/nuevo')
+const openCreateModal = () => {
+  selectedVehicle.value = null
+  isModalOpen.value = true
+}
 
 const openEditModal = (vehicle: Vehiculo) => {
-  router.push(`/vehiculos/${vehicle.id_vehiculo}/editar`)
+  selectedVehicle.value = vehicle
+  isModalOpen.value = true
+}
+
+const handleModalSaved = () => {
+  fetchVehicles()
 }
 
 const isDeleteModalOpen = ref(false)
@@ -238,6 +247,12 @@ watch(() => selectedGroup.value.id, () => {
     </AppTableCard>
 
     <!-- Modals -->
+    <VehiculoModal
+      v-model:isOpen="isModalOpen"
+      :vehicle="selectedVehicle"
+      @saved="handleModalSaved"
+    />
+
     <AppDeleteConfirm 
       v-model:isOpen="isDeleteModalOpen"
       :title="$t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"

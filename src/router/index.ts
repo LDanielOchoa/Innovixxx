@@ -92,17 +92,6 @@ const router = createRouter({
           component: () => import('../domains/vehiculos/views/VehiculosListView.vue')
         },
         {
-          path: 'vehiculos/nuevo',
-          name: 'vehiculos-crear',
-          component: () => import('../domains/vehiculos/views/VehiculoFormView.vue')
-        },
-        {
-          path: 'vehiculos/:id/editar',
-          name: 'vehiculos-editar',
-          component: () => import('../domains/vehiculos/views/VehiculoFormView.vue'),
-          props: true
-        },
-        {
           path: 'vehiculos-servicio',
           name: 'vehiculos-servicio',
           component: () => import('../domains/vehiculos-servicio/views/VehiculosServicioListView.vue')
@@ -131,19 +120,6 @@ const router = createRouter({
           name: 'hardware',
           component: () => import('../domains/hardware/views/HardwareListView.vue'),
           meta: { permission: PERMISSIONS.HARDWARE_LIST }
-        },
-        {
-          path: 'hardware/nuevo',
-          name: 'hardware-crear',
-          component: () => import('../domains/hardware/views/HardwareFormView.vue'),
-          meta: { permission: PERMISSIONS.HARDWARE_CREATE }
-        },
-        {
-          path: 'hardware/:id/editar',
-          name: 'hardware-editar',
-          component: () => import('../domains/hardware/views/HardwareFormView.vue'),
-          props: true,
-          meta: { permission: PERMISSIONS.HARDWARE_EDIT }
         },
         {
           path: 'rutas',

@@ -71,6 +71,7 @@ const fechaInicio = ref('')
 const horaInicio = ref('')
 const modoFin = ref('1')
 const nivelRiesgo = ref('1')
+const alcanceNacional = ref('1')
 
 // Selecciones múltiples de recursos
 const selectedVehiculosIds = ref<string[]>([])
@@ -107,6 +108,12 @@ const nivelRiesgoOptions = [
   { value: '1', label: 'Bajo' },
   { value: '2', label: 'Medio' },
   { value: '3', label: 'Alto' }
+]
+
+const alcanceNacionalOptions = [
+  { value: '1', label: 'Nacional' },
+  { value: '2', label: 'Departamental' },
+  { value: '3', label: 'Local' }
 ]
 
 // Rutas mapeadas para AppSelect
@@ -161,7 +168,7 @@ const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
 
   const panelWidth = 380
   const gap = 12
-  const panelHeight = Math.min(520, window.innerHeight - 80)
+  const panelHeight = modalRect.height
 
   let left = modalRect.right + gap
   // Si no hay espacio a la derecha, colocar a la izquierda
@@ -221,6 +228,7 @@ watch(() => props.isOpen, async (isOpen) => {
     horaInicio.value = ''
     modoFin.value = '1'
     nivelRiesgo.value = '1'
+    alcanceNacional.value = '1'
 
     searchVehiculosQuery.value = ''
     searchHardwareQuery.value = ''
@@ -295,12 +303,27 @@ const selectHardware = (id: string) => {
   }
 }
 
+const copiedEscoltaId = ref<string | null>(null)
+let copyTimeout: ReturnType<typeof setTimeout> | null = null
+
 const selectEscolta = (id: string) => {
   const index = selectedEscoltasIds.value.indexOf(id)
   if (index > -1) {
     selectedEscoltasIds.value.splice(index, 1)
   } else {
     selectedEscoltasIds.value.push(id)
+  }
+
+  const escolta = escoltas.value.find(e => e.id_escolta === id)
+  if (escolta && escolta.celular) {
+    navigator.clipboard.writeText(escolta.celular).then(() => {
+      copiedEscoltaId.value = id
+      if (copyTimeout) clearTimeout(copyTimeout)
+      copyTimeout = setTimeout(() => {
+        copiedEscoltaId.value = null
+        copyTimeout = null
+      }, 2000)
+    }).catch(() => {})
   }
 }
 
@@ -391,6 +414,7 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside)
   window.removeEventListener('resize', handleResize)
+  if (copyTimeout) clearTimeout(copyTimeout)
 })
 
 // Guardar y enviar la asignación de recursos a la API
@@ -441,6 +465,7 @@ const handleAsignar = async () => {
     fecha_hora_inicio: `${fechaInicio.value} ${horaInicio.value}`,
     modo_fin: parseInt(modoFin.value, 10),
     nivel_riesgo: parseInt(nivelRiesgo.value, 10),
+    alcance_nacional: parseInt(alcanceNacional.value, 10),
     id_ruta: selectedRutaId.value,
     vehiculos_id: selectedVehiculosIds.value,
     hardware_id: selectedHardwareIds.value,
@@ -537,20 +562,20 @@ const handleClose = () => {
         </div>
 
         <!-- FORMULARIO DE ASIGNACIÓN -->
-        <div v-else class="animate-fade-in space-y-5">
+        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
           <!-- Tarjeta de Contenedor Principal -->
-          <div class="modal-card space-y-6 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
+          <div class="modal-card space-y-8 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
             <!-- Brillo de ambiente -->
             <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 rounded-full blur-3xl pointer-events-none"></div>
 
             <!-- Cabecera de Datos Generales -->
-            <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-4">
-              <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                <HugeiconsIcon :icon="Route01Icon" :size="18" class="drop-shadow-sm" />
+            <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-5">
+              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                <HugeiconsIcon :icon="Route01Icon" :size="20" class="drop-shadow-sm" />
               </div>
               <div>
-                <h3 class="text-[12px] font-black text-white uppercase tracking-[0.15em]">Datos Operativos del Servicio</h3>
-                <p class="text-[10px] text-slate-400 font-medium">Asignar parámetros de inicio, ruta y modos finales.</p>
+                <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Datos Operativos del Servicio</h3>
+                <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asignar parámetros de inicio, ruta y modos finales.</p>
               </div>
             </div>
 
@@ -566,7 +591,7 @@ const handleClose = () => {
               </div>
             </Transition>
 
-            <div class="space-y-4 relative z-10 modal-form-fields">
+            <div class="space-y-5 relative z-10 modal-form-fields">
               <!-- Selección de Ruta -->
               <AppSelect
                 v-model="selectedRutaId"
@@ -577,8 +602,8 @@ const handleClose = () => {
                 :disabled="loadingRutas"
               />
 
-              <!-- Grid 4 Columnas: Fecha, Hora, Modo Fin, Nivel Riesgo -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Fila 1: Fecha y Hora -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
                 <AppInput
                   v-model="fechaInicio"
                   type="date"
@@ -593,6 +618,10 @@ const handleClose = () => {
                   :icon="Clock01Icon"
                   class="custom-datetime-input"
                 />
+              </div>
+
+              <!-- Fila 2: Modo Fin, Nivel Riesgo, Alcance -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <AppSelect
                   v-model="modoFin"
                   label="Modo Fin"
@@ -607,22 +636,29 @@ const handleClose = () => {
                   :icon="Alert01Icon"
                   :options="nivelRiesgoOptions"
                 />
+                <AppSelect
+                  v-model="alcanceNacional"
+                  label="Alcance Nacional"
+                  placeholder="Alcance"
+                  :icon="Route01Icon"
+                  :options="alcanceNacionalOptions"
+                />
               </div>
             </div>
 
             <!-- SECCIÓN: SELECTORES DE RECURSOS -->
-            <div class="pt-6 border-t border-white/5 space-y-4">
+            <div class="pt-6 border-t border-white/5 space-y-5">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                  <HugeiconsIcon :icon="CpuIcon" :size="18" class="drop-shadow-sm" />
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                  <HugeiconsIcon :icon="CpuIcon" :size="20" class="drop-shadow-sm" />
                 </div>
                 <div>
-                  <h3 class="text-[12px] font-black text-white uppercase tracking-[0.15em]">Asignación de Recursos</h3>
-                  <p class="text-[10px] text-slate-400 font-medium">Asociar vehículos, hardware de rastreo y escoltas de seguridad.</p>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Asignación de Recursos</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehículos, hardware de rastreo y escoltas de seguridad.</p>
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
 
                 <!-- 1. VEHÍCULOS -->
                 <div class="space-y-2">
@@ -1005,7 +1041,13 @@ const handleClose = () => {
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ e.nombre }}</span>
-                <span class="text-[10px] font-mono truncate leading-none mt-0.5 text-slate-400">{{ e.celular || 'Sin contacto' }}</span>
+                <span
+                  class="text-[10px] font-mono truncate leading-none mt-0.5 transition-colors duration-200"
+                  :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-400 font-bold' : 'text-slate-400'"
+                >
+                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado ✓</template>
+                  <template v-else>{{ e.celular || 'Sin contacto' }}</template>
+                </span>
               </div>
             </button>
             <div v-if="filteredEscoltas.length === 0" class="panel-empty">
