@@ -9,7 +9,7 @@ onMounted(() => {
 
 <template>
   <!-- Removidos los paddings (p-4 md:p-6 lg:p-8) para que el monitor abarque el 100% de la pantalla hasta los bordes superior e inferior -->
-  <div class="flex-1 flex flex-col w-full h-full bg-[#16191D] overflow-hidden">
+  <div class="flex-1 flex flex-col w-full h-full overflow-hidden">
     <Dashboard class="flex-1" />
   </div>
 </template>

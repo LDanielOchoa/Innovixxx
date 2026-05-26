@@ -11,8 +11,10 @@ declare global {
 
 const containerRef = ref<HTMLElement | null>(null)
 const mapContainerRef = ref<HTMLElement | null>(null)
+const bgMapContainerRef = ref<HTMLElement | null>(null)
 const intervalId = ref<ReturnType<typeof setInterval> | null>(null)
 const mapInstance = ref<any>(null)
+const bgMapInstance = ref<any>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
 const { t, locale } = useI18n()
 
@@ -62,9 +64,60 @@ const getTacticalMapStyle = (isDark: boolean) => {
   ];
 }
 
+const getBgMapStyle = () => {
+  const ground = "#0a1628";
+  const water = "#061220";
+  const road = "#1a2d4a";
+  const highway = "#2a3f5f";
+  const label = "#4a7ab5";
+  const labelStroke = "#0a1628";
+
+  return [
+    { elementType: "geometry", stylers: [{ color: ground }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: labelStroke }, { weight: 2 }] },
+    { elementType: "labels.text.fill", stylers: [{ color: label }] },
+    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+    { featureType: "administrative", elementType: "geometry", stylers: [{ color: ground }] },
+    { featureType: "administrative.country", elementType: "labels.text.fill", stylers: [{ color: "#5a8cc5" }] },
+    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#4a7ab5" }] },
+    { featureType: "landscape", stylers: [{ color: ground }] },
+    { featureType: "landscape.natural", stylers: [{ color: "#0c1a30" }] },
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: road }] },
+    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#152540" }] },
+    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#5a8cc5" }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: highway }] },
+    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f3350" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: water }] },
+  ];
+}
+
+const initializeBgMap = () => {
+  if (!bgMapContainerRef.value || !(window as any).google) return
+
+  bgMapInstance.value = new (window as any).google.maps.Map(bgMapContainerRef.value, {
+    center: { lat: 4.7110, lng: -74.0721 },
+    zoom: 5,
+    disableDefaultUI: true,
+    zoomControl: false,
+    mapTypeControl: false,
+    streetViewControl: false,
+    fullscreenControl: false,
+    keyboardShortcuts: false,
+    gestureHandling: "none",
+    draggable: false,
+    scrollwheel: false,
+    styles: getBgMapStyle(),
+    backgroundColor: "#0a1628",
+    clickableIcons: false,
+  })
+}
+
 const loadGoogleMapsScript = () => {
   if ((window as any).google && (window as any).google.maps) {
     initializeMap()
+    initializeBgMap()
     return
   }
 
@@ -73,7 +126,10 @@ const loadGoogleMapsScript = () => {
   script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`
   script.async = true
   script.defer = true
-  script.onload = () => initializeMap()
+  script.onload = () => {
+    initializeMap()
+    initializeBgMap()
+  }
   document.head.appendChild(script)
 }
 
@@ -445,6 +501,15 @@ onUnmounted(() => {
 
 <template>
   <div ref="containerRef" class="absolute inset-0 pointer-events-none z-0" style="perspective: 1600px;">
+    <!-- Background Map (deepest layer) -->
+    <div
+      ref="bgMapContainerRef"
+      class="absolute inset-0 z-[-1] pointer-events-none opacity-[0.32] dark:opacity-[0.35] saturate-[0.5] brightness-[0.6] contrast-[1.1]"
+    />
+
+    <!-- Bottom-to-top dark gradient overlay (subtle) -->
+    <div class="absolute inset-x-0 bottom-0 h-[55%] bg-gradient-to-t from-[#0a1628]/[0.5] dark:from-[#0a1628]/[0.6] via-[#0a1628]/[0.15] dark:via-[#0a1628]/[0.2] to-transparent pointer-events-none z-0"></div>
+
     <!-- Background Grid -->
     <div class="absolute inset-0 bg-[linear-gradient(rgba(100,116,139,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(100,116,139,0.04)_1px,transparent_1px)] dark:bg-[linear-gradient(rgba(93,166,252,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(93,166,252,0.03)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_80%_80%_at_50%_50%,#000_20%,transparent_100%)] pointer-events-none transition-colors duration-700"></div>
 
@@ -500,22 +565,41 @@ onUnmounted(() => {
         <div class="absolute w-[2px] h-[25%] bg-gradient-to-b from-transparent via-[#93c5fd]/50 dark:via-[#a8cfff]/70 to-transparent left-[70%] beam-down" style="animation-duration: 3.8s; animation-delay: 0.9s;"></div>
       </div>
 
-      <!-- BOTTOM PORTAL only (top portal removed) -->
+      <!-- BOTTOM PORTAL - Redesigned -->
       <div class="absolute top-[93%] left-1/2 w-[850px] h-[850px] perspective-[1100px] pointer-events-none z-10 flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
         <div class="relative w-full h-full flex items-center justify-center transform-style-3d" style="transform: rotateX(75deg);">
+          <!-- Deep core glow -->
           <div class="absolute w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.8)_0%,transparent_70%)] dark:bg-[radial-gradient(circle,rgba(22,25,29,0.98)_0%,transparent_70%)] shadow-[inset_0_0_60px_rgba(96,165,250,0.15)] dark:shadow-[inset_0_0_60px_rgba(93,166,252,0.4)] z-[-1]"></div>
+          
+          <!-- Core pulse -->
           <div class="absolute w-[120px] h-[120px] rounded-full bg-[radial-gradient(circle,rgba(96,165,250,0.3)_0%,transparent_70%)] dark:bg-[radial-gradient(circle,rgba(93,166,252,0.5)_0%,transparent_70%)] animate-portal-pulse"></div>
-          <div class="absolute w-[380px] h-[380px] rounded-full bg-[#60a5fa] dark:bg-[#5da6fc] blur-[85px] opacity-[0.08] dark:opacity-[0.15]"></div>
-          <div class="absolute w-[190px] h-[190px] rounded-full bg-[#60a5fa] dark:bg-[#5da6fc] blur-[50px] opacity-[0.15] dark:opacity-[0.25]"></div>
+          
+          <!-- Outer glow layers -->
+          <div class="absolute w-[420px] h-[420px] rounded-full bg-[#60a5fa] dark:bg-[#5da6fc] blur-[100px] opacity-[0.06] dark:opacity-[0.12]"></div>
+          <div class="absolute w-[220px] h-[220px] rounded-full bg-[#60a5fa] dark:bg-[#5da6fc] blur-[60px] opacity-[0.1] dark:opacity-[0.2]"></div>
+          
+          <!-- Outer ring - large dashed -->
           <div class="absolute w-[780px] h-[780px] rounded-full border border-slate-300/60 dark:border-[#5da6fc]/10"></div>
+          
+          <!-- Spinning dashed ring (slow reverse) -->
           <div class="absolute w-[600px] h-[600px] rounded-full border border-slate-400/40 dark:border-[#5da6fc]/20 border-dashed animate-[spin_120s_linear_infinite_reverse]"></div>
+          
+          <!-- Main spinning ring with dots -->
           <div class="absolute w-[460px] h-[460px] rounded-full border border-[#60a5fa]/20 dark:border-[#5da6fc]/30 shadow-[0_0_15px_rgba(96,165,250,0.1)] dark:shadow-[0_0_15px_rgba(93,166,252,0.2)] animate-[spin_30s_linear_infinite]">
             <div class="absolute top-[-3px] left-[35%] w-1.5 h-1.5 bg-[#60a5fa] dark:bg-[#a8cfff] rounded-full shadow-[0_0_8px_#60a5fa] dark:shadow-[0_0_12px_#a8cfff,0_0_20px_#5da6fc]"></div>
             <div class="absolute bottom-[-3px] right-[35%] w-1.5 h-1.5 bg-[#60a5fa] dark:bg-[#a8cfff] rounded-full shadow-[0_0_8px_#60a5fa] dark:shadow-[0_0_12px_#a8cfff,0_0_20px_#5da6fc]"></div>
           </div>
+          
+          <!-- Mid ring -->
           <div class="absolute w-[300px] h-[300px] rounded-full border border-[#60a5fa]/30 dark:border-[#5da6fc]/40 shadow-[0_0_15px_rgba(96,165,250,0.15)] dark:shadow-[0_0_15px_rgba(93,166,252,0.25)]"></div>
+          
+          <!-- Inner spinning arc ring -->
           <div class="absolute w-[170px] h-[170px] rounded-full border-[2px] border-transparent border-l-[#60a5fa]/60 dark:border-l-[#5da6fc]/80 border-r-[#60a5fa]/60 dark:border-r-[#5da6fc]/80 shadow-[0_0_15px_rgba(96,165,250,0.2)] dark:shadow-[0_0_15px_rgba(93,166,252,0.4)] animate-[spin_10s_linear_infinite]"></div>
+          
+          <!-- Dotted inner ring -->
           <div class="absolute w-[90px] h-[90px] rounded-full border border-slate-400/50 dark:border-[#5da6fc]/70 border-dotted animate-[spin_20s_linear_infinite]"></div>
+          
+          <!-- Center point -->
           <div class="absolute w-2 h-2 bg-white rounded-full shadow-[0_0_8px_rgba(96,165,250,0.5)] dark:shadow-[0_0_10px_#ffffff,0_0_25px_#5da6fc,0_0_50px_#5da6fc]"></div>
         </div>
       </div>

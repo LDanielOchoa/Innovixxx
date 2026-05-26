@@ -9,7 +9,7 @@ const { t } = useI18n()
 const isLoading = ref(true)
 const alarmsData = ref({
   today: 0,
-  targetToday: 12,
+  targetToday: 30,
   list: [] as { time: string; car: string; issue: string; id: number }[]
 })
 
@@ -20,7 +20,7 @@ const alarmTemplates = [
   { car: 'MNO-654', issue: 'engineOff' },
   { car: 'PQR-321', issue: 'lowBattery' },
   { car: 'STU-987', issue: 'acceleration' },
-  { car: 'VWX-654', issue: 'sos' },
+  { car: 'VWX-654', issue: 'overspeed' },
   { car: 'DEF-111', issue: 'doorOpen' },
 ]
 
@@ -35,7 +35,10 @@ let todayInterval: ReturnType<typeof setInterval> | null = null
 let idCounter = 0
 
 const formatTime = (date: Date): string => {
-  return date.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' })
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  const period = date.getHours() >= 12 ? 'P.M.' : 'A.M.'
+  return `${hours}:${minutes} ${period}`
 }
 
 const animateTodayValue = () => {

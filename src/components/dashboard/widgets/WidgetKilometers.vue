@@ -14,7 +14,7 @@ const kmData = ref({
 })
 
 let updateInterval: ReturnType<typeof setInterval> | null = null
-const targetValues = { total: 124540, today: 342 }
+const targetValues = { total: 124617, today: 409 }
 
 const formatNumber = (num: number): string => {
   return num.toLocaleString('es-CO')

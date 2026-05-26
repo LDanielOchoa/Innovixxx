@@ -8,7 +8,7 @@ const { t } = useI18n()
 
 const isLoading = ref(true)
 const linkedDevices = ref({ online: 0, total: 0 })
-const targetValues = { online: 124, total: 150 }
+const targetValues = { online: 120, total: 166 }
 
 const animateValue = (target: number, duration: number, callback: (val: number) => void) => {
   const startTime = performance.now()
