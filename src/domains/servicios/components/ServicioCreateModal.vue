@@ -23,7 +23,6 @@ import type { ServicioCreatePayload, RutaSimple, VehiculoSimple } from '../types
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
-import AppButton from '../../../components/ui/AppButton.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -37,7 +36,7 @@ const emit = defineEmits(['update:isOpen', 'created'])
 const isInitializing = ref(true)
 const saving = ref(false)
 const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' } | null>(null)
+const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const rutas = ref<RutaSimple[]>([])
 const vehiculos = ref<VehiculoSimple[]>([])
@@ -88,6 +87,15 @@ const formData = reactive({
   fecha_hora_inicio: '',
   modo_fin: '1'
 })
+
+const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
+  modalMessage.value = { text, type }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (modalMessage.value?.text === text) modalMessage.value = null
+    }, 4000)
+  }
+}
 
 watch([fechaInicio, horaInicio], ([nuevaFecha, nuevaHora]) => {
   if (nuevaFecha && nuevaHora) {
@@ -180,7 +188,7 @@ watch(() => props.isOpen, async (isOpen) => {
         vehiculos.value = vehiculosData
       } catch (error) {
         console.error('Error fetching data:', error)
-        modalMessage.value = { text: t('common.errorNetwork') || 'Error al cargar datos', type: 'error' }
+        showMessage(t('common.errorNetwork') || 'Error al cargar datos', 'error')
       } finally {
         loadingRutas.value = false
         loadingVehiculos.value = false
@@ -266,27 +274,27 @@ onUnmounted(() => {
 const handleCreate = async () => {
   if (saving.value) return
   if (!groupStore.selectedGroup?.id) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'Seleccione un grupo válido', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'Seleccione un grupo válido', 'error')
     return
   }
 
   if (!formData.id_ruta) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'Seleccione una ruta', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'Seleccione una ruta', 'error')
     return
   }
 
   if (!formData.fecha_hora_inicio.trim()) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'La fecha y hora de inicio es requerida', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'La fecha y hora de inicio es requerida', 'error')
     return
   }
 
   if (!formData.modo_fin.trim()) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'El modo fin es requerido', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'El modo fin es requerido', 'error')
     return
   }
 
   if (selectedVehiculosIds.value.length === 0) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'Seleccione al menos un vehículo', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'Seleccione al menos un vehículo', 'error')
     return
   }
 
@@ -307,11 +315,11 @@ const handleCreate = async () => {
       isSuccess.value = true
       emit('created')
     } else {
-      modalMessage.value = { text: data.message || (t('common.error') || 'Error al registrar'), type: 'error' }
+      showMessage(data.message || (t('common.error') || 'Error al registrar'), 'error')
     }
   } catch (error: any) {
     console.error('Error creating servicio:', error)
-    modalMessage.value = { text: error.message || (t('common.errorNetwork') || 'Error de conexión'), type: 'error' }
+    showMessage(error.message || (t('common.errorNetwork') || 'Error de conexión'), 'error')
   } finally {
     saving.value = false
   }
@@ -320,44 +328,35 @@ const handleCreate = async () => {
 const handleClose = () => {
   emit('update:isOpen', false)
 }
-
-const confirmText = computed(() => {
-  if (isSuccess.value) return t('common.close') || 'Cerrar'
-  return t('servicios.btnRegister') || 'Registrar Servicio'
-})
-
-const rutaOptions = computed(() => {
-  return rutas.value.map(r => ({
-    value: r.id_ruta,
-    label: r.nombre
-  }))
-})
 </script>
 
 <template>
   <AppModal
     :is-open="isOpen"
     @update:is-open="handleClose"
-    :title="t('servicios.modalTitleCreate') || 'Registrar Servicio'"
+    @close="handleClose"
+    @confirm="handleCreate"
+    :title="t('servicios.modalTitleCreate', 'Registrar Servicio')"
+    :confirm-text="t('servicios.btnRegister', 'Registrar Servicio')"
     size="xl"
-    :show-footer="false"
-    :confirm-text="confirmText"
-    @confirm="isSuccess ? handleClose() : handleCreate()"
+    :show-footer="!isSuccess && !isInitializing"
   >
     <template #icon>
-      <HugeiconsIcon :icon="ServiceIcon" :size="20" class="text-[#3b82f6]" />
+      <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+        <HugeiconsIcon :icon="ServiceIcon" :size="20" :stroke-width="2" />
+      </div>
     </template>
 
     <div class="flex flex-col gap-5 relative p-1">
       <!-- OVERLAY DE CARGA -->
       <Transition name="fade">
-        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-[#13161C]/80 backdrop-blur-md rounded-[24px] transition-all duration-300">
+        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
           <div class="relative">
             <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('common.saving') || 'Registrando Servicio...' }}</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Registrando Servicio...</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -368,24 +367,16 @@ const rutaOptions = computed(() => {
       </Transition>
 
       <!-- SKELETON STATE -->
-      <div v-if="isInitializing" class="space-y-6 animate-pulse p-4">
-        <div class="space-y-3">
-          <div class="h-2 w-16 bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
-        </div>
+      <div v-if="isInitializing" class="space-y-6 animate-pulse p-2">
         <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-3">
-            <div class="h-2 w-24 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
-          </div>
-          <div class="space-y-3">
-            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+          <div v-for="i in 4" :key="i" class="space-y-3">
+            <div class="h-2 w-20 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+            <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
           </div>
         </div>
-        <div class="space-y-3">
-          <div class="h-2 w-28 bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+        <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+          <div class="h-2 w-24 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+          <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
         </div>
       </div>
 
@@ -398,51 +389,41 @@ const rutaOptions = computed(() => {
               <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
             </div>
           </div>
-          <h3 class="text-xl font-black text-white tracking-tight">{{ t('servicios.alertSuccessCreate') || 'Servicio Registrado' }}</h3>
-          <p class="text-[13px] text-slate-400 max-w-[320px]">
-            {{ t('servicios.successCreateMsg') || 'El servicio ha sido registrado exitosamente.' }}
+          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Servicio Registrado Exitosamente</h3>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
+            El servicio ha sido registrado exitosamente en el sistema.
           </p>
           <div class="pt-4">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
-              {{ t('common.close') || 'Cerrar Ventana' }}
-            </AppButton>
+            <button
+              @click="handleClose"
+              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
+            >
+              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+              Cerrar Ventana
+            </button>
           </div>
         </div>
 
         <!-- FORM CONTENT -->
         <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <!-- Card Glassmorphic -->
-          <div class="modal-card space-y-8 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
-            <!-- Ambient Glow -->
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 rounded-full blur-3xl pointer-events-none"></div>
-
-            <!-- Header del Form -->
-            <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-5">
-              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                <HugeiconsIcon :icon="Route01Icon" :size="20" class="drop-shadow-sm" />
-              </div>
-              <div>
-                <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('servicios.formSectionData') || 'Datos del Servicio' }}</h3>
-                <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('servicios.formSectionDataDesc') || 'Asignar ruta, fecha, hora y modo de finalización.' }}</p>
-              </div>
+          <!-- Feedback Message -->
+          <Transition name="message-fade">
+            <div v-if="modalMessage"
+                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
+                 :class="{
+                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
+                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
+                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+                 }">
+              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
+              {{ modalMessage.text }}
             </div>
+          </Transition>
 
-            <!-- Feedback Message -->
-            <Transition name="fade">
-              <div v-if="modalMessage"
-                   class="flex items-center gap-2.5 p-3.5 rounded-[14px] text-[12px] font-bold border animate-fade-in-up relative z-10"
-                   :class="modalMessage.type === 'error'
-                     ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-400 border-red-500/20'
-                     : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#5da6fc] border-[#3b82f6]/20'">
-                <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : Tick01Icon" :size="16" />
-                {{ modalMessage.text }}
-              </div>
-            </Transition>
-
-            <!-- Fields -->
-            <div class="space-y-5 relative z-10 modal-form-fields">
-              <!-- Ruta -->
-              <div class="space-y-2">
+          <div class="space-y-5">
+            <!-- Ruta -->
+            <div class="space-y-2">
                 <label
                   class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                   :class="panelActivo === 'rutas' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
@@ -585,17 +566,6 @@ const rutaOptions = computed(() => {
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Footer Buttons -->
-          <div class="flex flex-col sm:flex-row gap-3 justify-end pt-2 relative z-10">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
-              {{ t('common.cancel') || 'Cancelar' }}
-            </AppButton>
-            <AppButton variant="primary" :icon="FloppyDiskIcon" :loading="saving" @click="handleCreate">
-              {{ t('servicios.btnRegister') || 'Registrar Servicio' }}
-            </AppButton>
-          </div>
         </div>
       </Transition>
     </div>
@@ -1018,6 +988,22 @@ const rutaOptions = computed(() => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: scale(1.03);
+  backdrop-filter: blur(0px);
+}
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+  backdrop-filter: blur(12px);
+}
+
+.message-fade-enter-from,
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s ease;
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active {

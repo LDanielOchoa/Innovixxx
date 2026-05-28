@@ -4,19 +4,15 @@ import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
-  Add01Icon,
   Search01Icon,
-  Download01Icon,
   Edit02Icon,
   Delete01Icon,
   TruckIcon,
-  FingerPrintIcon
+  FingerPrintIcon,
+  MoreHorizontalIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
-import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
-import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
-import AppButton from '../../../components/ui/AppButton.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
@@ -29,6 +25,12 @@ import type { Vehiculo } from '../types/vehiculo'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 import VehiculoModal from '../components/VehiculoModal.vue'
+
+// Shared Domain Components
+import PageHeader from '../../../components/shared/PageHeader.vue'
+import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
+import TableActions from '../../../components/shared/TableActions.vue'
+import StatusBadge from '../../../components/shared/StatusBadge.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -136,41 +138,43 @@ watch(() => selectedGroup.value.id, () => {
 </script>
 
 <template>
-  <div class="p-4 md:p-8 space-y-8 animate-fade-in font-inter">
-    <!-- Header -->
-    <AppPageHeader 
-      :title="$t('vehiculos.title')" 
-      :subtitle="`${$t('vehiculos.subtitle')} ${selectedGroup.nombre}`" 
-      :count="filteredVehicles.length"
+  <div class="p-6 md:p-8 animate-fade-in">
+    <!-- Page Header -->
+    <PageHeader 
+      :title="t('vehiculos.title')" 
+      :count="filteredVehicles.length" 
+      :icon="TruckIcon"
     >
       <template #actions>
-        <div class="flex items-center gap-3">
-          <AppButton 
-            variant="secondary" 
-            :icon="Download01Icon" 
-            @click="exportToExcel"
-            class="!px-3"
-          />
-          <AppButton 
-            variant="primary" 
-            :icon="Add01Icon" 
-            @click="openCreateModal"
-          >
-            <span>{{ $t('vehiculos.btnNew') }}</span>
-          </AppButton>
-        </div>
+        <button 
+          @click="openCreateModal"
+          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{{ t('vehiculos.btnNew') }}</span>
+        </button>
+        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
+          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+        </button>
       </template>
-    </AppPageHeader>
+    </PageHeader>
 
-    <!-- Área de Búsqueda y Filtros Simplificada -->
-    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
-      <div class="flex-1 w-full max-w-2xl">
-        <AppSearch 
-          v-model="searchQuery" 
-          :placeholder="$t('vehiculos.searchPlaceholder')"
-        />
-      </div>
-    </div>
+    <!-- Search Toolbar -->
+    <SearchToolbar v-model="searchQuery" :placeholder="t('vehiculos.searchPlaceholder')" searchWidth="sm:w-96">
+      <template #extra>
+        <button 
+          @click="exportToExcel"
+          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+      </template>
+    </SearchToolbar>
 
     <!-- Table Card -->
     <AppTableCard>
@@ -180,70 +184,76 @@ watch(() => selectedGroup.value.id, () => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="$t('vehiculos.noResults', 'No se encontraron vehículos')"
+        :empty-message="t('vehiculos.noResults', 'No se encontraron vehículos')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
-        <template #empty-subtitle>{{ $t('common.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
 
-        <Column field="nombre" :header="$t('vehiculos.thName', 'Nombre')" sortable>
+        <Column field="nombre" :header="t('vehiculos.thName', 'Nombre')" sortable>
           <template #body="{ data }">
-            <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight">{{ data.nombre || 'Vehículo' }}</span>
+            <div class="flex flex-col py-1">
+              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || 'Vehículo' }}</span>
+              <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">{{ data.id_vehiculo }}</span>
+            </div>
           </template>
         </Column>
 
-        <Column field="placa" :header="$t('vehiculos.thPlate', 'Placa')" sortable>
+        <Column field="placa" :header="t('vehiculos.thPlate', 'Placa')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
-              <span class="text-[13px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ data.placa || '---' }}</span>
+              <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ data.placa || '---' }}</span>
               <div class="flex items-center gap-1.5 mt-1 opacity-60">
                 <HugeiconsIcon :icon="FingerPrintIcon" :size="10" />
-                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 tabular-nums">{{ data.serial || 'S/N' }}</span>
+                <span class="text-[10px] font-medium text-slate-400 dark:text-slate-500 tabular-nums">{{ data.serial || 'S/N' }}</span>
               </div>
             </div>
           </template>
         </Column>
 
-        <Column field="tipo" :header="$t('vehiculos.thType', 'Tipo')" sortable>
+        <Column field="tipo" :header="t('vehiculos.thType', 'Tipo')" sortable>
           <template #body="{ data }">
-            <div class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-100/50 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 transition-all hover:border-[#3b82f6]/30 group/type">
-              <HugeiconsIcon :icon="TruckIcon" :size="14" class="text-slate-400 group-hover/type:text-[#3b82f6] transition-colors" />
-              <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em]">
-                {{ data.tipo || 'General' }}
-              </span>
-            </div>
+            <StatusBadge 
+              variant="default"
+              :label="data.tipo || 'General'"
+              :icon="TruckIcon"
+            />
           </template>
         </Column>
 
-        <Column header="Acciones" class="text-right">
+        <Column :header="t('vehiculos.thActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-3">
-              <button 
-                @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Editar"
-              >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button 
-                @click="confirmDelete(data.id_vehiculo)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Eliminar"
-              >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
-              </button>
-            </div>
+            <TableActions
+              :actions="[
+                {
+                  icon: Edit02Icon,
+                  tooltip: t('common.edit', 'Editar'),
+                  variant: 'primary',
+                  onClick: () => openEditModal(data),
+                  show: true
+                },
+                {
+                  icon: Delete01Icon,
+                  tooltip: t('common.delete', 'Eliminar'),
+                  variant: 'danger',
+                  onClick: () => confirmDelete(data.id_vehiculo),
+                  show: true
+                }
+              ]"
+              :show-more="true"
+            />
           </template>
         </Column>
       </AppTable>
-      
+
       <!-- Paginador -->
-      <AppPagination 
-        :totalRecords="filteredVehicles.length"
-        v-model:currentPage="currentPage"
-        :rowsPerPage="itemsPerPage"
-      />
+      <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
+        <AppPagination 
+          :totalRecords="filteredVehicles.length"
+          v-model:currentPage="currentPage"
+          :rowsPerPage="itemsPerPage"
+        />
+      </div>
     </AppTableCard>
 
     <!-- Modals -->
@@ -255,7 +265,7 @@ watch(() => selectedGroup.value.id, () => {
 
     <AppDeleteConfirm 
       v-model:isOpen="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"
+      :title="$t('common.confirmDeleteTitle')"
       :message="$t('common.confirmDeleteMsg')"
       @confirm="deleteVehicle"
     />
@@ -263,6 +273,16 @@ watch(() => selectedGroup.value.id, () => {
 </template>
 
 <style scoped>
+.animate-fade-in {
+  font-family: 'Inter', sans-serif;
+  animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -275,15 +295,5 @@ watch(() => selectedGroup.value.id, () => {
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { 
   @apply bg-slate-200 dark:bg-white/10 rounded-full hover:bg-[#3b82f6] transition-colors;
-}
-
-/* Animaciones */
-.animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 </style>

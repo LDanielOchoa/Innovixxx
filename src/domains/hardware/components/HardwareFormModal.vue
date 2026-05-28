@@ -10,7 +10,6 @@ import {
   Tick01Icon,
   Alert01Icon,
   Cancel01Icon,
-  FloppyDiskIcon,
   Loading03Icon,
   ArrowDown01Icon,
   Search01Icon
@@ -30,7 +29,6 @@ import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
-import AppButton from '../../../components/ui/AppButton.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -46,7 +44,7 @@ const emit = defineEmits(['update:isOpen', 'saved'])
 const isInitializing = ref(true)
 const saving = ref(false)
 const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' } | null>(null)
+const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const familias = ref<FamiliaHardware[]>([])
 const loadingFamilias = ref(false)
@@ -163,6 +161,15 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 })
 
+const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
+  modalMessage.value = { text, type }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (modalMessage.value?.text === text) modalMessage.value = null
+    }, 4000)
+  }
+}
+
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
@@ -209,7 +216,7 @@ watch(() => props.isOpen, async (isOpen) => {
 
     setTimeout(() => {
       isInitializing.value = false
-    }, 600)
+    }, 450)
   } else {
     panelActivo.value = false
   }
@@ -218,7 +225,7 @@ watch(() => props.isOpen, async (isOpen) => {
 const handleSave = async () => {
   if (saving.value) return
   if (!groupStore.selectedGroup?.id) {
-    modalMessage.value = { text: t('common.errorRequiredFields') || 'Seleccione un grupo válido', type: 'error' }
+    showMessage(t('common.errorRequiredFields') || 'Seleccione un grupo válido', 'error')
     return
   }
 
@@ -248,7 +255,7 @@ const handleSave = async () => {
   try {
     if (isEditMode.value && props.editItem) {
       if (!authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)) {
-        modalMessage.value = { text: t('hardware.alertErrorUpdate') || 'No tienes permiso para editar hardware', type: 'error' }
+        showMessage(t('hardware.alertErrorUpdate') || 'No tienes permiso para editar hardware', 'error')
         saving.value = false
         return
       }
@@ -257,11 +264,11 @@ const handleSave = async () => {
         isSuccess.value = true
         emit('saved')
       } else {
-        modalMessage.value = { text: data.message || t('hardware.alertErrorUpdate') || 'Error al actualizar', type: 'error' }
+        showMessage(data.message || t('hardware.alertErrorUpdate') || 'Error al actualizar', 'error')
       }
     } else {
       if (!authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)) {
-        modalMessage.value = { text: t('hardware.alertErrorCreate') || 'No tienes permiso para crear hardware', type: 'error' }
+        showMessage(t('hardware.alertErrorCreate') || 'No tienes permiso para crear hardware', 'error')
         saving.value = false
         return
       }
@@ -270,12 +277,12 @@ const handleSave = async () => {
         isSuccess.value = true
         emit('saved')
       } else {
-        modalMessage.value = { text: data.message || t('hardware.alertErrorCreate') || 'Error al crear', type: 'error' }
+        showMessage(data.message || t('hardware.alertErrorCreate') || 'Error al crear', 'error')
       }
     }
   } catch (error: any) {
     console.error('Error saving hardware:', error)
-    modalMessage.value = { text: error.message || (t('hardware.alertNetError') || 'Error de conexión'), type: 'error' }
+    showMessage(error.message || (t('hardware.alertNetError') || 'Error de conexión'), 'error')
   } finally {
     saving.value = false
   }
@@ -284,46 +291,79 @@ const handleSave = async () => {
 const handleClose = () => {
   emit('update:isOpen', false)
 }
-
-const modalTitle = computed(() => {
-  if (isSuccess.value) return t('hardware.alertSuccessCreate') || 'Dispositivo Registrado'
-  return isEditMode.value
-    ? (t('hardware.modalTitleEdit') || 'Actualizar Dispositivo')
-    : (t('hardware.modalTitleCreate') || 'Nuevo Dispositivo')
-})
-
-const confirmText = computed(() => {
-  if (isSuccess.value) return t('common.close') || 'Cerrar'
-  return isEditMode.value
-    ? (t('hardware.btnSave') || 'Guardar Cambios')
-    : (t('hardware.btnRegister') || 'Crear Hardware')
-})
 </script>
 
 <template>
   <AppModal
     :is-open="isOpen"
     @update:is-open="handleClose"
-    :title="modalTitle"
+    @close="handleClose"
+    @confirm="handleSave"
+    :title="isEditMode ? t('hardware.modalTitleEdit', 'Actualizar Dispositivo') : t('hardware.modalTitleCreate', 'Nuevo Dispositivo')"
+    :confirm-text="isEditMode ? t('hardware.btnSave', 'Guardar Cambios') : t('hardware.btnRegister', 'Crear Hardware')"
     size="xl"
-    :show-footer="false"
-    :confirm-text="confirmText"
-    @confirm="isSuccess ? handleClose() : handleSave()"
+    :show-footer="!isSuccess && !isInitializing"
   >
     <template #icon>
-      <HugeiconsIcon :icon="CpuIcon" :size="20" class="text-[#3b82f6]" />
+      <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+        <HugeiconsIcon :icon="CpuIcon" :size="20" :stroke-width="2" />
+      </div>
     </template>
 
-    <div class="flex flex-col gap-5 relative p-1">
-      <!-- OVERLAY DE CARGA -->
+    <!-- SKELETON LOADING -->
+    <div v-if="isInitializing" class="space-y-6 animate-pulse p-2">
+      <div class="grid grid-cols-2 gap-4">
+        <div v-for="i in 4" :key="i" class="space-y-3">
+          <div class="h-2 w-20 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+          <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
+        </div>
+      </div>
+      <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+        <div class="h-2 w-24 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+        <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
+      </div>
+    </div>
+
+    <!-- SUCCESS VIEW -->
+    <Transition v-else-if="isSuccess" name="fade-slide" mode="out-in">
+      <div class="py-10 flex flex-col items-center justify-center text-center space-y-4">
+        <div class="relative group mb-2">
+          <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
+          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
+            <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
+          </div>
+        </div>
+        <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
+          {{ isEditMode ? 'Dispositivo Actualizado' : 'Dispositivo Registrado Exitosamente' }}
+        </h3>
+        <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
+          {{ isEditMode ? 'Los datos del dispositivo han sido modificados con éxito.' : 'El dispositivo de hardware ha sido registrado exitosamente.' }}
+        </p>
+        <div class="pt-4">
+          <button
+            @click="handleClose"
+            class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+            Cerrar Ventana
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- FORM -->
+    <form v-else @submit.prevent="handleSave" class="space-y-6 relative">
+      <!-- Saving Overlay -->
       <Transition name="fade">
-        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-[#13161C]/80 backdrop-blur-md rounded-[24px] transition-all duration-300">
+        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
           <div class="relative">
             <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('common.saving') || 'Guardando Dispositivo...' }}</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
+              {{ isEditMode ? 'Actualizando...' : 'Guardando...' }}
+            </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -333,233 +373,114 @@ const confirmText = computed(() => {
         </div>
       </Transition>
 
-      <!-- SKELETON STATE -->
-      <div v-if="isInitializing" class="space-y-6 animate-pulse p-4">
-        <div class="space-y-3">
-          <div class="h-2 w-28 bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+      <!-- Feedback Message -->
+      <Transition name="message-fade">
+        <div v-if="modalMessage"
+             class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-6"
+             :class="{
+               'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
+               'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
+               'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+             }">
+          <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+          <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
+          {{ modalMessage.text }}
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div class="space-y-3">
-            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
-          </div>
-          <div class="space-y-3">
-            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+      </Transition>
+
+      <div class="space-y-5">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <AppInput
+            v-model="formData.nombre"
+            :label="t('hardware.labelName', 'Nombre (Alias)')"
+            :placeholder="t('hardware.placeholderName', 'Ej: gps gl800 3')"
+            :icon="Tag01Icon"
+          />
+          <AppInput
+            v-model="formData.descripcion"
+            :label="t('hardware.labelDescription', 'Descripción')"
+            :placeholder="t('hardware.placeholderDescription', 'Ej: 10000 mah')"
+            :icon="Tag01Icon"
+          />
+        </div>
+
+        <!-- Familia Selector -->
+        <div class="space-y-2">
+          <label
+            class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 transition-colors duration-300"
+            :class="panelActivo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+          >
+            {{ t('hardware.labelFamily', 'Familia Receptora') }}
+          </label>
+          <button
+            ref="btnFamilia"
+            type="button"
+            @click="abrirPanelFamilia"
+            :disabled="loadingFamilias"
+            class="selector-btn-roles"
+            :class="[
+              loadingFamilias ? 'opacity-60 cursor-not-allowed' : '',
+              panelActivo ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''
+            ]"
+          >
+            <div class="flex items-center gap-3">
+              <HugeiconsIcon :icon="CpuIcon" :size="18" :stroke-width="1.8" class="text-slate-400" />
+              <span class="text-[13px] font-bold" :class="formData.id_familia ? 'text-slate-200' : 'text-slate-400'">
+                {{ formData.id_familia ? getFamiliaLabel(formData.id_familia) : (loadingFamilias ? 'Cargando...' : t('hardware.placeholderFamily', 'Seleccione familia...')) }}
+              </span>
+            </div>
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo }" />
+          </button>
+          <span v-if="getError('id_familia')" class="text-xs text-red-400 font-bold ml-1">{{ getError('id_familia') }}</span>
+        </div>
+
+        <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <AppInput
+              v-model="formData.serial"
+              :label="t('hardware.labelSerial', 'Serial')"
+              :placeholder="t('hardware.placeholderSerial', 'B123RZZR')"
+              :icon="TextNumberSignIcon"
+            />
+            <AppInput
+              v-model="formData.imei"
+              :label="t('hardware.labelImei', 'IMEI')"
+              :placeholder="t('hardware.placeholderImei', '1234567...')"
+              :icon="TextNumberSignIcon"
+            />
+            <AppInput
+              v-model="formData.mac"
+              :label="t('hardware.labelMac', 'MAC')"
+              :placeholder="t('hardware.placeholderMac', 'sw:ki:pl...')"
+              :icon="TextNumberSignIcon"
+            />
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-4">
-          <div v-for="i in 3" :key="i" class="space-y-3">
-            <div class="h-2 w-16 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
-          </div>
-        </div>
-        <div class="grid grid-cols-3 gap-4">
-          <div v-for="i in 3" :key="i" class="space-y-3">
-            <div class="h-2 w-16 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+
+        <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <AppInput
+              v-model="formData.numero_sms"
+              label="Número SMS"
+              placeholder="Ej: 9103166133"
+              :icon="SmartPhone01Icon"
+            />
+            <AppInput
+              v-model="formData.id_binario"
+              label="ID Binario"
+              placeholder="Ej: 2512001917"
+              :icon="CpuIcon"
+            />
+            <AppInput
+              v-model="formData.clave_open"
+              label="Clave Open"
+              placeholder="Ej: 888888"
+              :icon="LockIcon"
+            />
           </div>
         </div>
       </div>
-
-      <!-- SUCCESS STATE -->
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
-          </div>
-          <h3 class="text-xl font-black text-white tracking-tight">{{ t('hardware.alertSuccessCreate') || 'Dispositivo Registrado' }}</h3>
-          <p class="text-[13px] text-slate-400 max-w-[320px]">
-            {{ isEditMode
-              ? (t('hardware.alertSuccessUpdate') || 'El dispositivo ha sido actualizado exitosamente.')
-              : (t('hardware.successCreateMsg') || 'El dispositivo de hardware ha sido registrado exitosamente.')
-            }}
-          </p>
-          <div class="pt-4">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
-              {{ t('common.close') || 'Cerrar Ventana' }}
-            </AppButton>
-          </div>
-        </div>
-
-        <!-- FORM CONTENT -->
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <!-- Card Glassmorphic -->
-          <div class="modal-card space-y-8 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
-            <!-- Ambient Glow -->
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 rounded-full blur-3xl pointer-events-none"></div>
-
-            <!-- Header: Datos del Dispositivo -->
-            <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-5">
-              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                <HugeiconsIcon :icon="CpuIcon" :size="20" class="drop-shadow-sm" />
-              </div>
-              <div>
-                <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('hardware.formSectionData') || 'Datos del Dispositivo' }}</h3>
-                <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('hardware.formSectionDataDesc') || 'Información general y familia receptora.' }}</p>
-              </div>
-            </div>
-
-            <!-- Feedback Message -->
-            <Transition name="fade">
-              <div v-if="modalMessage"
-                   class="flex items-center gap-2.5 p-3.5 rounded-[14px] text-[12px] font-bold border animate-fade-in-up relative z-10"
-                   :class="modalMessage.type === 'error'
-                     ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-400 border-red-500/20'
-                     : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#5da6fc] border-[#3b82f6]/20'">
-                <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : Tick01Icon" :size="16" />
-                {{ modalMessage.text }}
-              </div>
-            </Transition>
-
-            <!-- Fields: Datos del Dispositivo -->
-            <div class="space-y-5 relative z-10 modal-form-fields">
-              <!-- Nombre + Descripción -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <AppInput
-                  v-model="formData.nombre"
-                  :label="t('hardware.labelName') || 'Nombre (Alias)'"
-                  :placeholder="t('hardware.placeholderName') || 'Ej: gps gl800 3'"
-                  :icon="Tag01Icon"
-                />
-                <AppInput
-                  v-model="formData.descripcion"
-                  :label="t('hardware.labelDescription') || 'Descripción'"
-                  :placeholder="t('hardware.placeholderDescription') || 'Ej: 10000 mah'"
-                  :icon="Tag01Icon"
-                />
-              </div>
-
-              <!-- Familia -->
-              <div class="space-y-2">
-                <label
-                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                  :class="panelActivo ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                >
-                  {{ t('hardware.labelFamily') || 'Familia Receptora' }}
-                </label>
-                <button
-                  ref="btnFamilia"
-                  type="button"
-                  @click="abrirPanelFamilia"
-                  :disabled="loadingFamilias"
-                  class="selector-btn"
-                  :class="[
-                    loadingFamilias ? 'opacity-60 cursor-not-allowed' : '',
-                    panelActivo
-                      ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                      : 'hover:border-white/15'
-                  ]"
-                >
-                  <div class="text-slate-400 pr-2 shrink-0">
-                    <HugeiconsIcon :icon="CpuIcon" :size="18" :stroke-width="1.8" />
-                  </div>
-                  <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
-                    <template v-if="formData.id_familia">
-                      <div class="badge-recurso">
-                        <span class="truncate">{{ getFamiliaLabel(formData.id_familia) }}</span>
-                        <button type="button" @click.stop="formData.id_familia = ''" class="hover:text-red-400 transition-colors shrink-0">
-                          <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                        </button>
-                      </div>
-                    </template>
-                    <span v-else class="text-slate-400 text-[13px] font-medium">
-                      {{ loadingFamilias ? 'Cargando...' : (t('hardware.placeholderFamily') || 'Seleccione familia...') }}
-                    </span>
-                  </div>
-                  <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo }">
-                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
-                  </div>
-                </button>
-                <span v-if="getError('id_familia')" class="text-xs text-red-400 font-bold ml-1">{{ getError('id_familia') }}</span>
-              </div>
-            </div>
-
-            <!-- Sección: Identificadores -->
-            <div class="pt-6 border-t border-white/5 space-y-5">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-emerald-500/20 to-emerald-600/5 flex items-center justify-center text-emerald-400 border border-emerald-500/30">
-                  <HugeiconsIcon :icon="TextNumberSignIcon" :size="20" class="drop-shadow-sm" />
-                </div>
-                <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('hardware.sectionIdentifiers') || 'Identificadores' }}</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('hardware.sectionIdentifiersDesc') || 'Serial, IMEI y dirección MAC del dispositivo.' }}</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <AppInput
-                  v-model="formData.serial"
-                  :label="t('hardware.labelSerial') || 'Serial'"
-                  :placeholder="t('hardware.placeholderSerial') || 'B123RZZR'"
-                  :icon="TextNumberSignIcon"
-                />
-                <AppInput
-                  v-model="formData.imei"
-                  :label="t('hardware.labelImei') || 'IMEI'"
-                  :placeholder="t('hardware.placeholderImei') || '1234567...'"
-                  :icon="TextNumberSignIcon"
-                />
-                <AppInput
-                  v-model="formData.mac"
-                  :label="t('hardware.labelMac') || 'MAC'"
-                  :placeholder="t('hardware.placeholderMac') || 'sw:ki:pl...'"
-                  :icon="TextNumberSignIcon"
-                />
-              </div>
-            </div>
-
-            <!-- Sección: Configuración Técnica -->
-            <div class="pt-6 border-t border-white/5 space-y-5">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-violet-500/20 to-violet-600/5 flex items-center justify-center text-[#a78bfa] border border-violet-500/30">
-                  <HugeiconsIcon :icon="LockIcon" :size="20" class="drop-shadow-sm" />
-                </div>
-                <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('hardware.sectionConfig') || 'Configuración Técnica' }}</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('hardware.sectionConfigDesc') || 'Número SMS, ID binario y clave de acceso.' }}</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <AppInput
-                  v-model="formData.numero_sms"
-                  label="Número SMS"
-                  placeholder="Ej: 9103166133"
-                  :icon="SmartPhone01Icon"
-                />
-                <AppInput
-                  v-model="formData.id_binario"
-                  label="ID Binario"
-                  placeholder="Ej: 2512001917"
-                  :icon="CpuIcon"
-                />
-                <AppInput
-                  v-model="formData.clave_open"
-                  label="Clave Open"
-                  placeholder="Ej: 888888"
-                  :icon="LockIcon"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer Buttons -->
-          <div class="flex flex-col sm:flex-row gap-3 justify-end pt-2 relative z-10">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
-              {{ t('common.cancel') || 'Cancelar' }}
-            </AppButton>
-            <AppButton variant="primary" :icon="FloppyDiskIcon" :loading="saving" @click="handleSave">
-              {{ isEditMode ? (t('hardware.btnSave') || 'Guardar Cambios') : (t('hardware.btnRegister') || 'Crear Hardware') }}
-            </AppButton>
-          </div>
-        </div>
-      </Transition>
-    </div>
+    </form>
   </AppModal>
 
   <!-- PANEL FLOTANTE DE FAMILIA -->
@@ -577,7 +498,6 @@ const confirmText = computed(() => {
       >
         <div class="panel-acento shrink-0" />
 
-        <!-- CABECERA -->
         <div class="panel-head px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
           <div class="flex items-center gap-3">
             <div class="panel-head-icon">
@@ -597,7 +517,6 @@ const confirmText = computed(() => {
           </button>
         </div>
 
-        <!-- BUSCADOR -->
         <div class="px-4 pb-3 shrink-0">
           <div class="panel-search-wrap">
             <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
@@ -619,7 +538,6 @@ const confirmText = computed(() => {
           </div>
         </div>
 
-        <!-- LISTADO -->
         <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
           <button
             v-for="f in filteredFamilias"
@@ -646,7 +564,6 @@ const confirmText = computed(() => {
           </div>
         </div>
 
-        <!-- FOOTER -->
         <div class="px-4 py-3.5 shrink-0 panel-footer">
           <button type="button" @click="cerrarPanel" class="panel-confirm-btn">
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
@@ -659,47 +576,88 @@ const confirmText = computed(() => {
 </template>
 
 <style scoped>
-/* SELECTOR BUTTONS */
-.selector-btn {
+.animate-fade-in {
+  animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: scale(1.03);
+  backdrop-filter: blur(0px);
+}
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+  backdrop-filter: blur(12px);
+}
+
+.message-fade-enter-from,
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fade-slide-enter-from, .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* =====================================================
+   SELECTOR BUTTON
+===================================================== */
+.selector-btn-roles {
   position: relative;
   display: flex;
   align-items: center;
   width: 100%;
   min-height: 48px;
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%);
+  gap: 0;
+  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 0.5rem 1rem;
   text-align: left;
+  cursor: pointer;
   transition: all 0.2s ease;
   box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+  font-family: inherit;
+  color: inherit;
 }
-.selector-btn:hover {
+
+.selector-btn-roles:hover {
   border-color: rgba(255,255,255,0.15);
   box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
 }
-.selector-btn:active {
+
+.selector-btn-roles:active {
   transform: translateY(1px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
 }
-.selector-btn.border-\[\#3b82f6\] {
+
+.selector-btn-roles.border-\[\#3b82f6\]\/50,
+.selector-btn-roles.border-\[\#3b82f6\]\/40 {
   border-color: rgba(59,130,246,0.5);
   box-shadow: 0 4px 16px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-.badge-recurso {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: rgba(59,130,246,0.15);
-  color: #5da6fc;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(59,130,246,0.25);
 }
 
 /* PANEL FLOTANTE */
@@ -853,41 +811,6 @@ const confirmText = computed(() => {
 }
 .panel-confirm-btn:active { transform: translateY(1px); }
 
-/* Animaciones */
-.animate-fade-in {
-  animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in-up {
-  animation: fadeInUp 0.3s ease-out forwards;
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: scale(1.03);
-}
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-slide-enter-from, .fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
 .panel-flotante-enter-active {
   transition:
     opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
@@ -925,27 +848,21 @@ const confirmText = computed(() => {
 :deep(.modal-card .bg-slate-50) {
   background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
 }
-
 :deep(.modal-card .border-slate-200) {
   border-color: rgba(255,255,255,0.08) !important;
 }
-
 :deep(.modal-card .text-slate-800) {
   color: #e2e8f0 !important;
 }
-
 :deep(.modal-card .placeholder-slate-400) {
   color: #475569 !important;
 }
-
 :deep(.modal-card .placeholder-slate-600) {
   color: #475569 !important;
 }
-
 :deep(.modal-card .text-slate-700) {
   color: #e2e8f0 !important;
 }
-
 :deep(.modal-card .bg-white) {
   background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
 }

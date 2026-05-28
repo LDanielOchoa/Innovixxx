@@ -4,17 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Search01Icon,
-  Download01Icon,
-  PlusSignIcon,
   Edit02Icon,
   Delete01Icon,
-  Alert01Icon,
   MoreHorizontalIcon,
   Mail01Icon,
-  Shield01Icon,
-  FilterIcon,
-  ArrowDown01Icon,
-  ArrowRight01Icon
+  UserGroupIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { obtenerUrlImagen } from '../../../utils/imagenes'
@@ -31,13 +25,16 @@ import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import { storeToRefs } from 'pinia'
-import AppButton from '../../../components/common/AppButton.vue'
-import AppPageHeader from '../../../components/common/AppPageHeader.vue'
-import AppSearch from '../../../components/common/AppSearch.vue'
-import AppTableCard from '../../../components/common/AppTableCard.vue'
-import AppTable from '../../../components/common/AppTable.vue'
-import BasePagination from '../../../components/common/BasePagination.vue'
-import AppDeleteConfirm from '../../../components/common/AppDeleteConfirm.vue'
+// Premium UI Components
+import AppTableCard from '../../../components/ui/AppTableCard.vue'
+import AppTable from '../../../components/ui/AppTable.vue'
+import AppPagination from '../../../components/ui/AppPagination.vue'
+import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
+
+// Shared Domain Components
+import PageHeader from '../../../components/shared/PageHeader.vue'
+import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
+import TableActions from '../../../components/shared/TableActions.vue'
 import Column from 'primevue/column'
 import Avatar from 'primevue/avatar'
 import UsuarioCreateModal from '../components/UsuarioCreateModal.vue'
@@ -238,47 +235,54 @@ const getStatusType = (usuario: Usuario) => {
 <template>
   <div class="p-4 md:p-8 space-y-8 animate-fade-in">
     <!-- Header -->
-    <AppPageHeader 
+    <PageHeader 
       :title="t('users.title')" 
       :subtitle="t('users.subtitle')" 
       :count="filteredUsuarios.length"
+      :icon="UserGroupIcon"
     >
       <template #actions>
-        <AppButton 
-          variant="secondary" 
-          :icon="Download01Icon" 
+        <button 
           @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all"
         >
-          <span>Exportar</span>
-        </AppButton>
+          <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
 
-        <AppButton 
+        <button 
           v-if="authStore.hasPermission(PERMISSIONS.USERS_CREATE)"
-          variant="primary" 
-          :icon="PlusSignIcon" 
           @click="openCreateModal"
+          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
         >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
           <span>{{ t('users.btnNew') }}</span>
-        </AppButton>
+        </button>
+        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
+          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+        </button>
       </template>
-    </AppPageHeader>
-    <!-- Área de Búsqueda y Filtros Simplificada -->
-    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
-      <div class="flex-1 w-full max-w-2xl">
-        <AppSearch 
-          v-model="searchQuery" 
-          :placeholder="t('users.searchPlaceholder', 'Buscar por nombre o email...')"
-        />
-      </div>
-      
-      <div class="w-full md:w-auto min-w-[240px]">
-        <AppSelect 
-          v-model="selectedGroup"
-          :options="grupos.map(g => ({ label: g.nombre, value: g.id }))"
-          :placeholder="t('users.filterByGroup', 'Filtrar por Grupo')"
-        />
-      </div>
-    </div>
+    </PageHeader>
+    <!-- Search + Group Filter -->
+    <SearchToolbar 
+      v-model="searchQuery" 
+      :placeholder="t('users.searchPlaceholder', 'Buscar por nombre o email...')"
+      search-width="sm:w-64"
+    >
+      <template #extra>
+        <div class="w-full md:w-auto min-w-[200px]">
+          <AppSelect 
+            v-model="selectedGroup"
+            :options="grupos.map(g => ({ label: g.nombre, value: g.id }))"
+            :placeholder="t('users.filterByGroup', 'Filtrar por Grupo')"
+          />
+        </div>
+      </template>
+    </SearchToolbar>
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
       <AppTable 
@@ -303,7 +307,7 @@ const getStatusType = (usuario: Usuario) => {
                 size="normal"
               />
               <div class="flex flex-col">
-                <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
+                <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
               </div>
             </div>
           </template>
@@ -311,11 +315,11 @@ const getStatusType = (usuario: Usuario) => {
 
         <Column field="email" header="Email" sortable>
           <template #body="{ data }">
-            <div class="flex items-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-300 cursor-pointer group/mail py-1">
-              <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center border border-slate-200/50 dark:border-white/5 group-hover/mail:border-[#3b82f6]/30 group-hover/mail:bg-[#3b82f6]/5">
+            <div class="flex items-center gap-2.5 text-slate-500 dark:text-slate-400 hover:text-[#0066FF] dark:hover:text-[#5da6fc] transition-all duration-300 cursor-pointer group/mail py-1">
+              <div class="w-7 h-7 rounded-lg bg-slate-50 dark:bg-white/5 flex items-center justify-center border border-slate-200/50 dark:border-white/5 group-hover/mail:border-[#0066FF]/30 group-hover/mail:bg-[#0066FF]/5">
                 <HugeiconsIcon :icon="Mail01Icon" :size="14" class="opacity-40 group-hover/mail:opacity-100 transition-opacity" />
               </div>
-              <span class="text-[13px] font-bold tracking-tight">{{ data.email }}</span>
+              <span class="text-[13px] font-medium tracking-tight">{{ data.email }}</span>
             </div>
           </template>
         </Column>
@@ -330,7 +334,7 @@ const getStatusType = (usuario: Usuario) => {
                   class="w-4 h-3 object-cover rounded-[2px] shadow-sm group-hover/lang:scale-110 transition-transform duration-500"
                 />
                 <div class="w-[1px] h-3 bg-slate-200 dark:bg-white/10 mx-0.5"></div>
-                <span class="text-slate-600 dark:text-slate-300 font-bold uppercase">
+                <span class="text-slate-600 dark:text-slate-300 font-semibold uppercase">
                   {{ data.lang }}
                 </span>
               </div>
@@ -340,27 +344,25 @@ const getStatusType = (usuario: Usuario) => {
 
         <Column header="Acciones" class="text-right">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-3">
-              <button 
-                v-if="authStore.hasPermission(PERMISSIONS.USERS_EDIT)"
-                @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Editar"
-              >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button 
-                v-if="authStore.hasPermission(PERMISSIONS.USERS_DELETE)"
-                @click="confirmDelete(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Eliminar"
-              >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]">
-                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-              </button>
-            </div>
+            <TableActions
+              :actions="[
+                {
+                  icon: Edit02Icon,
+                  tooltip: 'Editar',
+                  variant: 'primary',
+                  onClick: () => openEditModal(data),
+                  show: authStore.hasPermission(PERMISSIONS.USERS_EDIT)
+                },
+                {
+                  icon: Delete01Icon,
+                  tooltip: 'Eliminar',
+                  variant: 'danger',
+                  onClick: () => confirmDelete(data),
+                  show: authStore.hasPermission(PERMISSIONS.USERS_DELETE)
+                }
+              ]"
+              :show-more="true"
+            />
           </template>
         </Column>
       </AppTable>

@@ -2,25 +2,19 @@
 import { ref, computed, watch } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
-  PlusSignIcon,
   Edit02Icon,
   Delete01Icon,
   Search01Icon,
-  Download01Icon,
-  Shield02Icon,
+  Shield01Icon,
   Alert01Icon,
-  Sorting05Icon,
   CheckmarkCircle01Icon,
-  Loading01Icon,
   MoreHorizontalIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 // PrimeVue Components
-import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import Avatar from 'primevue/avatar'
 
 
 import PermissionsAssignModal from '../../../components/roles/PermissionsAssignModal.vue'
@@ -34,21 +28,22 @@ import { storeToRefs } from 'pinia'
 import { PERMISSIONS } from '../../../utils/permissions'
 
 // Shared Components (Premium UI)
-import AppButton from '../../../components/ui/AppButton.vue'
-import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
-import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
-import AppBadge from '../../../components/ui/AppBadge.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
+import AppInput from '../../../components/ui/AppInput.vue'
 
-const { t, locale } = useI18n()
+// Shared Domain Components
+import PageHeader from '../../../components/shared/PageHeader.vue'
+import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
+import TableActions from '../../../components/shared/TableActions.vue'
+import StatusBadge from '../../../components/shared/StatusBadge.vue'
+import IdCell from '../../../components/shared/IdCell.vue'
+
+const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
-
-const ROLE_SORT_KEYS: Array<keyof Role> = ['id_role', 'nombre', 'descripcion', 'is_admin']
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
@@ -99,12 +94,6 @@ const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const isModalOpen = ref(false)
 const modalMode = ref<'crear' | 'editar'>('crear')
 
-const initialSortKey = typeof route.query.sort === 'string' && ROLE_SORT_KEYS.includes(route.query.sort as keyof Role)
-  ? (route.query.sort as keyof Role)
-  : 'nombre'
-const sortKey = ref<keyof Role>(initialSortKey)
-const sortOrder = ref<'asc' | 'desc'>(route.query.order === 'desc' ? 'desc' : 'asc')
-
 const initialPage = typeof route.query.page === 'string' ? Number.parseInt(route.query.page, 10) : 1
 const currentPage = ref(Number.isFinite(initialPage) && initialPage > 0 ? initialPage : 1)
 const itemsPerPage = 10
@@ -120,17 +109,6 @@ const filteredRoles = computed(() => {
   }
   return result
 })
-
-const toggleSort = (key: keyof Role) => {
-  if (sortKey.value === key) {
-    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortOrder.value = 'asc'
-  }
-  currentPage.value = 1
-}
-
 
 const exportToExcel = () => {
   const dataToExport = filteredRoles.value.map(r => ({
@@ -244,48 +222,47 @@ const deleteRole = () => {
   const id = itemToDelete.value
   roles.value = roles.value.filter(r => r.id_role !== id)
 }
-const onPageChange = (event: any) => {
-  currentPage.value = event.page + 1
-}
 </script>
 
 <template>
-  <div class="p-4 md:p-8 space-y-8 animate-fade-in">
-    <!-- Header -->
-    <AppPageHeader 
+  <div class="p-6 md:p-8 animate-fade-in">
+    <!-- Page Header -->
+    <PageHeader 
       :title="t('roles.title')" 
-      :subtitle="t('roles.subtitle')" 
-      :count="filteredRoles.length"
+      :count="filteredRoles.length" 
+      :icon="Shield01Icon"
     >
       <template #actions>
-        <AppButton 
-          variant="secondary" 
-          :icon="Download01Icon" 
-          @click="exportToExcel"
-        >
-          <span>Exportar</span>
-        </AppButton>
-
-        <AppButton 
+        <button 
           v-if="authStore.hasPermission(PERMISSIONS.ROLES_CREATE)"
-          variant="primary" 
-          :icon="PlusSignIcon" 
           @click="openCreateModal"
+          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
         >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
           <span>{{ t('roles.btnNew') }}</span>
-        </AppButton>
+        </button>
+        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
+          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+        </button>
       </template>
-    </AppPageHeader>
+    </PageHeader>
 
-    <!-- Área de Búsqueda y Filtros Simplificada -->
-    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
-      <div class="flex-1 w-full max-w-2xl">
-        <AppSearch 
-          v-model="searchQuery" 
-          :placeholder="t('roles.searchPlaceholder', 'Buscar por nombre o descripción...')"
-        />
-      </div>
-    </div>
+    <!-- Search Toolbar -->
+    <SearchToolbar v-model="searchQuery" :placeholder="t('roles.searchPlaceholder', 'Buscar...')">
+      <template #extra>
+        <button 
+          @click="exportToExcel"
+          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+      </template>
+    </SearchToolbar>
 
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
@@ -302,75 +279,76 @@ const onPageChange = (event: any) => {
         </template>
         <template #empty-subtitle>{{ t('roles.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
 
+        <Column field="id_role" header="ID" headerStyle="width: 5rem" class="text-left" alignHeader="left">
+          <template #body="{ data }">
+            <IdCell :value="data.id_role" :icon="Shield01Icon" />
+          </template>
+        </Column>
+
         <Column field="nombre" :header="t('roles.colRole')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
-              <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
+              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
             </div>
           </template>
         </Column>
 
         <Column field="descripcion" :header="t('roles.colDesc')">
           <template #body="{ data }">
-            <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{{ data.descripcion }}</p>
+            <p class="text-[13px] font-medium text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">{{ data.descripcion || '-' }}</p>
           </template>
         </Column>
 
         <Column field="is_admin" :header="t('roles.colType')" sortable>
           <template #body="{ data }">
-            <AppBadge 
-              :variant="data.is_admin ? 'glass' : 'glass'"
-              :class="data.is_admin ? '!text-[#3b82f6] !bg-[#3b82f6]/10 !border-[#3b82f6]/20' : '!text-slate-400 !bg-slate-500/5 !border-slate-500/10'"
-            >
-              <div class="flex items-center gap-2">
-                <HugeiconsIcon :icon="Shield02Icon" :size="12" :stroke-width="2.5" />
-                <span>{{ data.is_admin ? $t('roles.typeAdmin') : $t('roles.typeStandard') }}</span>
-              </div>
-            </AppBadge>
+            <StatusBadge 
+              :variant="data.is_admin ? 'primary' : 'default'" 
+              :label="data.is_admin ? $t('roles.typeAdmin') : $t('roles.typeStandard')"
+              :icon="Shield01Icon"
+            />
           </template>
         </Column>
 
-        <Column :header="t('roles.colActions')" headerStyle="width: 14rem">
+        <Column :header="t('roles.colActions')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-3 py-1">
-              <button 
-                v-if="authStore.hasPermission(PERMISSIONS.ROLES_ASSIGN)"
-                @click="openPermissionsModal(data)" 
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                :title="t('roles.btnAssignPermissions')"
-              >
-                <HugeiconsIcon :icon="Shield02Icon" :size="16" :stroke-width="2" />
-              </button>
-              <button 
-                v-if="authStore.hasPermission(PERMISSIONS.ROLES_EDIT)"
-                @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Editar"
-              >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button 
-                v-if="authStore.hasPermission(PERMISSIONS.ROLES_DELETE)"
-                @click="confirmDelete(data.id_role)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Eliminar"
-              >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]">
-                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-              </button>
-            </div>
+            <TableActions
+              :actions="[
+                {
+                  icon: Shield01Icon,
+                  tooltip: t('roles.btnAssignPermissions'),
+                  variant: 'primary',
+                  onClick: () => openPermissionsModal(data),
+                  show: authStore.hasPermission(PERMISSIONS.ROLES_ASSIGN)
+                },
+                {
+                  icon: Edit02Icon,
+                  tooltip: 'Editar',
+                  variant: 'primary',
+                  onClick: () => openEditModal(data),
+                  show: authStore.hasPermission(PERMISSIONS.ROLES_EDIT)
+                },
+                {
+                  icon: Delete01Icon,
+                  tooltip: 'Eliminar',
+                  variant: 'danger',
+                  onClick: () => confirmDelete(data.id_role),
+                  show: authStore.hasPermission(PERMISSIONS.ROLES_DELETE)
+                }
+              ]"
+              :show-more="true"
+            />
           </template>
         </Column>
       </AppTable>
 
-      <!-- Paginación Premium -->
-      <AppPagination 
-        v-model:current-page="currentPage"
-        :total-records="filteredRoles.length"
-        :rows-per-page="itemsPerPage"
-      />
+      <!-- Footer: Paginación -->
+      <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
+        <AppPagination 
+          v-model:current-page="currentPage"
+          :total-records="filteredRoles.length"
+          :rows-per-page="itemsPerPage"
+        />
+      </div>
     </AppTableCard>
 
     <!-- Modales -->
@@ -387,57 +365,45 @@ const onPageChange = (event: any) => {
       :confirmText="modalMode==='crear' ? $t('roles.btnSave') : $t('roles.btnUpdate')"
       :cancelText="$t('roles.btnCancel')"
       @confirm="saveRole"
+      size="lg"
     >
       <template #icon>
-        <HugeiconsIcon :icon="Shield02Icon" :size="20" class="text-[#3b82f6]" />
+        <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+          <HugeiconsIcon :icon="Shield01Icon" :size="20" :stroke-width="2" />
+        </div>
       </template>
       <form @submit.prevent="saveRole" class="space-y-6 relative">
         <!-- Feedback Minimalista -->
         <Transition name="message-fade">
           <div v-if="modalMessage && !isSubmitting"
-               class="flex items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 shadow-sm border mb-6"
+               class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-6"
                :class="{
                  'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
                  'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
                  'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
                }">
-               <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="20" />
-               <HugeiconsIcon v-else :icon="CheckmarkCircle01Icon" :size="20" class="text-[#3b82f6]" />
+               <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+               <HugeiconsIcon v-else :icon="CheckmarkCircle01Icon" :size="18" class="text-[#3b82f6]" />
                {{ modalMessage.text }}
           </div>
         </Transition>
 
-        <div class="space-y-6">
-          <div class="space-y-2">
-            <label for="nombre" class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('roles.formName') }}</label>
-            <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)]">
-              <div class="pl-4 pr-2 text-slate-400 dark:text-slate-600 group-focus-within/input:text-[#3b82f6] transition-colors duration-300">
-                <HugeiconsIcon :icon="Shield02Icon" :size="18" :stroke-width="1.8" />
-              </div>
-              <input
-                id="nombre"
-                type="text"
-                v-model="formData.nombre"
-                required
-                :placeholder="$t('roles.formNamePlaceholder')"
-                class="w-full bg-transparent border-none py-4 pr-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0 transition-all"
-              />
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <label for="descripcion" class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('roles.formDesc') }}</label>
-            <div class="relative flex items-center group/input bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-[18px] overflow-hidden focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/5 transition-all duration-500 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)]">
-              <textarea
-                id="descripcion"
-                v-model="formData.descripcion"
-                required
-                rows="4"
-                :placeholder="$t('roles.formDescPlaceholder')"
-                class="w-full bg-transparent border-none p-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 placeholder-slate-300 dark:placeholder-slate-700 focus:outline-none focus:ring-0 transition-all resize-none"
-              ></textarea>
-            </div>
-          </div>
+        <div class="space-y-5">
+          <AppInput 
+            v-model="formData.nombre" 
+            :label="$t('roles.formName')" 
+            :icon="Shield01Icon" 
+            :placeholder="$t('roles.formNamePlaceholder')" 
+            required 
+          />
+          <AppInput 
+            v-model="formData.descripcion" 
+            :label="$t('roles.formDesc')" 
+            :icon="Shield01Icon" 
+            type="textarea" 
+            :placeholder="$t('roles.formDescPlaceholder')" 
+            required 
+          />
         </div>
       </form>
     </AppModal>
@@ -481,5 +447,3 @@ const onPageChange = (event: any) => {
   animation: fadeInUp 0.3s ease-out forwards;
 }
 </style>
-
-

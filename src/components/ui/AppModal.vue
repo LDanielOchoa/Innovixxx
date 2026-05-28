@@ -14,25 +14,27 @@
               class="inline-block align-bottom bg-slate-50/95 dark:bg-[#1A1D24]/95 backdrop-blur-2xl rounded-2xl text-left overflow-visible shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_40px_rgba(0,0,0,0.4)] transform transition-all sm:my-8 sm:align-middle w-full border border-slate-200/80 dark:border-white/10 relative z-[101]"
               :style="{ maxWidth: modalMaxWidth }"
             >
+              <!-- Top Bar Glow (sutil) -->
+              <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#5da6fc]/50 to-transparent rounded-t-2xl z-20"></div>
               
               <!-- Header -->
-              <div class="bg-transparent px-4 sm:px-6 py-5 border-b border-slate-200/60 dark:border-white/5 flex justify-between items-center rounded-t-2xl">
+              <div class="bg-transparent px-4 sm:px-6 py-5 border-b border-slate-200/60 dark:border-white/5 flex justify-between items-center rounded-t-2xl relative z-10">
                 <h3 class="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2 tracking-tight" id="modal-title">
                   <slot name="icon"></slot>
                   {{ title }}
                 </h3>
-                <button @click="close" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-xl transition-all duration-200 active:scale-95">
+                <button @click="close" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-xl transition-all duration-200 active:scale-95 relative z-30">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
 
               <!-- Body -->
-              <div class="px-4 sm:px-6 pt-5 pb-6">
+              <div class="px-4 sm:px-6 pt-5 pb-6 relative z-10">
                 <slot></slot>
               </div>
 
               <!-- Footer -->
-              <div v-if="showFooter" class="bg-slate-100/50 dark:bg-[#0F1115]/50 px-4 sm:px-6 py-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row gap-3 rounded-b-2xl">
+              <div v-if="showFooter" class="bg-slate-100/50 dark:bg-[#0F1115]/50 px-4 sm:px-6 py-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col sm:flex-row gap-3 rounded-b-2xl relative z-10">
                 <slot name="footer">
                   <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
                     <button type="button" @click="close" class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98]">

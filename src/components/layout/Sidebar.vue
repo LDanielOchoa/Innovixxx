@@ -37,6 +37,12 @@ const authStore = useAuthStore()
 const groupStore = useGroupStore()
 
 const showProfileModal = ref(false)
+const isProfileMenuOpen = ref(false)
+
+const openMyProfile = () => {
+  showProfileModal.value = true
+  isProfileMenuOpen.value = false
+}
 
 onMounted(() => {
   const savedState = localStorage.getItem('sidebarExpanded')
@@ -188,7 +194,7 @@ const cerrarSesion = () => {
   ></div>
 
   <aside
-    class="h-full flex flex-col bg-white/90 dark:bg-[#13161C]/90 backdrop-blur-3xl border-r border-slate-200/70 dark:border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex-shrink-0 z-[150] pt-8 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)]"
+    class="h-full flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex-shrink-0 z-[150] pt-8 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)]"
     :class="[
       isExpanded ? 'md:w-[240px]' : 'md:w-[72px]',
       'fixed md:relative top-0 left-0 w-[240px] md:translate-x-0 h-full',
@@ -198,7 +204,7 @@ const cerrarSesion = () => {
     <!-- Botón Toggle 3D -->
     <button
       @click="toggleSidebar"
-      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[14px] items-center justify-center text-slate-500 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 z-50 cursor-pointer shadow-[0_3px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
+      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 rounded-[14px] items-center justify-center text-slate-500 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 z-50 cursor-pointer shadow-[0_3px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
     >
       <HugeiconsIcon 
         :icon="ArrowRight01Icon"
@@ -255,7 +261,7 @@ const cerrarSesion = () => {
             <div class="flex items-center w-full relative z-10 gap-3">
               <div 
                 class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
-                :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
               >
                 <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
               </div>
@@ -264,7 +270,7 @@ const cerrarSesion = () => {
                 class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap"
                 :class="[
                   isExpanded ? 'opacity-100' : 'opacity-0 w-0',
-                  isActiveRoute(item.route) ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-white'
+                  isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
                 ]"
               >
                 {{ item.text }}
@@ -275,57 +281,100 @@ const cerrarSesion = () => {
       </template>
     </nav>
 
-    <!-- Footer / Perfil -->
-    <div class="p-3 bg-white/70 dark:bg-[#13161C]/40 backdrop-blur-xl border-t border-slate-200/70 dark:border-white/5 space-y-3">
+    <!-- Overlay transparente para cerrar el menú flotante al hacer clic fuera -->
+    <div 
+      v-if="isProfileMenuOpen" 
+      @click="isProfileMenuOpen = false" 
+      class="fixed inset-0 z-[190] bg-transparent cursor-default"
+    ></div>
 
-      <!-- Card Usuario -->
+    <!-- Menú Flotante de Usuario (Dropdown) -->
+    <transition name="fade-slide-right">
+      <div 
+        v-if="isProfileMenuOpen"
+        class="absolute bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-[18px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-1.5 z-[200] transition-all duration-300"
+        :class="[
+          isExpanded 
+            ? 'bottom-[76px] left-3 right-3 w-auto md:left-[248px] md:bottom-4 md:w-[230px]' 
+            : 'bottom-[76px] left-3 right-3 w-auto md:left-[80px] md:bottom-4 md:w-[230px]'
+        ]"
+      >
+        <!-- Header de Usuario -->
+        <div class="flex items-center gap-3 p-3 bg-slate-50/50 dark:bg-white/5 rounded-t-[14px] mb-1.5">
+          <img :src="authStore.userAvatar" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10" />
+          <div class="flex-1 overflow-hidden">
+            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+            <p class="text-[11px] text-[#3b82f6] dark:text-[#5da6fc] font-semibold truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
+          </div>
+        </div>
+
+        <!-- Opciones del Menú -->
+        <div class="space-y-1">
+          <button 
+            @click="openMyProfile"
+            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
+          >
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
+              <HugeiconsIcon :icon="User02Icon" :size="15" />
+            </div>
+            <span>{{ $t('sidebar.menu.myProfile') || 'Mi Perfil' }}</span>
+          </button>
+
+          <button 
+            @click="themeStore.toggle"
+            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
+          >
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
+              <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="15" />
+            </div>
+            <span>{{ themeStore.isDark ? 'Modo Claro' : 'Modo Oscuro' }}</span>
+          </button>
+
+          <div class="h-px bg-slate-100 dark:bg-white/10 my-1.5"></div>
+
+          <button 
+            @click="cerrarSesion"
+            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-red-600 dark:text-red-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-500/80 border border-transparent hover:border-red-600 transition-all duration-300 text-left active:scale-[0.97] group/opt"
+          >
+            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 group-hover/opt:bg-white/10 group-hover/opt:text-white transition-colors duration-300">
+              <HugeiconsIcon :icon="Logout01Icon" :size="15" />
+            </div>
+            <span>{{ $t('sidebar.menu.logout') || 'Cerrar Sesión' }}</span>
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Footer / Perfil -->
+    <div class="p-3 bg-transparent border-t border-slate-200/70 dark:border-white/5 relative">
       <div class="w-full">
         <button
-          @click="showProfileModal = true"
-          class="w-full flex items-center gap-3 p-2 rounded-[16px] transition-all duration-300 bg-gradient-to-b from-white to-slate-50/90 dark:from-[#20242D]/80 dark:to-[#13161C]/80 border border-slate-200 dark:border-white/10 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/50 active:scale-[0.98] group/user shadow-[0_4px_12px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,1)] dark:shadow-[0_4px_15px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_8px_25px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,1)] dark:hover:shadow-[0_10px_30px_rgba(59,130,246,0.15),inset_0_1px_0_rgba(255,255,255,0.1)] active:shadow-[inset_0_4px_10px_rgba(0,0,0,0.05)] dark:active:shadow-[inset_0_6px_15px_rgba(0,0,0,0.4)] active:translate-y-[2px] relative overflow-hidden"
+          @click="isProfileMenuOpen = !isProfileMenuOpen"
+          class="w-full flex items-center gap-3 p-2 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none"
           :class="isExpanded ? '' : 'justify-center p-0 w-10 h-10 mx-auto'"
         >
-          <!-- Glass Shimmer Effect -->
-          <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 dark:via-white/10 to-transparent group-hover/user:animate-[shimmer_1.5s_ease-in-out]"></div>
-
-          <div class="w-10 h-10 flex items-center justify-center shrink-0 relative">
-            <div class="absolute inset-0 bg-[#3b82f6] blur-xl rounded-full opacity-0 group-hover/user:opacity-50 transition-opacity duration-500"></div>
-            <img :src="authStore.userAvatar" class="w-10 h-10 rounded-[12px] object-cover border-2 border-white dark:border-[#1A1D24] shadow-[0_4px_10px_rgba(0,0,0,0.1)] dark:shadow-[0_4px_10px_rgba(0,0,0,0.5)] relative z-10 transition-transform duration-500 group-hover/user:scale-110" />
-          </div>
+          <!-- Avatar -->
+          <img 
+            :src="authStore.userAvatar" 
+            class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300"
+            :class="!isExpanded && isProfileMenuOpen ? 'ring-2 ring-[#3b82f6] dark:ring-[#5da6fc]' : ''"
+          />
           
+          <!-- Info -->
           <div 
-            class="flex-1 text-left transition-all duration-500 overflow-hidden whitespace-nowrap relative z-10"
-            :class="isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4 w-0 hidden'"
+            v-if="isExpanded"
+            class="flex-1 text-left overflow-hidden whitespace-nowrap"
           >
-            <p class="text-[12px] font-black text-slate-800 dark:text-white truncate tracking-tight mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
-            <div class="flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] shadow-[0_0_8px_rgba(59,130,246,0.8)] animate-pulse"></span>
-              <p class="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] truncate">{{ groupStore.selectedGroup.nombre || authStore.userData.grupo || $t('sidebar.defaultGroup') }}</p>
-            </div>
+            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
           </div>
-          
-          <div v-if="isExpanded" class="w-7 h-7 rounded-[10px] bg-slate-100 dark:bg-[#1A1D24] flex items-center justify-center text-slate-500 dark:text-slate-500 group-hover/user:bg-[#3b82f6] group-hover/user:text-white group-hover/user:shadow-[0_4px_10px_rgba(59,130,246,0.3)] transition-all duration-300 relative z-10 border border-slate-200 dark:border-white/5 shadow-inner">
-            <HugeiconsIcon :icon="Settings02Icon" :size="14" class="group-hover/user:rotate-90 transition-transform duration-500" />
+
+          <!-- Selector Icon -->
+          <div v-if="isExpanded" class="text-slate-400 dark:text-slate-500">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
+            </svg>
           </div>
-        </button>
-      </div>
-
-      <!-- Controles Rápidos -->
-      <div class="flex gap-2" :class="isExpanded ? 'flex-row' : 'flex-col items-center'">
-        <button
-          @click="themeStore.toggle"
-          class="h-10 rounded-[14px] bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 shrink-0 hover:bg-slate-50 dark:hover:bg-white/10 shadow-[0_4px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[4px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
-          :class="isExpanded ? 'flex-1' : 'w-10'"
-        >
-          <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="18" :stroke-width="2" />
-        </button>
-
-        <button
-          @click="cerrarSesion"
-          class="h-10 rounded-[14px] bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white dark:hover:text-white transition-all duration-200 shrink-0 hover:bg-red-500 hover:border-red-600 dark:hover:bg-red-500 dark:hover:border-red-600 shadow-[0_4px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] hover:shadow-[0_4px_0_#dc2626,0_8px_20px_rgba(239,68,68,0.4)] dark:hover:shadow-[0_4px_0_#991b1b,0_8px_25px_rgba(239,68,68,0.3)] active:translate-y-[4px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] hover:active:shadow-[0_0px_0_#dc2626,0_2px_5px_rgba(239,68,68,0.4)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)] dark:hover:active:shadow-[0_0px_0_#991b1b,0_2px_5px_rgba(239,68,68,0.3)]"
-          :class="isExpanded ? 'flex-1' : 'w-10'"
-        >
-          <HugeiconsIcon :icon="Logout01Icon" :size="18" :stroke-width="2" />
         </button>
       </div>
     </div>
@@ -366,6 +415,20 @@ aside {
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
+}
+
+/* Transición del menú flotante hacia la derecha */
+.fade-slide-right-enter-active,
+.fade-slide-right-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fade-slide-right-enter-from {
+  opacity: 0;
+  transform: translateX(-12px) scale(0.95);
+}
+.fade-slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(-12px) scale(0.95);
 }
 </style>
 

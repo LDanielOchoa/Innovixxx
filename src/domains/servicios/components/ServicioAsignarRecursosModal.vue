@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -36,7 +36,6 @@ import type {
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
-import AppButton from '../../../components/ui/AppButton.vue'
 
 const groupStore = useGroupStore()
 
@@ -47,11 +46,11 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:isOpen', 'assigned'])
 
-// Estados de carga e inicialización
+// Estados de carga e inicializaciÃ³n
 const isInitializing = ref(true)
 const saving = ref(false)
 const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' } | null>(null)
+const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 // Datos maestros cargados desde la API
 const rutas = ref<RutaSimple[]>([])
@@ -73,7 +72,7 @@ const modoFin = ref('1')
 const nivelRiesgo = ref('1')
 const alcanceNacional = ref('1')
 
-// Selecciones múltiples de recursos
+// Selecciones mÃºltiples de recursos
 const selectedVehiculosIds = ref<string[]>([])
 const selectedHardwareIds = ref<string[]>([])
 const selectedEscoltasIds = ref<string[]>([])
@@ -81,24 +80,24 @@ const selectedEscoltasIds = ref<string[]>([])
 // Panel activo: 'vehiculos' | 'hardware' | 'escoltas' | null
 const panelActivo = ref<'vehiculos' | 'hardware' | 'escoltas' | null>(null)
 
-// Refs de los botones para calcular posición del panel flotante
+// Refs de los botones para calcular posiciÃ³n del panel flotante
 const btnVehiculos = ref<HTMLElement | null>(null)
 const btnHardware = ref<HTMLElement | null>(null)
 const btnEscoltas = ref<HTMLElement | null>(null)
 
-// Posición del panel flotante
+// PosiciÃ³n del panel flotante
 const panelStyle = ref<{ top: string; left: string; height: string }>({
   top: '0px',
   left: '0px',
   height: '400px'
 })
 
-// Consultas de búsqueda local
+// Consultas de bÃºsqueda local
 const searchVehiculosQuery = ref('')
 const searchHardwareQuery = ref('')
 const searchEscoltasQuery = ref('')
 
-// Opciones estáticas para selectores simples
+// Opciones estÃ¡ticas para selectores simples
 const modoFinOptions = [
   { value: '1', label: 'Al llegar' },
   { value: '2', label: 'Al descargar' }
@@ -124,7 +123,7 @@ const rutaOptions = computed(() => {
   }))
 })
 
-// Filtrado reactivo de vehículos por búsqueda
+// Filtrado reactivo de vehÃ­culos por bÃºsqueda
 const filteredVehiculos = computed(() => {
   const q = searchVehiculosQuery.value.toLowerCase().trim()
   if (!q) return vehiculos.value
@@ -135,7 +134,7 @@ const filteredVehiculos = computed(() => {
   )
 })
 
-// Filtrado reactivo de hardware por búsqueda
+// Filtrado reactivo de hardware por bÃºsqueda
 const filteredHardware = computed(() => {
   const q = searchHardwareQuery.value.toLowerCase().trim()
   if (!q) return hardware.value
@@ -145,7 +144,7 @@ const filteredHardware = computed(() => {
   )
 })
 
-// Filtrado reactivo de escoltas por búsqueda
+// Filtrado reactivo de escoltas por bÃºsqueda
 const filteredEscoltas = computed(() => {
   const q = searchEscoltasQuery.value.toLowerCase().trim()
   if (!q) return escoltas.value
@@ -155,7 +154,7 @@ const filteredEscoltas = computed(() => {
   )
 })
 
-// Calcula la posición del panel al lado derecho del modal usando el botón disparador
+// Calcula la posiciÃ³n del panel al lado derecho del modal usando el botÃ³n disparador
 const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
   if (!btnRef) return
 
@@ -211,7 +210,16 @@ const cerrarPanel = () => {
   panelActivo.value = null
 }
 
-// Escuchador del estado del modal para cargar datos dinámicos al abrirse
+const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
+  modalMessage.value = { text, type }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (modalMessage.value?.text === text) modalMessage.value = null
+    }, 4000)
+  }
+}
+
+// Escuchador del estado del modal para cargar datos dinÃ¡micos al abrirse
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
@@ -284,7 +292,7 @@ watch(() => props.isOpen, async (isOpen) => {
   }
 })
 
-// Métodos de selección múltiple interactiva
+// MÃ©todos de selecciÃ³n mÃºltiple interactiva
 const selectVehiculo = (id: string) => {
   const index = selectedVehiculosIds.value.indexOf(id)
   if (index > -1) {
@@ -395,7 +403,7 @@ const handleClickOutside = (event: MouseEvent) => {
   panelActivo.value = null
 }
 
-// Recalcula posición del panel al redimensionar ventana
+// Recalcula posiciÃ³n del panel al redimensionar ventana
 const handleResize = () => {
   if (!panelActivo.value) return
   const refMap = {
@@ -417,17 +425,17 @@ onUnmounted(() => {
   if (copyTimeout) clearTimeout(copyTimeout)
 })
 
-// Guardar y enviar la asignación de recursos a la API
+// Guardar y enviar la asignaciÃ³n de recursos a la API
 const handleAsignar = async () => {
   if (saving.value) return
 
   if (!groupStore.selectedGroup?.id) {
-    modalMessage.value = { text: 'Seleccione un grupo válido', type: 'error' }
+    modalMessage.value = { text: 'Seleccione un grupo vÃ¡lido', type: 'error' }
     return
   }
 
   if (!props.servicio?.id_servicio) {
-    modalMessage.value = { text: 'El servicio seleccionado es inválido', type: 'error' }
+    modalMessage.value = { text: 'El servicio seleccionado es invÃ¡lido', type: 'error' }
     return
   }
 
@@ -442,7 +450,7 @@ const handleAsignar = async () => {
   }
 
   if (selectedVehiculosIds.value.length === 0) {
-    modalMessage.value = { text: 'Debe seleccionar al menos un vehículo', type: 'error' }
+    modalMessage.value = { text: 'Debe seleccionar al menos un vehÃ­culo', type: 'error' }
     return
   }
 
@@ -482,7 +490,7 @@ const handleAsignar = async () => {
     }
   } catch (error: any) {
     console.error('Error en asignarRecursosServicioApi:', error)
-    modalMessage.value = { text: error.message || 'Error de conexión con el servidor.', type: 'error' }
+    modalMessage.value = { text: error.message || 'Error de conexiÃ³n con el servidor.', type: 'error' }
   } finally {
     saving.value = false
   }
@@ -497,18 +505,23 @@ const handleClose = () => {
   <AppModal
     :is-open="isOpen"
     @update:is-open="handleClose"
+    @close="handleClose"
+    @confirm="handleAsignar"
     title="Asignar Recursos al Servicio"
+    :confirm-text="'Confirmar AsignaciÃ³n'"
     size="xl"
-    :show-footer="false"
+    :show-footer="!isSuccess && !isInitializing"
   >
     <template #icon>
-      <HugeiconsIcon :icon="CpuIcon" :size="20" class="text-[#3b82f6]" />
+      <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+        <HugeiconsIcon :icon="CpuIcon" :size="20" :stroke-width="2" />
+      </div>
     </template>
 
     <div class="flex flex-col gap-5 relative p-1">
       <!-- PANTALLA DE CARGA GLOBAL -->
       <Transition name="fade">
-        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-[#13161C]/80 backdrop-blur-md rounded-[24px] transition-all duration-300">
+        <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
           <div class="relative">
             <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
@@ -524,24 +537,23 @@ const handleClose = () => {
         </div>
       </Transition>
 
-      <!-- SKELETON CARGANDO INICIALIZACIÓN -->
-      <div v-if="isInitializing" class="space-y-6 animate-pulse p-4">
-        <div class="space-y-3">
-          <div class="h-2 w-16 bg-white/5 rounded-full"></div>
-          <div class="h-12 w-full bg-white/5 rounded-xl"></div>
-        </div>
-        <div class="grid grid-cols-4 gap-4">
+      <!-- SKELETON CARGANDO INICIALIZACIÃ“N -->
+      <div v-if="isInitializing" class="space-y-6 animate-pulse p-2">
+        <div class="grid grid-cols-2 gap-4">
           <div v-for="i in 4" :key="i" class="space-y-3">
-            <div class="h-2 w-20 bg-white/5 rounded-full"></div>
-            <div class="h-12 w-full bg-white/5 rounded-xl"></div>
+            <div class="h-2 w-20 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+            <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
           </div>
         </div>
-        <div class="grid grid-cols-3 gap-6 pt-4">
-          <div v-for="i in 3" :key="i" class="h-32 w-full bg-white/5 rounded-xl"></div>
+        <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
+          <div class="h-2 w-24 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+          <div class="grid grid-cols-3 gap-4">
+            <div v-for="i in 3" :key="i" class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
+          </div>
         </div>
       </div>
 
-      <!-- VISTA DE ÉXITO AL ASIGNAR -->
+      <!-- VISTA DE Ã‰XITO AL ASIGNAR -->
       <Transition name="fade-slide" mode="out-in">
         <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
           <div class="relative group mb-2">
@@ -550,60 +562,49 @@ const handleClose = () => {
               <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
             </div>
           </div>
-          <h3 class="text-xl font-black text-white tracking-tight">Recursos Asignados Correctamente</h3>
-          <p class="text-[13px] text-slate-400 max-w-[320px]">
-            Los vehículos, hardware y escoltas han sido programados para este servicio.
+          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Recursos Asignados Correctamente</h3>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
+            Los vehÃ­culos, hardware y escoltas han sido programados para este servicio.
           </p>
           <div class="pt-4">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
+            <button
+              @click="handleClose"
+              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
+            >
+              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
               Cerrar Ventana
-            </AppButton>
+            </button>
           </div>
         </div>
 
-        <!-- FORMULARIO DE ASIGNACIÓN -->
+        <!-- FORMULARIO DE ASIGNACIÃ“N -->
         <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <!-- Tarjeta de Contenedor Principal -->
-          <div class="modal-card space-y-8 bg-gradient-to-b from-[#1A1D24]/90 to-[#0F1115]/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[24px] border border-white/10 shadow-[0_15px_50px_rgba(0,0,0,0.4)] relative group/form overflow-visible">
-            <!-- Brillo de ambiente -->
-            <div class="absolute -top-24 -right-24 w-48 h-48 bg-[#3b82f6]/5 rounded-full blur-3xl pointer-events-none"></div>
-
-            <!-- Cabecera de Datos Generales -->
-            <div class="flex items-center gap-3 relative z-10 border-b border-white/5 pb-5">
-              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                <HugeiconsIcon :icon="Route01Icon" :size="20" class="drop-shadow-sm" />
-              </div>
-              <div>
-                <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Datos Operativos del Servicio</h3>
-                <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asignar parámetros de inicio, ruta y modos finales.</p>
-              </div>
+          <!-- Alertas -->
+          <Transition name="message-fade">
+            <div v-if="modalMessage"
+                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
+                 :class="{
+                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
+                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
+                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+                 }">
+              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
+              {{ modalMessage.text }}
             </div>
+          </Transition>
 
-            <!-- Alertas de Validación / Error -->
-            <Transition name="fade">
-              <div v-if="modalMessage"
-                   class="flex items-center gap-2.5 p-3.5 rounded-[14px] text-[12px] font-bold border animate-fade-in-up relative z-10"
-                   :class="modalMessage.type === 'error'
-                     ? 'bg-gradient-to-r from-red-500/10 to-red-500/5 text-red-400 border-red-500/20'
-                     : 'bg-gradient-to-r from-[#3b82f6]/10 to-[#3b82f6]/5 text-[#5da6fc] border-[#3b82f6]/20'">
-                <HugeiconsIcon :icon="modalMessage.type === 'error' ? Alert01Icon : Tick01Icon" :size="16" />
-                {{ modalMessage.text }}
-              </div>
-            </Transition>
+          <div class="space-y-5">
+            <AppSelect
+              v-model="selectedRutaId"
+              label="Ruta de Viaje"
+              :placeholder="loadingRutas ? 'Cargando rutas...' : 'Seleccione una ruta de destino'"
+              :icon="Route01Icon"
+              :options="rutaOptions"
+              :disabled="loadingRutas"
+            />
 
-            <div class="space-y-5 relative z-10 modal-form-fields">
-              <!-- Selección de Ruta -->
-              <AppSelect
-                v-model="selectedRutaId"
-                label="Ruta de Viaje"
-                :placeholder="loadingRutas ? 'Cargando rutas...' : 'Seleccione una ruta de destino'"
-                :icon="Route01Icon"
-                :options="rutaOptions"
-                :disabled="loadingRutas"
-              />
-
-              <!-- Fila 1: Fecha y Hora -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <AppInput
                   v-model="fechaInicio"
                   type="date"
@@ -625,7 +626,7 @@ const handleClose = () => {
                 <AppSelect
                   v-model="modoFin"
                   label="Modo Fin"
-                  placeholder="Modo de Finalización"
+                  placeholder="Modo de FinalizaciÃ³n"
                   :icon="Clock01Icon"
                   :options="modoFinOptions"
                 />
@@ -646,27 +647,27 @@ const handleClose = () => {
               </div>
             </div>
 
-            <!-- SECCIÓN: SELECTORES DE RECURSOS -->
+            <!-- SECCIÃ“N: SELECTORES DE RECURSOS -->
             <div class="pt-6 border-t border-white/5 space-y-5">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
                   <HugeiconsIcon :icon="CpuIcon" :size="20" class="drop-shadow-sm" />
                 </div>
                 <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Asignación de Recursos</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehículos, hardware de rastreo y escoltas de seguridad.</p>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">AsignaciÃ³n de Recursos</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehÃ­culos, hardware de rastreo y escoltas de seguridad.</p>
                 </div>
-              </div>
+        </div>
 
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
 
-                <!-- 1. VEHÍCULOS -->
+                <!-- 1. VEHÃCULOS -->
                 <div class="space-y-2">
                   <label
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="panelActivo === 'vehiculos' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
-                    Vehículos Disponibles
+                    VehÃ­culos Disponibles
                   </label>
                   <button
                     ref="btnVehiculos"
@@ -700,7 +701,7 @@ const handleClose = () => {
                         </template>
                         <template v-else>
                           <div class="badge-recurso">
-                            <span>{{ selectedVehiculosIds.length }} vehículos</span>
+                            <span>{{ selectedVehiculosIds.length }} vehÃ­culos</span>
                             <button type="button" @click.stop="clearVehiculos" class="hover:text-red-400 transition-colors shrink-0">
                               <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
                             </button>
@@ -708,7 +709,7 @@ const handleClose = () => {
                         </template>
                       </template>
                       <span v-else class="text-slate-400 text-[13px] font-medium">
-                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehículos' }}
+                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehÃ­culos' }}
                       </span>
                     </div>
                     <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }">
@@ -831,25 +832,14 @@ const handleClose = () => {
                   </button>
                 </div>
 
-              </div>
+                </div>
             </div>
           </div>
-
-          <!-- BOTONES DE ACCIÓN EN EL FOOTER DEL MODAL -->
-          <div class="flex flex-col sm:flex-row gap-3 justify-end pt-2 relative z-10">
-            <AppButton variant="secondary" :icon="Cancel01Icon" @click="handleClose">
-              Cancelar
-            </AppButton>
-            <AppButton variant="primary" :icon="FloppyDiskIcon" :loading="saving" @click="handleAsignar">
-              Confirmar Asignación
-            </AppButton>
-          </div>
-        </div>
       </Transition>
     </div>
   </AppModal>
 
-  <!-- PANEL FLOTANTE DE SELECCIÓN — Teleport fuera del modal -->
+  <!-- PANEL FLOTANTE DE SELECCIÃ“N â€” Teleport fuera del modal -->
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
@@ -876,7 +866,7 @@ const handleClose = () => {
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ panelActivo === 'vehiculos' ? 'Vehículos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Escoltas disponibles' }}
+                {{ panelActivo === 'vehiculos' ? 'VehÃ­culos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Escoltas disponibles' }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
                 {{
@@ -966,7 +956,7 @@ const handleClose = () => {
         <!-- ========== LISTADO ========== -->
         <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
 
-          <!-- Vehículos -->
+          <!-- VehÃ­culos -->
           <template v-if="panelActivo === 'vehiculos'">
             <button
               v-for="v in filteredVehiculos"
@@ -992,7 +982,7 @@ const handleClose = () => {
             </button>
             <div v-if="filteredVehiculos.length === 0" class="panel-empty">
               <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
-              <span>Sin vehículos disponibles</span>
+              <span>Sin vehÃ­culos disponibles</span>
             </div>
           </template>
 
@@ -1045,7 +1035,7 @@ const handleClose = () => {
                   class="text-[10px] font-mono truncate leading-none mt-0.5 transition-colors duration-200"
                   :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-400 font-bold' : 'text-slate-400'"
                 >
-                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado ✓</template>
+                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado âœ“</template>
                   <template v-else>{{ e.celular || 'Sin contacto' }}</template>
                 </span>
               </div>
@@ -1066,7 +1056,7 @@ const handleClose = () => {
             class="panel-confirm-btn"
           >
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
-            Confirmar Selección
+            Confirmar SelecciÃ³n
             ({{
               panelActivo === 'vehiculos' ? selectedVehiculosIds.length :
               panelActivo === 'hardware' ? selectedHardwareIds.length :
@@ -1127,7 +1117,7 @@ const handleClose = () => {
 }
 
 /* =====================================================
-   PANEL FLOTANTE — Estructura
+   PANEL FLOTANTE â€” Estructura
 ===================================================== */
 .panel-flotante-recursos {
   border-radius: 18px;
@@ -1237,7 +1227,7 @@ const handleClose = () => {
 .panel-row--on { background: transparent; }
 .panel-row--on:hover { background: rgba(255,255,255,0.03); }
 
-/* Indicador circular de selección */
+/* Indicador circular de selecciÃ³n */
 .panel-row-dot {
   width: 18px;
   height: 18px;
@@ -1257,7 +1247,7 @@ const handleClose = () => {
   background: #3b82f6;
 }
 
-/* Estado vacío */
+/* Estado vacÃ­o */
 .panel-empty {
   display: flex;
   flex-direction: column;
@@ -1321,6 +1311,22 @@ const handleClose = () => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
   transform: scale(1.03);
+  backdrop-filter: blur(0px);
+}
+.fade-enter-to, .fade-leave-from {
+  opacity: 1;
+  transform: scale(1);
+  backdrop-filter: blur(12px);
+}
+
+.message-fade-enter-from,
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s ease;
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active {
@@ -1331,7 +1337,7 @@ const handleClose = () => {
   transform: translateY(-8px);
 }
 
-/* Animación del panel flotante — slide desde el modal + fade */
+/* AnimaciÃ³n del panel flotante â€” slide desde el modal + fade */
 .panel-flotante-enter-active {
   transition:
     opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
@@ -1342,7 +1348,7 @@ const handleClose = () => {
     opacity 0.18s cubic-bezier(0.4, 0, 1, 1),
     transform 0.18s cubic-bezier(0.4, 0, 1, 1);
 }
-/* el panel viene de la izquierda (desde el modal) hacia su posición */
+/* el panel viene de la izquierda (desde el modal) hacia su posiciÃ³n */
 .panel-flotante-enter-from {
   opacity: 0;
   transform: translateX(-16px);

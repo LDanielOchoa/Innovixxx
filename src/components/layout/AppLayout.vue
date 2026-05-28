@@ -11,7 +11,7 @@ const { isPanelOpen } = useVehiculosServicioPanel()
 
 <template>
   <div
-    class="bg-transparent dark:bg-transparent font-sans text-slate-700 dark:text-slate-300 h-screen flex overflow-hidden relative selection:bg-[#60a5fa]/30 dark:selection:bg-[#5da6fc]/30 selection:text-white"
+    class="bg-white dark:bg-[#13161C] font-sans text-slate-700 dark:text-slate-300 h-screen flex overflow-hidden relative selection:bg-[#60a5fa]/30 dark:selection:bg-[#5da6fc]/30 selection:text-white"
   >
     <!-- Grid de Fondo Tecnológico HUD -->
     <div
@@ -36,7 +36,7 @@ const { isPanelOpen } = useVehiculosServicioPanel()
       <Sidebar v-show="!isPanelOpen" />
 
       <!-- Panel de Contenido Principal -->
-      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-transparent">
+      <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-white dark:bg-[#13161C]">
         <!-- Header — también se oculta -->
         <Header v-show="!isPanelOpen" />
 
@@ -49,7 +49,7 @@ const { isPanelOpen } = useVehiculosServicioPanel()
               :reset-key="route.path"
             >
               <Transition name="page">
-                <div :key="route.path" class="w-full min-h-full flex flex-col bg-transparent">
+                <div :key="route.path" class="w-full min-h-full flex flex-col bg-white dark:bg-[#13161C]">
                   <component :is="Component" />
                 </div>
               </Transition>

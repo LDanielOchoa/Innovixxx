@@ -1,6 +1,7 @@
 export const headerMessages = {
   es: {
     welcome: 'Bienvenido',
+    workToday: '¿En qué deseas trabajar hoy?',
     availableGroups: 'Grupos Disponibles',
     syncing: 'Sincronizando...',
     syncData: 'Sincronizar Datos',
@@ -14,6 +15,7 @@ export const headerMessages = {
   },
   en: {
     welcome: 'Welcome',
+    workToday: 'What would you like to work on today?',
     availableGroups: 'Available Groups',
     syncing: 'Syncing...',
     syncData: 'Sync Data',

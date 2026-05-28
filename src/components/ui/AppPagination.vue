@@ -1,63 +1,82 @@
 <template>
-  <div class="px-6 py-4 flex items-center justify-between w-full gap-4 flex-wrap border-t border-slate-100 dark:border-white/5 bg-slate-50/20 dark:bg-white/[0.01] min-h-[64px]">
-    <!-- Contador de resultados -->
-    <div class="text-[13px] font-medium text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-      <span>Mostrando</span>
-      <span class="text-slate-900 dark:text-white font-black">{{ Math.min(totalRecords, (currentPage - 1) * rowsPerPage + 1) }}</span>
-      <span>a</span>
-      <span class="text-slate-900 dark:text-white font-black">{{ Math.min(totalRecords, currentPage * rowsPerPage) }}</span>
-      <span>de</span>
-      <span class="text-[#3b82f6] dark:text-[#5da6fc] font-black">{{ totalRecords }}</span>
-      <span>resultados</span>
+  <div class="px-5 py-4 flex items-center justify-between w-full gap-4 flex-wrap min-h-[64px]">
+    <!-- Left: Showing results -->
+    <div class="text-[12px] font-medium text-slate-500 dark:text-slate-400">
+      Mostrando 
+      <span class="font-bold text-slate-700 dark:text-slate-200">{{ Math.min(totalRecords, (currentPage - 1) * rowsPerPage + 1) }}</span>
+      -
+      <span class="font-bold text-slate-700 dark:text-slate-200">{{ Math.min(totalRecords, currentPage * rowsPerPage) }}</span>
+      de 
+      <span class="font-bold text-slate-700 dark:text-slate-200">{{ totalRecords }}</span>
+      resultados
     </div>
 
-    <!-- Controles de paginación -->
-    <div class="flex items-center gap-1.5" v-if="totalPages >= 1">
-      <!-- Anterior -->
-      <button
-        @click="$emit('update:currentPage', currentPage - 1)"
-        :disabled="currentPage <= 1"
-        class="h-9 px-3 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)] disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
-      >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" />
-      </button>
-
-      <!-- Páginas numeradas (sm+) -->
-      <div class="hidden sm:flex items-center gap-1.5">
-        <template v-for="page in pageRange" :key="page">
-          <span v-if="page === '...'" class="h-8 w-6 flex items-center justify-center text-slate-400 dark:text-slate-500 text-[13px] font-bold select-none">…</span>
-          <button
-            v-else
-            @click="$emit('update:currentPage', page as number)"
-            class="h-9 min-w-[2.25rem] px-2.5 flex items-center justify-center rounded-xl text-[13px] font-black transition-all duration-200 active:scale-95"
-            :class="currentPage === page
-              ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border border-[#2563eb] dark:border-[#1d4ed8] shadow-[0_3px_0_#2563eb,0_6px_12px_rgba(59,130,246,0.3)] dark:shadow-[0_3px_0_#1d4ed8,0_6px_15px_rgba(59,130,246,0.2)] active:translate-y-[3px] active:shadow-none'
-              : 'bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-none'"
+    <!-- Right: Controls -->
+    <div class="flex items-center gap-4">
+      <!-- Rows Per Page Custom Dropdown -->
+      <div class="relative">
+        <button 
+          @click="isDropdownOpen = !isDropdownOpen"
+          class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115]/50 border border-slate-200/50 dark:border-white/5 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:border-[#3b82f6]/50 transition-all cursor-pointer min-w-[60px] justify-between"
+        >
+          <span>{{ rowsPerPage }}</span>
+          <svg 
+            class="w-3 h-3 text-slate-400 transition-transform duration-200" 
+            :class="{ 'rotate-180': isDropdownOpen }"
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor" 
+            stroke-width="2"
           >
-            {{ page }}
-          </button>
-        </template>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+
+        <!-- Dropdown Menu -->
+        <Transition name="dropdown-fade">
+          <div 
+            v-if="isDropdownOpen"
+            class="absolute bottom-full left-0 mb-2 w-full bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/[0.08] rounded-xl shadow-lg dark:shadow-[0_10px_40px_rgba(0,0,0,0.4)] overflow-hidden z-50"
+          >
+            <button
+              v-for="option in [rowsPerPage, rowsPerPage * 2, rowsPerPage * 4]"
+              :key="option"
+              @click="selectOption(option)"
+              class="w-full px-4 py-2.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-[#3b82f6]/10 dark:hover:bg-[#3b82f6]/10 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors duration-150"
+              :class="{ 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]': rowsPerPage === option }"
+            >
+              {{ option }}
+            </button>
+          </div>
+        </Transition>
       </div>
 
-      <!-- Página actual (mobile) -->
-      <span class="sm:hidden h-8 px-3 flex items-center justify-center rounded-lg border border-[#3b82f6]/30 dark:border-[#5da6fc]/30 bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[13px] font-bold text-[#3b82f6] dark:text-[#5da6fc]">
-        {{ currentPage }} / {{ totalPages }}
-      </span>
+      <!-- Previous & Next -->
+      <div class="flex items-center gap-1">
+        <button
+          @click="$emit('update:currentPage', currentPage - 1)"
+          :disabled="currentPage <= 1"
+          class="h-8 px-3 flex items-center gap-1.5 rounded-lg text-[12px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+        >
+          <HugeiconsIcon :icon="ArrowLeft01Icon" :size="14" />
+          <span>Previous</span>
+        </button>
 
-      <!-- Siguiente -->
-      <button
-        @click="$emit('update:currentPage', currentPage + 1)"
-        :disabled="currentPage >= totalPages"
-        class="h-9 px-3 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)] disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
-      >
-        <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" />
-      </button>
+        <button
+          @click="$emit('update:currentPage', currentPage + 1)"
+          :disabled="currentPage >= totalPages"
+          class="h-8 px-3 flex items-center gap-1.5 rounded-lg text-[12px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed border border-transparent hover:border-slate-200 dark:hover:border-white/10"
+        >
+          <span>Next</span>
+          <HugeiconsIcon :icon="ArrowRight01Icon" :size="14" />
+        </button>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
 
@@ -67,32 +86,48 @@ const props = defineProps<{
   rowsPerPage: number
 }>()
 
-defineEmits(['update:currentPage'])
+const emit = defineEmits(['update:currentPage', 'update:rowsPerPage'])
 
 const totalPages = computed(() => Math.max(1, Math.ceil(props.totalRecords / props.rowsPerPage)))
 
-// Smart page range with ellipsis
-const pageRange = computed(() => {
-  const total = totalPages.value
-  const current = props.currentPage
-  const delta = 2
+const isDropdownOpen = ref(false)
 
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
+const selectOption = (value: number) => {
+  emit('update:rowsPerPage', value)
+  isDropdownOpen.value = false
+}
+
+const closeDropdown = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('.relative')) {
+    isDropdownOpen.value = false
   }
+}
 
-  const range: (number | '...')[] = []
-  const left = Math.max(2, current - delta)
-  const right = Math.min(total - 1, current + delta)
+onMounted(() => {
+  document.addEventListener('click', closeDropdown)
+})
 
-  range.push(1)
-  if (left > 2) range.push('...')
-  for (let i = left; i <= right; i++) range.push(i)
-  if (right < total - 1) range.push('...')
-  range.push(total)
-
-  return range
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdown)
 })
 </script>
 
+<style scoped>
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
 
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+.dropdown-fade-enter-to,
+.dropdown-fade-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>

@@ -6,10 +6,10 @@ import * as XLSX from 'xlsx'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Search01Icon,
-  Download01Icon,
-  PlusSignIcon,
   Edit02Icon,
-  Delete01Icon
+  Delete01Icon,
+  ChipIcon,
+  MoreHorizontalIcon
 } from '@hugeicons/core-free-icons'
 
 import {
@@ -22,15 +22,18 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 
-import AppButton from '../../../components/ui/AppButton.vue'
-import AppPageHeader from '../../../components/ui/AppPageHeader.vue'
-import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
+import AppBadge from '../../../components/ui/AppBadge.vue'
 import HardwareFormModal from '../components/HardwareFormModal.vue'
 import Column from 'primevue/column'
+
+// Shared Domain Components
+import PageHeader from '../../../components/shared/PageHeader.vue'
+import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
+import TableActions from '../../../components/shared/TableActions.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -150,44 +153,46 @@ const filteredItems = computed(() => {
 </script>
 
 <template>
-  <div class="p-4 md:p-8 space-y-8 animate-fade-in">
-    <!-- Header -->
-    <AppPageHeader
-      :title="t('hardware.title') || 'Hardware'"
-      :subtitle="`${t('hardware.subtitle') || 'Gestión de dispositivos para'} ${selectedGroup?.nombre || ''}`"
-      :count="filteredItems.length"
+  <div class="p-6 md:p-8 animate-fade-in">
+    <!-- Page Header -->
+    <PageHeader 
+      :title="t('hardware.title')" 
+      :count="filteredItems.length" 
+      :icon="ChipIcon"
     >
       <template #actions>
-        <AppButton
-          variant="secondary"
-          :icon="Download01Icon"
-          @click="exportToExcel"
-        >
-          <span>{{ t('hardware.btnExport') || 'Exportar' }}</span>
-        </AppButton>
-
-        <AppButton
+        <button 
           v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)"
-          variant="primary"
-          :icon="PlusSignIcon"
           @click="openCreateModal"
+          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
         >
-          <span>{{ t('hardware.btnNew') || 'Nuevo Dispositivo' }}</span>
-        </AppButton>
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{{ t('hardware.btnNew') }}</span>
+        </button>
+        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
+          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+        </button>
       </template>
-    </AppPageHeader>
+    </PageHeader>
 
-    <!-- Área de Búsqueda -->
-    <div class="flex flex-col md:flex-row gap-4 items-center mb-8 animate-fade-in">
-      <div class="flex-1 w-full max-w-2xl">
-        <AppSearch
-          v-model="searchQuery"
-          :placeholder="t('hardware.searchPlaceholder') || 'Buscar nombre, serial, IMEI, MAC...'"
-        />
-      </div>
-    </div>
+    <!-- Search Toolbar -->
+    <SearchToolbar v-model="searchQuery" :placeholder="t('hardware.searchPlaceholder')" searchWidth="sm:w-[28rem]">
+      <template #extra>
+        <button 
+          @click="exportToExcel"
+          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+      </template>
+    </SearchToolbar>
 
-    <!-- Contenido Principal: DataTable dentro de Card -->
+    <!-- Table Card -->
     <AppTableCard>
       <AppTable
         :value="filteredItems"
@@ -195,92 +200,89 @@ const filteredItems = computed(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('hardware.noResults') || 'No se encontró hardware.'"
+        :empty-message="t('hardware.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
-        <template #empty-subtitle>{{ t('hardware.noResultsHint') || 'Intenta cambiar el grupo seleccionado o ajusta tu búsqueda.' }}</template>
 
-        <Column field="nombre" header="Dispositivo" sortable>
+        <Column field="nombre" :header="t('hardware.thName', 'Dispositivo')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
-              <span class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight leading-none uppercase">{{ data.nombre || 'Desconocido' }}</span>
-              <span class="text-[11px] text-slate-500 capitalize mt-1">{{ data.descripcion || 'Sin descripción' }}</span>
+              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || 'Desconocido' }}</span>
+              <span class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ data.descripcion || 'Sin descripción' }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="serial" header="Identificadores" sortable>
+        <Column field="serial" :header="t('hardware.thIdentifiers', 'Identificadores')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
-              <span class="text-[12px] font-bold text-emerald-500 dark:text-emerald-400 tracking-wider font-mono">SN: <span class="text-slate-700 dark:text-slate-200">{{ data.serial || '---' }}</span></span>
-              <span class="text-[11px] text-slate-500 font-mono">IMEI: {{ data.imei || '---' }}</span>
-              <span class="text-[11px] text-slate-500 font-mono">MAC: {{ data.mac || '---' }}</span>
+              <span class="text-[12px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wider font-mono">{{ data.serial || '---' }}</span>
+              <span class="text-[11px] text-slate-500 font-mono" v-if="data.imei">IMEI: {{ data.imei }}</span>
+              <span class="text-[11px] text-slate-500 font-mono" v-if="data.mac">MAC: {{ data.mac }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="familia" header="Familia" sortable>
+        <Column field="familia" :header="t('hardware.thFamily', 'Familia')" sortable>
           <template #body="{ data }">
-            <AppBadge variant="glass">
-              <span class="text-slate-600 dark:text-slate-300 font-bold uppercase text-[10px] tracking-wider">
+            <AppBadge variant="primary">
+              <span class="text-[10px] font-semibold uppercase tracking-wider">
                 {{ data.familia || 'Genérico' }}
               </span>
             </AppBadge>
           </template>
         </Column>
 
-        <Column field="estado" header="Estado" sortable>
+        <Column field="estado" :header="t('hardware.thStatus', 'Estado')" sortable>
           <template #body="{ data }">
-            <span class="text-xs font-medium text-slate-600 dark:text-slate-300 uppercase tracking-tight">
+            <span class="text-[13px] font-medium text-slate-600 dark:text-slate-300 uppercase">
               {{ data.estado || '---' }}
             </span>
           </template>
         </Column>
 
-        <Column header="Acciones" class="text-right">
+        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <div class="flex items-center justify-end gap-3">
-              <button
-                v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
-                @click="openEditModal(data)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Editar"
-              >
-                <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2.5" />
-              </button>
-              <button
-                v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)"
-                @click="confirmDelete(data.id_hardware)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:border-red-500/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
-                title="Eliminar"
-              >
-                <HugeiconsIcon :icon="Delete01Icon" :size="16" :stroke-width="2.5" />
-              </button>
-            </div>
+            <TableActions
+              :actions="[
+                {
+                  icon: Edit02Icon,
+                  tooltip: t('common.edit', 'Editar'),
+                  variant: 'primary',
+                  onClick: () => openEditModal(data),
+                  show: authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)
+                },
+                {
+                  icon: Delete01Icon,
+                  tooltip: t('common.delete', 'Eliminar'),
+                  variant: 'danger',
+                  onClick: () => confirmDelete(data.id_hardware),
+                  show: authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)
+                }
+              ]"
+              :show-more="true"
+            />
           </template>
         </Column>
       </AppTable>
 
-      <!-- Paginador -->
-      <AppPagination
-        :totalRecords="filteredItems.length"
-        v-model:currentPage="currentPage"
-        :rowsPerPage="itemsPerPage"
-      />
+      <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
+        <AppPagination
+          :totalRecords="filteredItems.length"
+          v-model:currentPage="currentPage"
+          :rowsPerPage="itemsPerPage"
+        />
+      </div>
     </AppTableCard>
 
     <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
-      :title="t('common.confirmDeleteTitle') || 'Confirmar Eliminación'"
-      :item-name="items.find(i => i.id_hardware === itemToDelete)?.nombre"
+      :title="t('common.confirmDeleteTitle')"
+      :message="t('common.confirmDeleteMsg')"
       @confirm="deleteHardware"
-    >
-      <template #question>
-        {{ t('common.confirmDeleteMsg') || '¿Está seguro de que desea eliminar este registro? Esta acción no se puede deshacer.' }}
-      </template>
-    </AppDeleteConfirm>
+    />
 
     <!-- Modal Crear/Editar Hardware -->
     <HardwareFormModal
@@ -291,10 +293,7 @@ const filteredItems = computed(() => {
   </div>
 </template>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-
+<style scoped>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
