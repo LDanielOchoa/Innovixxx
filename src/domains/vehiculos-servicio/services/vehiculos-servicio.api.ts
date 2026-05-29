@@ -37,3 +37,21 @@ export const deleteVehiculoServicioApi = async (payload: VehiculoServicioDeleteP
     body: JSON.stringify(payload)
   })
 }
+
+export interface VehiculoServicioSimple {
+  id_vehiculo: string
+  placa: string
+  escolta: string
+  tipo: string
+}
+
+export const fetchVehiculosServicioSimpleApi = async (id_grupo: string): Promise<VehiculoServicioSimple[]> => {
+  const data = await apiClient<{ done: boolean; data: VehiculoServicioSimple[] }>(
+    '/api/v1/vehiculo_servicio/listar_simple/',
+    {
+      method: 'POST',
+      body: JSON.stringify({ id_grupo })
+    }
+  )
+  return data.done && Array.isArray(data.data) ? data.data : []
+}

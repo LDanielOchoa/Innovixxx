@@ -23,6 +23,7 @@ import type { ServicioCreatePayload, RutaSimple, VehiculoSimple } from '../types
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -43,8 +44,7 @@ const vehiculos = ref<VehiculoSimple[]>([])
 const loadingRutas = ref(false)
 const loadingVehiculos = ref(false)
 
-const fechaInicio = ref('')
-const horaInicio = ref('')
+const fechaHoraInicio = ref<Date | null>(null)
 
 const selectedVehiculosIds = ref<string[]>([])
 const searchQuery = ref('')
@@ -97,15 +97,15 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
   }
 }
 
-watch([fechaInicio, horaInicio], ([nuevaFecha, nuevaHora]) => {
-  if (nuevaFecha && nuevaHora) {
-    formData.fecha_hora_inicio = `${nuevaFecha} ${nuevaHora}`
-  } else if (nuevaFecha) {
-    formData.fecha_hora_inicio = `${nuevaFecha} 00:00`
-  } else {
-    formData.fecha_hora_inicio = ''
-  }
-})
+const formatFechaHora = (date: Date | null): string => {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const h = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${h}:${min}`
+}
 
 const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
   if (!btnRef) return
@@ -170,8 +170,7 @@ watch(() => props.isOpen, async (isOpen) => {
     panelActivo.value = null
     searchQuery.value = ''
     searchRutasQuery.value = ''
-    fechaInicio.value = ''
-    horaInicio.value = ''
+    fechaHoraInicio.value = null
     formData.id_ruta = ''
     formData.fecha_hora_inicio = ''
     formData.modo_fin = '1'
@@ -283,18 +282,18 @@ const handleCreate = async () => {
     return
   }
 
-  if (!formData.fecha_hora_inicio.trim()) {
-    showMessage(t('common.errorRequiredFields') || 'La fecha y hora de inicio es requerida', 'error')
+  if (!fechaHoraInicio.value) {
+    showMessage('La fecha y hora de inicio es requerida', 'error')
     return
   }
 
   if (!formData.modo_fin.trim()) {
-    showMessage(t('common.errorRequiredFields') || 'El modo fin es requerido', 'error')
+    showMessage('El modo fin es requerido', 'error')
     return
   }
 
   if (selectedVehiculosIds.value.length === 0) {
-    showMessage(t('common.errorRequiredFields') || 'Seleccione al menos un vehículo', 'error')
+    showMessage('Seleccione al menos un vehículo', 'error')
     return
   }
 
@@ -304,7 +303,7 @@ const handleCreate = async () => {
   const payload: ServicioCreatePayload = {
     id_grupo: groupStore.selectedGroup.id,
     id_ruta: formData.id_ruta,
-    fecha_hora_inicio: formData.fecha_hora_inicio.replace('T', ' ').trim(),
+    fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
     modo_fin: parseInt(formData.modo_fin.trim(), 10),
     vehiculos_id: selectedVehiculosIds.value
   }
@@ -425,28 +424,35 @@ const handleClose = () => {
             <!-- Ruta -->
             <div class="space-y-2">
                 <label
-                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                  :class="panelActivo === 'rutas' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300 block"
+                  :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                 >
-                  {{ t('servicios.labelRoute') || 'Ruta de Viaje' }}
+                  Ruta de Viaje
                 </label>
                 <button
                   ref="btnRutas"
                   type="button"
                   @click="abrirPanel('rutas')"
                   :disabled="loadingRutas"
-                  class="selector-btn"
+                  class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                   :class="[
                     loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
-                    panelActivo === 'rutas'
-                      ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                      : 'hover:border-white/15'
+                    panelActivo === 'rutas' ? 'panel-on' : ''
                   ]"
                 >
-                  <div class="text-slate-400 pr-2 shrink-0">
+                  <!-- Borde superior brillante -->
+                  <div 
+                    class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                    :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
+                  ></div>
+
+                  <div 
+                    class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                    :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                  >
                     <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
                   </div>
-                  <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
+                  <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
                     <template v-if="formData.id_ruta">
                       <div class="badge-recurso">
                         <span class="truncate">{{ getRutaLabel(formData.id_ruta) }}</span>
@@ -455,55 +461,48 @@ const handleClose = () => {
                         </button>
                       </div>
                     </template>
-                    <span v-else class="text-slate-400 text-[13px] font-medium">
-                      {{ loadingRutas ? 'Cargando...' : (t('servicios.placeholderRoute') || 'Seleccione una ruta de destino') }}
+                    <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                      {{ loadingRutas ? 'Cargando...' : 'Seleccione una ruta de destino' }}
                     </span>
                   </div>
-                  <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'rutas' }">
+                  <div 
+                    class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                    :class="[
+                      panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                      { 'rotate-180': panelActivo === 'rutas' }
+                    ]"
+                  >
                     <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                   </div>
                 </button>
               </div>
 
               <!-- Fila 1: Fecha y Hora -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <AppInput
-                  v-model="fechaInicio"
-                  type="date"
-                  :label="t('servicios.labelDate') || 'Fecha de Inicio'"
-                  :icon="Calendar01Icon"
-                  class="custom-datetime-input"
-                />
-                <AppInput
-                  v-model="horaInicio"
-                  type="time"
-                  :label="t('servicios.labelTime') || 'Hora de Inicio'"
-                  :icon="Clock01Icon"
-                  class="custom-datetime-input"
-                />
-              </div>
+              <AppDateTimePicker
+                v-model="fechaHoraInicio"
+                label="Fecha y Hora de Inicio"
+                placeholder="Seleccione fecha y hora"
+              />
 
               <!-- Fila 2: Modo Fin -->
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <AppSelect
                   v-model="formData.modo_fin"
-                  :label="t('servicios.labelEndMode') || 'Modo Fin'"
-                  :placeholder="t('servicios.placeholderEndMode') || 'Modo de Finalización'"
+                  label="Modo Fin"
+                  placeholder="Modo de Finalización"
                   :icon="Clock01Icon"
                   :options="modoFinOptions"
                 />
               </div>
-            </div>
-
-            <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
+            </div>            <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
             <div class="pt-6 border-t border-white/5 space-y-5">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
                   <HugeiconsIcon :icon="Car01Icon" :size="20" class="drop-shadow-sm" />
                 </div>
                 <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('servicios.labelVehicles') || 'Asignación de Vehículos' }}</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('servicios.labelVehiclesDesc') || 'Seleccionar vehículos de la flota disponible.' }}</p>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Asignación de Vehículos</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehículos de la flota disponible para este servicio.</p>
                 </div>
               </div>
 
@@ -512,27 +511,34 @@ const handleClose = () => {
                 <div class="space-y-2">
                   <label
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'vehiculos' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                    :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
-                    {{ t('servicios.labelVehiclesAvailable') || 'Vehículos Disponibles' }}
+                    Vehículos Disponibles
                   </label>
                   <button
                     ref="btnVehiculos"
                     type="button"
                     @click="abrirPanel('vehiculos')"
                     :disabled="loadingVehiculos"
-                    class="selector-btn"
+                    class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'vehiculos'
-                        ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                        : 'hover:border-white/15'
+                      panelActivo === 'vehiculos' ? 'panel-on' : ''
                     ]"
                   >
-                    <div class="text-slate-400 pr-2 shrink-0">
+                    <!-- Borde superior brillante -->
+                    <div 
+                      class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                      :class="{ 'opacity-100 left-2 right-2': panelActivo === 'vehiculos' }"
+                    ></div>
+
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                      :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                    >
                       <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" />
                     </div>
-                    <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
+                    <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
                       <template v-if="selectedVehiculosIds.length > 0">
                         <template v-if="selectedVehiculosIds.length <= 2">
                           <div
@@ -555,21 +561,27 @@ const handleClose = () => {
                           </div>
                         </template>
                       </template>
-                      <span v-else class="text-slate-400 text-[13px] font-medium">
-                        {{ loadingVehiculos ? 'Cargando...' : (t('servicios.placeholderVehicles') || 'Seleccione vehículos') }}
+                      <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehículos' }}
                       </span>
                     </div>
-                    <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }">
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                      :class="[
+                        panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                        { 'rotate-180': panelActivo === 'vehiculos' }
+                      ]"
+                    >
                       <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
                 </div>
               </div>
             </div>
-        </div>
-      </Transition>
-    </div>
-  </AppModal>
+          </div>
+        </Transition>
+      </div>
+    </AppModal>
 
   <!-- PANEL FLOTANTE DE SELECCIÓN — Teleport fuera del modal -->
   <Teleport to="body">
@@ -595,13 +607,13 @@ const handleClose = () => {
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ panelActivo === 'rutas' ? (t('servicios.panelRoutesTitle') || 'Rutas disponibles') : (t('servicios.panelVehiclesTitle') || 'Vehículos disponibles') }}
+                {{ panelActivo === 'rutas' ? 'Rutas disponibles' : 'Vehículos disponibles' }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
                 {{
                   panelActivo === 'rutas'
-                    ? `${filteredRutas.length} ${t('servicios.panelRoutesCount') || 'rutas'}`
-                    : `${filteredVehiculos.length} ${t('servicios.panelVehiclesCount') || 'en flota'}`
+                    ? `${filteredRutas.length} rutas`
+                    : `${filteredVehiculos.length} en flota`
                 }}
               </p>
             </div>
@@ -649,7 +661,7 @@ const handleClose = () => {
         <!-- ========== BARRA CONTROL (solo vehiculos) ========== -->
         <div v-if="panelActivo === 'vehiculos'" class="px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-500 dark:text-blue-400">
-            {{ selectedVehiculosIds.length }} {{ t('servicios.panelSelected') || 'seleccionados' }}
+            {{ selectedVehiculosIds.length }} seleccionados
           </span>
           <div class="flex items-center gap-3 text-[10px] font-semibold">
             <button
@@ -657,7 +669,7 @@ const handleClose = () => {
               @click.stop="selectAllVehiculos()"
               class="text-slate-400 hover:text-[#5da6fc] transition-colors"
             >
-              {{ t('servicios.panelAll') || 'Todos' }}
+              Todos
             </button>
             <span class="w-px h-3 bg-white/10"></span>
             <button
@@ -665,13 +677,13 @@ const handleClose = () => {
               @click.stop="clearVehiculos()"
               class="text-slate-400 hover:text-red-400 transition-colors"
             >
-              {{ t('servicios.panelClear') || 'Limpiar' }}
+              Limpiar
             </button>
           </div>
         </div>
 
         <!-- ========== LISTADO ========== -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
+        <div class="flex-1 overflow-y-auto custom-scrollbar py-3 space-y-1">
           <!-- Rutas -->
           <template v-if="panelActivo === 'rutas'">
             <button
@@ -724,7 +736,7 @@ const handleClose = () => {
             </button>
             <div v-if="filteredVehiculos.length === 0" class="panel-empty">
               <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
-              <span>{{ searchQuery ? 'No se encontraron vehículos.' : (t('servicios.noVehiclesAvailable') || 'Sin vehículos disponibles') }}</span>
+              <span>{{ searchQuery ? 'No se encontraron vehículos.' : 'Sin vehículos disponibles' }}</span>
             </div>
           </template>
         </div>
@@ -737,7 +749,7 @@ const handleClose = () => {
             class="panel-confirm-btn"
           >
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
-            {{ panelActivo === 'rutas' ? (t('servicios.panelConfirmRoute') || 'Confirmar Ruta') : (t('servicios.panelConfirm') || 'Confirmar Selección') }}
+            {{ panelActivo === 'rutas' ? 'Confirmar Ruta' : 'Confirmar Selección' }}
             <template v-if="panelActivo === 'rutas' && formData.id_ruta">(1)</template>
             <template v-else-if="panelActivo === 'vehiculos'">({{ selectedVehiculosIds.length }})</template>
           </button>
@@ -757,27 +769,24 @@ const handleClose = () => {
   align-items: center;
   width: 100%;
   min-height: 48px;
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
   padding: 0.5rem 1rem;
   text-align: left;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  overflow: visible;
 }
-.selector-btn:hover {
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+.selector-btn:hover:not(:disabled) {
+  border-color: #cbd5e1 !important;
 }
-.selector-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
+:global(.dark) .selector-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
-.selector-btn.border-\[\#3b82f6\] {
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 4px 16px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+.selector-btn.panel-on {
+  border-color: #3b82f6 !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 0 1px rgba(59,130,246,0.2) !important;
+}
+:global(.dark) .selector-btn.panel-on {
+  border-color: #5da6fc !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2) !important;
 }
 
 .badge-recurso {
@@ -795,7 +804,7 @@ const handleClose = () => {
 
 /* =====================================================
    PANEL FLOTANTE — Estructura
-===================================================== */
+   ===================================================== */
 .panel-flotante-recursos {
   border-radius: 18px;
   background: linear-gradient(180deg, rgba(26,29,36,0.95) 0%, rgba(15,17,21,0.98) 100%);
@@ -830,16 +839,16 @@ const handleClose = () => {
 }
 
 .panel-head-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(59,130,246,0.15);
-  color: #5da6fc;
-  border: 1px solid rgba(59,130,246,0.25);
+  background: rgba(59,130,246,0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59,130,246,0.2);
 }
 
 .panel-close-btn {
@@ -863,15 +872,16 @@ const handleClose = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  padding: 8px 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background: #0f1115;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
 }
 .panel-search-wrap:focus-within {
   border-color: #5da6fc;
-  box-shadow: 0 0 0 3px rgba(93,166,252,0.12);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2);
 }
 
 .panel-search-input {
@@ -889,39 +899,60 @@ const handleClose = () => {
 
 /* Filas del listado */
 .panel-row {
-  width: 100%;
+  width: calc(100% - 24px);
+  margin: 4px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   color: #cbd5e1;
 }
-.panel-row--off:hover { background: rgba(255,255,255,0.04); }
 
-.panel-row--on { background: transparent; }
-.panel-row--on:hover { background: rgba(255,255,255,0.03); }
+.panel-row--off {
+  background: rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.02);
+}
+.panel-row--off:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.panel-row--on {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.panel-row--on:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
 
 /* Indicador circular de selección */
 .panel-row-dot {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .panel-row-dot--off {
-  border: 1.5px solid rgba(100,116,139,0.5);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
 }
 
 .panel-row-dot--on {
   color: #fff;
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 2px 6px rgba(59,130,246,0.4);
 }
 
 /* Estado vacío */
@@ -943,23 +974,25 @@ const handleClose = () => {
 
 .panel-confirm-btn {
   width: 100%;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 10px 16px;
-  border-radius: 11px;
-  font-size: 12px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: #3b82f6;
-  box-shadow: 0 2px 12px rgba(59,130,246,0.35), 0 1px 3px rgba(59,130,246,0.2);
-  transition: all 0.15s ease;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   letter-spacing: 0.01em;
 }
 .panel-confirm-btn:hover {
-  background: #2563eb;
-  box-shadow: 0 4px 16px rgba(59,130,246,0.45);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
 }
 .panel-confirm-btn:active { transform: translateY(1px); }
 

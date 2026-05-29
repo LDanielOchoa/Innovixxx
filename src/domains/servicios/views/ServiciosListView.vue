@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -10,7 +10,8 @@ import {
   CpuIcon,
   CheckmarkCircle01Icon,
   Cancel01Icon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  Route01Icon
 } from '@hugeicons/core-free-icons'
 import { fetchServiciosApi } from '../services/servicios.api'
 import type { Servicio, ServicioListPayload } from '../types/servicio'
@@ -26,12 +27,11 @@ import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import ServicioCreateModal from '../components/ServicioCreateModal.vue'
 import ServicioAsignarRecursosModal from '../components/ServicioAsignarRecursosModal.vue'
+import ServicioCambiarRutaModal from '../components/ServicioCambiarRutaModal.vue'
 import Column from 'primevue/column'
 
-// Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -45,10 +45,40 @@ const itemsPerPage = 10
 const isCreateModalOpen = ref(false)
 const isAsignarModalOpen = ref(false)
 const selectedServicio = ref<Servicio | null>(null)
+const isCambiarRutaModalOpen = ref(false)
+const selectedCambiarRutaServicio = ref<Servicio | null>(null)
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
 
 const openAsignarModal = (servicio: Servicio) => {
+  openMenuId.value = null
   selectedServicio.value = servicio
   isAsignarModalOpen.value = true
+}
+
+const openCambiarRutaModal = (servicio: Servicio) => {
+  openMenuId.value = null
+  selectedCambiarRutaServicio.value = servicio
+  isCambiarRutaModalOpen.value = true
 }
 
 const filtros = ref({
@@ -166,6 +196,11 @@ watch(selectedGroup, async (newGroup) => {
 
 onMounted(() => {
   fetchFiltrosData()
+  document.addEventListener('click', closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
 })
 </script>
 
@@ -312,14 +347,6 @@ onMounted(() => {
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <Column field="id_servicio" :header="t('servicios.thId', 'ID Servicio')" sortable>
-          <template #body="{ data }">
-            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-mono tracking-wider bg-slate-50 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-slate-200/50 dark:border-white/5">
-              {{ data.id_servicio }}
-            </span>
-          </template>
-        </Column>
-
         <Column field="fecha_inicio" :header="t('servicios.thDateStart', 'Fecha Inicio')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-2">
@@ -378,23 +405,44 @@ onMounted(() => {
           </template>
         </Column>
 
-        <Column :header="t('servicios.thActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
+        <Column :header="t('servicios.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: CpuIcon,
-                  tooltip: t('servicios.btnAssign', 'Asignar Recursos'),
-                  variant: 'primary',
-                  onClick: () => openAsignarModal(data),
-                  show: data.estado === 'PRERCARGA'
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(data.id_servicio, $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              @click="openAsignarModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('servicios.btnAssign', 'Asignar Recursos') }}</span>
+            </button>
+            <button
+              @click="openCambiarRutaModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Route01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Cambiar Ruta</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
         <AppPagination
@@ -413,6 +461,12 @@ onMounted(() => {
     <ServicioAsignarRecursosModal
       v-model:is-open="isAsignarModalOpen"
       :servicio="selectedServicio"
+      @assigned="fetchServicios"
+    />
+
+    <ServicioCambiarRutaModal
+      v-model:is-open="isCambiarRutaModalOpen"
+      :servicio="selectedCambiarRutaServicio"
       @assigned="fetchServicios"
     />
   </div>
@@ -451,5 +505,20 @@ select {
 
 :global(.dark) select {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 </style>

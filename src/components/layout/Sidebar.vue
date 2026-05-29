@@ -201,24 +201,10 @@ const cerrarSesion = () => {
       isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
     ]"
   >
-    <!-- Botón Toggle 3D -->
-    <button
-      @click="toggleSidebar"
-      class="hidden md:flex absolute -right-4 top-10 w-9 h-9 bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 rounded-[14px] items-center justify-center text-slate-500 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 z-50 cursor-pointer shadow-[0_3px_0_#e2e8f0,0_4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_4px_15px_rgba(0,0,0,0.4)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:active:shadow-[0_0px_0_#1D1D24,0_2px_5px_rgba(0,0,0,0.4)]"
-    >
-      <HugeiconsIcon 
-        :icon="ArrowRight01Icon"
-        :size="18" 
-        :stroke-width="2.5" 
-        class="transition-transform duration-500" 
-        :class="isExpanded ? 'rotate-180' : 'rotate-0'" 
-      />
-    </button>
-
     <!-- Header / Logo -->
-    <div class="w-full px-5 mb-6 h-[40px] shrink-0 flex items-center justify-center">
+    <div class="w-full px-5 mb-6 h-[40px] shrink-0 flex items-center justify-between">
       <div 
-        class="w-full h-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-[float_6s_ease-in-out_infinite] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)]"
+        class="h-full bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)] flex-1"
         :style="{
           WebkitMaskImage: `url(${logoImg})`,
           maskImage: `url(${logoImg})`,
@@ -226,10 +212,20 @@ const cerrarSesion = () => {
           maskSize: 'contain',
           WebkitMaskRepeat: 'no-repeat',
           maskRepeat: 'no-repeat',
-          WebkitMaskPosition: 'center',
-          maskPosition: 'center'
+          WebkitMaskPosition: 'left center',
+          maskPosition: 'left center'
         }"
       ></div>
+      
+      <!-- Botón Toggle Sidebar -->
+      <button
+        @click="toggleSidebar"
+        class="hidden md:flex w-8 h-8 items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 cursor-pointer shrink-0 ml-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform duration-300 ease-in-out" :class="isExpanded ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Navegación -->
@@ -261,7 +257,7 @@ const cerrarSesion = () => {
             <div class="flex items-center w-full relative z-10 gap-3">
               <div 
                 class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
-                :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
               >
                 <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
               </div>
@@ -346,17 +342,17 @@ const cerrarSesion = () => {
     </transition>
 
     <!-- Footer / Perfil -->
-    <div class="p-3 bg-transparent border-t border-slate-200/70 dark:border-white/5 relative">
-      <div class="w-full">
+    <div class="px-3 pb-3 bg-transparent border-t border-slate-200/70 dark:border-white/5 relative">
+      <div class="w-full pt-3">
         <button
           @click="isProfileMenuOpen = !isProfileMenuOpen"
-          class="w-full flex items-center gap-3 p-2 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none"
-          :class="isExpanded ? '' : 'justify-center p-0 w-10 h-10 mx-auto'"
+          class="w-full flex items-center gap-3 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none"
+          :class="isExpanded ? 'p-2' : 'p-0 w-10 h-10 mx-auto justify-center'"
         >
           <!-- Avatar -->
           <img 
             :src="authStore.userAvatar" 
-            class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300"
+            class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300 shrink-0"
             :class="!isExpanded && isProfileMenuOpen ? 'ring-2 ring-[#3b82f6] dark:ring-[#5da6fc]' : ''"
           />
           
@@ -370,7 +366,7 @@ const cerrarSesion = () => {
           </div>
 
           <!-- Selector Icon -->
-          <div v-if="isExpanded" class="text-slate-400 dark:text-slate-500">
+          <div v-if="isExpanded" class="text-slate-400 dark:text-slate-500 shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
             </svg>

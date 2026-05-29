@@ -1,9 +1,8 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Route01Icon,
-  Calendar01Icon,
   Clock01Icon,
   Car01Icon,
   CpuIcon,
@@ -34,8 +33,8 @@ import type {
   EscoltaSimple
 } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
-import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
 const groupStore = useGroupStore()
 
@@ -66,21 +65,22 @@ const loadingEscoltas = ref(false)
 
 // Campos del formulario
 const selectedRutaId = ref('')
-const fechaInicio = ref('')
-const horaInicio = ref('')
+const fechaHoraInicio = ref<Date | null>(null)
 const modoFin = ref('1')
 const nivelRiesgo = ref('1')
 const alcanceNacional = ref('1')
 
 // Selecciones mÃºltiples de recursos
 const selectedVehiculosIds = ref<string[]>([])
-const selectedHardwareIds = ref<string[]>([])
+const vehiculosHardware = ref<Record<string, string[]>>({})
+const vehiculoAsignandoHardware = ref<string | null>(null)
 const selectedEscoltasIds = ref<string[]>([])
 
-// Panel activo: 'vehiculos' | 'hardware' | 'escoltas' | null
-const panelActivo = ref<'vehiculos' | 'hardware' | 'escoltas' | null>(null)
+// Panel activo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null
+const panelActivo = ref<'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null>(null)
 
 // Refs de los botones para calcular posiciÃ³n del panel flotante
+const btnRutas = ref<HTMLElement | null>(null)
 const btnVehiculos = ref<HTMLElement | null>(null)
 const btnHardware = ref<HTMLElement | null>(null)
 const btnEscoltas = ref<HTMLElement | null>(null)
@@ -93,6 +93,7 @@ const panelStyle = ref<{ top: string; left: string; height: string }>({
 })
 
 // Consultas de bÃºsqueda local
+const searchRutasQuery = ref('')
 const searchVehiculosQuery = ref('')
 const searchHardwareQuery = ref('')
 const searchEscoltasQuery = ref('')
@@ -121,6 +122,13 @@ const rutaOptions = computed(() => {
     value: r.id_ruta,
     label: r.nombre
   }))
+})
+
+// Filtrado reactivo de rutas por bÃºsqueda
+const filteredRutas = computed(() => {
+  const q = searchRutasQuery.value.toLowerCase().trim()
+  if (!q) return rutas.value
+  return rutas.value.filter(r => r.nombre.toLowerCase().includes(q))
 })
 
 // Filtrado reactivo de vehÃ­culos por bÃºsqueda
@@ -190,15 +198,25 @@ const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
 }
 
 // Abre/cierra un panel lateral flotante
-const abrirPanel = async (tipo: 'vehiculos' | 'hardware' | 'escoltas') => {
+const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas') => {
   if (panelActivo.value === tipo) {
     panelActivo.value = null
     return
+  }
+  if (tipo === 'hardware') {
+    if (selectedVehiculosIds.value.length === 0) {
+      modalMessage.value = { text: 'Primero seleccione al menos un vehículo', type: 'warning' }
+      return
+    }
+    if (!vehiculoAsignandoHardware.value || !selectedVehiculosIds.value.includes(vehiculoAsignandoHardware.value)) {
+      vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
+    }
   }
   panelActivo.value = tipo
   await nextTick()
 
   const refMap = {
+    rutas: btnRutas.value,
     vehiculos: btnVehiculos.value,
     hardware: btnHardware.value,
     escoltas: btnEscoltas.value
@@ -230,10 +248,10 @@ watch(() => props.isOpen, async (isOpen) => {
     // Reiniciar selecciones y campos
     selectedRutaId.value = ''
     selectedVehiculosIds.value = []
-    selectedHardwareIds.value = []
+    vehiculosHardware.value = {}
+    vehiculoAsignandoHardware.value = null
     selectedEscoltasIds.value = []
-    fechaInicio.value = ''
-    horaInicio.value = ''
+    fechaHoraInicio.value = null
     modoFin.value = '1'
     nivelRiesgo.value = '1'
     alcanceNacional.value = '1'
@@ -241,16 +259,16 @@ watch(() => props.isOpen, async (isOpen) => {
     searchVehiculosQuery.value = ''
     searchHardwareQuery.value = ''
     searchEscoltasQuery.value = ''
+    searchRutasQuery.value = ''
 
     panelActivo.value = null
 
     // Pre-cargar fecha e inicio si el servicio ya posee estos datos
     if (props.servicio) {
       if (props.servicio.fecha_inicio) {
-        const partes = props.servicio.fecha_inicio.split(' ')
-        fechaInicio.value = partes[0] || ''
-        if (partes[1]) {
-          horaInicio.value = partes[1].substring(0, 5)
+        const parsed = new Date(props.servicio.fecha_inicio.replace(' ', 'T'))
+        if (!isNaN(parsed.getTime())) {
+          fechaHoraInicio.value = parsed
         }
       }
     }
@@ -293,21 +311,44 @@ watch(() => props.isOpen, async (isOpen) => {
 })
 
 // MÃ©todos de selecciÃ³n mÃºltiple interactiva
+const selectRuta = (id: string) => {
+  selectedRutaId.value = id
+  panelActivo.value = null
+}
+
 const selectVehiculo = (id: string) => {
   const index = selectedVehiculosIds.value.indexOf(id)
   if (index > -1) {
     selectedVehiculosIds.value.splice(index, 1)
+    delete vehiculosHardware.value[id]
+    if (vehiculoAsignandoHardware.value === id) {
+      vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0] || null
+    }
   } else {
     selectedVehiculosIds.value.push(id)
+    if (!vehiculosHardware.value[id]) {
+      vehiculosHardware.value[id] = []
+    }
   }
 }
 
+const setVehiculoParaHardware = (vehiculoId: string) => {
+  vehiculoAsignandoHardware.value = vehiculoId
+  abrirPanel('hardware')
+}
+
 const selectHardware = (id: string) => {
-  const index = selectedHardwareIds.value.indexOf(id)
+  if (!vehiculoAsignandoHardware.value) return
+  const vehiculoId = vehiculoAsignandoHardware.value
+  if (!vehiculosHardware.value[vehiculoId]) {
+    vehiculosHardware.value[vehiculoId] = []
+  }
+  const arr = vehiculosHardware.value[vehiculoId]
+  const index = arr.indexOf(id)
   if (index > -1) {
-    selectedHardwareIds.value.splice(index, 1)
+    arr.splice(index, 1)
   } else {
-    selectedHardwareIds.value.push(id)
+    arr.push(id)
   }
 }
 
@@ -336,6 +377,11 @@ const selectEscolta = (id: string) => {
 }
 
 // Helpers para obtener etiquetas de los badges seleccionados
+const getRutaLabel = (id: string) => {
+  const r = rutas.value.find(item => item.id_ruta === id)
+  return r ? r.nombre : id
+}
+
 const getVehiculoLabel = (id: string) => {
   const v = vehiculos.value.find(item => item.id_vehiculo === id)
   return v ? `${v.nombre} (${v.placa})` : id
@@ -345,6 +391,18 @@ const getHardwareLabel = (id: string) => {
   const h = hardware.value.find(item => item.id_hardware === id)
   return h ? h.nombre : id
 }
+
+const vehiculosConHardwareCount = computed(() => {
+  return selectedVehiculosIds.value.filter(id => 
+    (vehiculosHardware.value[id] || []).length > 0
+  ).length
+})
+
+const totalHardwareAsignado = computed(() => {
+  return selectedVehiculosIds.value.reduce((acc, id) => 
+    acc + (vehiculosHardware.value[id] || []).length, 0
+  )
+})
 
 const getEscoltaLabel = (id: string) => {
   const e = escoltas.value.find(item => item.id_escolta === id)
@@ -363,16 +421,27 @@ const clearVehiculos = () => {
   selectedVehiculosIds.value = []
 }
 
+const currentVehiculoHardwareIds = computed(() => {
+  if (!vehiculoAsignandoHardware.value) return []
+  return vehiculosHardware.value[vehiculoAsignandoHardware.value] || []
+})
+
 const selectAllHardware = () => {
+  if (!vehiculoAsignandoHardware.value) return
+  const vehiculoId = vehiculoAsignandoHardware.value
+  if (!vehiculosHardware.value[vehiculoId]) {
+    vehiculosHardware.value[vehiculoId] = []
+  }
   filteredHardware.value.forEach(h => {
-    if (!selectedHardwareIds.value.includes(h.id_hardware)) {
-      selectedHardwareIds.value.push(h.id_hardware)
+    if (!vehiculosHardware.value[vehiculoId].includes(h.id_hardware)) {
+      vehiculosHardware.value[vehiculoId].push(h.id_hardware)
     }
   })
 }
 
 const clearHardware = () => {
-  selectedHardwareIds.value = []
+  if (!vehiculoAsignandoHardware.value) return
+  vehiculosHardware.value[vehiculoAsignandoHardware.value] = []
 }
 
 const selectAllEscoltas = () => {
@@ -397,7 +466,7 @@ const handleClickOutside = (event: MouseEvent) => {
   if (panelEl && panelEl.contains(target)) return
 
   // Ignora clicks en los botones de apertura
-  const botones = [btnVehiculos.value, btnHardware.value, btnEscoltas.value]
+  const botones = [btnRutas.value, btnVehiculos.value, btnHardware.value, btnEscoltas.value]
   if (botones.some(btn => btn && btn.contains(target))) return
 
   panelActivo.value = null
@@ -407,6 +476,7 @@ const handleClickOutside = (event: MouseEvent) => {
 const handleResize = () => {
   if (!panelActivo.value) return
   const refMap = {
+    rutas: btnRutas.value,
     vehiculos: btnVehiculos.value,
     hardware: btnHardware.value,
     escoltas: btnEscoltas.value
@@ -444,19 +514,23 @@ const handleAsignar = async () => {
     return
   }
 
-  if (!fechaInicio.value || !horaInicio.value) {
+  if (!fechaHoraInicio.value) {
     modalMessage.value = { text: 'La fecha y hora de inicio son requeridas', type: 'error' }
     return
   }
 
   if (selectedVehiculosIds.value.length === 0) {
-    modalMessage.value = { text: 'Debe seleccionar al menos un vehÃ­culo', type: 'error' }
+    modalMessage.value = { text: 'Debe seleccionar al menos un vehículo', type: 'error' }
     return
   }
 
-  if (selectedHardwareIds.value.length === 0) {
-    modalMessage.value = { text: 'Debe seleccionar al menos un dispositivo de hardware', type: 'error' }
-    return
+  for (const vehiculoId of selectedVehiculosIds.value) {
+    const hwIds = vehiculosHardware.value[vehiculoId] || []
+    if (hwIds.length === 0) {
+      const label = getVehiculoLabel(vehiculoId)
+      modalMessage.value = { text: `Debe asignar hardware al vehículo: ${label}`, type: 'error' }
+      return
+    }
   }
 
   if (selectedEscoltasIds.value.length === 0) {
@@ -467,16 +541,20 @@ const handleAsignar = async () => {
   saving.value = true
   modalMessage.value = null
 
+  const vehiculosPayload: Record<string, string[]> = {}
+  for (const vehiculoId of selectedVehiculosIds.value) {
+    vehiculosPayload[vehiculoId] = vehiculosHardware.value[vehiculoId] || []
+  }
+
   const payload: ServicioAsignarRecursosPayload = {
     id_grupo: groupStore.selectedGroup.id,
     id_servicio: props.servicio.id_servicio,
-    fecha_hora_inicio: `${fechaInicio.value} ${horaInicio.value}`,
+    fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
     modo_fin: parseInt(modoFin.value, 10),
     nivel_riesgo: parseInt(nivelRiesgo.value, 10),
-    alcance_nacional: parseInt(alcanceNacional.value, 10),
+    alcance: parseInt(alcanceNacional.value, 10),
     id_ruta: selectedRutaId.value,
-    vehiculos_id: selectedVehiculosIds.value,
-    hardware_id: selectedHardwareIds.value,
+    vehiculos: vehiculosPayload,
     escoltas_id: selectedEscoltasIds.value
   }
 
@@ -490,7 +568,7 @@ const handleAsignar = async () => {
     }
   } catch (error: any) {
     console.error('Error en asignarRecursosServicioApi:', error)
-    modalMessage.value = { text: error.message || 'Error de conexiÃ³n con el servidor.', type: 'error' }
+    modalMessage.value = { text: error.message || 'Error de conexión con el servidor.', type: 'error' }
   } finally {
     saving.value = false
   }
@@ -498,6 +576,16 @@ const handleAsignar = async () => {
 
 const handleClose = () => {
   emit('update:isOpen', false)
+}
+
+const formatFechaHora = (date: Date | null): string => {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const h = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d} ${h}:${min}`
 }
 </script>
 
@@ -508,7 +596,7 @@ const handleClose = () => {
     @close="handleClose"
     @confirm="handleAsignar"
     title="Asignar Recursos al Servicio"
-    :confirm-text="'Confirmar AsignaciÃ³n'"
+    :confirm-text="'Confirmar Asignación'"
     size="xl"
     :show-footer="!isSuccess && !isInitializing"
   >
@@ -564,7 +652,7 @@ const handleClose = () => {
           </div>
           <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Recursos Asignados Correctamente</h3>
           <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            Los vehÃ­culos, hardware y escoltas han sido programados para este servicio.
+            Los vehículos, hardware y escoltas han sido programados para este servicio.
           </p>
           <div class="pt-4">
             <button
@@ -595,38 +683,73 @@ const handleClose = () => {
           </Transition>
 
           <div class="space-y-5">
-            <AppSelect
-              v-model="selectedRutaId"
-              label="Ruta de Viaje"
-              :placeholder="loadingRutas ? 'Cargando rutas...' : 'Seleccione una ruta de destino'"
-              :icon="Route01Icon"
-              :options="rutaOptions"
-              :disabled="loadingRutas"
-            />
+            <!-- Selector de Rutas con panel flotante -->
+            <div class="space-y-2">
+              <label
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+              >
+                Ruta de Viaje
+              </label>
+              <button
+                ref="btnRutas"
+                type="button"
+                @click="abrirPanel('rutas')"
+                :disabled="loadingRutas"
+                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
+                :class="[
+                  loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
+                  panelActivo === 'rutas' ? 'panel-on' : ''
+                ]"
+              >
+                <div 
+                  class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                  :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
+                ></div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <AppInput
-                  v-model="fechaInicio"
-                  type="date"
-                  label="Fecha de Inicio"
-                  :icon="Calendar01Icon"
-                  class="custom-datetime-input"
-                />
-                <AppInput
-                  v-model="horaInicio"
-                  type="time"
-                  label="Hora de Inicio"
-                  :icon="Clock01Icon"
-                  class="custom-datetime-input"
-                />
-              </div>
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                  :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                >
+                  <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
+                </div>
+                <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
+                  <template v-if="selectedRutaId">
+                    <div class="badge-recurso">
+                      <span class="truncate max-w-[150px]">{{ getRutaLabel(selectedRutaId) }}</span>
+                      <button type="button" @click.stop="selectedRutaId = ''" class="hover:text-red-400 transition-colors shrink-0">
+                        <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
+                      </button>
+                    </div>
+                  </template>
+                  <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                    {{ loadingRutas ? 'Cargando...' : 'Seleccione una ruta de destino' }}
+                  </span>
+                </div>
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                  :class="[
+                    panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                    { 'rotate-180': panelActivo === 'rutas' }
+                  ]"
+                >
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
+                </div>
+              </button>
+            </div>
+
+            <AppDateTimePicker
+              v-model="fechaHoraInicio"
+              label="Fecha y Hora de Inicio"
+              placeholder="Seleccione fecha y hora"
+            />
 
               <!-- Fila 2: Modo Fin, Nivel Riesgo, Alcance -->
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                 <AppSelect
                   v-model="modoFin"
                   label="Modo Fin"
-                  placeholder="Modo de FinalizaciÃ³n"
+                  placeholder="Modo de Finalización"
                   :icon="Clock01Icon"
                   :options="modoFinOptions"
                 />
@@ -647,45 +770,52 @@ const handleClose = () => {
               </div>
             </div>
 
-            <!-- SECCIÃ“N: SELECTORES DE RECURSOS -->
+            <!-- SECCIÓN: SELECTORES DE RECURSOS -->
             <div class="pt-6 border-t border-white/5 space-y-5">
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
                   <HugeiconsIcon :icon="CpuIcon" :size="20" class="drop-shadow-sm" />
                 </div>
                 <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">AsignaciÃ³n de Recursos</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehÃ­culos, hardware de rastreo y escoltas de seguridad.</p>
+                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Asignación de Recursos</h3>
+                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehículos, hardware de rastreo y escoltas de seguridad.</p>
                 </div>
-        </div>
+              </div>
 
               <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
 
-                <!-- 1. VEHÃCULOS -->
+                <!-- 1. VEHÍCULOS -->
                 <div class="space-y-2">
                   <label
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'vehiculos' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                    :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
-                    VehÃ­culos Disponibles
+                    Vehículos Disponibles
                   </label>
                   <button
                     ref="btnVehiculos"
                     type="button"
                     @click="abrirPanel('vehiculos')"
                     :disabled="loadingVehiculos"
-                    class="selector-btn"
+                    class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'vehiculos'
-                        ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                        : 'hover:border-white/15'
+                      panelActivo === 'vehiculos' ? 'panel-on' : ''
                     ]"
                   >
-                    <div class="text-slate-400 pr-2 shrink-0">
+                    <!-- Borde superior brillante -->
+                    <div 
+                      class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                      :class="{ 'opacity-100 left-2 right-2': panelActivo === 'vehiculos' }"
+                    ></div>
+
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                      :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                    >
                       <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" />
                     </div>
-                    <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
+                    <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
                       <template v-if="selectedVehiculosIds.length > 0">
                         <template v-if="selectedVehiculosIds.length <= 2">
                           <div
@@ -701,18 +831,24 @@ const handleClose = () => {
                         </template>
                         <template v-else>
                           <div class="badge-recurso">
-                            <span>{{ selectedVehiculosIds.length }} vehÃ­culos</span>
+                            <span>{{ selectedVehiculosIds.length }} vehículos</span>
                             <button type="button" @click.stop="clearVehiculos" class="hover:text-red-400 transition-colors shrink-0">
                               <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
                             </button>
                           </div>
                         </template>
                       </template>
-                      <span v-else class="text-slate-400 text-[13px] font-medium">
-                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehÃ­culos' }}
+                      <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehículos' }}
                       </span>
                     </div>
-                    <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }">
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                      :class="[
+                        panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                        { 'rotate-180': panelActivo === 'vehiculos' }
+                      ]"
+                    >
                       <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
@@ -722,7 +858,7 @@ const handleClose = () => {
                 <div class="space-y-2">
                   <label
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'hardware' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                    :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
                     Dispositivos de Hardware
                   </label>
@@ -730,46 +866,47 @@ const handleClose = () => {
                     ref="btnHardware"
                     type="button"
                     @click="abrirPanel('hardware')"
-                    :disabled="loadingHardware"
-                    class="selector-btn"
+                    :disabled="loadingHardware || selectedVehiculosIds.length === 0"
+                    class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
-                      loadingHardware ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'hardware'
-                        ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                        : 'hover:border-white/15'
+                      loadingHardware || selectedVehiculosIds.length === 0 ? 'opacity-60 cursor-not-allowed' : '',
+                      panelActivo === 'hardware' ? 'panel-on' : ''
                     ]"
                   >
-                    <div class="text-slate-400 pr-2 shrink-0">
+                    <div 
+                      class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                      :class="{ 'opacity-100 left-2 right-2': panelActivo === 'hardware' }"
+                    ></div>
+
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                      :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                    >
                       <HugeiconsIcon :icon="CpuIcon" :size="18" :stroke-width="1.8" />
                     </div>
-                    <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
-                      <template v-if="selectedHardwareIds.length > 0">
-                        <template v-if="selectedHardwareIds.length <= 2">
-                          <div
-                            v-for="id in selectedHardwareIds"
-                            :key="id"
-                            class="badge-recurso"
-                          >
-                            <span class="truncate max-w-[80px]">{{ getHardwareLabel(id) }}</span>
-                            <button type="button" @click.stop="selectHardware(id)" class="hover:text-red-400 transition-colors shrink-0">
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                            </button>
-                          </div>
-                        </template>
-                        <template v-else>
-                          <div class="badge-recurso">
-                            <span>{{ selectedHardwareIds.length }} dispositivos</span>
-                            <button type="button" @click.stop="clearHardware" class="hover:text-red-400 transition-colors shrink-0">
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                            </button>
-                          </div>
-                        </template>
+                    <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
+                      <template v-if="selectedVehiculosIds.length > 0 && totalHardwareAsignado > 0">
+                        <div class="badge-recurso">
+                          <span>{{ vehiculosConHardwareCount }}/{{ selectedVehiculosIds.length }} vehículos</span>
+                        </div>
+                        <div class="badge-recurso">
+                          <span>{{ totalHardwareAsignado }} dispositivos</span>
+                        </div>
                       </template>
-                      <span v-else class="text-slate-400 text-[13px] font-medium">
-                        {{ loadingHardware ? 'Cargando...' : 'Seleccione hardware' }}
+                      <span v-else-if="selectedVehiculosIds.length === 0" class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                        Seleccione vehículos primero
+                      </span>
+                      <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                        {{ loadingHardware ? 'Cargando...' : 'Asignar hardware a vehículos' }}
                       </span>
                     </div>
-                    <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'hardware' }">
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                      :class="[
+                        panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                        { 'rotate-180': panelActivo === 'hardware' }
+                      ]"
+                    >
                       <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
@@ -779,7 +916,7 @@ const handleClose = () => {
                 <div class="space-y-2">
                   <label
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'escoltas' ? 'text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                    :class="panelActivo === 'escoltas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
                     Escoltas Disponibles
                   </label>
@@ -788,18 +925,25 @@ const handleClose = () => {
                     type="button"
                     @click="abrirPanel('escoltas')"
                     :disabled="loadingEscoltas"
-                    class="selector-btn"
+                    class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingEscoltas ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'escoltas'
-                        ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20'
-                        : 'hover:border-white/15'
+                      panelActivo === 'escoltas' ? 'panel-on' : ''
                     ]"
                   >
-                    <div class="text-slate-400 pr-2 shrink-0">
+                    <!-- Borde superior brillante -->
+                    <div 
+                      class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                      :class="{ 'opacity-100 left-2 right-2': panelActivo === 'escoltas' }"
+                    ></div>
+
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                      :class="panelActivo === 'escoltas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                    >
                       <HugeiconsIcon :icon="User02Icon" :size="18" :stroke-width="1.8" />
                     </div>
-                    <div class="flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px]">
+                    <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
                       <template v-if="selectedEscoltasIds.length > 0">
                         <template v-if="selectedEscoltasIds.length <= 2">
                           <div
@@ -822,22 +966,26 @@ const handleClose = () => {
                           </div>
                         </template>
                       </template>
-                      <span v-else class="text-slate-400 text-[13px] font-medium">
+                      <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
                         {{ loadingEscoltas ? 'Cargando...' : 'Seleccione escoltas' }}
                       </span>
                     </div>
-                    <div class="text-slate-400 pl-2 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'escoltas' }">
-                      <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
+                    <div 
+                      class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                      :class="[
+                        panelActivo === 'escoltas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                        { 'rotate-180': panelActivo === 'escoltas' }
+                      ]"
+                    >
                     </div>
                   </button>
                 </div>
-
-                </div>
+              </div>
             </div>
           </div>
-      </Transition>
-    </div>
-  </AppModal>
+        </Transition>
+      </div>
+    </AppModal>
 
   <!-- PANEL FLOTANTE DE SELECCIÃ“N â€” Teleport fuera del modal -->
   <Teleport to="body">
@@ -860,16 +1008,17 @@ const handleClose = () => {
           <div class="flex items-center gap-3">
             <div class="panel-head-icon">
               <HugeiconsIcon
-                :icon="panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : User02Icon"
+                :icon="panelActivo === 'rutas' ? Route01Icon : panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : User02Icon"
                 :size="17"
               />
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ panelActivo === 'vehiculos' ? 'VehÃ­culos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Escoltas disponibles' }}
+                {{ panelActivo === 'rutas' ? 'Rutas disponibles' : panelActivo === 'vehiculos' ? 'Vehículos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Escoltas disponibles' }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
                 {{
+                  panelActivo === 'rutas' ? `${filteredRutas.length} rutas` :
                   panelActivo === 'vehiculos' ? `${filteredVehiculos.length} en flota` :
                   panelActivo === 'hardware' ? `${filteredHardware.length} dispositivos` :
                   `${filteredEscoltas.length} agentes`
@@ -888,10 +1037,38 @@ const handleClose = () => {
 
         <!-- ========== BUSCADOR ========== -->
         <div class="px-4 pb-3 shrink-0">
+          <!-- Selector de vehículo (solo para panel de hardware) -->
+          <div v-if="panelActivo === 'hardware'" class="mb-3 space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 ml-1">Asignar hardware a:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="vehiculoId in selectedVehiculosIds"
+                :key="vehiculoId"
+                type="button"
+                @click.stop="vehiculoAsignandoHardware = vehiculoId"
+                class="vehiculo-tab"
+                :class="vehiculoAsignandoHardware === vehiculoId ? 'vehiculo-tab--active' : 'vehiculo-tab--inactive'"
+              >
+                <HugeiconsIcon :icon="Car01Icon" :size="12" />
+                <span class="truncate max-w-[100px]">{{ getVehiculoLabel(vehiculoId) }}</span>
+                <span v-if="(vehiculosHardware[vehiculoId] || []).length > 0" class="vehiculo-tab-count">
+                  {{ (vehiculosHardware[vehiculoId] || []).length }}
+                </span>
+              </button>
+            </div>
+          </div>
           <div class="panel-search-wrap">
             <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
             <input
-              v-if="panelActivo === 'vehiculos'"
+              v-if="panelActivo === 'rutas'"
+              v-model="searchRutasQuery"
+              type="text"
+              placeholder="Nombre de ruta..."
+              class="panel-search-input"
+              @click.stop
+            />
+            <input
+              v-else-if="panelActivo === 'vehiculos'"
               v-model="searchVehiculosQuery"
               type="text"
               placeholder="Nombre, placa o tipo..."
@@ -915,9 +1092,9 @@ const handleClose = () => {
               @click.stop
             />
             <button
-              v-if="(panelActivo === 'vehiculos' && searchVehiculosQuery) || (panelActivo === 'hardware' && searchHardwareQuery) || (panelActivo === 'escoltas' && searchEscoltasQuery)"
+              v-if="(panelActivo === 'rutas' && searchRutasQuery) || (panelActivo === 'vehiculos' && searchVehiculosQuery) || (panelActivo === 'hardware' && searchHardwareQuery) || (panelActivo === 'escoltas' && searchEscoltasQuery)"
               type="button"
-              @click.stop="panelActivo === 'vehiculos' ? searchVehiculosQuery = '' : panelActivo === 'hardware' ? searchHardwareQuery = '' : searchEscoltasQuery = ''"
+              @click.stop="panelActivo === 'rutas' ? searchRutasQuery = '' : panelActivo === 'vehiculos' ? searchVehiculosQuery = '' : panelActivo === 'hardware' ? searchHardwareQuery = '' : searchEscoltasQuery = ''"
               class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
             >
               <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
@@ -928,13 +1105,20 @@ const handleClose = () => {
         <!-- ========== BARRA CONTROL ========== -->
         <div class="px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-500 dark:text-blue-400">
-            {{
-              panelActivo === 'vehiculos' ? selectedVehiculosIds.length :
-              panelActivo === 'hardware' ? selectedHardwareIds.length :
-              selectedEscoltasIds.length
-            }} seleccionados
+            <template v-if="panelActivo === 'rutas'">
+              {{ selectedRutaId ? '1 seleccionada' : 'Sin seleccionar' }}
+            </template>
+            <template v-else-if="panelActivo === 'vehiculos'">
+              {{ selectedVehiculosIds.length }} seleccionados
+            </template>
+            <template v-else-if="panelActivo === 'hardware'">
+              {{ currentVehiculoHardwareIds.length }} seleccionados
+            </template>
+            <template v-else>
+              {{ selectedEscoltasIds.length }} seleccionados
+            </template>
           </span>
-          <div class="flex items-center gap-3 text-[10px] font-semibold">
+          <div v-if="panelActivo !== 'rutas'" class="flex items-center gap-3 text-[10px] font-semibold">
             <button
               type="button"
               @click.stop="panelActivo === 'vehiculos' ? selectAllVehiculos() : panelActivo === 'hardware' ? selectAllHardware() : selectAllEscoltas()"
@@ -951,10 +1135,47 @@ const handleClose = () => {
               Limpiar
             </button>
           </div>
+          <div v-else class="flex items-center gap-3 text-[10px] font-semibold">
+            <button
+              type="button"
+              @click.stop="selectedRutaId = ''"
+              class="text-slate-400 hover:text-red-400 transition-colors"
+            >
+              Limpiar
+            </button>
+          </div>
         </div>
 
         <!-- ========== LISTADO ========== -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
+        <div class="flex-1 overflow-y-auto custom-scrollbar py-3 space-y-1">
+
+          <!-- Rutas -->
+          <template v-if="panelActivo === 'rutas'">
+            <button
+              v-for="r in filteredRutas"
+              :key="r.id_ruta"
+              type="button"
+              @click="selectRuta(r.id_ruta)"
+              class="panel-row group/row"
+              :class="selectedRutaId === r.id_ruta ? 'panel-row--on' : 'panel-row--off'"
+            >
+              <div
+                class="panel-row-dot shrink-0"
+                :class="selectedRutaId === r.id_ruta ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+              >
+                <HugeiconsIcon v-if="selectedRutaId === r.id_ruta" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+              </div>
+              <div class="flex flex-col flex-1 min-w-0 text-left">
+                <span class="text-[12px] font-semibold truncate leading-snug">
+                  {{ r.nombre }}
+                </span>
+              </div>
+            </button>
+            <div v-if="filteredRutas.length === 0" class="panel-empty">
+              <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-30 mb-2" />
+              <span>Sin rutas disponibles</span>
+            </div>
+          </template>
 
           <!-- VehÃ­culos -->
           <template v-if="panelActivo === 'vehiculos'">
@@ -982,7 +1203,7 @@ const handleClose = () => {
             </button>
             <div v-if="filteredVehiculos.length === 0" class="panel-empty">
               <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
-              <span>Sin vehÃ­culos disponibles</span>
+              <span>Sin vehículos disponibles</span>
             </div>
           </template>
 
@@ -994,13 +1215,13 @@ const handleClose = () => {
               type="button"
               @click="selectHardware(h.id_hardware)"
               class="panel-row group/row"
-              :class="selectedHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off'"
+              :class="currentVehiculoHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off'"
             >
               <div
                 class="panel-row-dot shrink-0"
-                :class="selectedHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+                :class="currentVehiculoHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off'"
               >
-                <HugeiconsIcon v-if="selectedHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-if="currentVehiculoHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
@@ -1035,7 +1256,7 @@ const handleClose = () => {
                   class="text-[10px] font-mono truncate leading-none mt-0.5 transition-colors duration-200"
                   :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-400 font-bold' : 'text-slate-400'"
                 >
-                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado âœ“</template>
+                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado ✓</template>
                   <template v-else>{{ e.celular || 'Sin contacto' }}</template>
                 </span>
               </div>
@@ -1056,10 +1277,11 @@ const handleClose = () => {
             class="panel-confirm-btn"
           >
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
-            Confirmar SelecciÃ³n
+            Confirmar Selección
             ({{
+              panelActivo === 'rutas' ? (selectedRutaId ? '1' : '0') :
               panelActivo === 'vehiculos' ? selectedVehiculosIds.length :
-              panelActivo === 'hardware' ? selectedHardwareIds.length :
+              panelActivo === 'hardware' ? currentVehiculoHardwareIds.length :
               selectedEscoltasIds.length
             }})
           </button>
@@ -1079,28 +1301,25 @@ const handleClose = () => {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 48px;
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 14px;
+  min-height: 46px;
   padding: 0.5rem 1rem;
   text-align: left;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
 }
-.selector-btn:hover {
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+.selector-btn:hover:not(:disabled) {
+  border-color: #cbd5e1 !important;
 }
-.selector-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
+:global(.dark) .selector-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }
-.selector-btn.border-\[\#3b82f6\] {
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 4px 16px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+.selector-btn.panel-on {
+  border-color: #3b82f6 !important;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 0 1px rgba(59,130,246,0.2) !important;
+}
+:global(.dark) .selector-btn.panel-on {
+  border-color: #5da6fc !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2) !important;
 }
 
 .badge-recurso {
@@ -1153,16 +1372,16 @@ const handleClose = () => {
 }
 
 .panel-head-icon {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: rgba(59,130,246,0.15);
-  color: #5da6fc;
-  border: 1px solid rgba(59,130,246,0.25);
+  background: rgba(59,130,246,0.1);
+  color: #3b82f6;
+  border: 1px solid rgba(59,130,246,0.2);
 }
 
 .panel-close-btn {
@@ -1186,15 +1405,16 @@ const handleClose = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px;
-  padding: 8px 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background: #0f1115;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px 14px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
 }
 .panel-search-wrap:focus-within {
   border-color: #5da6fc;
-  box-shadow: 0 0 0 3px rgba(93,166,252,0.12);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2);
 }
 
 .panel-search-input {
@@ -1212,39 +1432,60 @@ const handleClose = () => {
 
 /* Filas del listado */
 .panel-row {
-  width: 100%;
+  width: calc(100% - 24px);
+  margin: 4px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 10px 14px;
   cursor: pointer;
-  transition: background 0.12s ease;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
   color: #cbd5e1;
 }
-.panel-row--off:hover { background: rgba(255,255,255,0.04); }
 
-.panel-row--on { background: transparent; }
-.panel-row--on:hover { background: rgba(255,255,255,0.03); }
+.panel-row--off {
+  background: rgba(255, 255, 255, 0.01);
+  border-color: rgba(255, 255, 255, 0.02);
+}
+.panel-row--off:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
 
-/* Indicador circular de selecciÃ³n */
+.panel-row--on {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+.panel-row--on:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Indicador circular de selección */
 .panel-row-dot {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .panel-row-dot--off {
-  border: 1.5px solid rgba(100,116,139,0.5);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  background: transparent;
 }
 
 .panel-row-dot--on {
   color: #fff;
-  background: #3b82f6;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 2px 6px rgba(59,130,246,0.4);
 }
 
 /* Estado vacÃ­o */
@@ -1266,23 +1507,25 @@ const handleClose = () => {
 
 .panel-confirm-btn {
   width: 100%;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   padding: 10px 16px;
-  border-radius: 11px;
-  font-size: 12px;
+  border-radius: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
-  background: #3b82f6;
-  box-shadow: 0 2px 12px rgba(59,130,246,0.35), 0 1px 3px rgba(59,130,246,0.2);
-  transition: all 0.15s ease;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   letter-spacing: 0.01em;
 }
 .panel-confirm-btn:hover {
-  background: #2563eb;
-  box-shadow: 0 4px 16px rgba(59,130,246,0.45);
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
 }
 .panel-confirm-btn:active { transform: translateY(1px); }
 
@@ -1373,28 +1616,6 @@ const handleClose = () => {
   background: #3b82f6;
 }
 
-/* Inputs de fecha/hora */
-:deep(.custom-datetime-input input[type="date"]),
-:deep(.custom-datetime-input input[type="time"]) {
-  position: relative;
-  cursor: pointer;
-}
-
-:deep(.custom-datetime-input input[type="date"]::-webkit-calendar-picker-indicator),
-:deep(.custom-datetime-input input[type="time"]::-webkit-calendar-picker-indicator) {
-  background: transparent;
-  bottom: 0;
-  color: transparent;
-  cursor: pointer;
-  height: auto;
-  left: 0;
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: auto;
-  z-index: 10;
-}
-
 /* Overrides para inputs dentro del modal - estilo glassmorphism dark */
 :deep(.modal-card .bg-slate-50) {
   background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
@@ -1422,5 +1643,50 @@ const handleClose = () => {
 
 :deep(.modal-card .bg-white) {
   background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
+}
+
+.vehiculo-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+
+.vehiculo-tab--inactive {
+  background: rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.vehiculo-tab--inactive:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.vehiculo-tab--active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #5da6fc;
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.vehiculo-tab-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(59, 130, 246, 0.25);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
 }
 </style>

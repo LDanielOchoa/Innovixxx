@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
@@ -17,16 +17,19 @@ import {
   SmartPhone01Icon,
   MessageQuestionIcon,
   Loading03Icon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  CpuIcon,
+  Car01Icon
 } from '@hugeicons/core-free-icons'
 
 import { 
   fetchEscoltasApi, 
   deleteEscoltaApi, 
   preValidateEscoltaApi, 
-  postValidateEscoltaApi 
+  postValidateEscoltaApi
 } from '../services/escoltas.api'
 import type { Escolta } from '../types/escolta'
+import { ESCOLTA_ESTADO, ESCOLTA_ESTADO_LABELS } from '../types/escolta'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../../stores/auth.store'
@@ -39,12 +42,12 @@ import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
 import EscoltaCreateModal from '../components/EscoltaCreateModal.vue'
+import EscoltaAsignarHardwareModal from '../components/EscoltaAsignarHardwareModal.vue'
+import EscoltaAsignarVehiculoModal from '../components/EscoltaAsignarVehiculoModal.vue'
 import Column from 'primevue/column'
 
-// Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -56,6 +59,7 @@ const isLoading = ref(true)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
+const filtroEstado = ref<number>(ESCOLTA_ESTADO.TODOS)
 
 // Validation modal
 const isValidatingModalOpen = ref(false)
@@ -82,7 +86,7 @@ const fetchEscoltas = async () => {
   
   isLoading.value = true
   try {
-    escoltas.value = await fetchEscoltasApi(selectedGroup.value.id)
+    escoltas.value = await fetchEscoltasApi(selectedGroup.value.id, filtroEstado.value)
   } catch (error) {
     console.error('Error fetching escoltas:', error)
   } finally {
@@ -101,6 +105,43 @@ const openEditModal = (escolta: Escolta) => {
 const isDeleteModalOpen = ref(false)
 const itemToDelete = ref<string | null>(null)
 const isCreateModalOpen = ref(false)
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+const isAsignarHardwareModalOpen = ref(false)
+const currentAsignarHardwareEscolta = ref<Escolta | null>(null)
+const isAsignarVehiculoModalOpen = ref(false)
+const currentAsignarVehiculoEscolta = ref<Escolta | null>(null)
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const openAsignarHardwareModal = (escolta: Escolta) => {
+  openMenuId.value = null
+  currentAsignarHardwareEscolta.value = escolta
+  isAsignarHardwareModalOpen.value = true
+}
+
+const openAsignarVehiculoModal = (escolta: Escolta) => {
+  openMenuId.value = null
+  currentAsignarVehiculoEscolta.value = escolta
+  isAsignarVehiculoModalOpen.value = true
+}
 
 const confirmDelete = (id_escolta: string) => {
   itemToDelete.value = id_escolta
@@ -214,7 +255,14 @@ const exportToExcel = () => {
   XLSX.writeFile(workbook, `escoltas_${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
-onMounted(fetchEscoltas)
+onMounted(() => {
+  fetchEscoltas()
+  document.addEventListener('click', closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeMenu)
+})
 
 const filteredEscoltas = computed(() => {
   if (!searchQuery.value) return escoltas.value
@@ -235,6 +283,11 @@ watch(selectedGroup, async (newGroup) => {
     escoltas.value = []
   }
 }, { immediate: true })
+
+watch(filtroEstado, async () => {
+  currentPage.value = 1
+  await fetchEscoltas()
+})
 </script>
 
 <template>
@@ -265,6 +318,15 @@ watch(selectedGroup, async (newGroup) => {
     <!-- Search Toolbar -->
     <SearchToolbar v-model="searchQuery" :placeholder="t('escoltas.searchPlaceholder')" searchWidth="sm:w-[28rem]">
       <template #extra>
+        <select
+          v-model="filtroEstado"
+          class="px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 transition-colors cursor-pointer outline-none"
+        >
+          <option :value="ESCOLTA_ESTADO.TODOS">Todos</option>
+          <option :value="ESCOLTA_ESTADO.DISPONIBLE">Disponible</option>
+          <option :value="ESCOLTA_ESTADO.EN_SERVICIO">En Servicio</option>
+          <option :value="ESCOLTA_ESTADO.NO_DISPONIBLE">No Disponible</option>
+        </select>
         <button 
           @click="exportToExcel"
           class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
@@ -309,43 +371,91 @@ watch(selectedGroup, async (newGroup) => {
           </template>
         </Column>
 
-        <Column field="id_escolta" :header="t('escoltas.thRef', 'ID Ref')" sortable>
+        <Column field="estado" :header="t('escoltas.thEstado', 'Estado')" sortable>
           <template #body="{ data }">
-            <span class="text-[11px] text-slate-500 font-mono tracking-wider">{{ data.id_escolta }}</span>
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide"
+              :class="{
+                'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20': data.estado === 'DISPONIBLE',
+                'bg-blue-500/10 text-blue-500 border border-blue-500/20': data.estado === 'EN SERVICIO',
+                'bg-red-500/10 text-red-500 border border-red-500/20': data.estado === 'NO DISPONIBLE'
+              }"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full"
+                :class="{
+                  'bg-emerald-500': data.estado === 'DISPONIBLE',
+                  'bg-blue-500': data.estado === 'EN SERVICIO',
+                  'bg-red-500': data.estado === 'NO DISPONIBLE'
+                }"
+              ></span>
+              {{ ESCOLTA_ESTADO_LABELS[data.estado] || data.estado }}
+            </span>
           </template>
         </Column>
 
-        <Column :header="t('escoltas.thActions', 'Acciones')" headerStyle="width: 14rem" class="text-right" alignHeader="right">
+        <Column :header="t('escoltas.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: CheckmarkCircle01Icon,
-                  tooltip: t('escoltas.btnValidate', 'Validar'),
-                  variant: 'primary',
-                  onClick: () => openValidateModal(data),
-                  show: authStore.hasPermission(PERMISSIONS.ESCOLTA_VALIDATE)
-                },
-                {
-                  icon: Edit02Icon,
-                  tooltip: t('common.edit', 'Editar'),
-                  variant: 'primary',
-                  onClick: () => openEditModal(data),
-                  show: authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)
-                },
-                {
-                  icon: Delete01Icon,
-                  tooltip: t('common.delete', 'Eliminar'),
-                  variant: 'danger',
-                  onClick: () => confirmDelete(data.id_escolta),
-                  show: authStore.hasPermission(PERMISSIONS.ESCOLTA_DELETE)
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(data.id_escolta, $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_VALIDATE)"
+              @click="openValidateModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('escoltas.btnValidate', 'Validar') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)"
+              @click="openEditModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('common.edit', 'Editar') }}</span>
+            </button>
+            <button
+              @click="openAsignarHardwareModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Asignar Hardware</span>
+            </button>
+            <button
+              @click="openAsignarVehiculoModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Asignar Vehículo</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_DELETE)"
+              @click="confirmDelete(escoltas.find(e => e.id_escolta === openMenuId)!.id_escolta); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <HugeiconsIcon :icon="Delete01Icon" :size="16" class="text-red-500" />
+              <span>{{ t('common.delete', 'Eliminar') }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
         <AppPagination 
@@ -366,6 +476,18 @@ watch(selectedGroup, async (newGroup) => {
     <EscoltaCreateModal 
       v-model:is-open="isCreateModalOpen"
       @created="fetchEscoltas"
+    />
+
+    <EscoltaAsignarHardwareModal
+      v-model:is-open="isAsignarHardwareModalOpen"
+      :escolta="currentAsignarHardwareEscolta"
+      @assigned="fetchEscoltas"
+    />
+
+    <EscoltaAsignarVehiculoModal
+      v-model:is-open="isAsignarVehiculoModalOpen"
+      :escolta="currentAsignarVehiculoEscolta"
+      @assigned="fetchEscoltas"
     />
 
     <!-- Validación Modal -->
@@ -519,5 +641,20 @@ watch(selectedGroup, async (newGroup) => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #343b45;
+}
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 </style>

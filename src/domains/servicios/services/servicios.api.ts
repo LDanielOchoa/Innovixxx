@@ -54,7 +54,14 @@ export const fetchEscoltasSimplesApi = async (id_grupo: string): Promise<Escolta
 export const fetchServiciosDropdownApi = async (id_grupo: string): Promise<Servicio[]> => {
   const data = await apiClient<{ done: boolean; data: Servicio[] }>('/api/v1/servicio/listar_tabla/', {
     method: 'POST',
-    body: JSON.stringify({ id_grupo, estado: 0 })
+    body: JSON.stringify({
+      id_grupo,
+      estado: 0,
+      fecha_registro_inicial: '2020-01-01',
+      fecha_registro_final: '2099-12-31',
+      id_ruta: 'all',
+      id_escolta: 'all'
+    })
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }
@@ -62,6 +69,20 @@ export const fetchServiciosDropdownApi = async (id_grupo: string): Promise<Servi
 // Enviar los datos para asignar los recursos al servicio
 export const asignarRecursosServicioApi = async (payload: ServicioAsignarRecursosPayload): Promise<any> => {
   return apiClient('/api/v1/servicio/asignar_src/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export interface ServicioCambiarRutaPayload {
+  id_grupo: string
+  id_servicio: string
+  id_ruta_old: string
+  id_ruta_new: string
+}
+
+export const cambiarRutaServicioApi = async (payload: ServicioCambiarRutaPayload): Promise<any> => {
+  return apiClient('/api/v1/servicio/cambiar_ruta/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })

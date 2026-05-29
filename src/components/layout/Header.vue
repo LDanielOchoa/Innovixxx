@@ -213,7 +213,7 @@ const refreshPage = async () => {
             <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover/btn:animate-[shimmer_1.5s_ease-in-out]"></div>
 
             <div class="w-7 h-7 shrink-0 rounded-lg flex items-center justify-center text-white/60 dark:text-white/60 group-hover/btn:text-[#5da6fc] transition-all duration-500 overflow-hidden relative z-10">
-              <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover relative z-10" />
+              <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover shrink-0 relative z-10" />
               <HugeiconsIcon v-else :icon="UserGroupIcon" :size="14" :stroke-width="1.8" class="relative z-10" />
             </div>
 
@@ -307,7 +307,7 @@ const refreshPage = async () => {
                           ? 'bg-[#5da6fc]/20'
                           : 'bg-white/5'"
                       >
-                        <img v-if="group.logo" :src="group.logo" class="w-full h-full object-cover" />
+                        <img v-if="group.logo" :src="group.logo" class="w-full h-full object-cover shrink-0" />
                         <HugeiconsIcon v-else :icon="UserGroupIcon" :size="14" :stroke-width="1.8" />
                       </div>
                       <span

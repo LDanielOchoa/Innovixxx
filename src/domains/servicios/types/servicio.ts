@@ -5,6 +5,7 @@ export interface Servicio {
   alcance: string
   nivel_riesgo: string
   estado: string
+  id_ruta: string
 }
 
 export interface ServicioListPayload {
@@ -57,10 +58,9 @@ export interface ServicioAsignarRecursosPayload {
   fecha_hora_inicio: string
   modo_fin: number
   nivel_riesgo: number
-  alcance_nacional: number
+  alcance: number
   id_ruta: string
-  vehiculos_id: string[]
-  hardware_id: string[]
+  vehiculos: Record<string, string[]>
   escoltas_id: string[]
 }
 

@@ -5,6 +5,23 @@ export interface Escolta {
   email: string
   celular: string
   id_grupo: string
+  estado: string
+  id_servicio: number
+  id_vehiculo: number
+  id_hardware: number
+}
+
+export const ESCOLTA_ESTADO = {
+  TODOS: 0,
+  DISPONIBLE: 1,
+  EN_SERVICIO: 2,
+  NO_DISPONIBLE: 3
+} as const
+
+export const ESCOLTA_ESTADO_LABELS: Record<string, string> = {
+  'DISPONIBLE': 'Disponible',
+  'EN SERVICIO': 'En Servicio',
+  'NO DISPONIBLE': 'No Disponible'
 }
 
 export interface EscoltaCreatePayload {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   User02Icon,
@@ -15,7 +15,8 @@ import {
   Car01Icon,
   CpuIcon,
   LicenseIcon,
-  Calendar01Icon
+  Search01Icon,
+  ArrowDown01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
@@ -23,14 +24,13 @@ import { createEscoltaApi } from '../services/escoltas.api'
 import { createEscoltaSchema } from '../../../schemas/escoltas.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
-import { fetchVehiculosServicioApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
+import { fetchVehiculosServicioSimpleApi, type VehiculoServicioSimple } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import type { Servicio } from '../../servicios/types/servicio'
-import type { VehiculoServicio } from '../../vehiculos-servicio/types/vehiculo-servicio'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
-import AppSelect from '../../../components/ui/AppSelect.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -58,16 +58,34 @@ const formData = reactive({
   id_hardware: '',
   tipo_pase: '',
   pase: '',
-  pase_vence: ''
+  pase_vence: null as Date | null
 })
 
 const servicios = ref<Servicio[]>([])
-const vehiculosServicio = ref<VehiculoServicio[]>([])
+const vehiculosList = ref<VehiculoServicioSimple[]>([])
 const hardwareList = ref<HardwareSimple[]>([])
 
 const loadingServicios = ref(false)
 const loadingVehiculosServicio = ref(false)
 const loadingHardware = ref(false)
+
+// Panel flotante
+const panelActivo = ref<'servicios' | 'vehiculos' | 'hardware' | 'tipoPase' | null>(null)
+const btnServicios = ref<HTMLElement | null>(null)
+const btnVehiculos = ref<HTMLElement | null>(null)
+const btnHardware = ref<HTMLElement | null>(null)
+const btnTipoPase = ref<HTMLElement | null>(null)
+const panelStyle = ref<{ top: string; left: string; height: string }>({
+  top: '0px',
+  left: '0px',
+  height: '400px'
+})
+
+// Búsqueda local
+const searchServiciosQuery = ref('')
+const searchVehiculosQuery = ref('')
+const searchHardwareQuery = ref('')
+const searchTipoPaseQuery = ref('')
 
 const tipoPaseOptions = [
   { value: 'A1', label: 'A1' },
@@ -80,26 +98,122 @@ const tipoPaseOptions = [
   { value: 'C3', label: 'C3' }
 ]
 
-const servicioOptions = computed(() =>
-  servicios.value.map(s => ({
-    value: s.id_servicio,
-    label: `${s.id_servicio}${s.fecha_inicio ? ` - ${s.fecha_inicio}` : ''}`
-  }))
-)
+// Filtrado reactivo
+const filteredServicios = computed(() => {
+  const q = searchServiciosQuery.value.toLowerCase().trim()
+  if (!q) return servicios.value
+  return servicios.value.filter(s =>
+    s.id_servicio.toLowerCase().includes(q) ||
+    (s.fecha_inicio && s.fecha_inicio.toLowerCase().includes(q))
+  )
+})
 
-const vehiculoServicioOptions = computed(() =>
-  vehiculosServicio.value.map(v => ({
-    value: v.id_vehiculo,
-    label: `${v.placa}${v.marca ? ` (${v.marca}${v.referencia ? ` ${v.referencia}` : ''})` : ''}`
-  }))
-)
+const filteredVehiculos = computed(() => {
+  const q = searchVehiculosQuery.value.toLowerCase().trim()
+  if (!q) return vehiculosList.value
+  return vehiculosList.value.filter(v =>
+    v.placa.toLowerCase().includes(q) ||
+    v.tipo.toLowerCase().includes(q)
+  )
+})
 
-const hardwareOptions = computed(() =>
-  hardwareList.value.map(h => ({
-    value: h.id_hardware,
-    label: h.nombre
-  }))
-)
+const filteredHardware = computed(() => {
+  const q = searchHardwareQuery.value.toLowerCase().trim()
+  if (!q) return hardwareList.value
+  return hardwareList.value.filter(h =>
+    h.nombre.toLowerCase().includes(q)
+  )
+})
+
+const filteredTipoPase = computed(() => {
+  const q = searchTipoPaseQuery.value.toLowerCase().trim()
+  if (!q) return tipoPaseOptions
+  return tipoPaseOptions.filter(t => t.value.toLowerCase().includes(q))
+})
+
+// Calcular posición del panel
+const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
+  if (!btnRef) return
+  const modalEl = document.querySelector('[role="dialog"] .sm\\:my-8') as HTMLElement
+  if (!modalEl) return
+  const modalRect = modalEl.getBoundingClientRect()
+  const panelWidth = 356
+  const gap = 12
+  const panelHeight = modalRect.height
+  let left = modalRect.right + gap
+  if (left + panelWidth > window.innerWidth - 16) {
+    left = modalRect.left - panelWidth - gap
+  }
+  let top = modalRect.top
+  if (top + panelHeight > window.innerHeight - 16) {
+    top = window.innerHeight - panelHeight - 16
+  }
+  if (top < 8) top = 8
+  panelStyle.value = { top: `${top}px`, left: `${left}px`, height: `${panelHeight}px` }
+}
+
+const abrirPanel = async (tipo: 'servicios' | 'vehiculos' | 'hardware' | 'tipoPase') => {
+  if (panelActivo.value === tipo) {
+    panelActivo.value = null
+    return
+  }
+  panelActivo.value = tipo
+  await nextTick()
+  const refMap = { servicios: btnServicios.value, vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
+  calcularPosicionPanel(refMap[tipo])
+}
+
+const cerrarPanel = () => {
+  panelActivo.value = null
+}
+
+const selectServicio = (id: string) => {
+  formData.id_servicio = id
+}
+
+const selectVehiculo = (id: string) => {
+  formData.id_vehiculo = id
+}
+
+const selectHardware = (id: string) => {
+  formData.id_hardware = id
+}
+
+const selectTipoPase = (value: string) => {
+  formData.tipo_pase = value
+}
+
+const getServicioLabel = (id: string) => {
+  const s = servicios.value.find(item => item.id_servicio === id)
+  return s ? `${s.id_servicio}${s.fecha_inicio ? ` - ${s.fecha_inicio}` : ''}` : id
+}
+
+const getVehiculoLabel = (id: string) => {
+  const v = vehiculosList.value.find(item => item.id_vehiculo === id)
+  return v ? `${v.placa}${v.tipo ? ` (${v.tipo})` : ''}` : id
+}
+
+const getHardwareLabel = (id: string) => {
+  const h = hardwareList.value.find(item => item.id_hardware === id)
+  return h ? h.nombre : id
+}
+
+// Click outside handler
+const handleClickOutside = (event: MouseEvent) => {
+  if (!panelActivo.value) return
+  const target = event.target as HTMLElement
+  const panelEl = document.querySelector('.panel-flotante-escolta')
+  if (panelEl && panelEl.contains(target)) return
+  const botones = [btnServicios.value, btnVehiculos.value, btnHardware.value, btnTipoPase.value]
+  if (botones.some(btn => btn && btn.contains(target))) return
+  panelActivo.value = null
+}
+
+const handleResize = () => {
+  if (!panelActivo.value) return
+  const refMap = { servicios: btnServicios.value, vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
+  calcularPosicionPanel(refMap[panelActivo.value])
+}
 
 const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
   modalMessage.value = { text, type }
@@ -116,10 +230,15 @@ watch(() => props.isOpen, async (isOpen) => {
     isSuccess.value = false
     saving.value = false
     modalMessage.value = null
+    panelActivo.value = null
+    searchServiciosQuery.value = ''
+    searchVehiculosQuery.value = ''
+    searchHardwareQuery.value = ''
+    searchTipoPaseQuery.value = ''
     Object.assign(formData, {
       nombre: '', cedula: '', email: '', celular: '',
       id_servicio: '', id_vehiculo: '', id_hardware: '',
-      tipo_pase: '', pase: '', pase_vence: ''
+      tipo_pase: '', pase: '', pase_vence: null
     })
 
     if (groupStore.selectedGroup?.id) {
@@ -127,21 +246,32 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingVehiculosServicio.value = true
       loadingHardware.value = true
 
+      // Cargar independientemente para que un error no bloquee los demás
       try {
-        const [serviciosData, vehiculosServicioData, hardwareData] = await Promise.all([
-          fetchServiciosDropdownApi(groupStore.selectedGroup.id),
-          fetchVehiculosServicioApi(groupStore.selectedGroup.id),
-          fetchHardwareSimplesApi(groupStore.selectedGroup.id)
-        ])
+        const serviciosData = await fetchServiciosDropdownApi(groupStore.selectedGroup.id)
         servicios.value = serviciosData
-        vehiculosServicio.value = vehiculosServicioData
-        hardwareList.value = hardwareData
       } catch (error) {
-        console.error('Error al cargar datos maestros:', error)
-        showMessage(t('escoltas.alertNetError') || 'Error al cargar datos', 'error')
+        console.error('Error al cargar servicios:', error)
       } finally {
         loadingServicios.value = false
+      }
+
+      try {
+        const vehiculosData = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
+        vehiculosList.value = vehiculosData
+        console.log('Vehiculos cargados:', vehiculosData)
+      } catch (error) {
+        console.error('Error al cargar vehiculos:', error)
+      } finally {
         loadingVehiculosServicio.value = false
+      }
+
+      try {
+        const hardwareData = await fetchHardwareSimplesApi(groupStore.selectedGroup.id)
+        hardwareList.value = hardwareData
+      } catch (error) {
+        console.error('Error al cargar hardware:', error)
+      } finally {
         loadingHardware.value = false
       }
     }
@@ -149,7 +279,19 @@ watch(() => props.isOpen, async (isOpen) => {
     setTimeout(() => {
       isInitializing.value = false
     }, 600)
+  } else {
+    panelActivo.value = null
   }
+})
+
+onMounted(() => {
+  document.addEventListener('mousedown', handleClickOutside)
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousedown', handleClickOutside)
+  window.removeEventListener('resize', handleResize)
 })
 
 const handleCreate = async () => {
@@ -173,7 +315,7 @@ const handleCreate = async () => {
     id_hardware: formData.id_hardware || '',
     tipo_pase: formData.tipo_pase || '',
     pase: formData.pase || '',
-    pase_vence: formData.pase_vence || ''
+    pase_vence: formatFecha(formData.pase_vence)
   }
 
   if (!validate(payload, 'escolta-create-form')) {
@@ -200,6 +342,14 @@ const handleCreate = async () => {
 const handleClose = () => {
   emit('update:isOpen', false)
 }
+
+const formatFecha = (date: Date | null): string => {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 </script>
 
 <template>
@@ -219,7 +369,7 @@ const handleClose = () => {
       </div>
     </template>
 
-    <div class="flex flex-col gap-5 relative p-1">
+    <div class="flex flex-col gap-5 relative p-1 modal-escolta-content">
       <!-- OVERLAY DE CARGA -->
       <Transition name="fade">
         <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
@@ -313,52 +463,122 @@ const handleClose = () => {
 
             <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
               <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <AppSelect
-                  v-model="formData.id_servicio"
-                  :label="t('escoltas.labelService', 'Servicio')"
-                  :placeholder="loadingServicios ? 'Cargando...' : t('escoltas.placeholderService', 'Seleccione un servicio')"
-                  :icon="Route01Icon"
-                  :options="servicioOptions"
-                  :disabled="loadingServicios"
-                />
-                <AppSelect
-                  v-model="formData.id_vehiculo"
-                  :label="t('escoltas.labelVehicle', 'Vehículo de Servicio')"
-                  :placeholder="loadingVehiculosServicio ? 'Cargando...' : t('escoltas.placeholderVehicle', 'Seleccione un vehículo')"
-                  :icon="Car01Icon"
-                  :options="vehiculoServicioOptions"
-                  :disabled="loadingVehiculosServicio"
-                />
-                <AppSelect
-                  v-model="formData.id_hardware"
-                  :label="t('escoltas.labelHardware', 'Dispositivo Hardware')"
-                  :placeholder="loadingHardware ? 'Cargando...' : t('escoltas.placeholderHardware', 'Seleccione un dispositivo')"
-                  :icon="CpuIcon"
-                  :options="hardwareOptions"
-                  :disabled="loadingHardware"
-                />
+                <!-- Servicio -->
+                <div class="space-y-2">
+                  <label
+                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                    :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                  >
+                    {{ t('escoltas.labelService', 'Servicio') }}
+                  </label>
+                  <button
+                    ref="btnServicios"
+                    type="button"
+                    @click="abrirPanel('servicios')"
+                    :disabled="loadingServicios"
+                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                    :class="[
+                      loadingServicios ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      panelActivo === 'servicios' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                    ]"
+                  >
+                    <HugeiconsIcon :icon="Route01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_servicio ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                      {{ formData.id_servicio ? getServicioLabel(formData.id_servicio) : (loadingServicios ? 'Cargando...' : t('escoltas.placeholderService', 'Seleccione un servicio')) }}
+                    </span>
+                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'servicios' }" />
+                  </button>
+                </div>
+
+                <!-- Vehículo -->
+                <div class="space-y-2">
+                  <label
+                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                    :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                  >
+                    {{ t('escoltas.labelVehicle', 'Vehículo de Servicio') }}
+                  </label>
+                  <button
+                    ref="btnVehiculos"
+                    type="button"
+                    @click="abrirPanel('vehiculos')"
+                    :disabled="loadingVehiculosServicio"
+                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                    :class="[
+                      loadingVehiculosServicio ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      panelActivo === 'vehiculos' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                    ]"
+                  >
+                    <HugeiconsIcon :icon="Car01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_vehiculo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                      {{ formData.id_vehiculo ? getVehiculoLabel(formData.id_vehiculo) : (loadingVehiculosServicio ? 'Cargando...' : t('escoltas.placeholderVehicle', 'Seleccione un vehículo')) }}
+                    </span>
+                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }" />
+                  </button>
+                </div>
+
+                <!-- Hardware -->
+                <div class="space-y-2">
+                  <label
+                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                    :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                  >
+                    {{ t('escoltas.labelHardware', 'Dispositivo Hardware') }}
+                  </label>
+                  <button
+                    ref="btnHardware"
+                    type="button"
+                    @click="abrirPanel('hardware')"
+                    :disabled="loadingHardware"
+                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                    :class="[
+                      loadingHardware ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      panelActivo === 'hardware' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                    ]"
+                  >
+                    <HugeiconsIcon :icon="CpuIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_hardware ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                      {{ formData.id_hardware ? getHardwareLabel(formData.id_hardware) : (loadingHardware ? 'Cargando...' : t('escoltas.placeholderHardware', 'Seleccione un dispositivo')) }}
+                    </span>
+                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'hardware' }" />
+                  </button>
+                </div>
               </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <AppSelect
-                v-model="formData.tipo_pase"
-                :label="t('escoltas.labelPassType', 'Tipo de Pase')"
-                :placeholder="t('escoltas.placeholderPassType', 'Seleccione tipo de pase')"
-                :icon="LicenseIcon"
-                :options="tipoPaseOptions"
-              />
+              <!-- Tipo de Pase -->
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                  :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ t('escoltas.labelPassType', 'Tipo de Pase') }}
+                </label>
+                <button
+                  ref="btnTipoPase"
+                  type="button"
+                  @click="abrirPanel('tipoPase')"
+                  class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                  :class="panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
+                >
+                  <HugeiconsIcon :icon="LicenseIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                  <span class="flex-1 text-sm font-medium truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                    {{ formData.tipo_pase || t('escoltas.placeholderPassType', 'Seleccione tipo de pase') }}
+                  </span>
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'tipoPase' }" />
+                </button>
+              </div>
               <AppInput
                 v-model="formData.pase"
                 :label="t('escoltas.labelPass', 'Número de Pase')"
                 :placeholder="t('escoltas.placeholderPass', 'Ej: 79065744')"
                 :icon="ContactBookIcon"
               />
-              <AppInput
+              <AppDateTimePicker
                 v-model="formData.pase_vence"
-                type="date"
                 :label="t('escoltas.labelPassExpiry', 'Vencimiento del Pase')"
-                :icon="Calendar01Icon"
+                :placeholder="t('escoltas.placeholderPassExpiry', 'Seleccione fecha')"
               />
             </div>
           </div>
@@ -366,6 +586,205 @@ const handleClose = () => {
       </Transition>
     </div>
   </AppModal>
+
+  <!-- Panel flotante de selección -->
+  <Teleport to="body">
+    <Transition name="panel-flotante">
+      <div
+        v-if="panelActivo && isOpen && !isSuccess && !isInitializing"
+        class="panel-flotante-escolta fixed z-[200] flex flex-col overflow-hidden"
+        :style="{
+          top: panelStyle.top,
+          left: panelStyle.left,
+          width: '356px',
+          height: panelStyle.height,
+        }"
+      >
+        <div class="h-1 bg-gradient-to-r from-[#3b82f6] to-[#5da6fc] shrink-0" />
+
+        <div class="bg-[#1A1D24] px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#5da6fc]">
+              <HugeiconsIcon
+                :icon="panelActivo === 'servicios' ? Route01Icon : panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : LicenseIcon"
+                :size="17"
+              />
+            </div>
+            <div>
+              <h4 class="text-[12px] font-black text-white tracking-tight">
+                {{ panelActivo === 'servicios' ? 'Servicios disponibles' : panelActivo === 'vehiculos' ? 'Vehículos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Tipos de Pase' }}
+              </h4>
+              <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+                {{
+                  panelActivo === 'servicios' ? `${filteredServicios.length} servicios` :
+                  panelActivo === 'vehiculos' ? `${filteredVehiculos.length} vehículos` :
+                  panelActivo === 'hardware' ? `${filteredHardware.length} dispositivos` :
+                  `${filteredTipoPase.length} opciones`
+                }}
+              </p>
+            </div>
+          </div>
+          <button type="button" @click="cerrarPanel" class="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
+          </button>
+        </div>
+
+        <div class="bg-[#1A1D24] px-4 pb-3 shrink-0">
+          <div class="flex items-center gap-2 bg-[#0F1115] border border-white/5 rounded-lg px-3 py-2">
+            <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
+            <input
+              v-if="panelActivo === 'servicios'"
+              v-model="searchServiciosQuery"
+              type="text"
+              placeholder="Buscar servicio..."
+              class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
+              @click.stop
+            />
+            <input
+              v-else-if="panelActivo === 'vehiculos'"
+              v-model="searchVehiculosQuery"
+              type="text"
+              placeholder="Buscar por placa o tipo..."
+              class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
+              @click.stop
+            />
+            <input
+              v-else-if="panelActivo === 'hardware'"
+              v-model="searchHardwareQuery"
+              type="text"
+              placeholder="Buscar hardware..."
+              class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
+              @click.stop
+            />
+            <input
+              v-else-if="panelActivo === 'tipoPase'"
+              v-model="searchTipoPaseQuery"
+              type="text"
+              placeholder="Buscar tipo..."
+              class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
+              @click.stop
+            />
+            <button
+              v-if="searchServiciosQuery || searchVehiculosQuery || searchHardwareQuery || searchTipoPaseQuery"
+              type="button"
+              @click.stop="searchServiciosQuery = ''; searchVehiculosQuery = ''; searchHardwareQuery = ''; searchTipoPaseQuery = ''"
+              class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
+            >
+              <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
+            </button>
+          </div>
+        </div>
+
+        <div class="bg-[#1A1D24] px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
+          <span class="text-[10px] font-bold tabular-nums text-blue-400">
+            {{ panelActivo === 'servicios' ? (formData.id_servicio ? '1 seleccionado' : 'Sin seleccionar') :
+               panelActivo === 'vehiculos' ? (formData.id_vehiculo ? '1 seleccionado' : 'Sin seleccionar') :
+               panelActivo === 'hardware' ? (formData.id_hardware ? '1 seleccionado' : 'Sin seleccionar') :
+               (formData.tipo_pase ? '1 seleccionado' : 'Sin seleccionar') }}
+          </span>
+          <button
+            type="button"
+            @click.stop="panelActivo === 'servicios' ? formData.id_servicio = '' : panelActivo === 'vehiculos' ? formData.id_vehiculo = '' : panelActivo === 'hardware' ? formData.id_hardware = '' : formData.tipo_pase = ''"
+            class="text-[10px] font-semibold text-slate-400 hover:text-red-400 transition-colors"
+          >
+            Limpiar
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto bg-[#1A1D24] py-3 space-y-1 px-3">
+          <!-- Servicios -->
+          <template v-if="panelActivo === 'servicios'">
+            <button
+              v-for="s in filteredServicios"
+              :key="s.id_servicio"
+              type="button"
+              @click="selectServicio(s.id_servicio)"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+              :class="formData.id_servicio === s.id_servicio ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+            >
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                :class="formData.id_servicio === s.id_servicio ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                <HugeiconsIcon v-if="formData.id_servicio === s.id_servicio" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[12px] font-semibold truncate">{{ s.id_servicio }}</span>
+                <span v-if="s.fecha_inicio" class="text-[10px] text-slate-400 truncate">{{ s.fecha_inicio }}</span>
+              </div>
+            </button>
+            <div v-if="filteredServicios.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
+              <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-30 mb-2" />
+              <span class="text-sm">Sin servicios disponibles</span>
+            </div>
+          </template>
+
+          <!-- Vehículos -->
+          <template v-else-if="panelActivo === 'vehiculos'">
+            <button
+              v-for="v in filteredVehiculos"
+              :key="v.id_vehiculo"
+              type="button"
+              @click="selectVehiculo(v.id_vehiculo)"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+              :class="formData.id_vehiculo === v.id_vehiculo ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+            >
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                :class="formData.id_vehiculo === v.id_vehiculo ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                <HugeiconsIcon v-if="formData.id_vehiculo === v.id_vehiculo" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+              </div>
+              <div class="flex flex-col min-w-0">
+                <span class="text-[12px] font-semibold truncate">{{ v.placa }}</span>
+                <span class="text-[10px] text-slate-400 truncate">{{ v.tipo }}</span>
+              </div>
+            </button>
+            <div v-if="filteredVehiculos.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
+              <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
+              <span class="text-sm">Sin vehículos disponibles</span>
+            </div>
+          </template>
+
+          <!-- Hardware -->
+          <template v-else-if="panelActivo === 'hardware'">
+            <button
+              v-for="h in filteredHardware"
+              :key="h.id_hardware"
+              type="button"
+              @click="selectHardware(h.id_hardware)"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+              :class="formData.id_hardware === h.id_hardware ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+            >
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                :class="formData.id_hardware === h.id_hardware ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                <HugeiconsIcon v-if="formData.id_hardware === h.id_hardware" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+              </div>
+              <span class="text-[12px] font-semibold truncate">{{ h.nombre }}</span>
+            </button>
+            <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
+              <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-30 mb-2" />
+              <span class="text-sm">Sin hardware disponible</span>
+            </div>
+          </template>
+
+          <!-- Tipo de Pase -->
+          <template v-else-if="panelActivo === 'tipoPase'">
+            <button
+              v-for="t in filteredTipoPase"
+              :key="t.value"
+              type="button"
+              @click="selectTipoPase(t.value)"
+              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
+              :class="formData.tipo_pase === t.value ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+            >
+              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
+                :class="formData.tipo_pase === t.value ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                <HugeiconsIcon v-if="formData.tipo_pase === t.value" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+              </div>
+              <span class="text-[12px] font-semibold">{{ t.label }}</span>
+            </button>
+          </template>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -411,25 +830,42 @@ const handleClose = () => {
 }
 
 /* Overrides para inputs dentro del modal */
-:deep(.modal-card .bg-slate-50) {
+:deep(.modal-card > div > .bg-slate-50) {
   background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
 }
-:deep(.modal-card .border-slate-200) {
+:deep(.modal-card > div > .border-slate-200) {
   border-color: rgba(255,255,255,0.08) !important;
 }
-:deep(.modal-card .text-slate-800) {
+:deep(.modal-card > div > .text-slate-800) {
   color: #e2e8f0 !important;
 }
-:deep(.modal-card .placeholder-slate-400) {
+:deep(.modal-card > div > .placeholder-slate-400) {
   color: #475569 !important;
 }
-:deep(.modal-card .placeholder-slate-600) {
+:deep(.modal-card > div > .placeholder-slate-600) {
   color: #475569 !important;
 }
-:deep(.modal-card .text-slate-700) {
+:deep(.modal-card > div > .text-slate-700) {
   color: #e2e8f0 !important;
 }
-:deep(.modal-card .bg-white) {
-  background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
+
+.panel-flotante-escolta {
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.panel-flotante-enter-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.panel-flotante-leave-active {
+  transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+.panel-flotante-enter-from {
+  opacity: 0;
+  transform: translateX(-12px) scale(0.96);
+}
+.panel-flotante-leave-to {
+  opacity: 0;
+  transform: translateX(-8px) scale(0.98);
 }
 </style>
