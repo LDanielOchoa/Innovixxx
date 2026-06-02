@@ -5,13 +5,16 @@ import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Search01Icon,
-  FilterIcon,
   Calendar01Icon,
   CpuIcon,
   CheckmarkCircle01Icon,
   Cancel01Icon,
   MoreHorizontalIcon,
-  Route01Icon
+  Route01Icon,
+  User02Icon,
+  Car01Icon,
+  Edit01Icon,
+  FilterIcon
 } from '@hugeicons/core-free-icons'
 import { fetchServiciosApi } from '../services/servicios.api'
 import type { Servicio, ServicioListPayload } from '../types/servicio'
@@ -25,9 +28,14 @@ import type { Escolta } from '../../escoltas/types/escolta'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
+import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
 import ServicioCreateModal from '../components/ServicioCreateModal.vue'
 import ServicioAsignarRecursosModal from '../components/ServicioAsignarRecursosModal.vue'
 import ServicioCambiarRutaModal from '../components/ServicioCambiarRutaModal.vue'
+import ServicioActualizarEscoltaModal from '../components/ServicioActualizarEscoltaModal.vue'
+import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVehiculosModal.vue'
+import ServicioVerHistorialModal from '../components/ServicioVerHistorialModal.vue'
+import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal.vue'
 import Column from 'primevue/column'
 
 import PageHeader from '../../../components/shared/PageHeader.vue'
@@ -47,6 +55,14 @@ const isAsignarModalOpen = ref(false)
 const selectedServicio = ref<Servicio | null>(null)
 const isCambiarRutaModalOpen = ref(false)
 const selectedCambiarRutaServicio = ref<Servicio | null>(null)
+const isActualizarEscoltaModalOpen = ref(false)
+const selectedActualizarEscoltaServicio = ref<Servicio | null>(null)
+const isActualizarVehiculosModalOpen = ref(false)
+const selectedActualizarVehiculosServicio = ref<Servicio | null>(null)
+const isVerHistorialModalOpen = ref(false)
+const selectedVerHistorialServicio = ref<Servicio | null>(null)
+const isCambiarEstadoModalOpen = ref(false)
+const selectedCambiarEstadoServicio = ref<Servicio | null>(null)
 const openMenuId = ref<string | null>(null)
 const menuPosition = ref({ top: '0px', right: '0px' })
 
@@ -81,17 +97,70 @@ const openCambiarRutaModal = (servicio: Servicio) => {
   isCambiarRutaModalOpen.value = true
 }
 
+const openActualizarEscoltaModal = (servicio: Servicio) => {
+  openMenuId.value = null
+  selectedActualizarEscoltaServicio.value = servicio
+  isActualizarEscoltaModalOpen.value = true
+}
+
+const openActualizarVehiculosModal = (servicio: Servicio) => {
+  openMenuId.value = null
+  selectedActualizarVehiculosServicio.value = servicio
+  isActualizarVehiculosModalOpen.value = true
+}
+
+const openVerHistorialModal = (servicio: Servicio) => {
+  openMenuId.value = null
+  selectedVerHistorialServicio.value = servicio
+  isVerHistorialModalOpen.value = true
+}
+
+const openCambiarEstadoModal = (servicio: Servicio) => {
+  openMenuId.value = null
+  selectedCambiarEstadoServicio.value = servicio
+  isCambiarEstadoModalOpen.value = true
+}
+
+const getLastWeekDates = () => {
+  const today = new Date()
+  const lastWeek = new Date(today)
+  lastWeek.setDate(today.getDate() - 7)
+  
+  const formatDate = (d: Date) => {
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  
+  return {
+    start: formatDate(lastWeek),
+    end: formatDate(today)
+  }
+}
+
+const defaultDates = getLastWeekDates()
+
 const filtros = ref({
   estado: SERVICIO_ESTADOS.TODOS,
-  fecha_registro_inicial: '',
-  fecha_registro_final: '',
+  fecha_registro_inicial: defaultDates.start,
+  fecha_registro_final: defaultDates.end,
   id_ruta: 'all',
   id_escolta: 'all'
 })
 
+const fechaRango = ref({
+  start: defaultDates.start,
+  end: defaultDates.end
+})
+
+watch(fechaRango, (newVal) => {
+  filtros.value.fecha_registro_inicial = newVal.start
+  filtros.value.fecha_registro_final = newVal.end
+}, { deep: true })
+
 const rutas = ref<Ruta[]>([])
 const escoltas = ref<Escolta[]>([])
-const filtrosAbiertos = ref(false)
 
 const estadoColors: Record<string, string> = {
   PRERCARGA: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
@@ -154,10 +223,12 @@ const aplicarFiltros = () => {
 }
 
 const limpiarFiltros = () => {
+  const dates = getLastWeekDates()
+  fechaRango.value = { start: dates.start, end: dates.end }
   filtros.value = {
     estado: SERVICIO_ESTADOS.TODOS,
-    fecha_registro_inicial: '',
-    fecha_registro_final: '',
+    fecha_registro_inicial: dates.start,
+    fecha_registro_final: dates.end,
     id_ruta: 'all',
     id_escolta: 'all'
   }
@@ -214,13 +285,6 @@ onUnmounted(() => {
     >
       <template #actions>
         <button 
-          @click="filtrosAbiertos = !filtrosAbiertos"
-          class="inline-flex items-center gap-2.5 px-4 py-3 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 font-semibold text-sm hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
-        >
-          <HugeiconsIcon :icon="FilterIcon" :size="16" />
-          <span>{{ filtrosAbiertos ? t('servicios.btnClear', 'Ocultar') : t('servicios.btnApply', 'Filtros') }}</span>
-        </button>
-        <button 
           @click="isCreateModalOpen = true"
           class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
         >
@@ -235,106 +299,106 @@ onUnmounted(() => {
       </template>
     </PageHeader>
 
-    <!-- Filtros Expandibles -->
-    <Transition name="fade-slide">
-      <div v-if="filtrosAbiertos" class="bg-white/60 dark:bg-[#12141A]/50 backdrop-blur-xl rounded-[20px] border border-slate-200/60 dark:border-white/5 p-5 space-y-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-none">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">
-              {{ t('servicios.filterState', 'Estado') }}
-            </label>
-            <select
-              v-model="filtros.estado"
-              class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 appearance-none cursor-pointer"
-            >
-              <option :value="SERVICIO_ESTADOS.TODOS">{{ t('servicios.stateAll', 'Todos') }}</option>
-              <option :value="SERVICIO_ESTADOS.PRERCARGA">{{ t('servicios.statePreload', 'Prercarga') }}</option>
-              <option :value="SERVICIO_ESTADOS.EN_ESPERA">{{ t('servicios.stateWaiting', 'En Espera') }}</option>
-              <option :value="SERVICIO_ESTADOS.EJECUCION_OK">{{ t('servicios.stateExecOk', 'Ejecucion OK') }}</option>
-              <option :value="SERVICIO_ESTADOS.EJECUCION_FAIL">{{ t('servicios.stateExecFail', 'Ejecucion Fail') }}</option>
-              <option :value="SERVICIO_ESTADOS.FINALIZADO">{{ t('servicios.stateFinished', 'Finalizado') }}</option>
-            </select>
+    <!-- Filtros Inline -->
+    <div class="relative mt-4 mb-4">
+      <div class="absolute inset-0 bg-gradient-to-r from-[#3b82f6]/5 via-[#3b82f6]/10 to-[#3b82f6]/5 rounded-2xl blur-xl opacity-50"></div>
+      <div class="relative bg-white/80 dark:bg-[#0F1115]/80 backdrop-blur-xl rounded-2xl border border-slate-200/50 dark:border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.04)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+        <div class="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200/50 dark:border-white/5">
+          <div class="w-7 h-7 rounded-lg bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 flex items-center justify-center">
+            <HugeiconsIcon :icon="FilterIcon" :size="14" class="text-[#3b82f6] dark:text-[#5da6fc]" />
           </div>
-
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">
-              {{ t('servicios.filterDateFrom', 'Fecha Inicio') }}
-            </label>
-            <input
-              v-model="filtros.fecha_registro_inicial"
-              type="date"
-              class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300"
+          <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-[0.15em]">Filtros de Búsqueda</span>
+        </div>
+        
+        <div class="grid grid-cols-12 gap-4 items-end">
+          <!-- Date Range -->
+          <div class="col-span-12 sm:col-span-4 lg:col-span-3">
+            <AppDateRangePicker
+              v-model="fechaRango"
+              label="Rango de Fechas"
+              placeholder="Seleccionar rango"
             />
           </div>
-
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">
-              {{ t('servicios.filterDateTo', 'Fecha Fin') }}
-            </label>
-            <input
-              v-model="filtros.fecha_registro_final"
-              type="date"
-              class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300"
-            />
+          
+          <!-- Route -->
+          <div class="col-span-6 sm:col-span-4 lg:col-span-2">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] ml-1">
+                {{ t('servicios.filterRoute', 'Ruta') }}
+              </label>
+              <div class="relative">
+                <select
+                  v-model="filtros.id_ruta"
+                  class="w-full bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl py-3 pl-4 pr-10 text-[13px] font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/50 dark:focus:border-[#5da6fc]/50 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-white/10"
+                >
+                  <option value="all">{{ t('servicios.stateAll', 'Todas') }}</option>
+                  <option v-for="ruta in rutas" :key="ruta.id_ruta" :value="ruta.id_ruta">
+                    {{ ruta.nombre }}
+                  </option>
+                </select>
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div class="flex items-end gap-2">
+          
+          <!-- Escort -->
+          <div class="col-span-6 sm:col-span-4 lg:col-span-2">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] ml-1">
+                {{ t('servicios.filterEscort', 'Escolta') }}
+              </label>
+              <div class="relative">
+                <select
+                  v-model="filtros.id_escolta"
+                  class="w-full bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl py-3 pl-4 pr-10 text-[13px] font-semibold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/50 dark:focus:border-[#5da6fc]/50 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 appearance-none cursor-pointer hover:border-slate-300 dark:hover:border-white/10"
+                >
+                  <option value="all">{{ t('servicios.stateAll', 'Todos') }}</option>
+                  <option v-for="escolta in escoltas" :key="escolta.id_escolta" :value="escolta.id_escolta">
+                    {{ escolta.nombre }}
+                  </option>
+                </select>
+                <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Actions -->
+          <div class="col-span-12 sm:col-span-12 lg:col-span-5 flex items-end gap-3">
             <button
               @click="aplicarFiltros"
-              class="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white text-[11px] font-black tracking-widest uppercase shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] border border-[#2563eb] active:translate-y-[4px] active:shadow-none transition-all duration-200"
+              class="flex-1 flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-[#2563eb] hover:to-[#1d4ed8] text-white text-[12px] font-bold tracking-wide uppercase shadow-[0_4px_12px_rgba(59,130,246,0.25)] hover:shadow-[0_6px_16px_rgba(59,130,246,0.35)] border border-[#3b82f6]/20 active:scale-[0.98] transition-all duration-200"
             >
               <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="16" :stroke-width="2.5" />
-              {{ t('servicios.btnApply', 'Aplicar') }}
+              {{ t('servicios.btnApply', 'Aplicar Filtros') }}
             </button>
             <button
               @click="limpiarFiltros"
-              class="flex items-center justify-center w-11 h-11 rounded-xl bg-white dark:bg-[#1A1D24] text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-white/10 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-200 active:scale-95"
+              class="flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-slate-100/50 dark:bg-white/5 text-slate-600 dark:text-slate-400 border border-slate-200/50 dark:border-white/5 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-500/10 hover:border-red-200/50 dark:hover:border-red-500/20 font-semibold text-[12px] tracking-wide uppercase transition-all duration-200 active:scale-95"
               :title="t('servicios.btnClear', 'Limpiar')"
             >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="18" :stroke-width="2" />
+              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+              {{ t('servicios.btnClear', 'Limpiar') }}
             </button>
           </div>
         </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">
-              {{ t('servicios.filterRoute', 'Ruta') }}
-            </label>
-            <select
-              v-model="filtros.id_ruta"
-              class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 appearance-none cursor-pointer"
-            >
-              <option value="all">{{ t('servicios.stateAll', 'Todas') }}</option>
-              <option v-for="ruta in rutas" :key="ruta.id_ruta" :value="ruta.id_ruta">
-                {{ ruta.nombre }}
-              </option>
-            </select>
-          </div>
-
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">
-              {{ t('servicios.filterEscort', 'Escolta') }}
-            </label>
-            <select
-              v-model="filtros.id_escolta"
-              class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 appearance-none cursor-pointer"
-            >
-              <option value="all">{{ t('servicios.stateAll', 'Todos') }}</option>
-              <option v-for="escolta in escoltas" :key="escolta.id_escolta" :value="escolta.id_escolta">
-                {{ escolta.nombre }}
-              </option>
-            </select>
-          </div>
-        </div>
       </div>
-    </Transition>
+    </div>
 
     <!-- Search Toolbar -->
-    <SearchToolbar v-model="searchQuery" :placeholder="t('servicios.searchPlaceholder')" searchWidth="sm:w-96" />
+    <div class="mt-4">
+      <SearchToolbar v-model="searchQuery" :placeholder="t('servicios.searchPlaceholder')" searchWidth="sm:w-96" />
+    </div>
 
     <!-- Tabla -->
-    <AppTableCard>
+    <AppTableCard class="mt-4">
       <AppTable
         :value="filteredServicios"
         :loading="isLoading"
@@ -440,6 +504,34 @@ onUnmounted(() => {
               <HugeiconsIcon :icon="Route01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>Cambiar Ruta</span>
             </button>
+            <button
+              @click="openActualizarEscoltaModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="User02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Actualizar Escolta</span>
+            </button>
+            <button
+              @click="openActualizarVehiculosModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Actualizar Vehículos</span>
+            </button>
+            <button
+              @click="openVerHistorialModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Ver Historial</span>
+            </button>
+            <button
+              @click="openCambiarEstadoModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Cambiar Estado</span>
+            </button>
           </div>
         </Transition>
       </Teleport>
@@ -469,6 +561,29 @@ onUnmounted(() => {
       :servicio="selectedCambiarRutaServicio"
       @assigned="fetchServicios"
     />
+
+    <ServicioActualizarEscoltaModal
+      v-model:is-open="isActualizarEscoltaModalOpen"
+      :servicio="selectedActualizarEscoltaServicio"
+      @updated="fetchServicios"
+    />
+
+    <ServicioActualizarVehiculosModal
+      v-model:is-open="isActualizarVehiculosModalOpen"
+      :servicio="selectedActualizarVehiculosServicio"
+      @updated="fetchServicios"
+    />
+
+    <ServicioVerHistorialModal
+      v-model:is-open="isVerHistorialModalOpen"
+      :servicio="selectedVerHistorialServicio"
+    />
+
+    <ServicioCambiarEstadoModal
+      v-model:is-open="isCambiarEstadoModalOpen"
+      :servicio="selectedCambiarEstadoServicio"
+      @updated="fetchServicios"
+    />
   </div>
 </template>
 
@@ -481,18 +596,6 @@ onUnmounted(() => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(-12px) scale(0.98);
-}
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.99);
 }
 
 select {
