@@ -263,9 +263,9 @@ const cerrarSesion = () => {
               </div>
 
               <span 
-                class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap"
+                class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
                 :class="[
-                  isExpanded ? 'opacity-100' : 'opacity-0 w-0',
+                  isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
                   isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
                 ]"
               >
@@ -346,27 +346,29 @@ const cerrarSesion = () => {
       <div class="w-full pt-3">
         <button
           @click="isProfileMenuOpen = !isProfileMenuOpen"
-          class="w-full flex items-center gap-3 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none"
-          :class="isExpanded ? 'p-2' : 'p-0 w-10 h-10 mx-auto justify-center'"
+          class="w-full flex items-center gap-3 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none px-3 py-2"
         >
           <!-- Avatar -->
           <img 
             :src="authStore.userAvatar" 
-            class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300 shrink-0"
+            class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300 shrink-0"
             :class="!isExpanded && isProfileMenuOpen ? 'ring-2 ring-[#3b82f6] dark:ring-[#5da6fc]' : ''"
           />
           
           <!-- Info -->
           <div 
-            v-if="isExpanded"
-            class="flex-1 text-left overflow-hidden whitespace-nowrap"
+            class="flex-1 text-left overflow-hidden whitespace-nowrap transition-all duration-500"
+            :class="isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0'"
           >
             <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
           </div>
 
           <!-- Selector Icon -->
-          <div v-if="isExpanded" class="text-slate-400 dark:text-slate-500 shrink-0">
+          <div 
+            class="text-slate-400 dark:text-slate-500 shrink-0 transition-all duration-500 overflow-hidden"
+            :class="isExpanded ? 'opacity-100 max-w-[20px]' : 'opacity-0 max-w-0'"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
             </svg>
