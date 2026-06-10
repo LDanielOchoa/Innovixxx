@@ -34,7 +34,19 @@ const displayValue = computed(() => {
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
-  return `${day}/${month}/${year}`
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${day}/${month}/${year} ${hours}:${minutes}`
+})
+
+const currentHour = computed(() => {
+  if (!props.modelValue) return '00'
+  return String(props.modelValue.getHours()).padStart(2, '0')
+})
+
+const currentMinute = computed(() => {
+  if (!props.modelValue) return '00'
+  return String(props.modelValue.getMinutes()).padStart(2, '0')
 })
 
 const daysInMonth = computed(() => {
@@ -65,8 +77,29 @@ const isSelected = (day: number) => {
 }
 
 const selectDay = (day: number) => {
-  const date = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth(), day, 0, 0, 0, 0)
+  const currentH = props.modelValue ? props.modelValue.getHours() : 0
+  const currentM = props.modelValue ? props.modelValue.getMinutes() : 0
+  const date = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth(), day, currentH, currentM, 0, 0)
   emit('update:modelValue', date)
+}
+
+const updateHour = (value: string) => {
+  const h = parseInt(value, 10)
+  if (isNaN(h) || h < 0 || h > 23) return
+  const current = props.modelValue || new Date()
+  const date = new Date(current.getFullYear(), current.getMonth(), current.getDate(), h, current.getMinutes(), 0, 0)
+  emit('update:modelValue', date)
+}
+
+const updateMinute = (value: string) => {
+  const m = parseInt(value, 10)
+  if (isNaN(m) || m < 0 || m > 59) return
+  const current = props.modelValue || new Date()
+  const date = new Date(current.getFullYear(), current.getMonth(), current.getDate(), current.getHours(), m, 0, 0)
+  emit('update:modelValue', date)
+}
+
+const confirmSelection = () => {
   isOpen.value = false
 }
 
@@ -81,9 +114,8 @@ const nextMonth = () => {
 const goToday = () => {
   const now = new Date()
   viewDate.value = new Date(now.getFullYear(), now.getMonth(), 1)
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0)
   emit('update:modelValue', today)
-  isOpen.value = false
 }
 
 const clearDate = () => {
@@ -187,9 +219,33 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <div class="flex items-center justify-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+              <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Hora:</span>
+              <input
+                type="number"
+                min="0"
+                max="23"
+                :value="currentHour"
+                @change="updateHour(($event.target as HTMLInputElement).value)"
+                class="w-14 px-2 py-1.5 text-center text-[13px] font-bold bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-slate-200 focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-1 focus:ring-[#3b82f6]/20 outline-none transition-all"
+              />
+              <span class="text-slate-400 font-bold">:</span>
+              <input
+                type="number"
+                min="0"
+                max="59"
+                :value="currentMinute"
+                @change="updateMinute(($event.target as HTMLInputElement).value)"
+                class="w-14 px-2 py-1.5 text-center text-[13px] font-bold bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-slate-200 focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-1 focus:ring-[#3b82f6]/20 outline-none transition-all"
+              />
+            </div>
+
             <div class="flex items-center justify-between px-4 py-2.5 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
               <button type="button" @click="clearDate" class="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider hover:text-red-500 transition-colors">Limpiar</button>
-              <button type="button" @click="goToday" class="text-[11px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider hover:text-[#2563eb] transition-colors">Hoy</button>
+              <div class="flex items-center gap-2">
+                <button type="button" @click="goToday" class="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider hover:text-slate-700 dark:hover:text-slate-200 transition-colors">Hoy</button>
+                <button type="button" @click="confirmSelection" class="text-[11px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider hover:text-[#2563eb] transition-colors">Listo</button>
+              </div>
             </div>
           </div>
         </div>

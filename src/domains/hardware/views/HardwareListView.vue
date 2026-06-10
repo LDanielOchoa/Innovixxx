@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import * as XLSX from 'xlsx'
@@ -9,7 +9,8 @@ import {
   Edit02Icon,
   Delete01Icon,
   ChipIcon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  Location01Icon
 } from '@hugeicons/core-free-icons'
 
 import {
@@ -28,12 +29,13 @@ import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import HardwareFormModal from '../components/HardwareFormModal.vue'
+import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
+
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -45,6 +47,39 @@ const isLoading = ref(true)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const handleDocumentClick = () => {
+  closeMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 
 const fetchHardware = async () => {
   if (!selectedGroup.value?.id) {
@@ -88,6 +123,24 @@ const itemToDelete = ref<string | null>(null)
 const confirmDelete = (id_hardware: string) => {
   itemToDelete.value = id_hardware
   isDeleteModalOpen.value = true
+}
+
+// Modal de posición
+const isPosicionModalOpen = ref(false)
+const posicionHardware = ref<Hardware | null>(null)
+
+const openPosicionModal = (item: Hardware) => {
+  posicionHardware.value = item
+  isPosicionModalOpen.value = true
+}
+
+const handleMenuAction = (action: 'posicion' | 'edit' | 'delete') => {
+  const item = items.value.find(i => i.id_hardware === openMenuId.value)
+  openMenuId.value = null
+  if (!item) return
+  if (action === 'posicion') openPosicionModal(item)
+  else if (action === 'edit') openEditModal(item)
+  else if (action === 'delete') confirmDelete(item.id_hardware)
 }
 
 const deleteHardware = async () => {
@@ -243,30 +296,53 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
+        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: Edit02Icon,
-                  tooltip: t('common.edit', 'Editar'),
-                  variant: 'primary',
-                  onClick: () => openEditModal(data),
-                  show: authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)
-                },
-                {
-                  icon: Delete01Icon,
-                  tooltip: t('common.delete', 'Eliminar'),
-                  variant: 'danger',
-                  onClick: () => confirmDelete(data.id_hardware),
-                  show: authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(data.id_hardware, $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              @click="handleMenuAction('posicion')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Posición</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
+              @click="handleMenuAction('edit')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('common.edit', 'Editar') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)"
+              @click="handleMenuAction('delete')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <HugeiconsIcon :icon="Delete01Icon" :size="16" />
+              <span>{{ t('common.delete', 'Eliminar') }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
         <AppPagination
@@ -290,6 +366,12 @@ const filteredItems = computed(() => {
       :edit-item="editItem"
       @saved="handleSaved"
     />
+
+    <!-- Modal Posición Hardware -->
+    <HardwarePosicionModal
+      v-model:is-open="isPosicionModalOpen"
+      :hardware="posicionHardware"
+    />
   </div>
 </template>
 
@@ -302,6 +384,21 @@ const filteredItems = computed(() => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 
 .scrollbar-hide::-webkit-scrollbar {

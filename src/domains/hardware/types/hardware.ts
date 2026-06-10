@@ -42,3 +42,22 @@ export interface HardwareDeletePayload {
   id_grupo: string
   id_hardware: string
 }
+
+export interface Posicion {
+  battery: string
+  course: string
+  lat: string
+  lon: string
+  server_time: string
+  sos: string
+  speed: string
+  time_dv: string
+  time_fx: string
+}
+
+export interface MapPositionsPayload {
+  id_hardware: string
+  id_grupo: string
+  desde: string
+  hasta: string
+}

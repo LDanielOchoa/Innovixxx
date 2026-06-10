@@ -294,7 +294,7 @@ const handleClose = () => {
                 </button>
               </div>
               <div v-if="validNextStates.length === 0" class="text-[12px] text-amber-500 ml-1">
-                Este estado es terminal, no se pueden realizar más cambios.
+                No lo podes cambiar bobo
               </div>
             </div>
 

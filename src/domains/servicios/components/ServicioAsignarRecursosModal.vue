@@ -22,7 +22,8 @@ import {
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
   fetchEscoltasSimplesApi,
-  asignarRecursosServicioApi
+  asignarRecursosServicioApi,
+  fetchServicioDashboardApi
 } from '../services/servicios.api'
 import type {
   Servicio,
@@ -62,6 +63,7 @@ const loadingRutas = ref(false)
 const loadingVehiculos = ref(false)
 const loadingHardware = ref(false)
 const loadingEscoltas = ref(false)
+const loadingDashboard = ref(false)
 
 // Campos del formulario
 const selectedRutaId = ref('')
@@ -279,18 +281,33 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingVehiculos.value = true
       loadingHardware.value = true
       loadingEscoltas.value = true
+      loadingDashboard.value = true
 
       try {
-        const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
+        const [rutasData, vehiculosData, hardwareData, escoltasData, dashboardData] = await Promise.all([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id),
           fetchHardwareSimplesApi(groupStore.selectedGroup.id),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id)
+          fetchEscoltasSimplesApi(groupStore.selectedGroup.id),
+          props.servicio?.id_servicio
+            ? fetchServicioDashboardApi({
+                id_grupo: groupStore.selectedGroup.id,
+                id_servicio: props.servicio.id_servicio,
+                estado: 1
+              })
+            : Promise.resolve(null)
         ])
         rutas.value = rutasData
         vehiculos.value = vehiculosData
         hardware.value = hardwareData
         escoltas.value = escoltasData
+
+        if (dashboardData?.done && dashboardData.data?.servicios?.length > 0) {
+          const servicioDashboard = dashboardData.data.servicios[0]
+          if (servicioDashboard.id_ruta) {
+            selectedRutaId.value = servicioDashboard.id_ruta
+          }
+        }
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
         modalMessage.value = { text: 'Error al inicializar los recursos disponibles del grupo.', type: 'error' }
@@ -299,6 +316,7 @@ watch(() => props.isOpen, async (isOpen) => {
         loadingVehiculos.value = false
         loadingHardware.value = false
         loadingEscoltas.value = false
+        loadingDashboard.value = false
       }
     }
 
@@ -641,26 +659,23 @@ const formatFechaHora = (date: Date | null): string => {
         </div>
       </div>
 
-      <!-- VISTA DE Ã‰XITO AL ASIGNAR -->
+      <!-- VISTA DE ÉXITO AL ASIGNAR -->
       <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
+        <div v-if="isSuccess" class="py-16 flex flex-col items-center justify-center text-center space-y-3">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <HugeiconsIcon :icon="Tick01Icon" :size="24" class="text-emerald-500" :stroke-width="2.5" />
           </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Recursos Asignados Correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            Los vehículos, hardware y escoltas han sido programados para este servicio.
+          <h3 class="text-base font-semibold text-slate-800 dark:text-white">Recursos asignados correctamente</h3>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">
+            Los recursos han sido programados para este servicio.
           </p>
-          <div class="pt-4">
+          <div class="pt-3">
             <button
               @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
+              class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
+              <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
+              Cerrar
             </button>
           </div>
         </div>
@@ -683,59 +698,29 @@ const formatFechaHora = (date: Date | null): string => {
           </Transition>
 
           <div class="space-y-5">
-            <!-- Selector de Rutas con panel flotante -->
             <div class="space-y-2">
               <label
-                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500"
               >
                 Ruta de Viaje
               </label>
-              <button
-                ref="btnRutas"
-                type="button"
-                @click="abrirPanel('rutas')"
-                :disabled="loadingRutas"
-                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
-                :class="[
-                  loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
-                  panelActivo === 'rutas' ? 'panel-on' : ''
-                ]"
+              <div
+                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] opacity-80 cursor-default"
               >
-                <div 
-                  class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
-                  :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
-                ></div>
-
-                <div 
-                  class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
-                  :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
-                >
+                <div class="relative z-10 text-slate-400 dark:text-slate-500 mr-2 shrink-0">
                   <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
                 </div>
                 <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
                   <template v-if="selectedRutaId">
                     <div class="badge-recurso">
-                      <span class="truncate max-w-[150px]">{{ getRutaLabel(selectedRutaId) }}</span>
-                      <button type="button" @click.stop="selectedRutaId = ''" class="hover:text-red-400 transition-colors shrink-0">
-                        <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                      </button>
+                      <span class="truncate max-w-[250px]">{{ getRutaLabel(selectedRutaId) }}</span>
                     </div>
                   </template>
                   <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
-                    {{ loadingRutas ? 'Cargando...' : 'Seleccione una ruta de destino' }}
+                    {{ loadingDashboard || loadingRutas ? 'Cargando...' : 'Sin ruta asignada' }}
                   </span>
                 </div>
-                <div 
-                  class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
-                  :class="[
-                    panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
-                    { 'rotate-180': panelActivo === 'rutas' }
-                  ]"
-                >
-                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
-                </div>
-              </button>
+              </div>
             </div>
 
             <AppDateTimePicker

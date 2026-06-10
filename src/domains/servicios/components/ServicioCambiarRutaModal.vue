@@ -6,8 +6,8 @@ import {
   Cancel01Icon,
   Search01Icon,
   Tick01Icon,
-  Loading03Icon,
-  Calendar01Icon
+  Alert01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { cambiarRutaServicioApi, fetchRutasSimplesApi } from '../services/servicios.api'
@@ -80,6 +80,7 @@ const selectRuta = (id: string) => {
 }
 
 const getRutaLabel = (id: string) => {
+  if (!id) return 'Sin ruta asignada'
   const r = rutasList.value.find(item => item.id_ruta === id)
   return r ? r.nombre : id
 }
@@ -171,24 +172,21 @@ const handleClose = () => {
       </div>
 
       <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
+        <div v-if="isSuccess" class="py-16 flex flex-col items-center justify-center text-center space-y-3">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
+            <HugeiconsIcon :icon="Tick01Icon" :size="24" class="text-emerald-500" :stroke-width="2.5" />
           </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Ruta Cambiada Correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            La ruta del servicio ha sido actualizada exitosamente.
+          <h3 class="text-base font-semibold text-slate-800 dark:text-white">Ruta cambiada correctamente</h3>
+          <p class="text-[13px] text-slate-500 dark:text-slate-400">
+            La ruta del servicio ha sido actualizada.
           </p>
-          <div class="pt-4">
+          <div class="pt-3">
             <button
               @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
+              class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
             >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
+              <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
+              Cerrar
             </button>
           </div>
         </div>
@@ -210,22 +208,12 @@ const handleClose = () => {
 
           <div class="space-y-5">
             <div class="flex items-center gap-3 bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-3">
-              <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-[#3b82f6]">
-                <HugeiconsIcon :icon="Calendar01Icon" :size="18" />
-              </div>
-              <div>
-                <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Servicio</span>
-                <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ servicio?.id_servicio || '---' }}</p>
-              </div>
-            </div>
-
-            <div v-if="servicio?.id_ruta" class="flex items-center gap-3 bg-slate-50/50 dark:bg-[#0F1115]/50 border border-slate-200/40 dark:border-white/5 rounded-xl px-4 py-3">
-              <div class="w-8 h-8 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400">
-                <HugeiconsIcon :icon="Route01Icon" :size="16" />
+              <div class="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400">
+                <HugeiconsIcon :icon="Route01Icon" :size="18" />
               </div>
               <div>
                 <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Ruta Actual</span>
-                <p class="text-[13px] font-semibold text-slate-500 dark:text-slate-400">{{ getRutaLabel(servicio.id_ruta) }}</p>
+                <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ getRutaLabel(servicio?.id_ruta || '') }}</p>
               </div>
             </div>
 
@@ -233,6 +221,15 @@ const handleClose = () => {
               <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
                 Nueva Ruta
               </label>
+              <div v-if="selectedRutaId" class="flex items-center gap-3 bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 rounded-xl px-4 py-3">
+                <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/20 flex items-center justify-center text-[#3b82f6]">
+                  <HugeiconsIcon :icon="Route01Icon" :size="16" />
+                </div>
+                <div>
+                  <span class="text-[10px] font-black uppercase tracking-[0.15em] text-[#3b82f6]">Seleccionada</span>
+                  <p class="text-[13px] font-semibold text-[#3b82f6] dark:text-[#5da6fc]">{{ getRutaLabel(selectedRutaId) }}</p>
+                </div>
+              </div>
               <div class="relative">
                 <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2">
                   <HugeiconsIcon :icon="Search01Icon" :size="16" class="text-slate-400 shrink-0" />

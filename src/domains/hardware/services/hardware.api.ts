@@ -4,7 +4,9 @@ import type {
   FamiliaHardware,
   HardwareCreatePayload, 
   HardwareUpdatePayload, 
-  HardwareDeletePayload
+  HardwareDeletePayload,
+  MapPositionsPayload,
+  Posicion
 } from '../types/hardware'
 
 export const fetchHardwareApi = async (id_grupo: string): Promise<Hardware[]> => {
@@ -42,4 +44,12 @@ export const deleteHardwareApi = async (payload: HardwareDeletePayload): Promise
     method: 'POST',
     body: JSON.stringify(payload)
   })
+}
+
+export const fetchMapPositionsApi = async (payload: MapPositionsPayload): Promise<Posicion[]> => {
+  const data = await apiClient<{ done: boolean, data: { data: Posicion[] } }>('/api/v1/hardware/get_map_positions/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  return data.done && data.data?.data ? data.data.data : []
 }
