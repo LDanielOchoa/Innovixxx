@@ -163,6 +163,11 @@ const router = createRouter({
           path: 'servicios',
           name: 'servicios',
           component: () => import('../domains/servicios/views/ServiciosListView.vue')
+        },
+        {
+          path: 'servicios/dashboard',
+          name: 'servicios-dashboard',
+          component: () => import('../domains/servicios/views/ServiciosDashboardView.vue')
         }
       ]
     },

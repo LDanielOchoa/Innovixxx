@@ -49,19 +49,19 @@ export const fetchVehiculosSimplesApi = async (id_grupo: string): Promise<Vehicu
 }
 
 // Obtener dispositivos de hardware disponibles para el grupo
-export const fetchHardwareSimplesApi = async (id_grupo: string): Promise<HardwareSimple[]> => {
+export const fetchHardwareSimplesApi = async (id_grupo: string, estado: number = 1): Promise<HardwareSimple[]> => {
   const data = await apiClient<{ done: boolean; data: HardwareSimple[] }>('/api/v1/hardware/listar_simple/', {
     method: 'POST',
-    body: JSON.stringify({ id_grupo, estado: 1 })
+    body: JSON.stringify({ id_grupo, estado })
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }
 
 // Obtener escoltas disponibles para el grupo
-export const fetchEscoltasSimplesApi = async (id_grupo: string): Promise<EscoltaSimple[]> => {
+export const fetchEscoltasSimplesApi = async (id_grupo: string, estado: number = 1): Promise<EscoltaSimple[]> => {
   const data = await apiClient<{ done: boolean; data: EscoltaSimple[] }>('/api/v1/escolta/listar_simple/', {
     method: 'POST',
-    body: JSON.stringify({ id_grupo, estado: 1 })
+    body: JSON.stringify({ id_grupo, estado })
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }

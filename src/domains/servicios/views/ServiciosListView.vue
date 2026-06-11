@@ -16,8 +16,12 @@ import {
   Edit01Icon,
   FilterIcon
 } from '@hugeicons/core-free-icons'
-import { fetchServiciosApi } from '../services/servicios.api'
-import type { Servicio, ServicioListPayload } from '../types/servicio'
+import {
+  fetchServicioDashboardApi,
+  fetchVehiculosSimplesApi,
+  fetchHardwareSimplesApi
+} from '../services/servicios.api'
+import type { Servicio, ServicioDashboard, ServicioListPayload, VehiculoSimple, HardwareSimple } from '../types/servicio'
 import { SERVICIO_ESTADOS, SERVICIO_ESTADOS_LABELS } from '../types/servicio'
 import { useI18n } from 'vue-i18n'
 import { fetchRutasApi } from '../../rutas/services/rutas.api'
@@ -45,25 +49,78 @@ const { t } = useI18n()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
-const servicios = ref<Servicio[]>([])
+const servicios = ref<any[]>([])
+const catalogoVehiculos = ref<VehiculoSimple[]>([])
+const catalogoHardware = ref<HardwareSimple[]>([])
 const isLoading = ref(true)
 const searchQuery = ref('')
+
+const obtenerNombreRuta = (id: string): string => {
+  const r = rutas.value.find(item => item.id_ruta === id)
+  return r ? r.nombre : id
+}
+
+const obtenerNombreVehiculo = (id: string): string => {
+  const v = catalogoVehiculos.value.find(item => item.id_vehiculo === id)
+  return v ? `${v.nombre} (${v.placa})` : id
+}
+
+const obtenerNombreHardware = (id: string): string => {
+  const h = catalogoHardware.value.find(item => item.id_hardware === id)
+  return h ? h.nombre : id
+}
+
+const obtenerNombreEscolta = (id: string): string => {
+  const e = escoltas.value.find(item => item.id_escolta === id)
+  return e ? e.nombre : id
+}
 const currentPage = ref(1)
 const itemsPerPage = 10
 const isCreateModalOpen = ref(false)
 const isAsignarModalOpen = ref(false)
-const selectedServicio = ref<Servicio | null>(null)
+const selectedServicio = ref<ServicioDashboard | null>(null)
 const isCambiarRutaModalOpen = ref(false)
-const selectedCambiarRutaServicio = ref<Servicio | null>(null)
+const selectedCambiarRutaServicio = ref<ServicioDashboard | null>(null)
 const isActualizarEscoltaModalOpen = ref(false)
-const selectedActualizarEscoltaServicio = ref<Servicio | null>(null)
+const selectedActualizarEscoltaServicio = ref<ServicioDashboard | null>(null)
 const isActualizarVehiculosModalOpen = ref(false)
-const selectedActualizarVehiculosServicio = ref<Servicio | null>(null)
+const selectedActualizarVehiculosServicio = ref<ServicioDashboard | null>(null)
 const isVerHistorialModalOpen = ref(false)
-const selectedVerHistorialServicio = ref<Servicio | null>(null)
+const selectedVerHistorialServicio = ref<ServicioDashboard | null>(null)
 const isCambiarEstadoModalOpen = ref(false)
-const selectedCambiarEstadoServicio = ref<Servicio | null>(null)
+const selectedCambiarEstadoServicio = ref<ServicioDashboard | null>(null)
 const openMenuId = ref<string | null>(null)
+
+// Estado del tooltip
+const tooltipVisible = ref(false)
+const tooltipData = ref<any>(null)
+const tooltipTipo = ref<'rutas' | 'vehiculos' | 'escoltas'>('rutas')
+const tooltipPos = ref({ top: '0px', left: '0px' })
+let tooltipTimer: ReturnType<typeof setTimeout> | null = null
+
+const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos' | 'escoltas') => {
+  if (tooltipTimer) clearTimeout(tooltipTimer)
+  const el = event.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const tooltipWidth = tipo === 'vehiculos' ? 260 : 210
+  let left = rect.left + rect.width / 2 - tooltipWidth / 2
+  if (left < 8) left = 8
+  if (left + tooltipWidth > window.innerWidth - 8) left = window.innerWidth - tooltipWidth - 8
+  tooltipPos.value = {
+    top: `${rect.top + window.scrollY - 8}px`,
+    left: `${left}px`
+  }
+  tooltipData.value = data
+  tooltipTipo.value = tipo
+  tooltipVisible.value = true
+}
+
+const ocultarTooltip = () => {
+  tooltipTimer = setTimeout(() => {
+    tooltipVisible.value = false
+    tooltipData.value = null
+  }, 80)
+}
 const menuPosition = ref({ top: '0px', right: '0px' })
 const isFilterOpen = ref(false)
 const filterRef = ref<HTMLElement | null>(null)
@@ -144,50 +201,47 @@ const getEscoltaLabel = (): string => {
 }
 
 const getEstadoLabel = (): string => {
-  if (filtros.value.estado === 0) return t('servicios.stateAll', 'Todos')
   return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || '---'
 }
 
 const estadoOptions = [
-  { value: 0, label: 'Todos' },
   { value: 1, label: 'PRERCARGA' },
   { value: 2, label: 'EN ESPERA' },
   { value: 3, label: 'EJECUCION OK' },
-  { value: 4, label: 'EJECUCION FAIL' },
-  { value: 5, label: 'FINALIZADO' }
+  { value: 4, label: 'EJECUCION FAIL' }
 ]
 
-const openAsignarModal = (servicio: Servicio) => {
+const openAsignarModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedServicio.value = servicio
   isAsignarModalOpen.value = true
 }
 
-const openCambiarRutaModal = (servicio: Servicio) => {
+const openCambiarRutaModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedCambiarRutaServicio.value = servicio
   isCambiarRutaModalOpen.value = true
 }
 
-const openActualizarEscoltaModal = (servicio: Servicio) => {
+const openActualizarEscoltaModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedActualizarEscoltaServicio.value = servicio
   isActualizarEscoltaModalOpen.value = true
 }
 
-const openActualizarVehiculosModal = (servicio: Servicio) => {
+const openActualizarVehiculosModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedActualizarVehiculosServicio.value = servicio
   isActualizarVehiculosModalOpen.value = true
 }
 
-const openVerHistorialModal = (servicio: Servicio) => {
+const openVerHistorialModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedVerHistorialServicio.value = servicio
   isVerHistorialModalOpen.value = true
 }
 
-const openCambiarEstadoModal = (servicio: Servicio) => {
+const openCambiarEstadoModal = (servicio: ServicioDashboard) => {
   openMenuId.value = null
   selectedCambiarEstadoServicio.value = servicio
   isCambiarEstadoModalOpen.value = true
@@ -214,7 +268,7 @@ const getLastWeekDates = () => {
 const defaultDates = getLastWeekDates()
 
 const filtros = ref({
-  estado: SERVICIO_ESTADOS.TODOS,
+  estado: 1,
   fecha_registro_inicial: defaultDates.start,
   fecha_registro_final: defaultDates.end,
   id_ruta: 'all',
@@ -259,17 +313,19 @@ const fetchServicios = async () => {
 
   isLoading.value = true
   try {
-    const payload: ServicioListPayload = {
+    const payload = {
       id_grupo: selectedGroup.value.id,
-      estado: filtros.value.estado,
-      fecha_registro_inicial: filtros.value.fecha_registro_inicial || '2020-01-01',
-      fecha_registro_final: filtros.value.fecha_registro_final || '2099-12-31',
-      id_ruta: filtros.value.id_ruta,
-      id_escolta: filtros.value.id_escolta
+      id_servicio: 'all',
+      estado: filtros.value.estado
     }
-    servicios.value = await fetchServiciosApi(payload)
+    const respuesta = await fetchServicioDashboardApi(payload)
+    if (respuesta.done && respuesta.data?.servicios) {
+      servicios.value = respuesta.data.servicios
+    } else {
+      servicios.value = []
+    }
   } catch (error) {
-    console.error('Error fetching servicios:', error)
+    console.error('Error al cargar servicios:', error)
   } finally {
     isLoading.value = false
   }
@@ -278,14 +334,18 @@ const fetchServicios = async () => {
 const fetchFiltrosData = async () => {
   if (!selectedGroup.value?.id) return
   try {
-    const [rutasData, escoltasData] = await Promise.all([
+    const [rutasData, escoltasData, vehiculosData, hardwareData] = await Promise.all([
       fetchRutasApi(selectedGroup.value.id),
-      fetchEscoltasApi(selectedGroup.value.id)
+      fetchEscoltasApi(selectedGroup.value.id),
+      fetchVehiculosSimplesApi(selectedGroup.value.id),
+      fetchHardwareSimplesApi(selectedGroup.value.id, 0)
     ])
     rutas.value = rutasData
     escoltas.value = escoltasData
+    catalogoVehiculos.value = vehiculosData
+    catalogoHardware.value = hardwareData
   } catch (error) {
-    console.error('Error fetching filtros data:', error)
+    console.error('Error al cargar datos de filtros y catálogos:', error)
   }
 }
 
@@ -298,7 +358,7 @@ const limpiarFiltros = () => {
   const dates = getLastWeekDates()
   fechaRango.value = { start: dates.start, end: dates.end }
   filtros.value = {
-    estado: SERVICIO_ESTADOS.TODOS,
+    estado: 1,
     fecha_registro_inicial: dates.start,
     fecha_registro_final: dates.end,
     id_ruta: 'all',
@@ -547,7 +607,7 @@ onUnmounted(() => {
                   <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Estado
                   </label>
-                  <button v-if="filtros.estado !== 0" @click="filtros.estado = 0" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
+                  <button v-if="filtros.estado !== 1" @click="filtros.estado = 1" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
                     Limpiar
                   </button>
                 </div>
@@ -658,6 +718,52 @@ onUnmounted(() => {
           </template>
         </Column>
 
+        <!-- Columnas con Tooltips via Teleport -->
+        <Column :header="'Rutas'">
+          <template #body="{ data }">
+            <div
+              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
+              @mouseenter="mostrarTooltip($event, data, 'rutas')"
+              @mouseleave="ocultarTooltip"
+            >
+              <HugeiconsIcon :icon="Route01Icon" :size="14" class="text-slate-400" />
+              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
+                {{ (data.rutas || []).length }} {{ (data.rutas || []).length === 1 ? 'Ruta' : 'Rutas' }}
+              </span>
+            </div>
+          </template>
+        </Column>
+
+        <Column :header="'Vehículos'">
+          <template #body="{ data }">
+            <div
+              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
+              @mouseenter="mostrarTooltip($event, data, 'vehiculos')"
+              @mouseleave="ocultarTooltip"
+            >
+              <HugeiconsIcon :icon="Car01Icon" :size="14" class="text-slate-400" />
+              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
+                {{ Object.keys(data.vehiculos || {}).length }} {{ Object.keys(data.vehiculos || {}).length === 1 ? 'Vehículo' : 'Vehículos' }}
+              </span>
+            </div>
+          </template>
+        </Column>
+
+        <Column :header="'Escoltas'">
+          <template #body="{ data }">
+            <div
+              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
+              @mouseenter="mostrarTooltip($event, data, 'escoltas')"
+              @mouseleave="ocultarTooltip"
+            >
+              <HugeiconsIcon :icon="User02Icon" :size="14" class="text-slate-400" />
+              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
+                {{ (data.escoltas || []).length }} {{ (data.escoltas || []).length === 1 ? 'Escolta' : 'Escoltas' }}
+              </span>
+            </div>
+          </template>
+        </Column>
+
         <Column field="estado" :header="t('servicios.thStatus', 'Estado')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-2">
@@ -692,6 +798,76 @@ onUnmounted(() => {
       </AppTable>
 
       <Teleport to="body">
+        <!-- Tooltip Global -->
+        <Transition name="tooltip-fade">
+          <div
+            v-if="tooltipVisible && tooltipData"
+            class="fixed z-[99999] pointer-events-none"
+            :style="{ top: tooltipPos.top, left: tooltipPos.left, transform: 'translateY(-100%)' }"
+          >
+            <!-- Tooltip Rutas -->
+            <div v-if="tooltipTipo === 'rutas'" class="w-[220px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
+              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+                <HugeiconsIcon :icon="Route01Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Rutas del Servicio</span>
+              </div>
+              <div class="max-h-[200px] overflow-y-auto custom-scrollbar p-2.5 space-y-1">
+                <template v-if="(tooltipData.rutas || []).length > 0">
+                  <div v-for="rId in tooltipData.rutas" :key="rId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                    <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                    <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
+                  </div>
+                </template>
+                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin ruta asignada</div>
+              </div>
+            </div>
+
+            <!-- Tooltip Vehículos -->
+            <div v-if="tooltipTipo === 'vehiculos'" class="w-[240px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
+              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+                <HugeiconsIcon :icon="Car01Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Vehículos y Hardware</span>
+              </div>
+              <div class="max-h-[220px] overflow-y-auto custom-scrollbar p-2.5 space-y-2">
+                <template v-if="Object.keys(tooltipData.vehiculos || {}).length > 0">
+                  <div v-for="(hwIds, vId) in tooltipData.vehiculos" :key="vId" class="py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                    <div class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] truncate mb-0.5">
+                      {{ obtenerNombreVehiculo(String(vId)) }}
+                    </div>
+                    <div class="pl-2.5 space-y-0.5">
+                      <template v-if="(hwIds as string[]).length > 0">
+                        <div v-for="hwId in (hwIds as string[])" :key="hwId" class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                          <span class="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+                          <span class="truncate font-medium">{{ obtenerNombreHardware(hwId) }}</span>
+                        </div>
+                      </template>
+                      <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">Sin hardware asignado</div>
+                    </div>
+                  </div>
+                </template>
+                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin vehículos asignados</div>
+              </div>
+            </div>
+
+            <!-- Tooltip Escoltas -->
+            <div v-if="tooltipTipo === 'escoltas'" class="w-[220px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
+              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+                <HugeiconsIcon :icon="User02Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Escoltas Asignados</span>
+              </div>
+              <div class="max-h-[200px] overflow-y-auto custom-scrollbar p-2.5 space-y-1">
+                <template v-if="(tooltipData.escoltas || []).length > 0">
+                  <div v-for="eId in tooltipData.escoltas" :key="eId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                    <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                    <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}</span>
+                  </div>
+                </template>
+                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin escoltas asignados</div>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
         <Transition name="dropdown-menu">
           <div
             v-if="openMenuId"
@@ -767,18 +943,22 @@ onUnmounted(() => {
     <ServicioCambiarRutaModal
       v-model:is-open="isCambiarRutaModalOpen"
       :servicio="selectedCambiarRutaServicio"
+      :rutas="rutas"
       @assigned="fetchServicios"
     />
 
     <ServicioActualizarEscoltaModal
       v-model:is-open="isActualizarEscoltaModalOpen"
       :servicio="selectedActualizarEscoltaServicio"
+      :escoltas="escoltas"
       @updated="fetchServicios"
     />
 
     <ServicioActualizarVehiculosModal
       v-model:is-open="isActualizarVehiculosModalOpen"
       :servicio="selectedActualizarVehiculosServicio"
+      :vehiculos="catalogoVehiculos"
+      :hardware="catalogoHardware"
       @updated="fetchServicios"
     />
 
@@ -816,6 +996,20 @@ select {
 
 :global(.dark) select {
   background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+}
+
+.tooltip-fade-enter-active {
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tooltip-fade-leave-active {
+  transition: opacity 0.1s ease;
+}
+.tooltip-fade-enter-from {
+  opacity: 0;
+  transform: translateY(calc(-100% + 6px));
+}
+.tooltip-fade-leave-to {
+  opacity: 0;
 }
 
 .dropdown-menu-enter-active {

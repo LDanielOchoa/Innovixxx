@@ -28,7 +28,7 @@
     >
       
       <!-- Glassmorphic panel -->
-      <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
+      <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-lg dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden">
         
         <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
           <!-- Fondo decorativo -->
@@ -36,16 +36,15 @@
           <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
 
           <div class="relative flex items-center gap-3.5">
-            <!-- Botón Volver 3D -->
+            <!-- Botón Volver Plano -->
             <button @click="router.push('/rutas')"
-              class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24] shrink-0">
+              class="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all duration-200 shrink-0">
               <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.5" />
             </button>
 
-            <!-- Ícono con glow -->
+            <!-- Ícono plano -->
             <div class="relative group/icon shrink-0">
-              <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
-              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10">
+              <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-[#3b82f6] border border-blue-500/20 relative z-10">
                 <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
               </div>
             </div>
@@ -64,7 +63,7 @@
             <button
               v-if="isAddingParadas && !isFormHiddenDuringMap"
               @click="isFormHiddenDuringMap = true"
-              class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_5px_0_#1d4ed8] transition-all duration-200 active:translate-y-[3px] active:shadow-[0_0px_0_#1d4ed8] shrink-0"
+              class="w-9 h-9 rounded-xl flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-95 shrink-0"
               title="Ocultar panel"
             >
               <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.5" class="rotate-180" />
@@ -107,23 +106,26 @@
           </div>
         </Transition>
 
-        <AppFormInput 
+        <AppInput 
           v-model="formData.nombre"
           :label="$t('rutas.formName')"
           :placeholder="$t('rutas.formNamePlaceholder')"
           :icon="Route01Icon"
+          required
         />
         
-        <div class="space-y-2 w-full">
-          <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formDesc') }}</label>
-          <div class="relative bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6]/40 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
-            <textarea id="descripcion" v-model="formData.descripcion" required rows="3" :placeholder="$t('rutas.formDescPlaceholder')" class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
-          </div>
-        </div>
+        <AppInput 
+          v-model="formData.descripcion"
+          type="textarea"
+          :label="$t('rutas.formDesc')"
+          :placeholder="$t('rutas.formDescPlaceholder')"
+          :rows="3"
+          required
+        />
 
         <div class="space-y-2 w-full">
           <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formColor') }}</label>
-          <div class="w-full p-1.5 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
+          <div class="w-full p-1.5 bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
             <div ref="pickrContainer" class="pickr-container w-full"></div>
           </div>
         </div>
@@ -159,10 +161,10 @@
             <button 
               type="button" 
               @click="startAddingParadas" 
-              class="w-full flex items-center justify-center gap-3 py-3.5 rounded-[16px] font-black text-[13px] uppercase tracking-wide transition-all duration-200 active:scale-[0.98] border"
+              class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-bold text-[13px] uppercase tracking-wide transition-all duration-200 active:scale-95 border"
               :class="paradasTemporales.length > 0
                 ? 'bg-[#3b82f6]/10 hover:bg-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30'
-                : 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] text-white border-[#2563eb] shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb]'"
+                : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm'"
             >
               <HugeiconsIcon :icon="Location01Icon" :size="18" :class="{'animate-bounce': paradasTemporales.length === 0}" />
               {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa →' }}
@@ -177,23 +179,23 @@
       </div>
       </div>
     </div>
-
+ 
     <!-- Toggle Sidebar Button (Floating on left when hidden) -->
     <Transition name="fade-slide-left">
       <button 
         v-if="isAddingParadas && isFormHiddenDuringMap"
         @click="isFormHiddenDuringMap = false"
-        class="absolute left-6 top-6 z-40 w-12 h-12 rounded-[16px] bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-[0_10px_30px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] hover:scale-105 hover:bg-slate-50 dark:hover:bg-[#151821] transition-all duration-300 group"
+        class="absolute left-6 top-6 z-40 w-12 h-12 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-lg flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-[#151821] active:scale-95 transition-all duration-200 group"
         title="Mostrar Detalles de Ruta"
       >
         <HugeiconsIcon :icon="ArrowLeft01Icon" :size="24" class="rotate-180 group-hover:translate-x-0.5 transition-transform duration-300" />
       </button>
     </Transition>
-
+ 
     <!-- Barra de Búsqueda de Lugares (Solo visible al editar/trazar) -->
     <Transition name="fade-slide-down">
       <div v-show="isAddingParadas" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
-        <div class="relative flex items-center bg-white/95 dark:bg-[#0C0E13]/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-[0_12px_24px_-8px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.05)] overflow-hidden transition-all duration-300 focus-within:ring-2 focus-within:ring-[#3b82f6]/50">
+        <div class="relative flex items-center bg-white/95 dark:bg-[#0C0E13]/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-lg overflow-hidden transition-all duration-200">
           <HugeiconsIcon :icon="Search01Icon" :size="20" class="absolute left-4 text-[#3b82f6] dark:text-[#5da6fc]" />
           <input 
             id="map-search-input"
@@ -204,7 +206,7 @@
         </div>
       </div>
     </Transition>
-
+ 
     <!-- Panel de Paradas: Modo Edición (Floating Side Panel) -->
     <Transition name="panel-float">
       <ParadasListPanel
@@ -219,9 +221,9 @@
         @close="finishAddingParadas"
       />
     </Transition>
-
+ 
     
-
+ 
     <AppModal
       v-model:isOpen="isTipoModalOpen"
       :title="$t('rutas.modalStopTypeTitle')"
@@ -232,23 +234,23 @@
       </template>
       <div class="space-y-6">
         <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{{ $t('rutas.stopTypeDescription') }}</p>
-
+ 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
           <button
             v-for="tipo in tiposParada"
             :key="tipo.id_tipo"
             @click="selectedTipoParada = tipo.id_tipo"
-            class="flex items-center justify-between p-4 rounded-[16px] border transition-all duration-300 group shadow-sm active:scale-[0.98] relative"
+            class="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 group shadow-sm active:scale-95 relative"
             :class="selectedTipoParada === tipo.id_tipo
-              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_3px_rgba(59,130,246,0.1)]'
-              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_-4px_rgba(59,130,246,0.1)] dark:hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]'"
+              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_2px_rgba(59,130,246,0.1)]'
+              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:shadow-sm shadow-inner'"
           >
-            <span class="text-xs font-black uppercase tracking-wide" :class="selectedTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
+            <span class="text-xs font-bold uppercase tracking-wide" :class="selectedTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
             <div 
               class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm"
               :class="selectedTipoParada === tipo.id_tipo 
-                ? 'border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] shadow-[0_2px_8px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]' 
-                : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'"
+                ? 'border-[#3b82f6] bg-[#3b82f6]' 
+                : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20'"
             >
               <HugeiconsIcon v-if="selectedTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="12" class="text-white" />
             </div>
@@ -257,21 +259,21 @@
       </div>
       <template #footer>
         <div class="flex flex-col sm:flex-row gap-3 w-full">
-          <button type="button" @click="isTipoModalOpen = false; selectedTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-[14px] text-sm font-black text-slate-600 dark:text-slate-300 hover:border-slate-400 dark:hover:border-white/20 transition-all active:scale-[0.98] active:translate-y-[1px] shadow-[0_2px_0_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_rgba(255,255,255,0.02)] uppercase tracking-tight">
+          <button type="button" @click="isTipoModalOpen = false; selectedTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95 uppercase tracking-tight shadow-sm">
             {{ $t('rutas.btnCancel') }}
           </button>
           <button 
             type="button" 
             @click="confirmParada" 
             :disabled="!selectedTipoParada" 
-            class="flex-[2] px-6 py-3.5 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white rounded-[14px] text-sm font-black transition-all shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none uppercase tracking-tight"
+            class="flex-[2] px-6 py-3.5 bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 uppercase tracking-tight shadow-sm"
           >
             {{ $t('rutas.btnAddStops') }}
           </button>
         </div>
       </template>
     </AppModal>
-
+ 
     <!-- Modal de Edición de Parada -->
     <AppModal
       v-model:isOpen="isEditParadaModalOpen"
@@ -283,24 +285,24 @@
       </template>
       <div class="space-y-6">
         <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">{{ $t('rutas.stopNumber', { index: editingParadaIndex !== null ? editingParadaIndex + 1 : '' }) }}</p>
-
+ 
         <p class="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em] ml-1">{{ $t('rutas.selectNewType') }}</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
           <button
             v-for="tipo in tiposParada"
             :key="tipo.id_tipo"
             @click="editingTipoParada = tipo.id_tipo"
-            class="flex items-center justify-between p-4 rounded-[16px] border transition-all duration-300 group shadow-sm active:scale-[0.98] relative"
+            class="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 group shadow-sm active:scale-95 relative"
             :class="editingTipoParada === tipo.id_tipo
-              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_3px_rgba(59,130,246,0.1)]'
-              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:-translate-y-0.5 hover:shadow-[0_8px_16px_-4px_rgba(59,130,246,0.1)] dark:hover:shadow-[0_8px_16px_-4px_rgba(0,0,0,0.4)] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]'"
+              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_2px_rgba(59,130,246,0.1)]'
+              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:shadow-sm shadow-inner'"
           >
-            <span class="text-xs font-black uppercase tracking-wide" :class="editingTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
+            <span class="text-xs font-bold uppercase tracking-wide" :class="editingTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
             <div 
               class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm"
               :class="editingTipoParada === tipo.id_tipo 
-                ? 'border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] shadow-[0_2px_8px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]' 
-                : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)]'"
+                ? 'border-[#3b82f6] bg-[#3b82f6]' 
+                : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20'"
             >
               <HugeiconsIcon v-if="editingTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="12" class="text-white" />
             </div>
@@ -309,19 +311,19 @@
       </div>
       <template #footer>
         <div class="flex flex-col gap-4 w-full">
-          <button type="button" @click="deleteEditingParada" class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 rounded-[14px] text-sm font-black text-red-500 transition-all uppercase tracking-tight active:scale-[0.98]">
+          <button type="button" @click="deleteEditingParada" class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 rounded-xl text-sm font-bold text-red-500 transition-all uppercase tracking-tight active:scale-95">
             <HugeiconsIcon :icon="Delete01Icon" :size="18" />
             {{ $t('rutas.btnDelete') }}
           </button>
           <div class="flex gap-3 w-full">
-            <button type="button" @click="isEditParadaModalOpen = false; editingTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-[14px] text-sm font-black text-slate-600 dark:text-slate-300 hover:border-slate-400 dark:hover:border-white/20 transition-all active:scale-[0.98] active:translate-y-[1px] shadow-[0_2px_0_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_rgba(255,255,255,0.02)] uppercase tracking-tight">
+            <button type="button" @click="isEditParadaModalOpen = false; editingTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95 uppercase tracking-tight shadow-sm">
               {{ $t('rutas.btnCancel') }}
             </button>
             <button 
               type="button" 
               @click="saveEditingParada" 
               :disabled="!editingTipoParada" 
-              class="flex-1 px-6 py-3.5 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white rounded-[14px] text-sm font-black transition-all shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] active:translate-y-[2px] active:shadow-[0_2px_0_#2563eb] disabled:opacity-50 disabled:translate-y-0 disabled:shadow-none uppercase tracking-tight"
+              class="flex-1 px-6 py-3.5 bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 uppercase tracking-tight shadow-sm"
             >
               {{ $t('rutas.btnSaveChanges') }}
             </button>
@@ -339,8 +341,7 @@ import {
   ArrowLeft01Icon,
   Location01Icon,
   Route01Icon,
-  PlusSignIcon,
-  Drag04Icon,
+  Add01Icon,
   Delete01Icon,
   Shield01Icon,
   Tick01Icon,
@@ -362,7 +363,7 @@ import { useRouteDrawer }     from '../composables/useRouteDrawer'
 
 import AppModal         from '../../../components/ui/AppModal.vue'
 import AppButton        from '../../../components/ui/AppButton.vue'
-import AppFormInput     from '../../../components/ui/AppFormInput.vue'
+import AppInput         from '../../../components/ui/AppInput.vue'
 import ParadasListPanel from '../../../components/rutas/ParadasListPanel.vue'
 
 const { t }      = useI18n()
@@ -412,7 +413,6 @@ const selectedParadaIndex    = ref<number | null>(null)
 const isEditParadaModalOpen  = ref(false)
 const editingParadaIndex     = ref<number | null>(null)
 const editingTipoParada      = ref<number | null>(null)
-const isLoadingRouteDetails  = ref(false)
 
 // ── Color computado (reactive para los composables) ───────────
 const routeColor = computed(() => formData.value.color || '#60a5fa')
@@ -459,8 +459,8 @@ const initPickr = async () => {
   if (!pickrContainer.value || !(window as any).Pickr) return
 
   if (pickrInstance) {
-    pickrInstance.destroyAndRemove()
-    pickrInstance = null
+    pickrInstance.setColor(formData.value.color)
+    return
   }
 
   pickrInstance = (window as any).Pickr.create({
@@ -487,6 +487,8 @@ const initPickr = async () => {
     .on('changestop',  (_source: string, instance: any) => { instance.applyColor() })
 }
 
+
+
 // ── Inicialización del mapa (callback) ────────────────────────
 const handleMapInit = (googleMapsApi: any) => {
   directionsService.value = new googleMapsApi.DirectionsService()
@@ -505,6 +507,15 @@ const handleMapInit = (googleMapsApi: any) => {
   })
 
   initPlacesSearch(googleMapsApi, 'map-search-input')
+
+  // Si los datos de edición ya cargaron antes que el mapa, dibujar ahora
+  if (paradasTemporales.value.length > 0) {
+    redrawMarkers()
+    if (paradasTemporales.value.length >= 2) {
+      drawFullRoute(paradasTemporales.value, routeColor.value)
+    }
+    if (pickrInstance) pickrInstance.setColor(formData.value.color)
+  }
 }
 
 // ── Carga de datos en modo edición ────────────────────────────
@@ -513,32 +524,31 @@ const loadRouteData = async (id_ruta: string) => {
   isSubmitting.value = true
   try {
     const detalle = await fetchRutaDetallesApi(selectedGroup.value.id, id_ruta)
-    if (detalle) {
-      isEditMode.value    = true
-      editingRutaId.value = id_ruta
-      formData.value = {
-        nombre:      detalle.nombre,
-        descripcion: detalle.descripcion,
-        color:       detalle.color || '#60a5fa'
-      }
+    if (!detalle) return
 
-      if (detalle.paradas) {
-        paradasTemporales.value = detalle.paradas.map(p => ({
-          lat:  parseFloat(p.lat),
-          lon:  parseFloat(p.lon),
-          tipo: p.id_tipo_parada
-        }))
-      }
+    isEditMode.value    = true
+    editingRutaId.value = id_ruta
+    formData.value = {
+      nombre:      detalle.nombre,
+      descripcion: detalle.descripcion,
+      color:       detalle.color || '#60a5fa'
+    }
 
-      clearMarkers()
-      if (paradasTemporales.value.length > 0 && map.value) {
-        redrawMarkers()
-        if (paradasTemporales.value.length >= 2) {
-          drawFullRoute(paradasTemporales.value, routeColor.value)
-        }
-      }
+    if (detalle.paradas) {
+      paradasTemporales.value = detalle.paradas.map(p => ({
+        lat:  parseFloat(p.lat),
+        lon:  parseFloat(p.lon),
+        tipo: p.id_tipo_parada
+      }))
+    }
 
-      initPickr()
+    // Solo dibujar si el mapa ya está listo; si no, handleMapInit lo hará
+    if (map.value && paradasTemporales.value.length > 0) {
+      redrawMarkers()
+      if (paradasTemporales.value.length >= 2) {
+        drawFullRoute(paradasTemporales.value, routeColor.value)
+      }
+      if (pickrInstance) pickrInstance.setColor(detalle.color || '#60a5fa')
     }
   } catch (error) {
     console.error('Error cargando detalles para edición:', error)
@@ -558,8 +568,7 @@ const startAddingParadas = async () => {
     catch (e) { console.error('Error fetching tipos parada', e) }
   }
 
-  clearMarkers()
-  redrawMarkers()
+  redrawMarkers() // clearMarkers() ya es llamado internamente por redrawMarkers
 
   if (paradasTemporales.value.length >= 2) {
     recalculateFromIndex(0, paradasTemporales.value, routeColor.value)
@@ -574,40 +583,31 @@ const finishAddingParadas = () => {
 // ── Guardar ruta ──────────────────────────────────────────────
 const saveRuta = async () => {
   if (isSubmitting.value) return
+
   const idGrupo = selectedGroup.value?.id?.trim() || ''
-  if (!idGrupo)           { showModalMessage(t('rutas.alertSelectGroup'),   'warning'); return }
+  if (!idGrupo)             { showModalMessage(t('rutas.alertSelectGroup'),   'warning'); return }
   if (idGrupo.length !== 8) { showModalMessage(t('rutas.alertInvalidGroup'), 'warning'); return }
 
-  isSubmitting.value    = true
-  modalMessage.value    = null
+  isSubmitting.value = true
+  modalMessage.value = null
 
   try {
-    let data
-
-    if (isEditMode.value && editingRutaId.value) {
-      if (!authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)) {
-        showModalMessage(t('rutas.alertErrorUpdate') || 'No tienes permiso para editar rutas', 'error')
-        isSubmitting.value = false
-        return
-      }
-      const updatePayload: RutaUpdatePayload = {
-        id_grupo:    idGrupo,
-        id_ruta:     editingRutaId.value,
-        nombre:      formData.value.nombre,
-        descripcion: formData.value.descripcion,
-        color:       formData.value.color,
-        paradas:     paradasTemporales.value
-      }
-      data = await updateRutaApi(updatePayload)
-    } else {
-      data = await createRutaApi({
-        id_grupo:    idGrupo,
-        nombre:      formData.value.nombre,
-        descripcion: formData.value.descripcion,
-        color:       formData.value.color,
-        paradas:     paradasTemporales.value.length > 0 ? paradasTemporales.value : undefined
-      })
-    }
+    const data = isEditMode.value && editingRutaId.value
+      ? await updateRutaApi({
+          id_grupo:    idGrupo,
+          id_ruta:     editingRutaId.value,
+          nombre:      formData.value.nombre,
+          descripcion: formData.value.descripcion,
+          color:       formData.value.color,
+          paradas:     paradasTemporales.value
+        })
+      : await createRutaApi({
+          id_grupo:    idGrupo,
+          nombre:      formData.value.nombre,
+          descripcion: formData.value.descripcion,
+          color:       formData.value.color,
+          paradas:     paradasTemporales.value.length > 0 ? paradasTemporales.value : undefined
+        })
 
     if (data.done) {
       showModalMessage(
@@ -617,7 +617,6 @@ const saveRuta = async () => {
       clearMarkers()
       clearAllRoutes()
       paradasTemporales.value = []
-      if (pickrInstance) { pickrInstance.destroyAndRemove(); pickrInstance = null }
       setTimeout(() => { router.push('/rutas') }, 1500)
     } else {
       showModalMessage(
@@ -711,22 +710,66 @@ watch(() => selectedGroup.value?.id, (newId) => {
   }
 }, { immediate: true })
 
+const verificarRutaGps = async () => {
+  if (route.query.gps !== 'true') return
+
+  const crudo = sessionStorage.getItem('temp_gps_positions')
+  if (!crudo) return
+
+  try {
+    const posiciones: any[] = JSON.parse(crudo)
+    if (!Array.isArray(posiciones) || posiciones.length === 0) return
+
+    // Cargar tipos de parada si aún no están disponibles
+    if (tiposParada.value.length === 0) {
+      try { tiposParada.value = await fetchTiposParadaApi() }
+      catch (e) { console.error('Error al obtener tipos de parada:', e) }
+    }
+
+    const tipoDefecto = tiposParada.value[0]?.id_tipo ?? 1
+    const primera = posiciones[0]
+    const ultima  = posiciones[posiciones.length - 1]
+
+    // Solo inicio y fin como paradas oficiales; las líneas GPS son decorativas
+    paradasTemporales.value = [
+      { lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoDefecto },
+      ...(posiciones.length > 1
+        ? [{ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoDefecto }]
+        : [])
+    ]
+
+    if (map.value) {
+      redrawMarkers()
+      if (paradasTemporales.value.length >= 2) {
+        drawFullRoute(paradasTemporales.value, routeColor.value)
+      }
+      // Encuadrar el mapa con el trayecto completo del GPS
+      const limites = new (window as any).google.maps.LatLngBounds()
+      posiciones.forEach((p: any) => limites.extend({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+      map.value.fitBounds(limites)
+    }
+
+    sessionStorage.removeItem('temp_gps_positions')
+  } catch (e) {
+    console.error('Error al procesar posiciones de GPS:', e)
+  }
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(() => {
   startDarkModeObserver()
 
   loadGoogleMaps()
-    .then(handleMapInit)
+    .then((apiMaps) => {
+      handleMapInit(apiMaps)
+      verificarRutaGps()
+    })
     .catch(err => {
       console.error('[RutasFormView] Error cargando Google Maps:', err)
       isLoadingMap.value = false
     })
 
   initPickr()
-
-  if (route.params.id && selectedGroup.value?.id) {
-    loadRouteData(route.params.id as string)
-  }
 })
 
 onUnmounted(() => {

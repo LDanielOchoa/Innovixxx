@@ -10,15 +10,16 @@ import {
   Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
-import { cambiarRutaServicioApi, fetchRutasSimplesApi } from '../services/servicios.api'
-import type { Servicio, RutaSimple } from '../types/servicio'
+import { cambiarRutaServicioApi } from '../services/servicios.api'
+import type { ServicioDashboard, RutaSimple } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 
 const groupStore = useGroupStore()
 
 const props = defineProps<{
   isOpen: boolean
-  servicio: Servicio | null
+  servicio: ServicioDashboard | null
+  rutas: RutaSimple[]
 }>()
 
 const emit = defineEmits(['update:isOpen', 'assigned'])
@@ -57,17 +58,7 @@ watch(() => props.isOpen, async (isOpen) => {
     selectedRutaId.value = null
     rutaSearchQuery.value = ''
 
-    if (groupStore.selectedGroup?.id) {
-      loadingRutas.value = true
-      try {
-        rutasList.value = await fetchRutasSimplesApi(groupStore.selectedGroup.id)
-      } catch (error) {
-        console.error('Error cargando rutas:', error)
-        showMessage('Error al cargar rutas', 'error')
-      } finally {
-        loadingRutas.value = false
-      }
-    }
+    rutasList.value = props.rutas
 
     setTimeout(() => {
       isInitializing.value = false

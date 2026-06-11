@@ -13,12 +13,9 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import {
-  fetchEscoltasSimplesApi,
-  fetchServicioDashboardApi,
   actualizarEscoltasApi
 } from '../services/servicios.api'
-import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
-import type { Servicio, EscoltaSimple } from '../types/servicio'
+import type { ServicioDashboard, EscoltaSimple } from '../types/servicio'
 import type { Escolta } from '../../escoltas/types/escolta'
 import { SERVICIO_ESTADOS } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -27,7 +24,8 @@ const groupStore = useGroupStore()
 
 const props = defineProps<{
   isOpen: boolean
-  servicio: Servicio | null
+  servicio: ServicioDashboard | null
+  escoltas: Escolta[]
 }>()
 
 const emit = defineEmits(['update:isOpen', 'updated'])
@@ -187,29 +185,15 @@ watch(() => props.isOpen, async (isOpen) => {
       return
     }
 
-    loadingEscoltas.value = true
     try {
-      const [escoltasData, dashboardData, escoltasCompletosData] = await Promise.all([
-        fetchEscoltasSimplesApi(groupStore.selectedGroup.id),
-        fetchServicioDashboardApi({
-          id_grupo: groupStore.selectedGroup.id,
-          id_servicio: props.servicio.id_servicio,
-          estado: SERVICIO_ESTADOS.EJECUCION_FAIL
-        }),
-        fetchEscoltasApi(groupStore.selectedGroup.id, 0)
-      ])
-
-      escoltasDisponibles.value = escoltasData
-      escoltasCompletos.value = escoltasCompletosData
-
-      if (dashboardData.done && dashboardData.data.servicios.length > 0) {
-        escoltasActualesIds.value = dashboardData.data.servicios[0].escoltas || []
-      }
+      escoltasCompletos.value = props.escoltas
+      // Filtramos para obtener únicamente escoltas disponibles (que tengan estado 'DISPONIBLE')
+      escoltasDisponibles.value = props.escoltas.filter(e => e.estado === 'DISPONIBLE')
+      escoltasActualesIds.value = props.servicio.escoltas || []
     } catch (error) {
-      console.error('Error al cargar datos:', error)
+      console.error('Error al inicializar datos:', error)
       modalMessage.value = { text: 'Error al cargar los datos del servicio.', type: 'error' }
     } finally {
-      loadingEscoltas.value = false
       isLoading.value = false
     }
   } else {

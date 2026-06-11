@@ -108,7 +108,8 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' }
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' },
+    { icon: markRaw(Layout01Icon), text: 'Servicios Dashboard', route: '/servicios/dashboard' }
   ]
 
   // Si es superadmin, mostrar todos los items (excepto adminOnly que requiere isAdmin)

@@ -22,11 +22,11 @@ import {
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
   fetchEscoltasSimplesApi,
-  asignarRecursosServicioApi,
-  fetchServicioDashboardApi
+  asignarRecursosServicioApi
 } from '../services/servicios.api'
 import type {
   Servicio,
+  ServicioDashboard,
   ServicioAsignarRecursosPayload,
   RutaSimple,
   VehiculoSimple,
@@ -41,7 +41,7 @@ const groupStore = useGroupStore()
 
 const props = defineProps<{
   isOpen: boolean
-  servicio: Servicio | null
+  servicio: ServicioDashboard | null
 }>()
 
 const emit = defineEmits(['update:isOpen', 'assigned'])
@@ -63,7 +63,6 @@ const loadingRutas = ref(false)
 const loadingVehiculos = ref(false)
 const loadingHardware = ref(false)
 const loadingEscoltas = ref(false)
-const loadingDashboard = ref(false)
 
 // Campos del formulario
 const selectedRutaId = ref('')
@@ -273,6 +272,11 @@ watch(() => props.isOpen, async (isOpen) => {
           fechaHoraInicio.value = parsed
         }
       }
+      if (props.servicio.id_ruta) {
+        selectedRutaId.value = props.servicio.id_ruta
+      } else if (props.servicio.rutas && props.servicio.rutas.length > 0) {
+        selectedRutaId.value = props.servicio.rutas[0]
+      }
     }
 
     // Carga paralela de todos los recursos simples necesarios
@@ -281,33 +285,18 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingVehiculos.value = true
       loadingHardware.value = true
       loadingEscoltas.value = true
-      loadingDashboard.value = true
 
       try {
-        const [rutasData, vehiculosData, hardwareData, escoltasData, dashboardData] = await Promise.all([
+        const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id),
           fetchHardwareSimplesApi(groupStore.selectedGroup.id),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id),
-          props.servicio?.id_servicio
-            ? fetchServicioDashboardApi({
-                id_grupo: groupStore.selectedGroup.id,
-                id_servicio: props.servicio.id_servicio,
-                estado: 1
-              })
-            : Promise.resolve(null)
+          fetchEscoltasSimplesApi(groupStore.selectedGroup.id)
         ])
         rutas.value = rutasData
         vehiculos.value = vehiculosData
         hardware.value = hardwareData
         escoltas.value = escoltasData
-
-        if (dashboardData?.done && dashboardData.data?.servicios?.length > 0) {
-          const servicioDashboard = dashboardData.data.servicios[0]
-          if (servicioDashboard.id_ruta) {
-            selectedRutaId.value = servicioDashboard.id_ruta
-          }
-        }
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
         modalMessage.value = { text: 'Error al inicializar los recursos disponibles del grupo.', type: 'error' }
@@ -316,7 +305,6 @@ watch(() => props.isOpen, async (isOpen) => {
         loadingVehiculos.value = false
         loadingHardware.value = false
         loadingEscoltas.value = false
-        loadingDashboard.value = false
       }
     }
 
@@ -717,7 +705,7 @@ const formatFechaHora = (date: Date | null): string => {
                     </div>
                   </template>
                   <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
-                    {{ loadingDashboard || loadingRutas ? 'Cargando...' : 'Sin ruta asignada' }}
+                    {{ loadingRutas ? 'Cargando...' : 'Sin ruta asignada' }}
                   </span>
                 </div>
               </div>

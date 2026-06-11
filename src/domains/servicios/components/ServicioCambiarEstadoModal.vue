@@ -10,8 +10,8 @@ import {
   Edit01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
-import { cambiarEstadoServicioApi, fetchServicioDashboardApi } from '../services/servicios.api'
-import type { Servicio } from '../types/servicio'
+import { cambiarEstadoServicioApi } from '../services/servicios.api'
+import type { ServicioDashboard } from '../types/servicio'
 import {
   SERVICIO_ESTADOS,
   SERVICIO_ESTADOS_LABELS,
@@ -24,7 +24,7 @@ const groupStore = useGroupStore()
 
 const props = defineProps<{
   isOpen: boolean
-  servicio: Servicio | null
+  servicio: ServicioDashboard | null
 }>()
 
 const emit = defineEmits(['update:isOpen', 'updated'])
@@ -82,7 +82,7 @@ const estadoKeyToNumber = (estadoStr: string): number => {
   return map[estadoStr.toUpperCase()] || 0
 }
 
-watch(() => props.isOpen, async (isOpen) => {
+watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     isLoading.value = true
     isSuccess.value = false
@@ -92,30 +92,10 @@ watch(() => props.isOpen, async (isOpen) => {
     nuevoEstado.value = 0
     estadoActual.value = 0
 
-    if (!groupStore.selectedGroup?.id || !props.servicio?.id_servicio) {
-      isLoading.value = false
-      return
-    }
-
-    try {
-      const dashboardData = await fetchServicioDashboardApi({
-        id_grupo: groupStore.selectedGroup.id,
-        id_servicio: props.servicio.id_servicio,
-        estado: 0
-      })
-
-      if (dashboardData.done && dashboardData.data.servicios.length > 0) {
-        const servicioData = dashboardData.data.servicios[0]
-        estadoActual.value = estadoKeyToNumber(servicioData.estado)
-      } else {
-        estadoActual.value = estadoKeyToNumber(props.servicio.estado)
-      }
-    } catch (error) {
-      console.error('Error al cargar estado actual:', error)
+    if (props.servicio) {
       estadoActual.value = estadoKeyToNumber(props.servicio.estado)
-    } finally {
-      isLoading.value = false
     }
+    isLoading.value = false
   }
 })
 

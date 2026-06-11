@@ -10,11 +10,15 @@ import {
   Route01Icon,
   Settings02Icon,
   Location01Icon,
-  Alert01Icon
+  Alert01Icon,
+  Calendar01Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { fetchRutasApi, setRutaEstadoApi, fetchRutaDetallesApi } from '../services/rutas.api'
+import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
+import { fetchMapPositionsApi } from '../../hardware/services/hardware.api'
 import type { Ruta } from '../types/ruta'
+import type { HardwareSimple } from '../../servicios/types/servicio'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
@@ -433,6 +437,73 @@ const processToggleEstado = async () => {
     updatingEstadoId.value = null
   }
 }
+
+// ── Lógica del modal para registro por GPS ──
+const isGpsModalOpen = ref(false)
+const hardwareList = ref<HardwareSimple[]>([])
+const selectedHardwareId = ref('')
+const fechaDesde = ref('')
+const fechaHasta = ref('')
+const loadingHardware = ref(false)
+const trazandoGps = ref(false)
+
+const openGpsModal = async () => {
+  isGpsModalOpen.value = true
+  selectedHardwareId.value = ''
+  fechaDesde.value = ''
+  fechaHasta.value = ''
+  if (!selectedGroup.value?.id) return
+  
+  loadingHardware.value = true
+  try {
+    const response = await fetchHardwareSimplesApi(selectedGroup.value.id, 0)
+    hardwareList.value = response || []
+  } catch (error) {
+    console.error('Error al obtener hardware simple:', error)
+    showModalMessage('Error al cargar dispositivos GPS', 'error')
+  } finally {
+    loadingHardware.value = false
+  }
+}
+
+const trazarRutaGps = async () => {
+  if (!selectedHardwareId.value || !fechaDesde.value || !fechaHasta.value) {
+    showModalMessage('Por favor completa todos los campos requeridos', 'warning')
+    return
+  }
+  
+  trazandoGps.value = true
+  try {
+    const formatDateTime = (val: string) => {
+      if (!val) return ''
+      const [date, time] = val.split('T')
+      return `${date} ${time}:00`
+    }
+    
+    const desdeFormatted = formatDateTime(fechaDesde.value)
+    const hastaFormatted = formatDateTime(fechaHasta.value)
+    
+    const data = await fetchMapPositionsApi({
+      id_hardware: selectedHardwareId.value,
+      id_grupo: selectedGroup.value.id,
+      desde: desdeFormatted,
+      hasta: hastaFormatted
+    })
+    
+    if (data && data.length > 0) {
+      sessionStorage.setItem('temp_gps_positions', JSON.stringify(data))
+      isGpsModalOpen.value = false
+      router.push('/rutas/nueva?gps=true')
+    } else {
+      showModalMessage('No se encontraron posiciones GPS para el rango de fechas seleccionado', 'warning')
+    }
+  } catch (error) {
+    console.error('Error al obtener posiciones GPS:', error)
+    showModalMessage('Error al consultar el historial GPS', 'error')
+  } finally {
+    trazandoGps.value = false
+  }
+}
 </script>
 
 <template>
@@ -520,18 +591,15 @@ const processToggleEstado = async () => {
           style="bottom:24px;right:24px;"
         >
           <div class="bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl px-4 py-3 rounded-xl border border-white/20 dark:border-white/5 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] shadow-inner">
-              <HugeiconsIcon :icon="Location01Icon" :size="16" :stroke-width="1.5" />
-            </div>
             <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Selecciona una ruta para ver su trayectoria</p>
           </div>
         </div>
       </Transition>
-
+ 
       <!-- FLOATING SIDEBAR -->
       <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
         <!-- Glassmorphic panel -->
-        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
+        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-lg dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden">
           
           <!-- Header -->
           <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
@@ -542,8 +610,7 @@ const processToggleEstado = async () => {
             <div class="relative flex items-start justify-between">
               <div class="flex items-center gap-3.5">
                 <div class="relative group/icon shrink-0">
-                  <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
-                  <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10 transition-transform duration-300 group-hover/icon:scale-105">
+                  <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-[#3b82f6] border border-blue-500/20 relative z-10 transition-transform duration-300 group-hover/icon:scale-105">
                     <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
                   </div>
                 </div>
@@ -559,30 +626,37 @@ const processToggleEstado = async () => {
               </div>
               
               <div class="flex items-center gap-2">
-                <!-- Botón Exportar 3D -->
+                <!-- Botón Exportar Plano -->
                 <button @click="exportToExcel"
-                  class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/10 hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0,0_0px_0_rgba(0,0,0,0)] dark:active:shadow-[0_0px_0_#1D1D24,0_0px_0_rgba(0,0,0,0)]"
+                  class="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all duration-200"
                   title="Exportar">
                   <HugeiconsIcon :icon="Download01Icon" :size="18" :stroke-width="2" />
                 </button>
-                <!-- Botón Nueva Ruta 3D -->
+                <!-- Botón Registrar por GPS Plano -->
                 <div class="relative group/btn" v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)">
-                  <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/btn:opacity-60 transition-opacity duration-300"></div>
+                  <button @click="openGpsModal"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 active:scale-95 relative z-10"
+                    title="Registrar por GPS">
+                    <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2.5" />
+                  </button>
+                </div>
+                <!-- Botón Nueva Ruta Plano -->
+                <div class="relative group/btn" v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)">
                   <button @click="openCreateModal"
-                    class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border border-[#2563eb]/50 shadow-[0_4px_0_#1d4ed8,0_6px_15px_rgba(59,130,246,0.4),inset_0_1px_0_rgba(255,255,255,0.3)] hover:shadow-[0_6px_0_#1d4ed8,0_10px_20px_rgba(59,130,246,0.5),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all duration-200 active:translate-y-[4px] active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(59,130,246,0.3)] relative z-10"
+                    class="w-10 h-10 rounded-xl flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-95 relative z-10"
                     title="Nueva Ruta">
                     <HugeiconsIcon :icon="PlusSignIcon" :size="20" :stroke-width="2.5" />
                   </button>
                 </div>
               </div>
             </div>
-
+ 
             <!-- Search -->
             <div class="relative mt-5">
               <AppSearch v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" />
             </div>
           </div>
-
+ 
           <!-- Lista de rutas -->
           <div class="flex-1 overflow-y-auto rutas-scrollbar px-4 py-4 space-y-2">
             
@@ -609,92 +683,68 @@ const processToggleEstado = async () => {
                 v-for="ruta in paginatedRutas"
                 :key="ruta.id_ruta"
                 @click="onRowClick(ruta)"
-                class="group relative cursor-pointer rounded-2xl transition-all duration-300 select-none border overflow-hidden"
+                class="group relative cursor-pointer rounded-xl transition-all duration-200 select-none border overflow-hidden"
                 :class="selectedRuta?.id_ruta === ruta.id_ruta
-                  ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/40 dark:border-[#3b82f6]/30 shadow-[0_8px_20px_rgba(59,130,246,0.1),0_3px_0_#e2e8f0,inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_10px_30px_rgba(59,130,246,0.08),0_3px_0_#1D1D24,inset_0_1px_0_rgba(255,255,255,0.05)]'
-                  : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.2)] hover:border-slate-300 dark:hover:border-white/[0.12] hover:shadow-[0_4px_0_#e2e8f0,0_4px_12px_rgba(0,0,0,0.06)] dark:hover:shadow-[0_4px_0_#1D1D24,0_4px_16px_rgba(0,0,0,0.3)]'"
+                  ? 'bg-blue-50/40 dark:bg-blue-950/10 border-blue-500/40 dark:border-blue-500/30 shadow-sm'
+                  : 'bg-white/80 dark:bg-[#20242D]/40 border-slate-200/80 dark:border-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'"
               >
                 <!-- Barra lateral activa -->
                 <div
-                  class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-gradient-to-b from-[#60a5fa] to-[#2563eb] shadow-[1px_0_12px_rgba(59,130,246,0.8)] transition-all duration-400"
-                  :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'opacity-100 h-[70%]' : 'opacity-0 h-0'"
+                  class="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 transition-all duration-200"
+                  :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'opacity-100' : 'opacity-0'"
                 ></div>
-
-                <!-- Brillo superior (inset highlight) -->
-                <div class="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 dark:via-white/10 to-transparent pointer-events-none"></div>
-
-                <div class="p-4 pl-5">
-                  <div class="flex items-center gap-3.5">
-                    <!-- Icon 3D -->
-                    <div
-                      class="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-300 border"
-                      :class="selectedRuta?.id_ruta === ruta.id_ruta
-                        ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_4px_0_#1d4ed8,0_6px_14px_rgba(59,130,246,0.4),inset_0_1px_0_rgba(255,255,255,0.3)]'
-                        : 'bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] text-slate-400 dark:text-slate-500 border-slate-200 dark:border-white/10 shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_6px_rgba(0,0,0,0.2)]'"
-                    >
-                      <HugeiconsIcon :icon="Route01Icon" :size="22" :stroke-width="1.8" />
-                    </div>
-
+ 
+                <div class="p-2.5 pl-3.5 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <!-- LED de estado -->
+                    <span
+                      class="w-2 h-2 rounded-full shrink-0"
+                      :class="ruta.estado === 'Habilitada' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-slate-400'"
+                      :title="ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled')"
+                    ></span>
+ 
                     <!-- Info -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between gap-2">
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5">
                         <h3
-                          class="text-[13px] font-black uppercase tracking-tight truncate transition-colors duration-200"
-                          :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-white'"
+                          class="text-[12px] font-semibold uppercase tracking-tight truncate transition-colors duration-200"
+                          :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
                         >{{ ruta.nombre }}</h3>
+                        <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono shrink-0">({{ ruta.id_ruta }})</span>
                       </div>
-
-                      <div class="flex items-center gap-2 mt-1.5">
-                        <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono">{{ ruta.id_ruta }}</span>
-                        <span class="text-slate-300 dark:text-white/10">·</span>
-                        <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 truncate">{{ ruta.descripcion || 'Sin descripción' }}</span>
-                      </div>
+                      <p class="text-[11px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                        {{ ruta.descripcion || 'Sin descripción' }}
+                      </p>
                     </div>
                   </div>
-
-                  <!-- Footer -->
-                  <div class="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 dark:border-white/[0.06]">
-                    <!-- Badge estado -->
-                    <div
-                      class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-[0.15em] transition-all duration-300"
-                      :class="ruta.estado === 'Habilitada'
-                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400 shadow-[0_2px_8px_rgba(16,185,129,0.1),inset_0_1px_0_rgba(255,255,255,0.1)]'
-                        : 'bg-slate-100/80 dark:bg-white/[0.03] border-slate-200 dark:border-white/[0.06] text-slate-500 dark:text-slate-500'"
+ 
+                  <!-- Botones de Acción (Visibles en hover) -->
+                  <div class="flex items-center gap-1 shrink-0 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <!-- Botón Editar Plano -->
+                    <button
+                      v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
+                      @click.stop="openEditModal(ruta)"
+                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all"
+                      :title="$t('rutas.tooltipEdit')"
                     >
-                      <span
-                        class="w-1.5 h-1.5 rounded-full"
-                        :class="ruta.estado === 'Habilitada' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)] animate-pulse' : 'bg-slate-400'"
-                      ></span>
-                      {{ ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled') }}
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                      <!-- Botón Editar 3D -->
-                      <button
-                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
-                        @click.stop="openEditModal(ruta)"
-                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]"
-                        :title="$t('rutas.tooltipEdit')"
-                      >
-                        <HugeiconsIcon :icon="Edit02Icon" :size="14" :stroke-width="2.5" />
-                      </button>
-
-                      <!-- Botón Estado 3D -->
-                      <button
-                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
-                        @click.stop="toggleRutaEstado(ruta)"
-                        class="w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_2px_0_#e2e8f0,0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_0_#1D1D24,0_1px_4px_rgba(0,0,0,0.3)] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]"
-                        :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
-                      >
-                        <HugeiconsIcon :icon="Settings02Icon" :size="14" :stroke-width="2.5" />
-                      </button>
-                    </div>
+                      <HugeiconsIcon :icon="Edit02Icon" :size="12" :stroke-width="2" />
+                    </button>
+ 
+                    <!-- Botón Estado Plano -->
+                    <button
+                      v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
+                      @click.stop="toggleRutaEstado(ruta)"
+                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all"
+                      :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
+                    >
+                      <HugeiconsIcon :icon="Settings02Icon" :size="12" :stroke-width="2" />
+                    </button>
                   </div>
                 </div>
               </div>
             </template>
           </div>
-
+ 
           <!-- Footer / Pagination -->
           <div v-if="filteredRutas.length > itemsPerPage" class="shrink-0 px-4 py-3 border-t border-slate-100 dark:border-white/[0.05] flex justify-center">
             <AppPagination
@@ -734,6 +784,87 @@ const processToggleEstado = async () => {
         </p>
         <div class="px-5 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
           <span class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ statusConfirmData.ruta?.nombre }}</span>
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- Modal Registrar por GPS -->
+    <AppModal
+      v-model:isOpen="isGpsModalOpen"
+      title="Registrar Ruta por GPS"
+      confirmText="Trazar Ruta"
+      confirmButtonClass="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 py-3 text-[13px] font-bold text-white transition-all duration-200 active:scale-95 border border-emerald-700"
+      cancelText="Cancelar"
+      @confirm="trazarRutaGps"
+    >
+      <template #icon>
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 border border-emerald-500/20">
+          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        </div>
+      </template>
+
+      <div class="flex flex-col gap-5 p-1 relative select-none">
+        <!-- Overlay de carga al trazar -->
+        <Transition name="fade-overlay">
+          <div v-if="trazandoGps" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
+            <div class="w-10 h-10 border-[3px] border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
+            <p class="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
+          </div>
+        </Transition>
+
+        <!-- Dispositivo GPS -->
+        <div class="space-y-2">
+          <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
+            Dispositivo GPS
+          </label>
+          <div class="relative">
+            <select
+              v-model="selectedHardwareId"
+              :disabled="loadingHardware"
+              class="w-full h-12 px-4 pr-10 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all appearance-none cursor-pointer font-medium"
+            >
+              <option value="" disabled>{{ loadingHardware ? 'Cargando dispositivos...' : 'Seleccione un dispositivo' }}</option>
+              <option v-for="item in hardwareList" :key="item.id_hardware" :value="item.id_hardware">
+                {{ item.nombre }} ({{ item.familia }})
+              </option>
+            </select>
+            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rango de Fechas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Desde -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
+              Desde
+            </label>
+            <div class="relative">
+              <input
+                type="datetime-local"
+                v-model="fechaDesde"
+                class="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all font-medium"
+              />
+            </div>
+          </div>
+
+          <!-- Hasta -->
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
+              Hasta
+            </label>
+            <div class="relative">
+              <input
+                type="datetime-local"
+                v-model="fechaHasta"
+                class="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all font-medium"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </AppModal>
