@@ -326,48 +326,60 @@ onUnmounted(() => {
           </label>
           <div
             @click="isTypeDropdownOpen = !isTypeDropdownOpen"
-            class="selector-btn-roles relative flex items-center justify-between cursor-pointer select-none"
-            :class="isTypeDropdownOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''"
+            class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300"
+            :class="isTypeDropdownOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
           >
-            <div class="flex items-center gap-3">
+            <!-- Sombra inset 3D -->
+            <div 
+              class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+              :class="isTypeDropdownOpen 
+                ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+            ></div>
+
+            <!-- Borde superior brillante en focus/open -->
+            <div 
+              class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300"
+              :class="{ 'opacity-100 left-2 right-2': isTypeDropdownOpen }"
+            ></div>
+
+            <div class="relative z-10 flex items-center gap-3">
               <HugeiconsIcon :icon="TruckIcon" :size="18" :stroke-width="1.8" class="text-slate-400" />
-              <span class="text-[13px] font-bold" :class="formData.tipo ? 'text-slate-200' : 'text-slate-400'">
+              <span class="text-sm font-medium" :class="formData.tipo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
                 {{ selectedTypeLabel }}
               </span>
             </div>
-            <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTypeDropdownOpen }" />
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTypeDropdownOpen }" />
           </div>
 
           <Transition name="dropdown">
-            <div v-if="isTypeDropdownOpen" class="absolute left-0 right-0 top-[calc(100%+8px)] bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] z-[250] overflow-hidden">
-              <div class="p-2">
-                <div class="relative flex items-center mb-1">
+            <div v-if="isTypeDropdownOpen" class="absolute left-0 right-0 top-[calc(100%+8px)] bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] z-[250] overflow-hidden">
+              <div class="p-2 border-b border-slate-200/60 dark:border-white/5">
+                <div class="relative flex items-center">
                   <HugeiconsIcon :icon="Search01Icon" :size="14" class="absolute left-3 text-slate-400" />
                   <input
                     v-model="typeSearchQuery"
                     type="text"
                     :placeholder="t('common.search', 'Buscar...')"
-                    class="w-full pl-10 pr-4 py-2.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[13px] font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 transition-all"
+                    class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[13px] font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/30 transition-all"
                     @click.stop
                     autocomplete="off"
                   />
                 </div>
               </div>
-              <div class="max-h-52 overflow-y-auto custom-scrollbar px-2 pb-2 space-y-0.5">
+              <div class="max-h-52 overflow-y-auto custom-scrollbar p-1.5 space-y-0.5">
                 <button
                   v-for="type in filteredTypes"
                   :key="type.id_tipo"
                   type="button"
                   @click="selectType(type)"
-                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-left"
+                  class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 text-left group/option"
                   :class="formData.tipo === type.id_tipo
-                    ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border border-[#3b82f6]/40 dark:border-[#3b82f6]/30'
-                    : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'"
+                    ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc]'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
                 >
-                  <span class="text-[13px] font-semibold truncate"
-                    :class="formData.tipo === type.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
-                  >{{ type.nombre }}</span>
-                  <HugeiconsIcon v-if="formData.tipo === type.id_tipo" :icon="Tick01Icon" :size="14" :stroke-width="3" class="text-[#3b82f6] shrink-0 ml-2" />
+                  <span class="text-[13px] font-medium truncate">{{ type.nombre }}</span>
+                  <HugeiconsIcon v-if="formData.tipo === type.id_tipo" :icon="Tick01Icon" :size="14" :stroke-width="2.5" class="text-[#3b82f6] shrink-0 ml-2" />
                 </button>
                 <div v-if="filteredTypes.length === 0" class="py-6 text-center">
                   <p class="text-[12px] font-semibold text-slate-400 dark:text-slate-500">Sin resultados</p>

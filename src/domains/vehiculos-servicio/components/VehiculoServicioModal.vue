@@ -22,6 +22,7 @@ import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 import type { VehiculoServicio } from '../types/vehiculo-servicio'
 
 const { t } = useI18n()
@@ -49,7 +50,7 @@ const typeDropdownRef = ref<HTMLElement | null>(null)
 
 const tipoOptions = [
   { value: 1, label: 'Carro' },
-  { value: 2, label: 'Moto' }
+  { value: 2, label: 'Motocicleta' }
 ]
 
 const currentTipoLabel = computed(() => {
@@ -72,11 +73,19 @@ const formData = reactive({
   color: '#3b82f6',
   cilindrada: 0,
   soat: '',
-  soat_vence: '',
+  soat_vence: null as Date | null,
   tecnomecanica: '',
-  tecnomecanica_vence: '',
+  tecnomecanica_vence: null as Date | null,
   tipo: 0
 })
+
+const formatFecha = (date: Date | null): string => {
+  if (!date) return ''
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
 const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
   modalMessage.value = { text, type }
@@ -105,15 +114,15 @@ watch(() => props.isOpen, (isOpen) => {
       formData.color = props.vehicle.color || '#3b82f6'
       formData.cilindrada = props.vehicle.cilindrada || 0
       formData.soat = props.vehicle.soat || ''
-      formData.soat_vence = props.vehicle.soat_vence || ''
+      formData.soat_vence = props.vehicle.soat_vence ? new Date(props.vehicle.soat_vence + 'T00:00:00') : null
       formData.tecnomecanica = props.vehicle.tecnomecanica || ''
-      formData.tecnomecanica_vence = props.vehicle.tecnomecanica_vence || ''
+      formData.tecnomecanica_vence = props.vehicle.tecnomecanica_vence ? new Date(props.vehicle.tecnomecanica_vence + 'T00:00:00') : null
       formData.tipo = parseInt(props.vehicle.tipo as any) || 0
     } else {
       Object.assign(formData, {
         placa: '', serial_chasis: '', marca: '', referencia: '',
         modelo: 0, color: '#3b82f6', cilindrada: 0,
-        soat: '', soat_vence: '', tecnomecanica: '', tecnomecanica_vence: '',
+        soat: '', soat_vence: null, tecnomecanica: '', tecnomecanica_vence: null,
         tipo: 0
       })
     }
@@ -139,7 +148,9 @@ const handleSave = async () => {
     id_grupo: groupStore.selectedGroup.id,
     modelo: Number(formData.modelo) || 0,
     tipo: Number(formData.tipo) || 0,
-    cilindrada: Number(formData.cilindrada) || 0
+    cilindrada: Number(formData.cilindrada) || 0,
+    soat_vence: formatFecha(formData.soat_vence),
+    tecnomecanica_vence: formatFecha(formData.tecnomecanica_vence)
   }
   
   if (isEditMode.value && props.vehicle) {
@@ -314,16 +325,16 @@ onUnmounted(() => {
             </label>
             <div
               @click="isTypeDropdownOpen = !isTypeDropdownOpen"
-              class="selector-btn-roles relative flex items-center justify-between cursor-pointer select-none"
-              :class="isTypeDropdownOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''"
+              class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
+              :class="isTypeDropdownOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
             >
-              <div class="flex items-center gap-3">
-                <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" class="text-slate-400" />
-                <span class="text-[13px] font-bold" :class="formData.tipo ? 'text-slate-200' : 'text-slate-400'">
+              <div class="relative z-10 flex items-center gap-3">
+                <HugeiconsIcon :icon="Car01Icon" :size="16" :stroke-width="1.8" class="text-slate-400" />
+                <span class="text-sm font-semibold" :class="formData.tipo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
                   {{ currentTipoLabel }}
                 </span>
               </div>
-              <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTypeDropdownOpen }" />
+              <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTypeDropdownOpen }" />
             </div>
 
             <Transition name="dropdown">
@@ -393,9 +404,8 @@ onUnmounted(() => {
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 text-slate-400 dark:text-slate-500">
               {{ t('vehiculosServicio.labelColor', 'Color') }}
             </label>
-            <div class="selector-btn-roles flex items-center gap-3 px-4 cursor-default">
-              <input type="color" v-model="formData.color" class="w-6 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0" />
-              <span class="text-[13px] font-bold text-slate-200 font-mono uppercase">{{ formData.color }}</span>
+            <div class="relative flex items-center justify-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300 min-h-[46px]">
+              <input type="color" v-model="formData.color" class="w-8 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0" />
             </div>
           </div>
         </div>
@@ -408,11 +418,11 @@ onUnmounted(() => {
               :placeholder="t('vehiculosServicio.placeholderSoat', 'J456789')"
               :icon="DocumentAttachmentIcon"
             />
-            <AppInput
+            <AppDateTimePicker
               v-model="formData.soat_vence"
               :label="t('vehiculosServicio.labelSoatVence', 'Vencimiento SOAT')"
-              type="date"
-              :icon="Calendar01Icon"
+              :placeholder="t('vehiculosServicio.placeholderSoatVence', 'Seleccione fecha')"
+              :only-date="true"
             />
           </div>
         </div>
@@ -424,11 +434,11 @@ onUnmounted(() => {
             :placeholder="t('vehiculosServicio.placeholderTecnomecanica', 'u456790')"
             :icon="DocumentAttachmentIcon"
           />
-          <AppInput
+          <AppDateTimePicker
             v-model="formData.tecnomecanica_vence"
             :label="t('vehiculosServicio.labelTecnomecanicaVence', 'Venc. Tecnomecánica')"
-            type="date"
-            :icon="Calendar01Icon"
+            :placeholder="t('vehiculosServicio.placeholderTecnomecanicaVence', 'Seleccione fecha')"
+            :only-date="true"
           />
         </div>
       </div>
@@ -436,7 +446,7 @@ onUnmounted(() => {
   </AppModal>
 </template>
 
-<style scoped>
+<style>
 .animate-fade-in {
   animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
 }
@@ -494,61 +504,24 @@ onUnmounted(() => {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(156, 163, 175, 0.5);
   border-radius: 10px;
 }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
 }
-
-/* =====================================================
-   SELECTOR BUTTON
-===================================================== */
-.selector-btn-roles {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  gap: 0;
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  padding: 0.5rem 1rem;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-  appearance: none;
-  -webkit-appearance: none;
-  outline: none;
-  font-family: inherit;
-  color: inherit;
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
 }
-
-.selector-btn-roles:hover {
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-.selector-btn-roles:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
-}
-
-.selector-btn-roles.border-\[\#3b82f6\]\/50,
-.selector-btn-roles.border-\[\#3b82f6\]\/40 {
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 4px 16px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
 }
 
 input[type="color"] {
@@ -556,27 +529,4 @@ input[type="color"] {
 }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: none; border-radius: 0; }
-
-/* Overrides para inputs dentro del modal */
-:deep(.modal-card .bg-slate-50) {
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
-}
-:deep(.modal-card .border-slate-200) {
-  border-color: rgba(255,255,255,0.08) !important;
-}
-:deep(.modal-card .text-slate-800) {
-  color: #e2e8f0 !important;
-}
-:deep(.modal-card .placeholder-slate-400) {
-  color: #475569 !important;
-}
-:deep(.modal-card .placeholder-slate-600) {
-  color: #475569 !important;
-}
-:deep(.modal-card .text-slate-700) {
-  color: #e2e8f0 !important;
-}
-:deep(.modal-card .bg-white) {
-  background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
-}
 </style>

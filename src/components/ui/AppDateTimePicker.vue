@@ -8,12 +8,14 @@ interface Props {
   label?: string
   placeholder?: string
   disabled?: boolean
+  onlyDate?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   label: '',
   placeholder: 'Seleccione fecha',
-  disabled: false
+  disabled: false,
+  onlyDate: false
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -34,6 +36,9 @@ const displayValue = computed(() => {
   const day = String(d.getDate()).padStart(2, '0')
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const year = d.getFullYear()
+  if (props.onlyDate) {
+    return `${day}/${month}/${year}`
+  }
   const hours = String(d.getHours()).padStart(2, '0')
   const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${day}/${month}/${year} ${hours}:${minutes}`
@@ -77,8 +82,8 @@ const isSelected = (day: number) => {
 }
 
 const selectDay = (day: number) => {
-  const currentH = props.modelValue ? props.modelValue.getHours() : 0
-  const currentM = props.modelValue ? props.modelValue.getMinutes() : 0
+  const currentH = props.onlyDate ? 0 : (props.modelValue ? props.modelValue.getHours() : 0)
+  const currentM = props.onlyDate ? 0 : (props.modelValue ? props.modelValue.getMinutes() : 0)
   const date = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth(), day, currentH, currentM, 0, 0)
   emit('update:modelValue', date)
 }
@@ -114,7 +119,9 @@ const nextMonth = () => {
 const goToday = () => {
   const now = new Date()
   viewDate.value = new Date(now.getFullYear(), now.getMonth(), 1)
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0)
+  const today = props.onlyDate
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+    : new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes(), 0, 0)
   emit('update:modelValue', today)
 }
 
@@ -180,7 +187,7 @@ onUnmounted(() => {
 
       <Transition name="date-dropdown">
         <div v-if="isOpen" class="absolute bottom-full left-0 mb-2 z-[9999] w-72">
-          <div class="bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
+          <div class="bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
 
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/5">
               <button type="button" @click="prevMonth" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#3b82f6] hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
@@ -219,7 +226,7 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div class="flex items-center justify-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
+            <div v-if="!onlyDate" class="flex items-center justify-center gap-2 px-4 py-3 border-t border-slate-100 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02]">
               <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider">Hora:</span>
               <input
                 type="number"

@@ -416,16 +416,23 @@ const saveGrupo = async () => {
           </label>
           <div
             @click="isTimezoneOpen = !isTimezoneOpen"
-            class="selector-btn-roles relative flex items-center justify-between cursor-pointer select-none"
-            :class="isTimezoneOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''"
+            class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
+            :class="isTimezoneOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
           >
-            <div class="flex items-center gap-3">
-              <HugeiconsIcon :icon="Clock01Icon" :size="18" :stroke-width="1.8" class="text-slate-400" />
-              <span class="text-[13px] font-bold" :class="formData.time_zone ? 'text-slate-200' : 'text-slate-400'">
+            <!-- Sombra inset 3D -->
+            <div 
+              class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+              :class="isTimezoneOpen 
+                ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+            ></div>
+            <div class="relative z-10 flex items-center gap-3">
+              <HugeiconsIcon :icon="Clock01Icon" :size="16" :stroke-width="1.8" class="text-slate-400" />
+              <span class="text-sm font-medium" :class="formData.time_zone ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
                 {{ selectedTimezoneLabel || t('grupos.formTimeZonePlaceholder', 'Seleccionar Zona Horaria') }}
               </span>
             </div>
-            <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTimezoneOpen }" />
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isTimezoneOpen }" />
           </div>
 
           <Transition name="dropdown">
@@ -475,16 +482,22 @@ const saveGrupo = async () => {
           </label>
           <div
             @click="isLangOpen = !isLangOpen"
-            class="selector-btn-roles relative flex items-center justify-between cursor-pointer select-none"
-            :class="isLangOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''"
+            class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
+            :class="isLangOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
           >
-            <div class="flex items-center gap-3">
-              <HugeiconsIcon :icon="LanguageCircleIcon" :size="18" :stroke-width="1.8" class="text-slate-400" />
-              <span class="text-[13px] font-bold text-slate-200">
+            <div 
+              class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+              :class="isLangOpen 
+                ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+            ></div>
+            <div class="relative z-10 flex items-center gap-3">
+              <HugeiconsIcon :icon="LanguageCircleIcon" :size="16" :stroke-width="1.8" class="text-slate-400" />
+              <span class="text-sm font-medium text-slate-800 dark:text-slate-200">
                 {{ langOptions.find(l => l.value === formData.i18n)?.label || t('grupos.formLangPlaceholder', 'Seleccionar Idioma') }}
               </span>
             </div>
-            <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isLangOpen }" />
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isLangOpen }" />
           </div>
 
           <Transition name="dropdown">
@@ -581,7 +594,7 @@ const saveGrupo = async () => {
   </BaseModal>
 </template>
 
-<style scoped>
+<style>
 .animate-fade-in {
   animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
 }
@@ -627,7 +640,7 @@ const saveGrupo = async () => {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .dropdown-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .dropdown-enter-from {
   opacity: 0;
@@ -638,105 +651,46 @@ const saveGrupo = async () => {
   transform: translateY(-4px) scale(0.99);
 }
 
+/* Custom scrollbar para los selectores */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(156, 163, 175, 0.5);
   border-radius: 10px;
 }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
 }
-
-/* =====================================================
-   SELECTOR BUTTON
-===================================================== */
-.selector-btn-roles {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  gap: 0;
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 16px;
-  padding: 0.5rem 1rem;
-  text-align: left;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-  appearance: none;
-  -webkit-appearance: none;
-  outline: none;
-  font-family: inherit;
-  color: inherit;
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
 }
-
-.selector-btn-roles:hover {
-  border-color: rgba(255,255,255,0.15);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-.selector-btn-roles:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03);
-}
-
-.selector-btn-roles.border-\[\#3b82f6\]\/50,
-.selector-btn-roles.border-\[\#3b82f6\]\/40 {
-  border-color: rgba(59,130,246,0.5);
-  box-shadow: 0 4px 16px rgba(59,130,246,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-/* Overrides para inputs dentro del modal */
-:deep(.modal-card .bg-slate-50) {
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
-}
-:deep(.modal-card .border-slate-200) {
-  border-color: rgba(255,255,255,0.08) !important;
-}
-:deep(.modal-card .text-slate-800) {
-  color: #e2e8f0 !important;
-}
-:deep(.modal-card .placeholder-slate-400) {
-  color: #475569 !important;
-}
-:deep(.modal-card .placeholder-slate-600) {
-  color: #475569 !important;
-}
-:deep(.modal-card .text-slate-700) {
-  color: #e2e8f0 !important;
-}
-:deep(.modal-card .bg-white) {
-  background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
 }
 
 /* Cropper UI overrides */
-:deep(.vue-advanced-cropper) {
+.vue-advanced-cropper {
   background: transparent;
 }
-:deep(.vue-advanced-cropper__background),
-:deep(.vue-advanced-cropper__foreground) {
+.vue-advanced-cropper__background,
+.vue-advanced-cropper__foreground {
   background: transparent;
 }
-:deep(.vue-simple-handler) {
+.vue-simple-handler {
   background: #3b82f6 !important;
   border: 2px solid white !important;
   box-shadow: 0 0 0 1px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.2) !important;
 }
-:deep(.vue-simple-line) {
+.vue-simple-line {
   border-color: rgba(255, 255, 255, 0.4) !important;
   border-style: dashed !important;
 }
-:deep(.cropper-preview) {
+.cropper-preview {
   border: 2px solid rgba(255,255,255,0.8);
   box-shadow: 0 0 0 9999em rgba(0, 0, 0, 0.6), 0 0 30px rgba(0,0,0,0.5) inset;
 }

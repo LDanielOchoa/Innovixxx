@@ -10,13 +10,15 @@ import {
   Delete01Icon,
   ChipIcon,
   MoreHorizontalIcon,
-  Location01Icon
+  Location01Icon,
+  CheckmarkCircle01Icon
 } from '@hugeicons/core-free-icons'
 
 import {
   fetchHardwareApi,
   deleteHardwareApi
 } from '../services/hardware.api'
+import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
 import type { Hardware } from '../types/hardware'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
@@ -49,6 +51,23 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 const openMenuId = ref<string | null>(null)
 const menuPosition = ref({ top: '0px', right: '0px' })
+
+// Mapeo de servicios asignados
+const servicios = ref<any[]>([])
+
+const getServicioInfo = (id: string) => {
+  const s = servicios.value.find(item => item.id_servicio === id)
+  return s ? `${s.fecha_inicio} (${s.estado})` : id
+}
+
+const cargarServiciosData = async () => {
+  if (!selectedGroup.value?.id) return
+  try {
+    servicios.value = await fetchServiciosDropdownApi(selectedGroup.value.id)
+  } catch (error) {
+    console.error('Error cargando servicios:', error)
+  }
+}
 
 const toggleMenu = (id: string, event: MouseEvent) => {
   if (openMenuId.value === id) {
@@ -90,7 +109,11 @@ const fetchHardware = async () => {
 
   isLoading.value = true
   try {
-    items.value = await fetchHardwareApi(selectedGroup.value.id)
+    const [hardwareData] = await Promise.all([
+      fetchHardwareApi(selectedGroup.value.id),
+      cargarServiciosData()
+    ])
+    items.value = hardwareData
   } catch (error) {
     console.error('Error fetching hardware:', error)
   } finally {
@@ -212,38 +235,51 @@ const filteredItems = computed(() => {
       :title="t('hardware.title')" 
       :count="filteredItems.length" 
       :icon="ChipIcon"
-    >
-      <template #actions>
+    />
+
+    <!-- Toolbar: Buscador (izquierda) + Botones (derecha) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <!-- Izquierda: Buscador -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div class="relative w-full sm:w-80">
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            :placeholder="t('hardware.searchPlaceholder')"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
+          />
+          <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Derecha: Botones Exportar y Nuevo Dispositivo -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
+        <button 
+          @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all"
+        >
+          <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+
         <button 
           v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)"
           @click="openCreateModal"
-          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           <span>{{ t('hardware.btnNew') }}</span>
         </button>
-        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
-          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-        </button>
-      </template>
-    </PageHeader>
-
-    <!-- Search Toolbar -->
-    <SearchToolbar v-model="searchQuery" :placeholder="t('hardware.searchPlaceholder')" searchWidth="sm:w-[28rem]">
-      <template #extra>
-        <button 
-          @click="exportToExcel"
-          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span>Exportar Excel</span>
-        </button>
-      </template>
-    </SearchToolbar>
+      </div>
+    </div>
 
     <!-- Table Card -->
     <AppTableCard>
@@ -288,10 +324,50 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
+        <Column :header="t('hardware.thAssignment', 'Asignación')">
+          <template #body="{ data }">
+            <div class="flex items-center gap-2 py-1">
+              <!-- Servicio -->
+              <div class="relative group">
+                <div 
+                  class="w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200"
+                  :class="data.id_servicio ? 'bg-[#3b82f6]/10 text-[#5da6fc] border-[#3b82f6]/20' : 'bg-slate-500/5 text-slate-400/50 border-transparent'"
+                >
+                  <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="15" />
+                </div>
+                <!-- Tooltip -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="font-bold text-[#5da6fc]">Servicio</span>
+                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : 'No asignado' }}</span>
+                  </div>
+                  <!-- Arrow -->
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </Column>
+
         <Column field="estado" :header="t('hardware.thStatus', 'Estado')" sortable>
           <template #body="{ data }">
-            <span class="text-[13px] font-medium text-slate-600 dark:text-slate-300 uppercase">
-              {{ data.estado || '---' }}
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide"
+              :class="{
+                'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20': data.estado === 'DISPONIBLE',
+                'bg-blue-500/10 text-blue-500 border border-blue-500/20': data.estado === 'OCUPADO EN SERVICIO' || data.estado === 'EN SERVICIO',
+                'bg-red-500/10 text-red-500 border border-red-500/20': data.estado === 'NO DISPONIBLE'
+              }"
+            >
+              <span
+                class="w-1.5 h-1.5 rounded-full"
+                :class="{
+                  'bg-emerald-500': data.estado === 'DISPONIBLE',
+                  'bg-blue-500': data.estado === 'OCUPADO EN SERVICIO' || data.estado === 'EN SERVICIO',
+                  'bg-red-500': data.estado === 'NO DISPONIBLE'
+                }"
+              ></span>
+              {{ data.estado }}
             </span>
           </template>
         </Column>
@@ -375,7 +451,7 @@ const filteredItems = computed(() => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -417,17 +493,23 @@ const filteredItems = computed(() => {
 .fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 
 .custom-scrollbar::-webkit-scrollbar {
-  height: 6px;
   width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #11151a;
+  background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #2a313a;
+  background: rgba(156, 163, 175, 0.5);
   border-radius: 10px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #343b45;
+  background: rgba(156, 163, 175, 0.8);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
 }
 </style>

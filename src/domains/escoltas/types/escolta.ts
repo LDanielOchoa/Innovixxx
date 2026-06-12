@@ -9,6 +9,9 @@ export interface Escolta {
   id_servicio: number
   id_vehiculo: number
   id_hardware: number
+  pase: string
+  tipo_pase: string
+  pase_vence: string
 }
 
 export const ESCOLTA_ESTADO = {

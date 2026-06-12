@@ -23,7 +23,7 @@ import { storeToRefs } from 'pinia'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import AppButton from '../../../components/ui/AppButton.vue'
-import AppFormInput from '../../../components/ui/AppFormInput.vue'
+import AppInput from '../../../components/ui/AppInput.vue'
 
 const props = defineProps<{ id?: string }>()
 const route = useRoute()
@@ -431,14 +431,14 @@ const clearParadas = () => {
   <div class="h-[calc(100vh-80px)] w-full">
     <div class="relative w-full h-full overflow-hidden">
       
-      <!-- MAP -->
+      <!-- MAPA -->
       <div
         id="geocerca-form-map-container"
         class="absolute inset-0 z-0"
         style="width:100%;height:100%;"
       ></div>
 
-      <!-- Overlay Carga Mapa -->
+      <!-- Capa de Carga del Mapa -->
       <Transition name="fade-overlay">
         <div v-if="isLoadingMap" class="absolute inset-0 z-[8] flex flex-col items-center justify-center gap-5 pointer-events-none bg-white/50 dark:bg-[#0C0E13]/50 backdrop-blur-sm">
           <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-xl animate-spin">
@@ -448,211 +448,211 @@ const clearParadas = () => {
         </div>
       </Transition>
 
-      <!-- FLOATING SIDEBAR -->
-      <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
-        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
+      <!-- PANEL LATERAL DE GEOCERCAS (Estilo docked consistente con RutasFormView y Sidebar.vue) -->
+      <div class="absolute top-0 bottom-0 left-0 z-10 w-[320px] md:w-[350px] lg:w-[380px] flex flex-col">
+        <!-- Panel acoplado consistente con Sidebar.vue -->
+        <div class="flex-1 flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden">
           
-          <!-- Header -->
-          <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
-            <!-- Fondo decorativo -->
-            <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
-            <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+          <!-- Encabezado -->
+          <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
+            <div class="relative flex items-center gap-3">
+              <!-- Botón Volver Plano -->
+              <button @click="router.push('/geocercas')"
+                class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0">
+                <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.2" />
+              </button>
 
-            <div class="relative flex items-center gap-3.5">
-              <!-- Botón Volver 3D -->
-              <div class="relative group/back shrink-0">
-                <button @click="router.push('/geocercas')"
-                  class="w-10 h-10 rounded-[14px] flex items-center justify-center bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_5px_rgba(0,0,0,0.05)] dark:shadow-[0_3px_0_#1D1D24,0_2px_8px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]">
-                  <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.5" />
-                </button>
-              </div>
-
-              <!-- Ícono principal con glow -->
-              <div class="relative group/icon shrink-0">
-                <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10">
-                  <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
-                </div>
+              <!-- Ícono plano -->
+              <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+                <HugeiconsIcon :icon="MapsIcon" :size="18" :stroke-width="2" />
               </div>
 
               <div class="flex-1 min-w-0">
-                <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ isEditing ? 'Editar Geocerca' : 'Nueva Geocerca' }}</h1>
-                <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
-                    Configuración y Trazado
-                  </span>
+                <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">
+                  {{ isEditing ? 'Editar Geocerca' : 'Nueva Geocerca' }}
+                </h1>
+                <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
+                  Configuración y Trazado
                 </p>
               </div>
             </div>
 
-            <div class="relative mt-5">
-              <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full">
-                {{ $t('geocercas.btnSave', 'Guardar Geocerca') }}
+            <div class="relative mt-4">
+              <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full !rounded-[12px]">
+                <span>{{ $t('geocercas.btnSave', 'Guardar Geocerca') }}</span>
               </AppButton>
             </div>
           </div>
 
-          <!-- Form Content -->
-          <div class="flex-1 overflow-y-auto custom-scrollbar px-5 py-6 space-y-6">
-            
-            <!-- Messages -->
-            <Transition name="fade">
-              <div v-if="modalMessage" 
-                   class="flex items-center gap-3 p-4 rounded-xl text-[11px] font-black uppercase tracking-wider border"
-                   :class="modalMessage.type === 'error' ? 'bg-red-500/5 text-red-500 border-red-500/10' : (modalMessage.type === 'warning' ? 'bg-amber-500/5 text-amber-500 border-amber-500/10' : 'bg-green-500/5 text-green-500 border-green-500/10')">
-                <HugeiconsIcon :icon="modalMessage.type === 'success' ? Tick01Icon : Shield01Icon" :size="16" />
-                {{ modalMessage.text }}
-              </div>
-            </Transition>
+          <!-- Formulario de configuración -->
+          <div class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
+            <div class="space-y-6 relative p-1">
+              
+              <!-- Mensajes informativos -->
+              <Transition name="fade">
+                <div v-if="modalMessage" 
+                     class="flex items-center gap-3 py-3 px-4 rounded-[12px] text-xs font-bold tracking-tight uppercase border animate-none"
+                     :class="{
+                       'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
+                       'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
+                       'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
+                     }">
+                  <HugeiconsIcon :icon="modalMessage.type === 'success' ? Tick01Icon : Shield01Icon" :size="16" />
+                  {{ modalMessage.text }}
+                </div>
+              </Transition>
 
-            <!-- Inputs -->
-            <AppFormInput 
-              v-model="formData.nombre"
-              label="Nombre de la Geocerca"
-              placeholder="Ej: Zona Norte"
-              :icon="MapsIcon"
-            />
+              <!-- Inputs -->
+              <AppInput 
+                v-model="formData.nombre"
+                label="Nombre de la Geocerca"
+                placeholder="Ej: Zona Norte"
+                :icon="MapsIcon"
+                required
+              />
 
-            <div class="space-y-2">
-              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Descripción</label>
-              <div class="relative bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] overflow-hidden focus-within:border-[#3b82f6]/40 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
-                <textarea v-model="formData.descripcion" rows="3" placeholder="Describe el propósito de esta geocerca..." class="w-full bg-transparent border-none px-4 py-3.5 text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none focus:ring-0 resize-none"></textarea>
-              </div>
-            </div>
+              <AppInput 
+                v-model="formData.descripcion"
+                type="textarea"
+                label="Descripción"
+                placeholder="Describe el propósito de esta geocerca..."
+                :rows="3"
+              />
 
-            <div class="grid grid-cols-2 gap-4">
-              <!-- Color -->
-              <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Color</label>
-                <div class="relative flex items-center gap-3 p-1.5 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)]">
-                  <input type="color" v-model="formData.color" class="w-10 h-10 rounded-xl border-none bg-transparent cursor-pointer overflow-hidden shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#1D1D24]" />
-                  <span class="text-[11px] font-black font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{{ formData.color }}</span>
+              <!-- Grilla de Color y Tipo -->
+              <div class="grid grid-cols-2 gap-4">
+                <!-- Color -->
+                <div class="space-y-2">
+                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">Color</label>
+                  <div class="relative flex items-center gap-3 p-1.5 bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                    <input type="color" v-model="formData.color" class="w-8 h-8 rounded-lg border-none bg-transparent cursor-pointer overflow-hidden shadow-none shrink-0" />
+                    <span class="text-[11px] font-bold font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">{{ formData.color }}</span>
+                  </div>
+                </div>
+
+                <!-- Tipo -->
+                <div class="space-y-2">
+                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">Tipo</label>
+                  <div class="flex p-1 bg-slate-100/50 dark:bg-white/5 rounded-[12px] border border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                    <button type="button" @click="changeTipo(1)"
+                      class="flex-1 flex items-center justify-center py-2 transition-all duration-300"
+                      :class="formData.tipo === 1
+                        ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
+                        : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
+                      <HugeiconsIcon :icon="CircleIcon" :size="16" :stroke-width="2" />
+                    </button>
+                    <button type="button" @click="changeTipo(2)"
+                      class="flex-1 flex items-center justify-center py-2 transition-all duration-300"
+                      :class="formData.tipo === 2
+                        ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
+                        : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
+                      <HugeiconsIcon :icon="SquareIcon" :size="16" :stroke-width="2" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <!-- Tipo -->
-              <div class="space-y-2">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Tipo</label>
-                <div class="flex p-1 bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-[#20242D] dark:to-[#1D1D24] rounded-[16px] border border-slate-200 dark:border-white/10 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24]">
-                  <button type="button" @click="changeTipo(1)"
-                    class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all duration-300 border"
-                    :class="formData.tipo === 1
-                      ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]'
-                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300'">
-                    <HugeiconsIcon :icon="CircleIcon" :size="16" :stroke-width="2" />
-                  </button>
-                  <button type="button" @click="changeTipo(2)"
-                    class="flex-1 flex items-center justify-center py-2 rounded-xl transition-all duration-300 border"
-                    :class="formData.tipo === 2
-                      ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_3px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]'
-                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300'">
-                    <HugeiconsIcon :icon="SquareIcon" :size="16" :stroke-width="2" />
-                  </button>
+              <!-- Sección de Trazado -->
+              <div class="p-4 rounded-[14px] border border-slate-200/80 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02] space-y-4">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
+                  <div class="flex items-center gap-2.5">
+                    <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6]" />
+                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Trazado en Mapa</span>
+                  </div>
+                  <button @click="clearParadas" class="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-wider transition-colors">Limpiar</button>
                 </div>
-              </div>
-            </div>
 
-            <!-- Trazado Section -->
-            <div class="p-5 rounded-2xl bg-[#3b82f6]/[0.03] dark:bg-[#3b82f6]/5 border border-[#3b82f6]/10 dark:border-[#3b82f6]/10 space-y-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2.5 text-[#3b82f6]">
-                  <HugeiconsIcon :icon="Location01Icon" :size="18" />
-                  <span class="text-[11px] font-black uppercase tracking-widest">Trazado en Mapa</span>
-                </div>
-                <button @click="clearParadas" class="text-[10px] font-black text-red-400 hover:text-red-500 uppercase tracking-widest transition-colors">Limpiar</button>
-              </div>
+                <div v-if="formData.tipo === 1" class="space-y-6 animate-fade-in">
+                  <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Haz clic en el mapa para establecer el centro o <span class="text-[#3b82f6] font-bold">arrastra el controlador blanco</span> en el borde del círculo para ajustar el radio.
+                  </p>
+                  
+                  <div class="relative pt-2 pb-4">
+                    <div class="flex items-center justify-between mb-5">
+                      <div class="flex flex-col">
+                        <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Dimensión del Radio</span>
+                        <div class="flex items-baseline gap-1.5">
+                          <input 
+                            type="number" 
+                            v-model.number="radius" 
+                            min="1" 
+                            max="5000"
+                            class="w-24 bg-transparent border-none p-0 text-3xl font-bold text-[#3b82f6] dark:text-[#5da6fc] tracking-tighter leading-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                          <span class="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">Metros</span>
+                        </div>
+                      </div>
+                      
+                      <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 dark:bg-[#3b82f6]/5 flex items-center justify-center border border-[#3b82f6]/20 dark:border-[#3b82f6]/10 shadow-inner">
+                         <HugeiconsIcon :icon="CircleIcon" :size="18" class="text-[#3b82f6] animate-pulse" />
+                      </div>
+                    </div>
 
-              <div v-if="formData.tipo === 1" class="space-y-6 animate-fade-in">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Haz clic en el mapa para establecer el centro o <span class="text-[#3b82f6] font-bold">arrastra el controlador blanco</span> en el borde del círculo para ajustar el radio.
-                </p>
-                
-                <div class="relative pt-2 pb-6">
-                  <div class="flex items-center justify-between mb-5">
-                    <div class="flex flex-col">
-                      <span class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">Dimensión del Radio</span>
-                      <div class="flex items-baseline gap-1.5">
-                        <input 
-                          type="number" 
-                          v-model.number="radius" 
-                          min="1" 
-                          max="5000"
-                          class="w-24 bg-transparent border-none p-0 text-3xl font-black text-[#3b82f6] dark:text-[#5da6fc] tracking-tighter leading-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <span class="text-[11px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-widest">Metros</span>
+                    <!-- Control Deslizante (Slider) Personalizado -->
+                    <div class="group relative h-10 flex items-center px-1">
+                      <!-- Fondo de la pista -->
+                      <div class="absolute inset-x-0 h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                        <!-- Pista activa -->
+                        <div 
+                          class="h-full bg-[#3b82f6] rounded-full transition-all duration-300" 
+                          :style="{ width: (radius / 5000 * 100) + '%' }"
+                        ></div>
+                      </div>
+
+                      <!-- Rango nativo oculto -->
+                      <input 
+                        type="range" 
+                        v-model.number="radius" 
+                        min="1" 
+                        max="5000" 
+                        step="1" 
+                        class="absolute inset-x-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                      />
+
+                      <!-- Botón deslizante personalizado -->
+                      <div 
+                        class="absolute w-6 h-6 bg-white dark:bg-[#1A1D24] border-[4px] border-[#3b82f6] rounded-full shadow-[0_4px_10px_rgba(59,130,246,0.2)] transition-all duration-100 pointer-events-none z-[5] flex items-center justify-center"
+                        :style="{ left: `calc(${(radius / 5000 * 100)}% - 12px)` }"
+                      >
+                        <div class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-ping"></div>
+                        
+                        <!-- Etiqueta flotante (Tooltip) -->
+                        <div class="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 whitespace-nowrap shadow-md flex items-center gap-1.5">
+                          <HugeiconsIcon :icon="PaintBrush01Icon" :size="10" />
+                          {{ radius }}m
+                          <div class="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900 dark:border-t-white"></div>
+                        </div>
                       </div>
                     </div>
                     
-                    <div class="w-12 h-12 rounded-2xl bg-[#3b82f6]/10 dark:bg-[#3b82f6]/5 flex items-center justify-center border border-[#3b82f6]/20 dark:border-[#3b82f6]/10 shadow-inner group-hover:scale-110 transition-transform">
-                       <HugeiconsIcon :icon="CircleIcon" :size="20" class="text-[#3b82f6] animate-pulse" />
+                    <div class="flex justify-between mt-3 px-1">
+                      <span class="text-[9px] font-bold text-slate-300 dark:text-slate-600">1M</span>
+                      <span class="text-[9px] font-bold text-slate-300 dark:text-slate-600">5000M</span>
                     </div>
                   </div>
+                </div>
 
-                  <!-- Custom Styled Slider -->
-                  <div class="group relative h-10 flex items-center px-1">
-                    <!-- Track Background -->
-                    <div class="absolute inset-x-0 h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                      <!-- Active Track with Gradient -->
-                      <div 
-                        class="h-full bg-gradient-to-r from-[#3b82f6] via-[#60a5fa] to-[#3b82f6] bg-[length:200%_auto] animate-[shimmer_3s_linear_infinite] rounded-full transition-all duration-300" 
-                        :style="{ width: (radius / 5000 * 100) + '%' }"
-                      ></div>
+                <div v-else class="space-y-3 animate-fade-in">
+                  <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Haz clic en el mapa para añadir vértices. Puedes <span class="text-[#3b82f6] font-bold">arrastrar los números</span> para moverlos, o <span class="text-red-400 font-bold">hacerles clic para eliminarlos</span>.
+                  </p>
+                  <div class="flex flex-wrap gap-2">
+                    <div v-for="(_, i) in paradas" :key="i" class="w-7 h-7 rounded-lg bg-[#3b82f6] text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
+                      {{ i + 1 }}
                     </div>
-
-                    <!-- Hidden Native Range -->
-                    <input 
-                      type="range" 
-                      v-model.number="radius" 
-                      min="1" 
-                      max="5000" 
-                      step="1" 
-                      class="absolute inset-x-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                    />
-
-                    <!-- Custom Thumb (follows the value) -->
-                    <div 
-                      class="absolute w-7 h-7 bg-white dark:bg-[#1A1D24] border-[5px] border-[#3b82f6] rounded-full shadow-[0_8px_16px_rgba(59,130,246,0.4)] transition-all duration-100 pointer-events-none z-[5] flex items-center justify-center"
-                      :style="{ left: `calc(${(radius / 5000 * 100)}% - 14px)` }"
-                    >
-                      <div class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-ping"></div>
-                      
-                      <!-- Tooltip -->
-                      <div class="absolute -top-12 left-1/2 -translate-x-1/2 px-2.5 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black rounded-xl opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 whitespace-nowrap shadow-2xl border border-white/10 dark:border-black/5 flex items-center gap-1.5">
-                        <HugeiconsIcon :icon="PaintBrush01Icon" :size="10" />
-                        {{ radius }}m
-                        <div class="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900 dark:border-t-white"></div>
-                      </div>
+                    <div v-if="paradas.length < 3" class="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-bold uppercase tracking-wider">
+                      Mínimo 3 puntos
                     </div>
-                  </div>
-                  
-                  <div class="flex justify-between mt-3 px-1">
-                    <span class="text-[9px] font-black text-slate-300 dark:text-slate-600">1M</span>
-                    <span class="text-[9px] font-black text-slate-300 dark:text-slate-600">5000M</span>
                   </div>
                 </div>
               </div>
 
-              <div v-else class="space-y-3 animate-fade-in">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                  Haz clic en el mapa para añadir vértices. Puedes <span class="text-[#3b82f6] font-bold">arrastrar los números</span> para moverlos, o <span class="text-red-400 font-bold">hacerles clic para eliminarlos</span>.
-                </p>
-                <div class="flex flex-wrap gap-2">
-                  <div v-for="(_, i) in paradas" :key="i" class="w-8 h-8 rounded-lg bg-[#3b82f6] text-white flex items-center justify-center text-[10px] font-black shadow-sm">
-                    {{ i + 1 }}
-                  </div>
-                  <div v-if="paradas.length < 3" class="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-black uppercase tracking-widest">
-                    Mínimo 3 puntos
-                  </div>
-                </div>
-              </div>
             </div>
-
           </div>
 
-          <!-- Footer Info -->
-          <div class="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <!-- Pie de página informativo -->
+          <div class="shrink-0 px-5 py-3 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Haz clic en el mapa para empezar a trazar
             </p>
           </div>
@@ -675,11 +675,6 @@ const clearParadas = () => {
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
 }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }

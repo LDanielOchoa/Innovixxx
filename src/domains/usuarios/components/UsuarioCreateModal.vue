@@ -489,23 +489,39 @@ const saveUsuario = async () => {
               type="button"
               @click="abrirRolePanel"
               :disabled="loadingRoles"
-              class="selector-btn-roles"
+              class="relative flex items-center justify-between w-full cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
               :class="[
                 loadingRoles ? 'opacity-60 cursor-not-allowed' : '',
-                isRolePanelOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''
+                isRolePanelOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'
               ]"
             >
-              <div class="w-7 h-7 rounded-[10px] flex-shrink-0 flex items-center justify-center transition-all duration-300"
-                :class="formData.id_role ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_2px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]' : 'bg-white/5 text-slate-400'">
-                <HugeiconsIcon :icon="Shield02Icon" :size="14" :stroke-width="2.2" />
+              <!-- Sombra inset 3D -->
+              <div 
+                class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+                :class="isRolePanelOpen 
+                  ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                  : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+              ></div>
+
+              <!-- Borde superior brillante en focus/open -->
+              <div 
+                class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300"
+                :class="{ 'opacity-100 left-2 right-2': isRolePanelOpen }"
+              ></div>
+
+              <div class="relative z-10 flex items-center gap-3 w-full">
+                <div class="w-7 h-7 rounded-[10px] flex-shrink-0 flex items-center justify-center transition-all duration-300"
+                  :class="formData.id_role ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white shadow-[0_2px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)]' : 'bg-slate-200 dark:bg-white/5 text-slate-400 dark:text-slate-500'">
+                  <HugeiconsIcon :icon="Shield02Icon" :size="14" :stroke-width="2.2" />
+                </div>
+                <div class="flex-1 text-left">
+                  <span class="text-sm font-medium" :class="formData.id_role ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                    {{ rolesForCreate.find(r => r.id_role === formData.id_role)?.nombre || 'Seleccionar Rol' }}
+                  </span>
+                </div>
+                <HugeiconsIcon v-if="loadingRoles" :icon="Loading03Icon" :size="14" class="animate-spin text-[#3b82f6] flex-shrink-0" />
+                <HugeiconsIcon v-else :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isRolePanelOpen }" />
               </div>
-              <div class="flex-1 text-left pl-3">
-                <span class="text-[13px] font-bold" :class="formData.id_role ? 'text-slate-200' : 'text-slate-400'">
-                  {{ rolesForCreate.find(r => r.id_role === formData.id_role)?.nombre || 'Seleccionar Rol' }}
-                </span>
-              </div>
-              <HugeiconsIcon v-if="loadingRoles" :icon="Loading03Icon" :size="14" class="animate-spin text-[#3b82f6] flex-shrink-0" />
-              <HugeiconsIcon v-else :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isRolePanelOpen }" />
             </button>
           </div>
 
@@ -516,48 +532,58 @@ const saveUsuario = async () => {
             >Idioma Preferido</label>
             <div
               @click="toggleLangDropdown"
-              class="selector-btn-roles relative flex items-center justify-between cursor-pointer select-none"
-              :class="isLangDropdownOpen ? 'border-[#3b82f6]/50 ring-1 ring-[#3b82f6]/20' : ''"
+              class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300"
+              :class="isLangDropdownOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
             >
-              <div class="flex items-center gap-3">
+              <!-- Sombra inset 3D -->
+              <div 
+                class="absolute inset-0 pointer-events-none rounded-xl transition-shadow duration-300"
+                :class="isLangDropdownOpen 
+                  ? 'shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]' 
+                  : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'"
+              ></div>
+
+              <!-- Borde superior brillante en focus/open -->
+              <div 
+                class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300"
+                :class="{ 'opacity-100 left-2 right-2': isLangDropdownOpen }"
+              ></div>
+
+              <div class="relative z-10 flex items-center gap-3">
                 <img
                   :src="langOptions.find(l => l.value === formData.lang)?.flag"
                   class="w-6 h-4 object-cover rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.15)]"
                 />
-                <span class="text-[13px] font-bold text-slate-200">
+                <span class="text-sm font-medium text-slate-800 dark:text-slate-200">
                   {{ langOptions.find(l => l.value === formData.lang)?.label }}
                 </span>
               </div>
-              <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" class="text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isLangDropdownOpen }" />
+              <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': isLangDropdownOpen }" />
             </div>
             <Transition name="dropdown">
-              <div v-if="isLangDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] z-[250] overflow-hidden">
+              <div v-if="isLangDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] z-[250] overflow-hidden">
                 <div class="relative px-4 pt-3 pb-2 border-b border-slate-100 dark:border-white/[0.05] overflow-hidden">
                   <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.05] via-transparent to-transparent pointer-events-none"></div>
                   <span class="relative text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Seleccionar Idioma</span>
                 </div>
-                <div class="p-2 space-y-1">
+                <div class="p-1.5 space-y-1">
                   <button
                     v-for="lang in langOptions"
                     :key="lang.value"
                     type="button"
                     @click="selectLang(lang)"
-                    class="w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all duration-200 group/item border relative overflow-hidden"
+                    class="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group/option text-left"
                     :class="formData.lang === lang.value
-                      ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/40 dark:border-[#3b82f6]/30 shadow-[0_3px_0_#e2e8f0,0_3px_10px_rgba(59,130,246,0.08)] dark:shadow-[0_3px_0_#1D1D24]'
-                      : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_#1D1D24] hover:border-slate-300 dark:hover:border-white/[0.12]'"
+                      ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc]'
+                      : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
                   >
-                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-gradient-to-b from-[#60a5fa] to-[#2563eb] transition-all duration-300"
-                      :class="formData.lang === lang.value ? 'opacity-100 h-[65%]' : 'opacity-0 h-0'"></div>
-                    <div class="flex items-center gap-3 pl-2">
+                    <div class="flex items-center gap-3">
                       <img :src="lang.flag" class="w-6 h-4 object-cover rounded-[4px] shadow-[0_1px_3px_rgba(0,0,0,0.15)]" />
-                      <span class="text-[13px] font-black transition-colors duration-200"
-                        :class="formData.lang === lang.value ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-white'"
+                      <span class="text-[13px] font-medium"
+                        :class="formData.lang === lang.value ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
                       >{{ lang.label }}</span>
                     </div>
-                    <div v-if="formData.lang === lang.value" class="w-6 h-6 rounded-lg bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] flex items-center justify-center text-white shadow-[0_2px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/40">
-                      <HugeiconsIcon :icon="Tick01Icon" :size="12" :stroke-width="3.5" />
-                    </div>
+                    <HugeiconsIcon v-if="formData.lang === lang.value" :icon="Tick01Icon" :size="14" :stroke-width="2.5" class="text-[#3b82f6] shrink-0 ml-2" />
                   </button>
                 </div>
               </div>
@@ -587,7 +613,7 @@ const saveUsuario = async () => {
     <Transition name="panel-flotante">
       <div
         v-if="isRolePanelOpen && isOpen && !isSuccess && !isInitializing"
-        class="panel-flotante-roles fixed z-[200] flex flex-col overflow-hidden"
+        class="panel-flotante-roles fixed z-[200] flex flex-col overflow-hidden bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] rounded-2xl"
         :style="{
           top: panelStyle.top,
           left: panelStyle.left,
@@ -596,44 +622,44 @@ const saveUsuario = async () => {
         }"
       >
         <!-- Franja de acento -->
-        <div class="panel-acento-roles shrink-0" />
+        <div class="h-[3px] w-full shrink-0 bg-gradient-to-r from-[#3b82f6] to-[#5da6fc]" />
 
         <!-- Cabecera -->
-        <div class="px-5 pt-4 pb-3 flex items-center justify-between shrink-0 border-b border-white/5">
+        <div class="px-5 pt-4 pb-3 flex items-center justify-between shrink-0 border-b border-slate-100 dark:border-white/5">
           <div class="flex items-center gap-3">
-            <div class="panel-head-icon">
+            <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#3b82f6]/20 dark:text-[#5da6fc] border border-blue-100/50 dark:border-blue-500/20">
               <HugeiconsIcon :icon="Shield02Icon" :size="17" />
             </div>
             <div>
-              <h4 class="text-[12px] font-black text-white tracking-tight">Roles Disponibles</h4>
-              <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">{{ filteredRoles.length }} roles</p>
+              <h4 class="text-[12px] font-black text-slate-800 dark:text-white tracking-tight leading-none">Roles Disponibles</h4>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mt-1.5">{{ filteredRoles.length }} roles</p>
             </div>
           </div>
           <button
             type="button"
             @click="cerrarRolePanel"
-            class="panel-close-btn"
+            class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
           </button>
         </div>
 
         <!-- Buscador -->
-        <div class="px-4 pb-3 shrink-0">
-          <div class="panel-search-wrap">
+        <div class="px-4 pt-3.5 pb-2 shrink-0">
+          <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl transition-all duration-300 focus-within:border-[#3b82f6]/50 focus-within:ring-4 focus-within:ring-[#3b82f6]/10">
             <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
             <input
               v-model="searchRoleQuery"
               type="text"
               placeholder="Buscar rol..."
-              class="panel-search-input"
+              class="flex-1 bg-transparent border-none text-[12px] font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:ring-0 p-0"
               @click.stop
             />
             <button
               v-if="searchRoleQuery"
               type="button"
               @click.stop="searchRoleQuery = ''"
-              class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
+              class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-350 transition-colors shrink-0"
             >
               <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
             </button>
@@ -641,41 +667,45 @@ const saveUsuario = async () => {
         </div>
 
         <!-- Listado -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
+        <div class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-white/5 pr-1">
           <button
             v-for="role in filteredRoles"
             :key="role.id_role"
             type="button"
             @click="selectRole(role)"
-            class="panel-row group/row"
-            :class="formData.id_role === role.id_role ? 'panel-row--on' : 'panel-row--off'"
+            class="w-full flex items-center gap-3 px-4 py-3 cursor-pointer transition-all duration-200 text-left"
+            :class="formData.id_role === role.id_role 
+              ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' 
+              : 'text-slate-600 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-white/5'"
           >
             <div
-              class="panel-row-dot shrink-0"
-              :class="formData.id_role === role.id_role ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+              class="w-4.5 h-4.5 rounded-full border flex items-center justify-center transition-all duration-200 shrink-0"
+              :class="formData.id_role === role.id_role 
+                ? 'bg-[#3b82f6] border-[#3b82f6] text-white shadow-sm shadow-blue-500/20' 
+                : 'border-slate-300 dark:border-white/10 bg-transparent'"
             >
-              <HugeiconsIcon v-if="formData.id_role === role.id_role" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+              <HugeiconsIcon v-if="formData.id_role === role.id_role" :icon="Tick01Icon" :size="10" :stroke-width="3.5" />
             </div>
             <div class="flex flex-col flex-1 min-w-0 text-left">
-              <span class="text-[12px] font-semibold truncate leading-snug">{{ role.nombre }}</span>
+              <span class="text-[12px] font-semibold truncate" :class="formData.id_role === role.id_role ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">{{ role.nombre }}</span>
             </div>
           </button>
-          <div v-if="filteredRoles.length === 0" class="panel-empty">
+          <div v-if="filteredRoles.length === 0" class="flex flex-col items-center justify-center py-16 text-center text-slate-400 dark:text-slate-500">
             <HugeiconsIcon :icon="Shield02Icon" :size="24" class="opacity-30 mb-2" />
-            <span>{{ searchRoleQuery ? 'No se encontraron roles.' : 'Sin roles disponibles' }}</span>
+            <span class="text-[11px] font-semibold">{{ searchRoleQuery ? 'No se encontraron roles.' : 'Sin roles disponibles' }}</span>
           </div>
         </div>
 
         <!-- Footer -->
-        <div class="px-4 py-3.5 shrink-0 panel-footer">
+        <div class="px-4 py-3.5 shrink-0 border-t border-slate-100 dark:border-white/5">
           <button
             type="button"
             @click="cerrarRolePanel"
-            class="panel-confirm-btn"
+            class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#2563eb] transition-all duration-200 shadow-sm shadow-blue-900/10 active:scale-[0.98]"
           >
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
             Confirmar Selección
-            <template v-if="formData.id_role">(1)</template>
+            <span v-if="formData.id_role" class="ml-1 px-1.5 py-0.5 text-[10px] bg-white/20 rounded-md">1</span>
           </button>
         </div>
       </div>
@@ -741,18 +771,25 @@ const saveUsuario = async () => {
 }
 
 .custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
 }
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: rgba(255, 255, 255, 0.1);
+}
+:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* =====================================================

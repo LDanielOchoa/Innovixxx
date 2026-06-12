@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Edit02Icon,
@@ -222,6 +222,40 @@ const deleteRole = () => {
   const id = itemToDelete.value
   roles.value = roles.value.filter(r => r.id_role !== id)
 }
+
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const handleDocumentClick = () => {
+  closeMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
 </script>
 
 <template>
@@ -231,38 +265,51 @@ const deleteRole = () => {
       :title="t('roles.title')" 
       :count="filteredRoles.length" 
       :icon="Shield01Icon"
-    >
-      <template #actions>
+    />
+
+    <!-- Toolbar: Buscador (izquierda) + Botones (derecha) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <!-- Izquierda: Buscador -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div class="relative w-full sm:w-80">
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            :placeholder="t('roles.searchPlaceholder', 'Buscar...')"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
+          />
+          <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Derecha: Botones juntos (Exportar Excel y Nuevo Rol) -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
+        <button 
+          @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all"
+        >
+          <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+
         <button 
           v-if="authStore.hasPermission(PERMISSIONS.ROLES_CREATE)"
           @click="openCreateModal"
-          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           <span>{{ t('roles.btnNew') }}</span>
         </button>
-        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
-          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-        </button>
-      </template>
-    </PageHeader>
-
-    <!-- Search Toolbar -->
-    <SearchToolbar v-model="searchQuery" :placeholder="t('roles.searchPlaceholder', 'Buscar...')">
-      <template #extra>
-        <button 
-          @click="exportToExcel"
-          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span>Exportar Excel</span>
-        </button>
-      </template>
-    </SearchToolbar>
+      </div>
+    </div>
 
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
@@ -278,12 +325,6 @@ const deleteRole = () => {
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
         <template #empty-subtitle>{{ t('roles.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
-
-        <Column field="id_role" header="ID" headerStyle="width: 5rem" class="text-left" alignHeader="left">
-          <template #body="{ data }">
-            <IdCell :value="data.id_role" :icon="Shield01Icon" />
-          </template>
-        </Column>
 
         <Column field="nombre" :header="t('roles.colRole')" sortable>
           <template #body="{ data }">
@@ -309,37 +350,54 @@ const deleteRole = () => {
           </template>
         </Column>
 
-        <Column :header="t('roles.colActions')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
+        <Column :header="t('roles.colActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: Shield01Icon,
-                  tooltip: t('roles.btnAssignPermissions'),
-                  variant: 'primary',
-                  onClick: () => openPermissionsModal(data),
-                  show: authStore.hasPermission(PERMISSIONS.ROLES_ASSIGN)
-                },
-                {
-                  icon: Edit02Icon,
-                  tooltip: 'Editar',
-                  variant: 'primary',
-                  onClick: () => openEditModal(data),
-                  show: authStore.hasPermission(PERMISSIONS.ROLES_EDIT)
-                },
-                {
-                  icon: Delete01Icon,
-                  tooltip: 'Eliminar',
-                  variant: 'danger',
-                  onClick: () => confirmDelete(data.id_role),
-                  show: authStore.hasPermission(PERMISSIONS.ROLES_DELETE)
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(String(data.id_role), $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-52 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ROLES_ASSIGN)"
+              @click="openPermissionsModal(roles.find(r => String(r.id_role) === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Shield01Icon" :size="16" class="text-blue-500 dark:text-[#5da6fc]" />
+              <span>{{ t('roles.btnAssignPermissions') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ROLES_EDIT)"
+              @click="openEditModal(roles.find(r => String(r.id_role) === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('common.edit', 'Editar') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.ROLES_DELETE)"
+              @click="confirmDelete(String(roles.find(r => String(r.id_role) === openMenuId)!.id_role)); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <HugeiconsIcon :icon="Delete01Icon" :size="16" />
+              <span>{{ t('common.delete', 'Eliminar') }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <!-- Footer: Paginación -->
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
@@ -419,7 +477,7 @@ const deleteRole = () => {
 </template>
 
 
-<style scoped>
+<style>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -445,5 +503,20 @@ const deleteRole = () => {
 
 .animate-fade-in-up {
   animation: fadeInUp 0.3s ease-out forwards;
+}
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -30,8 +30,6 @@ import VehiculoServicioModal from '../components/VehiculoServicioModal.vue'
 
 // Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
-import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -59,6 +57,33 @@ const fetchVehicles = async () => {
   } finally {
     isLoading.value = false
   }
+}
+
+// Menú desplegable para acciones de la tabla
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const handleDocumentClick = () => {
+  closeMenu()
 }
 
 const isDeleteModalOpen = ref(false)
@@ -125,6 +150,11 @@ const isDateExpired = (dateStr: string): boolean => {
 
 onMounted(() => {
   fetchVehicles()
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 
 const filteredVehicles = computed(() => {
@@ -168,37 +198,50 @@ const handleModalSaved = () => {
       :title="t('vehiculosServicio.title')" 
       :count="filteredVehicles.length" 
       :icon="Car01Icon"
-    >
-      <template #actions>
+    />
+
+    <!-- Toolbar: Buscador (izquierda) + Botones (derecha) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <!-- Izquierda: Buscador -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <div class="relative w-full sm:w-[28rem]">
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            :placeholder="t('vehiculosServicio.searchPlaceholder')"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
+          />
+          <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Derecha: Botones Exportar y Nuevo Vehículo de Servicio -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
+        <button 
+          @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all"
+        >
+          <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+
         <button 
           @click="openCreateModal"
-          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           <span>{{ t('vehiculosServicio.btnNew') }}</span>
         </button>
-        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
-          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-        </button>
-      </template>
-    </PageHeader>
-
-    <!-- Search Toolbar -->
-    <SearchToolbar v-model="searchQuery" :placeholder="t('vehiculosServicio.searchPlaceholder')" searchWidth="sm:w-[28rem]">
-      <template #extra>
-        <button 
-          @click="exportToExcel"
-          class="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <svg class="w-4 h-4 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-          </svg>
-          <span>Exportar Excel</span>
-        </button>
-      </template>
-    </SearchToolbar>
+      </div>
+    </div>
 
     <!-- Table Card -->
     <AppTableCard>
@@ -239,7 +282,7 @@ const handleModalSaved = () => {
         <Column field="tipo" :header="t('vehiculosServicio.thType', 'Tipo')" sortable>
           <template #body="{ data }">
             <AppBadge :variant="'default'">
-              {{ Number(data.tipo) === 1 ? 'Carro' : Number(data.tipo) === 2 ? 'Moto' : data.tipo || '---' }}
+              {{ Number(data.tipo) === 1 ? 'Carro' : Number(data.tipo) === 2 ? 'Motocicleta' : data.tipo || '---' }}
             </AppBadge>
           </template>
         </Column>
@@ -253,18 +296,6 @@ const handleModalSaved = () => {
         <Column field="cilindrada" :header="t('vehiculosServicio.thCc', 'Cilindrada')" sortable>
           <template #body="{ data }">
             <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{{ data.cilindrada || 0 }}<span class="text-[11px] font-medium text-slate-400 ml-0.5">cc</span></span>
-          </template>
-        </Column>
-
-        <Column field="color" :header="t('vehiculosServicio.thColor', 'Color')" sortable>
-          <template #body="{ data }">
-            <div class="flex items-center gap-2">
-              <div
-                class="w-4 h-4 rounded-full border border-slate-200 dark:border-white/10 ring-1 ring-black/5 dark:ring-white/10"
-                :style="{ backgroundColor: data.color || '#cbd5e1' }"
-              ></div>
-              <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase">{{ data.color || '---' }}</span>
-            </div>
           </template>
         </Column>
 
@@ -314,30 +345,44 @@ const handleModalSaved = () => {
           </template>
         </Column>
 
-        <Column :header="t('vehiculosServicio.thActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
+        <Column :header="t('vehiculosServicio.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: Edit02Icon,
-                  tooltip: t('common.edit', 'Editar'),
-                  variant: 'primary',
-                  onClick: () => openEditModal(data),
-                  show: true
-                },
-                {
-                  icon: Delete01Icon,
-                  tooltip: t('common.delete', 'Eliminar'),
-                  variant: 'danger',
-                  onClick: () => confirmDelete(data),
-                  show: true
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(data.id_vehiculo, $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              @click="openEditModal(vehicles.find(v => v.id_vehiculo === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('common.edit', 'Editar') }}</span>
+            </button>
+            <button
+              @click="confirmDelete(vehicles.find(v => v.id_vehiculo === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <HugeiconsIcon :icon="Delete01Icon" :size="16" />
+              <span>{{ t('common.delete', 'Eliminar') }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
         <AppPagination
@@ -364,7 +409,7 @@ const handleModalSaved = () => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -378,13 +423,44 @@ const handleModalSaved = () => {
 .scrollbar-hide::-webkit-scrollbar { display: none; }
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(100, 116, 139, 0.18); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(100, 116, 139, 0.35); }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.4);
+}
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(75, 85, 99, 0.7);
+}
 
 .font-mono {
   font-family: 'Share Tech Mono', monospace;
+}
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }

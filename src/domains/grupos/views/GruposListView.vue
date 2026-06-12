@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Search01Icon, 
@@ -121,10 +121,6 @@ const openEditModal = (grupo: Grupo) => {
   isCreateModalOpen.value = true
 }
 
-onMounted(() => {
-  fetchGrupos()
-})
-
 watch(
   () => route.query,
   (query) => {
@@ -185,6 +181,47 @@ const deleteGrupo = async () => {
   isDeleteModalOpen.value = false
   itemToDelete.value = null
 }
+
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+const handleDocumentClick = () => {
+  closeMenu()
+}
+
+onMounted(() => {
+  fetchGrupos()
+  document.addEventListener('click', handleDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
+})
+
+const mostrarFallbackLogo = (logo: string | null | undefined) => {
+  if (!logo) return true
+  const lower = logo.toLowerCase()
+  return lower.includes('default') || lower.includes('placeholder')
+}
 </script>
 
 <template>
@@ -194,26 +231,28 @@ const deleteGrupo = async () => {
       :title="t('grupos.title')" 
       :count="filteredGrupos.length" 
       :icon="UserGroupIcon"
-    >
-      <template #actions>
-        <button 
-          @click="openCreateModal"
-          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>{{ t('grupos.btnNew') }}</span>
-        </button>
-        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
-          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-        </button>
-      </template>
-    </PageHeader>
+    />
 
-    <!-- Search Toolbar -->
-    <SearchToolbar v-model="searchQuery" :placeholder="t('grupos.searchPlaceholder')" class="w-full" searchWidth="sm:w-[28rem]">
-      <template #extra>
+    <!-- Toolbar: Buscador (izquierda) + Botón (derecha) -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+      <!-- Izquierda: Buscador y Filtro -->
+      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+        <!-- Buscador -->
+        <div class="relative w-full sm:w-80">
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            :placeholder="t('grupos.searchPlaceholder', 'Buscar...')"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
+          />
+          <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Filtro de Idioma -->
         <div class="w-full sm:w-auto min-w-[240px]">
           <AppSelect 
             v-model="selectedLang"
@@ -221,8 +260,21 @@ const deleteGrupo = async () => {
             :placeholder="t('grupos.formLangPlaceholder')"
           />
         </div>
-      </template>
-    </SearchToolbar>
+      </div>
+
+      <!-- Derecha: Botón Nuevo Grupo -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
+        <button 
+          @click="openCreateModal"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10 border border-transparent"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{{ t('grupos.btnNew') }}</span>
+        </button>
+      </div>
+    </div>
 
     <!-- Content Table -->
     <AppTableCard>
@@ -241,13 +293,17 @@ const deleteGrupo = async () => {
         <Column field="nombre" :header="t('grupos.colGroup')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-4 group/avatar py-1">
-              <div class="w-10 h-10 shrink-0 rounded-full bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10 flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm overflow-hidden">
-                <img v-if="data.logo" :src="data.logo" class="w-full h-full object-cover" />
+              <div 
+                class="w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-transform duration-300 group-hover/avatar:scale-110 shadow-sm overflow-hidden"
+                :class="mostrarFallbackLogo(data.logo) 
+                  ? 'bg-blue-500/10 dark:bg-blue-500/20 text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20' 
+                  : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-[#2A313A] dark:to-[#1A1D24] text-slate-700 dark:text-white border border-white dark:border-white/10'"
+              >
+                <img v-if="!mostrarFallbackLogo(data.logo)" :src="data.logo" class="w-full h-full object-cover" />
                 <HugeiconsIcon v-else :icon="UserGroupIcon" :size="20" :stroke-width="1.8" />
               </div>
               <div class="flex flex-col">
                 <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre }}</span>
-                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-1.5 uppercase tracking-widest truncate max-w-[120px]">{{ data.id }}</span>
               </div>
             </div>
           </template>
@@ -264,19 +320,17 @@ const deleteGrupo = async () => {
 
         <Column field="i18n" :header="t('grupos.colLang')" sortable>
           <template #body="{ data }">
-            <AppBadge variant="glass" class="group/lang">
-              <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2">
                 <img 
-                  :src="data.i18n?.toLowerCase() === 'es' ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
+                  :src="data.i18n?.toLowerCase().startsWith('es') ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
                   :alt="data.i18n"
                   class="w-4 h-3 object-cover rounded-[2px] shadow-sm group-hover/lang:scale-110 transition-transform duration-500"
                 />
                 <div class="w-[1px] h-3 bg-slate-200 dark:bg-white/10 mx-0.5"></div>
                 <span class="text-slate-600 dark:text-slate-300 font-semibold uppercase">
-                  {{ data.i18n }}
+                  {{ data.i18n?.split('-')[0] }}
                 </span>
               </div>
-            </AppBadge>
           </template>
         </Column>
 
@@ -288,30 +342,44 @@ const deleteGrupo = async () => {
           </template>
         </Column>
 
-        <Column :header="t('grupos.colActions', 'Acciones')" headerStyle="width: 12rem" class="text-right" alignHeader="right">
+        <Column :header="t('grupos.colActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <TableActions
-              :actions="[
-                {
-                  icon: Edit02Icon,
-                  tooltip: 'Editar',
-                  variant: 'primary',
-                  onClick: () => openEditModal(data),
-                  show: true
-                },
-                {
-                  icon: Delete01Icon,
-                  tooltip: 'Eliminar',
-                  variant: 'danger',
-                  onClick: () => confirmDelete(data.id),
-                  show: true
-                }
-              ]"
-              :show-more="true"
-            />
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(String(data.id), $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
           </template>
         </Column>
       </AppTable>
+
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ top: menuPosition.top, right: menuPosition.right }"
+          >
+            <button
+              @click="openEditModal(grupos.find(g => String(g.id) === openMenuId)!); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('common.edit', 'Editar') }}</span>
+            </button>
+            <button
+              @click="confirmDelete(String(grupos.find(g => String(g.id) === openMenuId)!.id)); openMenuId = null"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+            >
+              <HugeiconsIcon :icon="Delete01Icon" :size="16" />
+              <span>{{ t('common.delete', 'Eliminar') }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <!-- Footer: Paginación -->
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
@@ -340,7 +408,7 @@ const deleteGrupo = async () => {
   </div>
 </template>
 
-<style scoped>
+<style>
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;
@@ -373,4 +441,19 @@ const deleteGrupo = async () => {
 .message-fade-enter-active, .message-fade-leave-active { transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1); }
 .message-fade-enter-from { opacity: 0; transform: translateY(-8px) scale(0.98); filter: blur(4px); }
 .message-fade-leave-to { opacity: 0; transform: translateY(4px); filter: blur(2px); }
+
+.dropdown-menu-enter-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-menu-leave-active {
+  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-menu-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
+}
+.dropdown-menu-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
 </style>

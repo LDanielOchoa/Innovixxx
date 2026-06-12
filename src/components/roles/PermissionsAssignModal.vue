@@ -217,6 +217,7 @@ watch(() => props.role?.id_role, () => {
     @close="closeModal"
     @update:isOpen="emit('update:isOpen', $event)"
     :isConfirmLoading="loadingPermissions"
+    confirmButtonClass="inline-flex justify-center items-center gap-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#2563eb] px-6 py-3 text-[13px] font-bold text-white transition-all shadow-sm active:scale-95 border border-transparent"
   >
     <template #icon>
       <HugeiconsIcon :icon="Shield02Icon" :size="20" class="text-[#3b82f6]" />
@@ -248,18 +249,18 @@ watch(() => props.role?.id_role, () => {
       </Transition>
 
       <!-- Info del Rol Seleccionado -->
-      <div v-if="internalRole" class="bg-slate-50/50 dark:bg-[#0A0C10] border border-slate-200/60 dark:border-white/5 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-[inset_0_2px_4px_rgba(0,0,0,0.01)] dark:shadow-[inset_0_2px_10px_rgba(0,0,0,0.3)]">
+      <div v-if="internalRole" class="bg-slate-50/50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 rounded-xl p-3 flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-500/10 dark:to-blue-500/5 border border-blue-200/50 dark:border-blue-500/20 flex items-center justify-center text-[#3b82f6]">
-            <HugeiconsIcon :icon="Shield02Icon" :size="20" :stroke-width="2" />
+          <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 dark:text-[#5da6fc]">
+            <HugeiconsIcon :icon="Shield02Icon" :size="16" />
           </div>
           <div>
-            <p class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1.5">{{ t('roles.selectedRole') }}</p>
-            <p class="text-sm font-extrabold text-slate-700 dark:text-slate-200 leading-none">{{ internalRole.nombre }}</p>
+            <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-none mb-1">{{ t('roles.selectedRole') }}</p>
+            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 leading-none">{{ internalRole.nombre }}</p>
           </div>
         </div>
-        <div class="bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] px-3 py-1.5 rounded-lg shadow-[0_4px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.2)]">
-          <span class="text-[10px] font-black text-white uppercase tracking-wider">
+        <div class="bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 px-2.5 py-1 rounded-lg">
+          <span class="text-[11px] font-bold text-blue-600 dark:text-[#5da6fc] tracking-wide">
             {{ t('roles.selectedPermissionsCount', { count: selectedPermissionsCount }) }}
           </span>
         </div>
@@ -304,8 +305,8 @@ watch(() => props.role?.id_role, () => {
                   <div
                     class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300"
                     :class="isPermissionSelected(permission.id)
-                      ? 'bg-blue-500/[0.03] dark:bg-blue-500/[0.05] border-blue-500/20 shadow-sm'
-                      : 'bg-transparent border-transparent hover:bg-slate-50 dark:hover:bg-white/[0.02]'"
+                      ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/40 shadow-sm'
+                      : 'bg-white dark:bg-[#1A1D24] border-slate-200/60 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]'"
                   >
                     <div
                       class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300"
@@ -341,7 +342,7 @@ watch(() => props.role?.id_role, () => {
   </BaseModal>
 </template>
 
-<style scoped>
+<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
 
 .flex-col {
@@ -360,12 +361,27 @@ watch(() => props.role?.id_role, () => {
   filter: blur(10px);
 }
 
-.custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb { background: #2A313A; }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 9999px;
+  border: 1px solid transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
 
 .fade-enter-active,
 .fade-leave-active {

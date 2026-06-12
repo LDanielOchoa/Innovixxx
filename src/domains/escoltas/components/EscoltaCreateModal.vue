@@ -20,14 +20,15 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
-import { createEscoltaApi } from '../services/escoltas.api'
-import { createEscoltaSchema } from '../../../schemas/escoltas.schema'
+import { createEscoltaApi, updateEscoltaApi } from '../services/escoltas.api'
+import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escoltas.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
 import { fetchVehiculosServicioSimpleApi, type VehiculoServicioSimple } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import type { Servicio } from '../../servicios/types/servicio'
 import type { HardwareSimple } from '../../servicios/types/servicio'
+import type { Escolta } from '../types/escolta'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
@@ -37,11 +38,14 @@ const groupStore = useGroupStore()
 
 const props = defineProps<{
   isOpen: boolean
+  editItem?: Escolta | null
 }>()
 
-const emit = defineEmits(['update:isOpen', 'created'])
+const emit = defineEmits(['update:isOpen', 'created', 'updated'])
 
-const { validate } = useFormValidator(createEscoltaSchema as any)
+const esModoEdicion = computed(() => !!props.editItem)
+const esquemaActivo = computed(() => esModoEdicion.value ? updateEscoltaSchema : createEscoltaSchema)
+const { validate } = useFormValidator(esquemaActivo as any)
 
 const isInitializing = ref(true)
 const saving = ref(false)
@@ -103,8 +107,11 @@ const filteredServicios = computed(() => {
   const q = searchServiciosQuery.value.toLowerCase().trim()
   if (!q) return servicios.value
   return servicios.value.filter(s =>
-    s.id_servicio.toLowerCase().includes(q) ||
-    (s.fecha_inicio && s.fecha_inicio.toLowerCase().includes(q))
+    (s.fecha_inicio && s.fecha_inicio.toLowerCase().includes(q)) ||
+    (s.modo_fin && s.modo_fin.toLowerCase().includes(q)) ||
+    (s.alcance && s.alcance.toLowerCase().includes(q)) ||
+    (s.nivel_riesgo && s.nivel_riesgo.toLowerCase().includes(q)) ||
+    (s.estado && s.estado.toLowerCase().includes(q))
   )
 })
 
@@ -185,7 +192,9 @@ const selectTipoPase = (value: string) => {
 
 const getServicioLabel = (id: string) => {
   const s = servicios.value.find(item => item.id_servicio === id)
-  return s ? `${s.id_servicio}${s.fecha_inicio ? ` - ${s.fecha_inicio}` : ''}` : id
+  if (!s) return id
+  const partes = [s.fecha_inicio, s.modo_fin, s.estado].filter(Boolean)
+  return partes.join(' · ')
 }
 
 const getVehiculoLabel = (id: string) => {
@@ -235,11 +244,34 @@ watch(() => props.isOpen, async (isOpen) => {
     searchVehiculosQuery.value = ''
     searchHardwareQuery.value = ''
     searchTipoPaseQuery.value = ''
-    Object.assign(formData, {
-      nombre: '', cedula: '', email: '', celular: '',
-      id_servicio: '', id_vehiculo: '', id_hardware: '',
-      tipo_pase: '', pase: '', pase_vence: null
-    })
+
+    // Pre-poblar si es modo edición
+    if (props.editItem) {
+      const e = props.editItem
+      const parsarFecha = (val: any): Date | null => {
+        if (!val) return null
+        const d = new Date(val)
+        return isNaN(d.getTime()) ? null : d
+      }
+      Object.assign(formData, {
+        nombre: e.nombre || '',
+        cedula: e.cedula || '',
+        email: e.email || '',
+        celular: e.celular || '',
+        id_servicio: String(e.id_servicio || ''),
+        id_vehiculo: String(e.id_vehiculo || ''),
+        id_hardware: String(e.id_hardware || ''),
+        tipo_pase: e.tipo_pase || '',
+        pase: e.pase || '',
+        pase_vence: parsarFecha(e.pase_vence)
+      })
+    } else {
+      Object.assign(formData, {
+        nombre: '', cedula: '', email: '', celular: '',
+        id_servicio: '', id_vehiculo: '', id_hardware: '',
+        tipo_pase: '', pase: '', pase_vence: null
+      })
+    }
 
     if (groupStore.selectedGroup?.id) {
       loadingServicios.value = true
@@ -259,7 +291,6 @@ watch(() => props.isOpen, async (isOpen) => {
       try {
         const vehiculosData = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
         vehiculosList.value = vehiculosData
-        console.log('Vehiculos cargados:', vehiculosData)
       } catch (error) {
         console.error('Error al cargar vehiculos:', error)
       } finally {
@@ -294,7 +325,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
 })
 
-const handleCreate = async () => {
+const handleGuardar = async () => {
   if (saving.value) return
   if (!groupStore.selectedGroup?.id) {
     showMessage(t('escoltas.alertNoGroup') || 'Seleccione un grupo válido', 'error')
@@ -318,21 +349,32 @@ const handleCreate = async () => {
     pase_vence: formatFecha(formData.pase_vence)
   }
 
-  if (!validate(payload, 'escolta-create-form')) {
+  const formId = esModoEdicion.value ? 'escolta-edit-form' : 'escolta-create-form'
+  if (!validate(payload, formId)) {
     saving.value = false
     return
   }
 
   try {
-    const data = await createEscoltaApi(payload)
-    if (data.done) {
-      isSuccess.value = true
-      emit('created')
+    if (esModoEdicion.value && props.editItem) {
+      const data = await updateEscoltaApi({ ...payload, id_escolta: props.editItem.id_escolta })
+      if (data.done) {
+        isSuccess.value = true
+        emit('updated')
+      } else {
+        showMessage(data.message || (t('escoltas.alertErrorUpdate') || 'Error al actualizar'), 'error')
+      }
     } else {
-      showMessage(data.message || (t('escoltas.alertErrorCreate') || 'Error al registrar'), 'error')
+      const data = await createEscoltaApi(payload)
+      if (data.done) {
+        isSuccess.value = true
+        emit('created')
+      } else {
+        showMessage(data.message || (t('escoltas.alertErrorCreate') || 'Error al registrar'), 'error')
+      }
     }
   } catch (error: any) {
-    console.error('Error creating escolta:', error)
+    console.error('Error guardando escolta:', error)
     showMessage(error.message || (t('escoltas.alertNetError') || 'Error de conexión'), 'error')
   } finally {
     saving.value = false
@@ -357,9 +399,9 @@ const formatFecha = (date: Date | null): string => {
     :is-open="isOpen"
     @update:is-open="handleClose"
     @close="handleClose"
-    @confirm="handleCreate"
-    :title="t('escoltas.modalTitleCreate', 'Nuevo Escolta')"
-    :confirm-text="t('escoltas.btnRegister', 'Registrar Escolta')"
+    @confirm="handleGuardar"
+    :title="esModoEdicion ? t('escoltas.modalTitleEdit', 'Editar Escolta') : t('escoltas.modalTitleCreate', 'Nuevo Escolta')"
+    :confirm-text="esModoEdicion ? t('escoltas.btnSave', 'Guardar Cambios') : t('escoltas.btnRegister', 'Registrar Escolta')"
     size="xl"
     :show-footer="!isSuccess && !isInitializing"
   >
@@ -378,7 +420,7 @@ const formatFecha = (date: Date | null): string => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Registrando Escolta...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ esModoEdicion ? 'Actualizando Escolta...' : 'Registrando Escolta...' }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -413,9 +455,11 @@ const formatFecha = (date: Date | null): string => {
               <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
             </div>
           </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Escolta Registrado Exitosamente</h3>
+          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
+            {{ esModoEdicion ? 'Escolta Actualizado Exitosamente' : 'Escolta Registrado Exitosamente' }}
+          </h3>
           <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            El agente escolta ha sido registrado exitosamente en el sistema.
+            {{ esModoEdicion ? 'Los datos del escolta han sido actualizados exitosamente.' : 'El agente escolta ha sido registrado exitosamente en el sistema.' }}
           </p>
           <div class="pt-4">
             <button
@@ -706,9 +750,17 @@ const formatFecha = (date: Date | null): string => {
                 :class="formData.id_servicio === s.id_servicio ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
                 <HugeiconsIcon v-if="formData.id_servicio === s.id_servicio" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
               </div>
-              <div class="flex flex-col min-w-0">
-                <span class="text-[12px] font-semibold truncate">{{ s.id_servicio }}</span>
-                <span v-if="s.fecha_inicio" class="text-[10px] text-slate-400 truncate">{{ s.fecha_inicio }}</span>
+              <div class="flex flex-col min-w-0 gap-0.5">
+                <span class="text-[12px] font-semibold truncate">{{ s.fecha_inicio || '—' }}</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span v-if="s.modo_fin" class="text-[10px] text-slate-400 truncate">{{ s.modo_fin }}</span>
+                  <span
+                    v-if="s.estado"
+                    class="text-[9px] rounded px-1 py-0.5 font-semibold leading-none"
+                    :class="s.estado === 'EN ESPERA' ? 'bg-blue-500/15 text-blue-400' : 'bg-emerald-500/15 text-emerald-400'"
+                  >{{ s.estado }}</span>
+                  <span v-if="s.nivel_riesgo && s.nivel_riesgo !== 'ND'" class="text-[9px] bg-amber-500/10 text-amber-400 rounded px-1 py-0.5 font-semibold leading-none">{{ s.nivel_riesgo }}</span>
+                </div>
               </div>
             </button>
             <div v-if="filteredServicios.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
