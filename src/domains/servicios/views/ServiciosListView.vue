@@ -14,7 +14,8 @@ import {
   User02Icon,
   Car01Icon,
   Edit01Icon,
-  FilterIcon
+  FilterIcon,
+  Clock01Icon
 } from '@hugeicons/core-free-icons'
 import {
   fetchServicioDashboardApi,
@@ -43,7 +44,6 @@ import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal
 import Column from 'primevue/column'
 
 import PageHeader from '../../../components/shared/PageHeader.vue'
-import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -74,22 +74,123 @@ const obtenerNombreEscolta = (id: string): string => {
   const e = escoltas.value.find(item => item.id_escolta === id)
   return e ? e.nombre : id
 }
+
 const currentPage = ref(1)
 const itemsPerPage = 10
-const isCreateModalOpen = ref(false)
-const isAsignarModalOpen = ref(false)
+
+// Modales consolidados
+const activeModal = ref<'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'status' | null>(null)
 const selectedServicio = ref<ServicioDashboard | null>(null)
-const isCambiarRutaModalOpen = ref(false)
-const selectedCambiarRutaServicio = ref<ServicioDashboard | null>(null)
-const isActualizarEscoltaModalOpen = ref(false)
-const selectedActualizarEscoltaServicio = ref<ServicioDashboard | null>(null)
-const isActualizarVehiculosModalOpen = ref(false)
-const selectedActualizarVehiculosServicio = ref<ServicioDashboard | null>(null)
-const isVerHistorialModalOpen = ref(false)
-const selectedVerHistorialServicio = ref<ServicioDashboard | null>(null)
-const isCambiarEstadoModalOpen = ref(false)
-const selectedCambiarEstadoServicio = ref<ServicioDashboard | null>(null)
+
+const isCreateModalOpen = computed({
+  get: () => activeModal.value === 'create',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isAsignarModalOpen = computed({
+  get: () => activeModal.value === 'assign',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isCambiarRutaModalOpen = computed({
+  get: () => activeModal.value === 'route',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isActualizarEscoltaModalOpen = computed({
+  get: () => activeModal.value === 'escort',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isActualizarVehiculosModalOpen = computed({
+  get: () => activeModal.value === 'vehicles',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isVerHistorialModalOpen = computed({
+  get: () => activeModal.value === 'history',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isCambiarEstadoModalOpen = computed({
+  get: () => activeModal.value === 'status',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+
+const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'status', servicio: ServicioDashboard | null = null) => {
+  closeMenu()
+  selectedServicio.value = servicio
+  activeModal.value = tipo
+}
+
+// Menú de acciones
 const openMenuId = ref<string | null>(null)
+const activeMenuServicio = ref<ServicioDashboard | null>(null)
+const menuPosition = ref({ top: '0px', right: '0px' })
+
+const toggleMenu = (servicio: ServicioDashboard, event: MouseEvent) => {
+  if (openMenuId.value === servicio.id_servicio) {
+    closeMenu()
+    return
+  }
+  
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  menuPosition.value = {
+    top: `${rect.bottom + 8}px`,
+    right: `${window.innerWidth - rect.right}px`
+  }
+  openMenuId.value = servicio.id_servicio
+  activeMenuServicio.value = servicio
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+  activeMenuServicio.value = null
+}
+
+// Filtros y Dropdowns en Barra
+const activeDropdown = ref<'ruta' | 'escolta' | 'estado' | null>(null)
+
+const rutaDropdownRef = ref<HTMLElement | null>(null)
+const escoltaDropdownRef = ref<HTMLElement | null>(null)
+const estadoDropdownRef = ref<HTMLElement | null>(null)
+
+const toggleDropdown = (type: 'ruta' | 'escolta' | 'estado') => {
+  activeDropdown.value = activeDropdown.value === type ? null : type
+}
+
+const selectRuta = (id: string) => {
+  filtros.value.id_ruta = id
+  activeDropdown.value = null
+}
+
+const selectEscolta = (id: string) => {
+  filtros.value.id_escolta = id
+  activeDropdown.value = null
+}
+
+const selectEstado = (estado: number) => {
+  filtros.value.estado = estado
+  activeDropdown.value = null
+}
+
+const getRutaLabel = (): string => {
+  if (filtros.value.id_ruta === 'all') return 'Todas las Rutas'
+  const ruta = rutas.value.find(r => r.id_ruta === filtros.value.id_ruta)
+  return ruta?.nombre || '---'
+}
+
+const getEscoltaLabel = (): string => {
+  if (filtros.value.id_escolta === 'all') return 'Todos los Escoltas'
+  const escolta = escoltas.value.find(e => e.id_escolta === filtros.value.id_escolta)
+  return escolta?.nombre || '---'
+}
+
+const getEstadoLabel = (): string => {
+  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || '---'
+}
+
+const estadoOptions = [
+  { value: 1, label: 'PRERCARGA' },
+  { value: 2, label: 'EN ESPERA' },
+  { value: 3, label: 'EJECUCION OK' },
+  { value: 4, label: 'EJECUCION FAIL' }
+]
 
 // Estado del tooltip
 const tooltipVisible = ref(false)
@@ -97,6 +198,18 @@ const tooltipData = ref<any>(null)
 const tooltipTipo = ref<'rutas' | 'vehiculos' | 'escoltas'>('rutas')
 const tooltipPos = ref({ top: '0px', left: '0px' })
 let tooltipTimer: ReturnType<typeof setTimeout> | null = null
+
+const tooltipIcon = computed(() => {
+  if (tooltipTipo.value === 'rutas') return Route01Icon
+  if (tooltipTipo.value === 'vehiculos') return Car01Icon
+  return User02Icon
+})
+
+const tooltipTitulo = computed(() => {
+  if (tooltipTipo.value === 'rutas') return 'Rutas del Servicio'
+  if (tooltipTipo.value === 'vehiculos') return 'Vehículos y Hardware'
+  return 'Escoltas Asignados'
+})
 
 const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos' | 'escoltas') => {
   if (tooltipTimer) clearTimeout(tooltipTimer)
@@ -120,131 +233,6 @@ const ocultarTooltip = () => {
     tooltipVisible.value = false
     tooltipData.value = null
   }, 80)
-}
-const menuPosition = ref({ top: '0px', right: '0px' })
-const isFilterOpen = ref(false)
-const filterRef = ref<HTMLElement | null>(null)
-const isRutaDropdownOpen = ref(false)
-const isEscoltaDropdownOpen = ref(false)
-const isEstadoDropdownOpen = ref(false)
-const rutaDropdownRef = ref<HTMLElement | null>(null)
-const escoltaDropdownRef = ref<HTMLElement | null>(null)
-const estadoDropdownRef = ref<HTMLElement | null>(null)
-
-const toggleMenu = (id: string, event: MouseEvent) => {
-  if (openMenuId.value === id) {
-    openMenuId.value = null
-    return
-  }
-  
-  const button = event.currentTarget as HTMLElement
-  const rect = button.getBoundingClientRect()
-  menuPosition.value = {
-    top: `${rect.bottom + 8}px`,
-    right: `${window.innerWidth - rect.right}px`
-  }
-  openMenuId.value = id
-}
-
-const closeMenu = () => {
-  openMenuId.value = null
-}
-
-const toggleFilter = () => {
-  isFilterOpen.value = !isFilterOpen.value
-}
-
-const closeFilter = () => {
-  isFilterOpen.value = false
-}
-
-const toggleRutaDropdown = () => {
-  isRutaDropdownOpen.value = !isRutaDropdownOpen.value
-  if (isRutaDropdownOpen.value) { isEscoltaDropdownOpen.value = false; isEstadoDropdownOpen.value = false }
-}
-
-const toggleEscoltaDropdown = () => {
-  isEscoltaDropdownOpen.value = !isEscoltaDropdownOpen.value
-  if (isEscoltaDropdownOpen.value) { isRutaDropdownOpen.value = false; isEstadoDropdownOpen.value = false }
-}
-
-const toggleEstadoDropdown = () => {
-  isEstadoDropdownOpen.value = !isEstadoDropdownOpen.value
-  if (isEstadoDropdownOpen.value) { isRutaDropdownOpen.value = false; isEscoltaDropdownOpen.value = false }
-}
-
-const selectRuta = (id: string) => {
-  filtros.value.id_ruta = id
-  isRutaDropdownOpen.value = false
-}
-
-const selectEscolta = (id: string) => {
-  filtros.value.id_escolta = id
-  isEscoltaDropdownOpen.value = false
-}
-
-const selectEstado = (estado: number) => {
-  filtros.value.estado = estado
-  isEstadoDropdownOpen.value = false
-}
-
-const getRutaLabel = (): string => {
-  if (filtros.value.id_ruta === 'all') return t('servicios.stateAll', 'Todas')
-  const ruta = rutas.value.find(r => r.id_ruta === filtros.value.id_ruta)
-  return ruta?.nombre || '---'
-}
-
-const getEscoltaLabel = (): string => {
-  if (filtros.value.id_escolta === 'all') return t('servicios.stateAll', 'Todos')
-  const escolta = escoltas.value.find(e => e.id_escolta === filtros.value.id_escolta)
-  return escolta?.nombre || '---'
-}
-
-const getEstadoLabel = (): string => {
-  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || '---'
-}
-
-const estadoOptions = [
-  { value: 1, label: 'PRERCARGA' },
-  { value: 2, label: 'EN ESPERA' },
-  { value: 3, label: 'EJECUCION OK' },
-  { value: 4, label: 'EJECUCION FAIL' }
-]
-
-const openAsignarModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedServicio.value = servicio
-  isAsignarModalOpen.value = true
-}
-
-const openCambiarRutaModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedCambiarRutaServicio.value = servicio
-  isCambiarRutaModalOpen.value = true
-}
-
-const openActualizarEscoltaModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedActualizarEscoltaServicio.value = servicio
-  isActualizarEscoltaModalOpen.value = true
-}
-
-const openActualizarVehiculosModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedActualizarVehiculosServicio.value = servicio
-  isActualizarVehiculosModalOpen.value = true
-}
-
-const openVerHistorialModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedVerHistorialServicio.value = servicio
-  isVerHistorialModalOpen.value = true
-}
-
-const openCambiarEstadoModal = (servicio: ServicioDashboard) => {
-  openMenuId.value = null
-  selectedCambiarEstadoServicio.value = servicio
-  isCambiarEstadoModalOpen.value = true
 }
 
 const getLastWeekDates = () => {
@@ -284,6 +272,16 @@ watch(fechaRango, (newVal) => {
   filtros.value.fecha_registro_inicial = newVal.start
   filtros.value.fecha_registro_final = newVal.end
 }, { deep: true })
+
+const tieneFiltrosActivos = computed(() => {
+  return (
+    filtros.value.id_ruta !== 'all' ||
+    filtros.value.id_escolta !== 'all' ||
+    filtros.value.estado !== 1 ||
+    fechaRango.value.start !== defaultDates.start ||
+    fechaRango.value.end !== defaultDates.end
+  )
+})
 
 const rutas = ref<Ruta[]>([])
 const escoltas = ref<Escolta[]>([])
@@ -349,11 +347,6 @@ const fetchFiltrosData = async () => {
   }
 }
 
-const aplicarFiltros = () => {
-  currentPage.value = 1
-  fetchServicios()
-}
-
 const limpiarFiltros = () => {
   const dates = getLastWeekDates()
   fechaRango.value = { start: dates.start, end: dates.end }
@@ -364,8 +357,6 @@ const limpiarFiltros = () => {
     id_ruta: 'all',
     id_escolta: 'all'
   }
-  currentPage.value = 1
-  fetchServicios()
 }
 
 const formatDate = (dateStr: string): string => {
@@ -387,6 +378,12 @@ const filteredServicios = computed(() => {
   )
 })
 
+// Watcher de filtros para recargar automáticamente al cambiar cualquier parámetro
+watch(filtros, () => {
+  currentPage.value = 1
+  fetchServicios()
+}, { deep: true })
+
 watch(selectedGroup, async (newGroup) => {
   if (newGroup && newGroup.id) {
     currentPage.value = 1
@@ -399,27 +396,35 @@ watch(selectedGroup, async (newGroup) => {
 
 const handleDocumentClick = (e: MouseEvent) => {
   closeMenu()
-  if (filterRef.value && !filterRef.value.contains(e.target as Node)) {
-    closeFilter()
+  if (activeDropdown.value) {
+    const refMap: Record<string, HTMLElement | null> = {
+      ruta: rutaDropdownRef.value,
+      escolta: escoltaDropdownRef.value,
+      estado: estadoDropdownRef.value
+    }
+    const currentRef = refMap[activeDropdown.value]
+    if (currentRef && !currentRef.contains(e.target as Node)) {
+      activeDropdown.value = null
+    }
   }
-  if (rutaDropdownRef.value && !rutaDropdownRef.value.contains(e.target as Node)) {
-    isRutaDropdownOpen.value = false
-  }
-  if (escoltaDropdownRef.value && !escoltaDropdownRef.value.contains(e.target as Node)) {
-    isEscoltaDropdownOpen.value = false
-  }
-  if (estadoDropdownRef.value && !estadoDropdownRef.value.contains(e.target as Node)) {
-    isEstadoDropdownOpen.value = false
-  }
+}
+
+const handleScrollOrResize = () => {
+  closeMenu()
+  ocultarTooltip()
 }
 
 onMounted(() => {
   fetchFiltrosData()
   document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('scroll', handleScrollOrResize, true)
+  window.addEventListener('resize', handleScrollOrResize)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('scroll', handleScrollOrResize, true)
+  window.removeEventListener('resize', handleScrollOrResize)
 })
 </script>
 
@@ -433,7 +438,7 @@ onUnmounted(() => {
     >
       <template #actions>
         <button 
-          @click="isCreateModalOpen = true"
+          @click="openModal('create')"
           class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -447,222 +452,179 @@ onUnmounted(() => {
       </template>
     </PageHeader>
 
-    <!-- Search Toolbar + Filter Button -->
-    <div class="mt-2 mb-2 flex items-center justify-between gap-3">
-      <SearchToolbar v-model="searchQuery" :placeholder="t('servicios.searchPlaceholder')" searchWidth="sm:w-96" />
+    <!-- Barra de Filtros Premium Bento-Glass -->
+    <div class="relative z-30 mt-4 mb-6 flex flex-col lg:flex-row lg:items-center gap-4 bg-gradient-to-r from-slate-50/90 to-white/90 dark:from-[#13161C]/70 dark:to-[#161920]/70 backdrop-blur-xl p-4 rounded-[1.75rem] border border-slate-200/50 dark:border-white/[0.06] shadow-[0_12px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+      
+      <!-- Búsqueda Integrada Inline (Misma Altura y Estilo que DatePicker) -->
+      <div class="w-full lg:w-72 relative shrink-0">
+        <input
+          v-model="searchQuery"
+          type="text"
+          :placeholder="t('servicios.searchPlaceholder')"
+          class="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[44px]"
+        />
+        <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none flex items-center">
+          <HugeiconsIcon :icon="Search01Icon" :size="16" />
+        </div>
+      </div>
 
-      <!-- Filter Button + Dropdown -->
-      <div class="relative" ref="filterRef">
-        <button
-          @click.stop="toggleFilter"
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all text-[13px] font-semibold whitespace-nowrap"
-          :class="isFilterOpen ? 'border-[#3b82f6]/40 dark:border-[#5da6fc]/40 text-[#3b82f6] dark:text-[#5da6fc]' : ''"
-        >
-          <HugeiconsIcon :icon="FilterIcon" :size="16" />
-          <span>Filtros</span>
-        </button>
+      <div class="hidden lg:block w-px bg-slate-200/60 dark:bg-white/5 self-stretch my-1 shrink-0"></div>
 
-        <!-- Dropdown Panel -->
-        <Transition name="filter-dropdown">
-          <div
-            v-if="isFilterOpen"
-            class="absolute top-full right-0 mt-2 w-[340px] bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] z-50"
+      <!-- Filtros Secundarios Agrupados en fila -->
+      <div class="flex flex-wrap items-center gap-3 flex-1">
+        
+        <!-- Rango de Fechas (Alineado con h-[44px]) -->
+        <div class="w-full sm:w-auto min-w-[240px] h-[44px] flex items-center">
+          <AppDateRangePicker
+            v-model="fechaRango"
+            label=""
+            placeholder="Rango de Fechas"
+            class="w-full"
+          />
+        </div>
+
+        <div class="hidden lg:block w-px bg-slate-200/60 dark:bg-white/5 self-stretch my-1 shrink-0"></div>
+
+        <!-- Ruta Dropdown -->
+        <div ref="rutaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleDropdown('ruta')"
+            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
+            :class="filtros.id_ruta !== 'all' ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
-            <!-- Header -->
-            <div class="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-white/5 rounded-t-2xl bg-white dark:bg-[#1A1D24]">
-              <span class="text-[14px] font-bold text-slate-800 dark:text-white">Filtros</span>
-              <button @click="closeFilter" class="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            <HugeiconsIcon :icon="Route01Icon" :size="16" class="opacity-70" />
+            <span class="truncate flex-1 text-left">{{ getRutaLabel() }}</span>
+            <span v-if="filtros.id_ruta !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'ruta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <Transition name="custom-dropdown">
+            <div
+              v-if="activeDropdown === 'ruta'"
+              class="absolute left-0 z-50 mt-1.5 w-[260px] bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+            >
+              <button
+                @click="selectRuta('all')"
+                class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                :class="filtros.id_ruta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <span>Todas las Rutas</span>
+                <svg v-if="filtros.id_ruta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+              <button
+                v-for="ruta in rutas"
+                :key="ruta.id_ruta"
+                @click="selectRuta(ruta.id_ruta)"
+                class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5"
+                :class="filtros.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <span class="truncate">{{ ruta.nombre }}</span>
+                <svg v-if="filtros.id_ruta === ruta.id_ruta" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </button>
             </div>
+          </Transition>
+        </div>
 
-            <!-- Body -->
-            <div class="px-5 py-4 space-y-4">
-              <!-- Date Range -->
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Rango de Fechas
-                  </label>
-                  <button @click="limpiarFiltros" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
-                    Limpiar
-                  </button>
-                </div>
-                <AppDateRangePicker
-                  v-model="fechaRango"
-                  label=""
-                  placeholder="Seleccionar rango"
-                />
-              </div>
+        <!-- Escolta Dropdown -->
+        <div ref="escoltaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleDropdown('escolta')"
+            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
+            :class="filtros.id_escolta !== 'all' ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+          >
+            <HugeiconsIcon :icon="User02Icon" :size="16" class="opacity-70" />
+            <span class="truncate flex-1 text-left">{{ getEscoltaLabel() }}</span>
+            <span v-if="filtros.id_escolta !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'escolta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
 
-              <!-- Route Custom Dropdown -->
-              <div ref="rutaDropdownRef" class="relative">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {{ t('servicios.filterRoute', 'Ruta') }}
-                  </label>
-                  <button v-if="filtros.id_ruta !== 'all'" @click="filtros.id_ruta = 'all'" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
-                    Limpiar
-                  </button>
-                </div>
-                <button
-                  @click.stop="toggleRutaDropdown"
-                  class="w-full flex items-center justify-between bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-white/20 transition-all"
-                  :class="isRutaDropdownOpen ? 'border-[#3b82f6]/50 dark:border-[#5da6fc]/50 ring-4 ring-[#3b82f6]/5' : ''"
-                >
-                  <span class="truncate">{{ getRutaLabel() }}</span>
-                  <svg class="w-4 h-4 shrink-0 ml-2 text-slate-400 dark:text-slate-500 transition-transform duration-200" :class="isRutaDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                <Transition name="custom-dropdown">
-                  <div
-                    v-if="isRutaDropdownOpen"
-                    class="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[200px] overflow-y-auto custom-scrollbar"
-                  >
-                    <button
-                      @click="selectRuta('all')"
-                      class="w-full flex items-center px-3.5 py-2.5 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                      :class="filtros.id_ruta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
-                    >
-                      <span>{{ t('servicios.stateAll', 'Todas') }}</span>
-                      <svg v-if="filtros.id_ruta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      v-for="ruta in rutas"
-                      :key="ruta.id_ruta"
-                      @click="selectRuta(ruta.id_ruta)"
-                      class="w-full flex items-center px-3.5 py-2.5 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5"
-                      :class="filtros.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
-                    >
-                      <span class="truncate">{{ ruta.nombre }}</span>
-                      <svg v-if="filtros.id_ruta === ruta.id_ruta" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </Transition>
-              </div>
-
-              <!-- Escort Custom Dropdown -->
-              <div ref="escoltaDropdownRef" class="relative">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    {{ t('servicios.filterEscort', 'Escolta') }}
-                  </label>
-                  <button v-if="filtros.id_escolta !== 'all'" @click="filtros.id_escolta = 'all'" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
-                    Limpiar
-                  </button>
-                </div>
-                <button
-                  @click.stop="toggleEscoltaDropdown"
-                  class="w-full flex items-center justify-between bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-white/20 transition-all"
-                  :class="isEscoltaDropdownOpen ? 'border-[#3b82f6]/50 dark:border-[#5da6fc]/50 ring-4 ring-[#3b82f6]/5' : ''"
-                >
-                  <span class="truncate">{{ getEscoltaLabel() }}</span>
-                  <svg class="w-4 h-4 shrink-0 ml-2 text-slate-400 dark:text-slate-500 transition-transform duration-200" :class="isEscoltaDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                <Transition name="custom-dropdown">
-                  <div
-                    v-if="isEscoltaDropdownOpen"
-                    class="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[200px] overflow-y-auto custom-scrollbar"
-                  >
-                    <button
-                      @click="selectEscolta('all')"
-                      class="w-full flex items-center px-3.5 py-2.5 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-                      :class="filtros.id_escolta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
-                    >
-                      <span>{{ t('servicios.stateAll', 'Todos') }}</span>
-                      <svg v-if="filtros.id_escolta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      v-for="escolta in escoltas"
-                      :key="escolta.id_escolta"
-                      @click="selectEscolta(escolta.id_escolta)"
-                      class="w-full flex items-center px-3.5 py-2.5 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5"
-                      :class="filtros.id_escolta === escolta.id_escolta ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
-                    >
-                      <span class="truncate">{{ escolta.nombre }}</span>
-                      <svg v-if="filtros.id_escolta === escolta.id_escolta" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </Transition>
-              </div>
-
-              <!-- Estado Custom Dropdown -->
-              <div ref="estadoDropdownRef" class="relative">
-                <div class="flex items-center justify-between mb-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Estado
-                  </label>
-                  <button v-if="filtros.estado !== 1" @click="filtros.estado = 1" class="text-[11px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] hover:underline">
-                    Limpiar
-                  </button>
-                </div>
-                <button
-                  @click.stop="toggleEstadoDropdown"
-                  class="w-full flex items-center justify-between bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-white/20 transition-all"
-                  :class="isEstadoDropdownOpen ? 'border-[#3b82f6]/50 dark:border-[#5da6fc]/50 ring-4 ring-[#3b82f6]/5' : ''"
-                >
-                  <span class="truncate">{{ getEstadoLabel() }}</span>
-                  <svg class="w-4 h-4 shrink-0 ml-2 text-slate-400 dark:text-slate-500 transition-transform duration-200" :class="isEstadoDropdownOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-
-                <Transition name="custom-dropdown">
-                  <div
-                    v-if="isEstadoDropdownOpen"
-                    class="absolute left-0 right-0 z-50 mt-1 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[200px] overflow-y-auto custom-scrollbar"
-                  >
-                    <button
-                      v-for="opt in estadoOptions"
-                      :key="opt.value"
-                      @click="selectEstado(opt.value)"
-                      class="w-full flex items-center px-3.5 py-2.5 text-left text-[13px] font-medium hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5 first:border-t-0"
-                      :class="filtros.estado === opt.value ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
-                    >
-                      <span>{{ opt.label }}</span>
-                      <svg v-if="filtros.estado === opt.value" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                  </div>
-                </Transition>
-              </div>
-            </div>
-
-            <!-- Footer Actions -->
-            <div class="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] rounded-b-2xl">
+          <Transition name="custom-dropdown">
+            <div
+              v-if="activeDropdown === 'escolta'"
+              class="absolute left-0 right-0 z-50 mt-1.5 bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+            >
               <button
-                @click="limpiarFiltros"
-                class="text-[12px] font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                @click="selectEscolta('all')"
+                class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                :class="filtros.id_escolta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                Reset
+                <span>Todos los Escoltas</span>
+                <svg v-if="filtros.id_escolta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
               </button>
               <button
-                @click="aplicarFiltros(); closeFilter()"
-                class="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[12px] font-bold transition-all active:scale-95"
+                v-for="escolta in escoltas"
+                :key="escolta.id_escolta"
+                @click="selectEscolta(escolta.id_escolta)"
+                class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5"
+                :class="filtros.id_escolta === escolta.id_escolta ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="14" :stroke-width="2.5" />
-                Aplicar
+                <span class="truncate">{{ escolta.nombre }}</span>
+                <svg v-if="filtros.id_escolta === escolta.id_escolta" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
               </button>
             </div>
-          </div>
-        </Transition>
+          </Transition>
+        </div>
+
+        <!-- Estado Dropdown -->
+        <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleDropdown('estado')"
+            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
+            :class="filtros.estado !== 1 ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+          >
+            <HugeiconsIcon :icon="Edit01Icon" :size="16" class="opacity-70" />
+            <span class="truncate flex-1 text-left">{{ getEstadoLabel() }}</span>
+            <span v-if="filtros.estado !== 1" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'estado' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <Transition name="custom-dropdown">
+            <div
+              v-if="activeDropdown === 'estado'"
+              class="absolute left-0 right-0 z-50 mt-1.5 bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+            >
+              <button
+                v-for="opt in estadoOptions"
+                :key="opt.value"
+                @click="selectEstado(opt.value)"
+                class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-t border-slate-100 dark:border-white/5 first:border-t-0"
+                :class="filtros.estado === opt.value ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <span>{{ opt.label }}</span>
+                <svg v-if="filtros.estado === opt.value" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Botón de Limpiar Filtros Estilo Premium Glass-Rose -->
+        <button
+          v-if="tieneFiltrosActivos"
+          @click="limpiarFiltros"
+          class="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-[12px] font-bold h-[44px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
+        >
+          <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
+          <span>Limpiar</span>
+        </button>
+
       </div>
+
     </div>
 
     <!-- Tabla -->
@@ -787,7 +749,7 @@ onUnmounted(() => {
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
-                @click.stop="toggleMenu(data.id_servicio, $event)"
+                @click.stop="toggleMenu(data, $event)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
               >
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
@@ -798,76 +760,72 @@ onUnmounted(() => {
       </AppTable>
 
       <Teleport to="body">
-        <!-- Tooltip Global -->
+        <!-- Tooltip Global Consolidado -->
         <Transition name="tooltip-fade">
           <div
             v-if="tooltipVisible && tooltipData"
             class="fixed z-[99999] pointer-events-none"
             :style="{ top: tooltipPos.top, left: tooltipPos.left, transform: 'translateY(-100%)' }"
           >
-            <!-- Tooltip Rutas -->
-            <div v-if="tooltipTipo === 'rutas'" class="w-[220px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
+            <div 
+              class="bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2"
+              :class="tooltipTipo === 'vehiculos' ? 'w-[240px]' : 'w-[220px]'"
+            >
               <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
-                <HugeiconsIcon :icon="Route01Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Rutas del Servicio</span>
+                <HugeiconsIcon :icon="tooltipIcon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">
+                  {{ tooltipTitulo }}
+                </span>
               </div>
-              <div class="max-h-[200px] overflow-y-auto custom-scrollbar p-2.5 space-y-1">
-                <template v-if="(tooltipData.rutas || []).length > 0">
-                  <div v-for="rId in tooltipData.rutas" :key="rId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                    <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                    <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
-                  </div>
-                </template>
-                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin ruta asignada</div>
-              </div>
-            </div>
-
-            <!-- Tooltip Vehículos -->
-            <div v-if="tooltipTipo === 'vehiculos'" class="w-[240px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
-              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
-                <HugeiconsIcon :icon="Car01Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Vehículos y Hardware</span>
-              </div>
-              <div class="max-h-[220px] overflow-y-auto custom-scrollbar p-2.5 space-y-2">
-                <template v-if="Object.keys(tooltipData.vehiculos || {}).length > 0">
-                  <div v-for="(hwIds, vId) in tooltipData.vehiculos" :key="vId" class="py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                    <div class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] truncate mb-0.5">
-                      {{ obtenerNombreVehiculo(String(vId)) }}
+              <div class="max-h-[220px] overflow-y-auto custom-scrollbar p-2.5">
+                <!-- Rutas -->
+                <div v-if="tooltipTipo === 'rutas'" class="space-y-1">
+                  <template v-if="(tooltipData.rutas || []).length > 0">
+                    <div v-for="rId in tooltipData.rutas" :key="rId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                      <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
                     </div>
-                    <div class="pl-2.5 space-y-0.5">
-                      <template v-if="(hwIds as string[]).length > 0">
-                        <div v-for="hwId in (hwIds as string[])" :key="hwId" class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                          <span class="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-                          <span class="truncate font-medium">{{ obtenerNombreHardware(hwId) }}</span>
-                        </div>
-                      </template>
-                      <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">Sin hardware asignado</div>
-                    </div>
-                  </div>
-                </template>
-                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin vehículos asignados</div>
-              </div>
-            </div>
+                  </template>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin ruta asignada</div>
+                </div>
 
-            <!-- Tooltip Escoltas -->
-            <div v-if="tooltipTipo === 'escoltas'" class="w-[220px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2">
-              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
-                <HugeiconsIcon :icon="User02Icon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">Escoltas Asignados</span>
-              </div>
-              <div class="max-h-[200px] overflow-y-auto custom-scrollbar p-2.5 space-y-1">
-                <template v-if="(tooltipData.escoltas || []).length > 0">
-                  <div v-for="eId in tooltipData.escoltas" :key="eId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                    <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                    <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}</span>
-                  </div>
-                </template>
-                <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin escoltas asignados</div>
+                <!-- Vehículos -->
+                <div v-else-if="tooltipTipo === 'vehiculos'" class="space-y-2">
+                  <template v-if="Object.keys(tooltipData.vehiculos || {}).length > 0">
+                    <div v-for="(hwIds, vId) in tooltipData.vehiculos" :key="vId" class="py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                      <div class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] truncate mb-0.5">
+                        {{ obtenerNombreVehiculo(String(vId)) }}
+                      </div>
+                      <div class="pl-2.5 space-y-0.5">
+                        <template v-if="(hwIds as string[]).length > 0">
+                          <div v-for="hwId in (hwIds as string[])" :key="hwId" class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                            <span class="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500"></span>
+                            <span class="truncate font-medium">{{ obtenerNombreHardware(hwId) }}</span>
+                          </div>
+                        </template>
+                        <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">Sin hardware asignado</div>
+                      </div>
+                    </div>
+                  </template>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin vehículos asignados</div>
+                </div>
+
+                <!-- Escoltas -->
+                <div v-else-if="tooltipTipo === 'escoltas'" class="space-y-1">
+                  <template v-if="(tooltipData.escoltas || []).length > 0">
+                    <div v-for="eId in tooltipData.escoltas" :key="eId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
+                      <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}</span>
+                    </div>
+                  </template>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin escoltas asignados</div>
+                </div>
               </div>
             </div>
           </div>
         </Transition>
 
+        <!-- Menú de Acciones -->
         <Transition name="dropdown-menu">
           <div
             v-if="openMenuId"
@@ -875,42 +833,42 @@ onUnmounted(() => {
             :style="{ top: menuPosition.top, right: menuPosition.right }"
           >
             <button
-              @click="openAsignarModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('assign', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('servicios.btnAssign', 'Asignar Recursos') }}</span>
             </button>
             <button
-              @click="openCambiarRutaModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('route', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Route01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>Cambiar Ruta</span>
             </button>
             <button
-              @click="openActualizarEscoltaModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('escort', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="User02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>Actualizar Escolta</span>
             </button>
             <button
-              @click="openActualizarVehiculosModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('vehicles', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>Actualizar Vehículos</span>
             </button>
             <button
-              @click="openVerHistorialModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('history', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>Ver Historial</span>
             </button>
             <button
-              @click="openCambiarEstadoModal(servicios.find(s => s.id_servicio === openMenuId)!); openMenuId = null"
+              @click="openModal('status', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
@@ -942,21 +900,21 @@ onUnmounted(() => {
 
     <ServicioCambiarRutaModal
       v-model:is-open="isCambiarRutaModalOpen"
-      :servicio="selectedCambiarRutaServicio"
+      :servicio="selectedServicio"
       :rutas="rutas"
       @assigned="fetchServicios"
     />
 
     <ServicioActualizarEscoltaModal
       v-model:is-open="isActualizarEscoltaModalOpen"
-      :servicio="selectedActualizarEscoltaServicio"
+      :servicio="selectedServicio"
       :escoltas="escoltas"
       @updated="fetchServicios"
     />
 
     <ServicioActualizarVehiculosModal
       v-model:is-open="isActualizarVehiculosModalOpen"
-      :servicio="selectedActualizarVehiculosServicio"
+      :servicio="selectedServicio"
       :vehiculos="catalogoVehiculos"
       :hardware="catalogoHardware"
       @updated="fetchServicios"
@@ -964,12 +922,12 @@ onUnmounted(() => {
 
     <ServicioVerHistorialModal
       v-model:is-open="isVerHistorialModalOpen"
-      :servicio="selectedVerHistorialServicio"
+      :servicio="selectedServicio"
     />
 
     <ServicioCambiarEstadoModal
       v-model:is-open="isCambiarEstadoModalOpen"
-      :servicio="selectedCambiarEstadoServicio"
+      :servicio="selectedServicio"
       @updated="fetchServicios"
     />
   </div>
@@ -1027,21 +985,6 @@ select {
   transform: translateY(-4px) scale(0.98);
 }
 
-.filter-dropdown-enter-active {
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.filter-dropdown-leave-active {
-  transition: all 0.15s cubic-bezier(0.4, 0, 1, 1);
-}
-.filter-dropdown-enter-from {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.96);
-}
-.filter-dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
-}
-
 .custom-dropdown-enter-active {
   transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -1062,4 +1005,16 @@ select {
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #1A1D24; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
+/* Forzar la alineación y altura del date picker button al mismo tamaño de la barra de filtros */
+:deep(.group\/input) {
+  height: 44px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  font-size: 0.875rem !important; /* text-sm */
+  border-color: rgba(226, 232, 240, 0.6) !important; /* border-slate-200/60 en claro */
+}
+:global(.dark) :deep(.group\/input) {
+  border-color: rgba(255, 255, 255, 0.05) !important; /* border-white/5 en oscuro */
+}
 </style>

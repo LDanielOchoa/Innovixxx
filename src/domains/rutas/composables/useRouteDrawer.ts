@@ -105,7 +105,7 @@ export function useRouteDrawer(
         const startIdx = ci * CHUNK_SIZE
         const endIdx   = Math.min(startIdx + CHUNK_SIZE + 1, paradas.length)
         const chunk    = paradas.slice(startIdx, endIdx)
-        _requestChunk(chunk, color, ci > 0)
+        _requestChunk(chunk, color, true)
       }
     }, 400)
   }

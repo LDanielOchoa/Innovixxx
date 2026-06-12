@@ -109,8 +109,7 @@ export function useParadasManager(
         fontSize:   '11px',
         fontWeight: 'bold',
         fontFamily: "'Inter', sans-serif"
-      },
-      animation: (window as any).google.maps.Animation.DROP
+      }
     })
 
     const infoWindow = new (window as any).google.maps.InfoWindow({

@@ -100,7 +100,7 @@ const openDropdown = () => {
 </script>
 
 <template>
-  <div class="space-y-2 w-full relative">
+  <div class="space-y-2 w-full relative" :class="{ 'z-30': isOpen }">
     <label
       v-if="label"
       class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"

@@ -45,8 +45,21 @@
         </div>
       </div>
 
+      <!-- Search Bar (visible only when there are more than 5 stops) -->
+      <div v-if="paradas.length > 5" class="px-3 pt-2 shrink-0">
+        <div class="relative flex items-center bg-slate-50 dark:bg-[#0A0C10] border border-slate-200/80 dark:border-white/5 rounded-xl overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+          <HugeiconsIcon :icon="Search01Icon" :size="14" class="absolute left-3.5 text-slate-400" />
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Buscar parada (Ej: 3, normal)..."
+            class="w-full bg-transparent border-none py-2.5 pl-10 pr-3 text-[11px] font-bold text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0"
+          />
+        </div>
+      </div>
+
       <!-- ═══ STOPS LIST ═══ -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-1.5" style="max-height: 320px; min-height: 80px;">
+      <div ref="stopListContainer" class="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-1.5" style="max-height: 320px; min-height: 80px;">
 
         <!-- Empty State -->
         <div v-if="paradas.length === 0" class="flex flex-col items-center justify-center py-10 text-center">
@@ -60,52 +73,52 @@
         <!-- Stop Items -->
         <TransitionGroup name="stop-item" tag="div" class="space-y-1.5">
           <div
-            v-for="(parada, index) in paradas"
-            :key="index"
-            @click="$emit('select', index)"
+            v-for="parada in paginatedParadas"
+            :key="parada.originalIndex"
+            @click="$emit('select', parada.originalIndex)"
             class="group flex items-center gap-3 px-3 py-2.5 rounded-[14px] border cursor-pointer transition-all duration-200 relative overflow-hidden"
             :class="[
-              selectedIndex === index
+              selectedIndex === parada.originalIndex
                 ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/40 dark:border-[#3b82f6]/30 shadow-[0_3px_0_#e2e8f0,0_3px_10px_rgba(59,130,246,0.08)] dark:shadow-[0_3px_0_#1D1D24]'
                 : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_#1D1D24] hover:border-slate-300 dark:hover:border-[#3b82f6]/20'
             ]"
           >
             <!-- Barra lateral izquierda activa -->
             <div class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-gradient-to-b from-[#60a5fa] to-[#2563eb] transition-all duration-300"
-              :class="selectedIndex === index ? 'opacity-100 h-[65%]' : 'opacity-0 h-0'"></div>
+              :class="selectedIndex === parada.originalIndex ? 'opacity-100 h-[65%]' : 'opacity-0 h-0'"></div>
             <!-- Node Index + Type Icon -->
             <div class="relative shrink-0">
               <!-- Connection Line (top, skip first) -->
-              <div v-if="index > 0" class="absolute -top-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
-                   :class="isNodePassed(index) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
+              <div v-if="parada.originalIndex > 0" class="absolute -top-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
+                   :class="isNodePassed(parada.originalIndex) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
               </div>
               <!-- Connection Line (bottom, skip last) -->
-              <div v-if="index < paradas.length - 1" class="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
-                   :class="isNodePassed(index + 1) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
+              <div v-if="parada.originalIndex < paradas.length - 1" class="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
+                   :class="isNodePassed(parada.originalIndex + 1) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
               </div>
 
               <div class="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border transition-all"
                    :class="[
-                     selectedIndex === index
+                     selectedIndex === parada.originalIndex
                        ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb] shadow-[0_4px_10px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                       : isNodePassed(index)
+                       : isNodePassed(parada.originalIndex)
                          ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#5da6fc]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
                          : 'bg-slate-50 dark:bg-[#0A0C10] text-slate-400 dark:text-slate-500 border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]'
                    ]">
-                {{ index + 1 }}
+                {{ parada.originalIndex + 1 }}
               </div>
             </div>
 
             <!-- Stop Info -->
             <div class="flex-1 min-w-0 flex items-center">
               <span class="text-[11px] font-black uppercase tracking-wider truncate"
-                    :class="selectedIndex === index ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">
+                    :class="selectedIndex === parada.originalIndex ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">
                 {{ getTipoNombre(parada.tipo) }}
               </span>
               <!-- Distance badge (between stops) -->
-              <span v-if="index > 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto"
-                    :class="isNodePassed(index) ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' : 'bg-slate-100 dark:bg-white/5 text-slate-400'">
-                {{ getDistanceStr(paradas[index - 1], parada) }}
+              <span v-if="parada.originalIndex > 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto"
+                    :class="isNodePassed(parada.originalIndex) ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' : 'bg-slate-100 dark:bg-white/5 text-slate-400'">
+                {{ getDistanceStr(paradas[parada.originalIndex - 1], parada) }}
               </span>
               <span v-else class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 ml-auto uppercase tracking-wide">
                 Inicio
@@ -114,8 +127,8 @@
 
             <!-- Delete Button (visible on selected) -->
             <button
-              v-if="selectedIndex === index"
-              @click.stop="$emit('delete', index)"
+              v-if="selectedIndex === parada.originalIndex"
+              @click.stop="$emit('delete', parada.originalIndex)"
               class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 hover:border-red-500 transition-all duration-200 active:scale-90 shrink-0"
               title="Eliminar parada"
             >
@@ -123,6 +136,29 @@
             </button>
           </div>
         </TransitionGroup>
+      </div>
+
+      <!-- Pagination Controls (only if totalPages > 1) -->
+      <div v-if="totalPages > 1" class="px-4 py-2.5 flex items-center justify-between border-t border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02] shrink-0 select-none">
+        <button
+          type="button"
+          @click="currentPage > 1 ? currentPage-- : null"
+          :disabled="currentPage === 1"
+          class="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-35 transition-all"
+        >
+          <HugeiconsIcon :icon="ArrowLeft01Icon" :size="12" />
+        </button>
+        <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+          Pág. {{ currentPage }} de {{ totalPages }}
+        </span>
+        <button
+          type="button"
+          @click="currentPage < totalPages ? currentPage++ : null"
+          :disabled="currentPage === totalPages"
+          class="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-35 transition-all"
+        >
+          <HugeiconsIcon :icon="ArrowRight01Icon" :size="12" />
+        </button>
       </div>
 
       <!-- ═══ FOOTER ACTIONS ═══ -->
@@ -177,7 +213,10 @@ import {
   Cancel01Icon,
   Tick01Icon,
   Location01Icon,
-  TouchInteraction01Icon
+  TouchInteraction01Icon,
+  Search01Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon
 } from '@hugeicons/core-free-icons'
 import type { ParadaPayload } from '../../domains/rutas/types/ruta'
 import { useI18n } from 'vue-i18n'
@@ -202,14 +241,9 @@ const emit = defineEmits<{
 }>()
 
 const stopListContainer = ref<HTMLElement | null>(null)
-
-// Auto-scroll to last added stop
-watch(() => props.paradas.length, async () => {
-  await nextTick()
-  if (stopListContainer.value) {
-    stopListContainer.value.scrollTop = stopListContainer.value.scrollHeight
-  }
-})
+const searchQuery = ref('')
+const currentPage = ref(1)
+const itemsPerPage = 8
 
 // Tipos de parada mapping
 const getTipoNombre = (tipoId: number): string => {
@@ -217,6 +251,60 @@ const getTipoNombre = (tipoId: number): string => {
   if (!tipo) return 'Punto'
   return tipo.nombre.length > 15 ? tipo.nombre.substring(0, 12) + '...' : tipo.nombre
 }
+
+// Filtered paradas with original indexes preserved
+const filteredParadas = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const list = props.paradas.map((p, idx) => ({ ...p, originalIndex: idx }))
+  
+  if (!query) return list
+  
+  return list.filter(p => {
+    const matchIndex = (p.originalIndex + 1).toString() === query
+    const typeName = getTipoNombre(p.tipo).toLowerCase()
+    const matchType = typeName.includes(query)
+    return matchIndex || matchType
+  })
+})
+
+// Total Pages
+const totalPages = computed(() => Math.ceil(filteredParadas.value.length / itemsPerPage) || 1)
+
+// Paginated items
+const paginatedParadas = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredParadas.value.slice(start, start + itemsPerPage)
+})
+
+// Reset to page 1 if search changes total pages
+watch(totalPages, (newVal) => {
+  if (currentPage.value > newVal) {
+    currentPage.value = newVal
+  }
+})
+
+// Auto-scroll to last added stop & go to the last page when a stop is added
+watch(() => props.paradas.length, async (newVal, oldVal) => {
+  if (newVal > oldVal) {
+    currentPage.value = totalPages.value
+  }
+  await nextTick()
+  if (stopListContainer.value) {
+    stopListContainer.value.scrollTop = stopListContainer.value.scrollHeight
+  }
+})
+
+// Go to corresponding page when selected index changes
+watch(() => props.selectedIndex, (newIdx) => {
+  if (newIdx !== null && newIdx !== undefined) {
+    const filteredIdx = filteredParadas.value.findIndex(p => p.originalIndex === newIdx)
+    if (filteredIdx !== -1) {
+      currentPage.value = Math.floor(filteredIdx / itemsPerPage) + 1
+    }
+  }
+})
+
+
 
 // Node state
 const isNodePassed = (index: number) => {

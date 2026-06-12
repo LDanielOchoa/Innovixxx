@@ -20,42 +20,33 @@
 
     <!-- Sidebar de Rutas (Master List) -->
     <div 
-      class="absolute top-0 bottom-0 left-0 z-30 flex flex-col transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] animate-fade-in"
+      class="absolute top-0 bottom-0 left-0 z-30 flex flex-col transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
       :class="[
-        isSidebarFullScreen ? 'w-full' : 'w-[340px] md:w-[380px] lg:w-[420px]',
+        isSidebarFullScreen ? 'w-full' : 'w-[320px] md:w-[350px] lg:w-[380px]',
         isAddingParadas && isFormHiddenDuringMap ? '!-translate-x-full !opacity-0 !pointer-events-none' : '!translate-x-0 !opacity-100'
       ]"
     >
       
-      <!-- Glassmorphic panel -->
-      <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-lg dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden">
+      <!-- Docked panel consistent with Sidebar.vue -->
+      <div class="flex-1 flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden animate-none">
         
-        <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
-          <!-- Fondo decorativo -->
-          <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
-          <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-          <div class="relative flex items-center gap-3.5">
+        <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
+          <div class="relative flex items-center gap-3">
             <!-- Botón Volver Plano -->
             <button @click="router.push('/rutas')"
-              class="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all duration-200 shrink-0">
-              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.5" />
+              class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0">
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.2" />
             </button>
 
             <!-- Ícono plano -->
-            <div class="relative group/icon shrink-0">
-              <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-[#3b82f6] border border-blue-500/20 relative z-10">
-                <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
-              </div>
+            <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+              <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
             </div>
 
             <div class="flex-1 min-w-0">
-              <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
-              <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
-                  Detalles de la ruta
-                </span>
+              <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
+              <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
+                Detalles de la ruta
               </p>
             </div>
 
@@ -63,120 +54,119 @@
             <button
               v-if="isAddingParadas && !isFormHiddenDuringMap"
               @click="isFormHiddenDuringMap = true"
-              class="w-9 h-9 rounded-xl flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-95 shrink-0"
+              class="w-8 h-8 rounded-[12px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-[0.97] shrink-0 shadow-sm"
               title="Ocultar panel"
             >
-              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.5" class="rotate-180" />
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="14" :stroke-width="2.5" class="rotate-180" />
             </button>
           </div>
 
-          <div class="relative mt-5">
-            <AppButton variant="primary" @click="saveRuta" :loading="isSubmitting" class="w-full">
+          <div class="relative mt-4">
+            <AppButton variant="primary" @click="saveRuta" :loading="isSubmitting" class="w-full !rounded-[12px]">
               <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
             </AppButton>
           </div>
         </div>
       
         <div class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-        <form @submit.prevent="saveRuta" class="space-y-5 relative p-1">
-        <Transition name="loader-fade">
-          <div v-if="isSubmitting" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#0C0E13]/80 backdrop-blur-md rounded-2xl overflow-hidden">
-            <div class="flex flex-col items-center gap-4 p-8">
-              <div class="relative flex items-center justify-center">
-                <div class="w-16 h-16 border-[4px] border-[#3b82f6]/10 border-t-[#3b82f6] rounded-full animate-spin"></div>
-                <div class="absolute inset-0 flex items-center justify-center">
-                  <HugeiconsIcon :icon="Route01Icon" :size="24" class="text-[#3b82f6] animate-pulse" />
+          <form @submit.prevent="saveRuta" class="space-y-6 relative p-1">
+            <Transition name="loader-fade">
+              <div v-if="isSubmitting" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#0C0E13]/80 backdrop-blur-md rounded-2xl overflow-hidden animate-none">
+                <div class="flex flex-col items-center gap-4 p-8">
+                  <div class="relative flex items-center justify-center">
+                    <div class="w-16 h-16 border-[4px] border-[#3b82f6]/10 border-t-[#3b82f6] rounded-full animate-spin"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                      <HugeiconsIcon :icon="Route01Icon" :size="24" class="text-[#3b82f6]" />
+                    </div>
+                  </div>
+                  <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditMode ? 'Actualizando' : 'Creando' }} Ruta</p>
                 </div>
               </div>
-              <p class="text-[11px] font-black text-slate-500 dark:text-slate-400 tracking-[0.2em] uppercase animate-pulse">{{ isEditMode ? 'Actualizando' : 'Creando' }} Ruta</p>
-            </div>
-          </div>
-        </Transition>
+            </Transition>
 
-        <Transition name="message-fade">
-          <div v-if="modalMessage && !isSubmitting"
-               class="flex items-center gap-3 py-3 px-4 rounded-xl text-xs font-bold tracking-tight uppercase border"
-               :class="{
-                 'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
-                 'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
-                 'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
-               }">
-               <HugeiconsIcon :icon="modalMessage.type === 'error' || modalMessage.type === 'warning' ? Shield01Icon : Tick01Icon" :size="16" />
-               {{ modalMessage.text }}
-          </div>
-        </Transition>
-
-        <AppInput 
-          v-model="formData.nombre"
-          :label="$t('rutas.formName')"
-          :placeholder="$t('rutas.formNamePlaceholder')"
-          :icon="Route01Icon"
-          required
-        />
-        
-        <AppInput 
-          v-model="formData.descripcion"
-          type="textarea"
-          :label="$t('rutas.formDesc')"
-          :placeholder="$t('rutas.formDescPlaceholder')"
-          :rows="3"
-          required
-        />
-
-        <div class="space-y-2 w-full">
-          <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ $t('rutas.formColor') }}</label>
-          <div class="w-full p-1.5 bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
-            <div ref="pickrContainer" class="pickr-container w-full"></div>
-          </div>
-        </div>
-
-        <!-- Step 2: Stops Section -->
-        <div class="rounded-[20px] border transition-all duration-300 overflow-hidden"
-             :class="paradasTemporales.length > 0 ? 'border-[#3b82f6]/30 bg-[#3b82f6]/[0.02] dark:bg-[#3b82f6]/5' : 'border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]'">
-          <!-- Header of stops section -->
-          <div class="flex items-center justify-between px-5 py-3.5 border-b" :class="paradasTemporales.length > 0 ? 'border-[#3b82f6]/10 dark:border-[#3b82f6]/10' : 'border-slate-100 dark:border-white/5'">
-            <div class="flex items-center gap-2">
-              <HugeiconsIcon :icon="Location01Icon" :size="16" :class="paradasTemporales.length > 0 ? 'text-[#3b82f6]' : 'text-slate-400'" />
-              <span class="text-[11px] font-black uppercase tracking-wider" :class="paradasTemporales.length > 0 ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'">{{ $t('rutas.strategicStops') }}</span>
-            </div>
-            <span v-if="paradasTemporales.length > 0" class="text-[10px] font-black px-2.5 py-1 rounded-full bg-[#3b82f6] text-white">
-              {{ paradasTemporales.length }} {{ paradasTemporales.length === 1 ? 'parada' : 'paradas' }}
-            </span>
-            <span v-else class="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full border border-slate-200 dark:border-white/10">Requerido</span>
-          </div>
-
-          <!-- Content -->
-          <div class="p-4">
-            <!-- Preview of stops if any -->
-            <div v-if="paradasTemporales.length > 0" class="flex items-center gap-1.5 mb-3 flex-wrap">
-              <div v-for="(_, i) in paradasTemporales" :key="i"
-                   class="w-6 h-6 rounded-lg bg-[#3b82f6] flex items-center justify-center text-[9px] font-black text-white shadow-sm">
-                {{ i + 1 }}
+            <Transition name="message-fade">
+              <div v-if="modalMessage && !isSubmitting"
+                   class="flex items-center gap-3 py-3 px-4 rounded-[12px] text-xs font-bold tracking-tight uppercase border animate-none"
+                   :class="{
+                     'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
+                     'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
+                     'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
+                   }">
+                   <HugeiconsIcon :icon="modalMessage.type === 'error' || modalMessage.type === 'warning' ? Shield01Icon : Tick01Icon" :size="16" />
+                   {{ modalMessage.text }}
               </div>
-              <div class="w-6 h-6 rounded-lg border-2 border-dashed border-slate-300 dark:border-white/10 flex items-center justify-center">
-                <HugeiconsIcon :icon="Add01Icon" :size="10" class="text-slate-400" />
+            </Transition>
+
+            <AppInput 
+              v-model="formData.nombre"
+              :label="$t('rutas.formName')"
+              :placeholder="$t('rutas.formNamePlaceholder')"
+              :icon="Route01Icon"
+              required
+            />
+            
+            <AppInput 
+              v-model="formData.descripcion"
+              type="textarea"
+              :label="$t('rutas.formDesc')"
+              :placeholder="$t('rutas.formDescPlaceholder')"
+              :rows="3"
+              required
+            />
+
+            <div class="space-y-2 w-full">
+              <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">{{ $t('rutas.formColor') }}</label>
+              <div class="w-full p-1.5 bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                <div ref="pickrContainer" class="pickr-container w-full"></div>
               </div>
             </div>
 
-            <button 
-              type="button" 
-              @click="startAddingParadas" 
-              class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl font-bold text-[13px] uppercase tracking-wide transition-all duration-200 active:scale-95 border"
-              :class="paradasTemporales.length > 0
-                ? 'bg-[#3b82f6]/10 hover:bg-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30'
-                : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm'"
-            >
-              <HugeiconsIcon :icon="Location01Icon" :size="18" :class="{'animate-bounce': paradasTemporales.length === 0}" />
-              {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa →' }}
-            </button>
+            <!-- Step 2: Stops Section -->
+            <div class="rounded-[14px] border border-slate-200/80 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02] transition-all duration-300 overflow-hidden">
+              <!-- Header of stops section -->
+              <div class="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/60 dark:border-white/5">
+                <div class="flex items-center gap-2.5">
+                  <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-slate-400" />
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ $t('rutas.strategicStops') }}</span>
+                </div>
+                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full"
+                      :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
+                  {{ paradasTemporales.length > 0 ? `${paradasTemporales.length} paradas` : 'Requerido' }}
+                </span>
+              </div>
 
-            <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2.5 font-medium">
-              Mínimo 2 paradas · Haz clic en el mapa para añadirlas
-            </p>
-          </div>
+              <!-- Content -->
+              <div class="p-4">
+                <!-- Preview of stops if any -->
+                <div v-if="paradasTemporales.length > 0" class="flex items-center gap-2 mb-4 flex-wrap">
+                  <div v-for="(_, i) in paradasTemporales" :key="i"
+                       class="w-7 h-7 rounded-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
+                    {{ i + 1 }}
+                  </div>
+                  <div class="w-7 h-7 rounded-[8px] border border-dashed border-slate-300 dark:border-white/10 flex items-center justify-center">
+                    <HugeiconsIcon :icon="Add01Icon" :size="12" class="text-slate-400" />
+                  </div>
+                </div>
+
+                <button 
+                  type="button" 
+                  @click="startAddingParadas" 
+                  class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-[12px] font-bold text-[12px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] border"
+                  :class="paradasTemporales.length > 0
+                    ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5'
+                    : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-[0_4px_12px_rgba(59,130,246,0.15)]'"
+                >
+                  <HugeiconsIcon :icon="Location01Icon" :size="16" />
+                  {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa →' }}
+                </button>
+
+                <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2.5 font-medium">
+                  Mínimo 2 paradas · Haz clic en el mapa para añadirlas
+                </p>
+              </div>
+            </div>
+          </form>
         </div>
-      </form>
-      </div>
       </div>
     </div>
  
@@ -185,23 +175,23 @@
       <button 
         v-if="isAddingParadas && isFormHiddenDuringMap"
         @click="isFormHiddenDuringMap = false"
-        class="absolute left-6 top-6 z-40 w-12 h-12 rounded-xl bg-white/95 dark:bg-[#0C0E13] backdrop-blur-3xl border border-slate-200 dark:border-white/10 shadow-lg flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-[#151821] active:scale-95 transition-all duration-200 group"
+        class="absolute left-6 top-6 z-40 w-10 h-10 rounded-[14px] bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.3)] flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.97] transition-all duration-200 group animate-none"
         title="Mostrar Detalles de Ruta"
       >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="24" class="rotate-180 group-hover:translate-x-0.5 transition-transform duration-300" />
+        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.2" class="rotate-180 group-hover:translate-x-0.5 transition-transform duration-300" />
       </button>
     </Transition>
  
     <!-- Barra de Búsqueda de Lugares (Solo visible al editar/trazar) -->
     <Transition name="fade-slide-down">
       <div v-show="isAddingParadas" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
-        <div class="relative flex items-center bg-white/95 dark:bg-[#0C0E13]/95 backdrop-blur-xl border border-slate-200 dark:border-white/10 rounded-2xl shadow-lg overflow-hidden transition-all duration-200">
-          <HugeiconsIcon :icon="Search01Icon" :size="20" class="absolute left-4 text-[#3b82f6] dark:text-[#5da6fc]" />
+        <div class="relative flex items-center bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[0_10px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-200">
+          <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="2" class="absolute left-4 text-[#3b82f6] dark:text-[#5da6fc]" />
           <input 
             id="map-search-input"
             type="text" 
-            placeholder="Buscar lugar, ciudad, dirección..."
-            class="w-full bg-transparent border-none py-3.5 pl-11 pr-4 text-[13px] font-bold text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0"
+            placeholder="Buscar lugar, dirección..."
+            class="w-full bg-transparent border-none py-3 pl-11 pr-4 text-[12px] font-bold text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0"
           />
         </div>
       </div>
@@ -230,43 +220,69 @@
       @cancel="isTipoModalOpen = false; selectedTipoParada = null"
     >
       <template #icon>
-        <HugeiconsIcon :icon="Location01Icon" :size="20" class="text-slate-400" />
+        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
+          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        </div>
       </template>
       <div class="space-y-6">
-        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{{ $t('rutas.stopTypeDescription') }}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-relaxed">{{ $t('rutas.stopTypeDescription') }}</p>
  
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-4">
           <button
             v-for="tipo in tiposParada"
             :key="tipo.id_tipo"
             @click="selectedTipoParada = tipo.id_tipo"
-            class="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 group shadow-sm active:scale-95 relative"
+            class="flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-300 group/btn active:scale-[0.97] relative"
             :class="selectedTipoParada === tipo.id_tipo
-              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_2px_rgba(59,130,246,0.1)]'
-              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:shadow-sm shadow-inner'"
+              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6] dark:border-[#5da6fc] shadow-[inset_0_1px_2px_rgba(59,130,246,0.1),0_4px_12px_rgba(59,130,246,0.1)]'
+              : 'bg-slate-50/50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.04] hover:border-slate-300 dark:hover:border-white/10 shadow-sm'"
           >
-            <span class="text-xs font-bold uppercase tracking-wide" :class="selectedTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
+            <!-- Icon Badge -->
             <div 
-              class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm"
+              class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-300 shrink-0"
+              :class="selectedTipoParada === tipo.id_tipo 
+                ? 'bg-[#3b82f6] text-white border-transparent' 
+                : getTipoIconData(tipo.nombre).color"
+            >
+              <HugeiconsIcon 
+                :icon="getTipoIconData(tipo.nombre).icon" 
+                :size="16" 
+                :stroke-width="selectedTipoParada === tipo.id_tipo ? 2.5 : 2" 
+              />
+            </div>
+
+            <!-- Text label -->
+            <span 
+              class="text-xs font-black uppercase tracking-wider transition-colors duration-300 flex-1 text-left"
+              :class="selectedTipoParada === tipo.id_tipo 
+                ? 'text-[#3b82f6] dark:text-[#5da6fc]' 
+                : 'text-slate-700 dark:text-slate-300 group-hover/btn:text-slate-900 dark:group-hover/btn:text-white'"
+            >
+              {{ tipo.nombre }}
+            </span>
+
+            <!-- Checkmark Indicator -->
+            <div 
+              class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm shrink-0"
               :class="selectedTipoParada === tipo.id_tipo 
                 ? 'border-[#3b82f6] bg-[#3b82f6]' 
                 : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20'"
             >
-              <HugeiconsIcon v-if="selectedTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="12" class="text-white" />
+              <HugeiconsIcon v-if="selectedTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="10" class="text-white" />
             </div>
           </button>
         </div>
       </div>
       <template #footer>
         <div class="flex flex-col sm:flex-row gap-3 w-full">
-          <button type="button" @click="isTipoModalOpen = false; selectedTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95 uppercase tracking-tight shadow-sm">
+          <button type="button" @click="isTipoModalOpen = false; selectedTipoParada = null" class="flex-1 px-6 py-3 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all active:scale-[0.98] uppercase tracking-tight shadow-sm">
             {{ $t('rutas.btnCancel') }}
           </button>
           <button 
             type="button" 
             @click="confirmParada" 
             :disabled="!selectedTipoParada" 
-            class="flex-[2] px-6 py-3.5 bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 uppercase tracking-tight shadow-sm"
+            class="flex-[2] px-6 py-3 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] border border-[#2563eb] rounded-xl text-[13px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-tight shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] disabled:shadow-none"
           >
             {{ $t('rutas.btnAddStops') }}
           </button>
@@ -281,49 +297,77 @@
       @cancel="isEditParadaModalOpen = false; editingTipoParada = null"
     >
       <template #icon>
-        <HugeiconsIcon :icon="Location01Icon" :size="20" class="text-slate-400" />
+        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
+          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        </div>
       </template>
       <div class="space-y-6">
-        <p class="text-sm text-slate-500 dark:text-slate-400 font-medium">{{ $t('rutas.stopNumber', { index: editingParadaIndex !== null ? editingParadaIndex + 1 : '' }) }}</p>
+        <p class="text-[13px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">{{ $t('rutas.stopNumber', { index: editingParadaIndex !== null ? editingParadaIndex + 1 : '' }) }}</p>
  
-        <p class="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.1em] ml-1">{{ $t('rutas.selectNewType') }}</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-          <button
-            v-for="tipo in tiposParada"
-            :key="tipo.id_tipo"
-            @click="editingTipoParada = tipo.id_tipo"
-            class="flex items-center justify-between p-4 rounded-xl border transition-all duration-200 group shadow-sm active:scale-95 relative"
-            :class="editingTipoParada === tipo.id_tipo
-              ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/20 shadow-[inset_0_1px_2px_rgba(59,130,246,0.1)]'
-              : 'bg-slate-50/80 dark:bg-[#0A0C10]/60 border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-[#151821] hover:border-[#3b82f6]/20 hover:shadow-sm shadow-inner'"
-          >
-            <span class="text-xs font-bold uppercase tracking-wide" :class="editingTipoParada === tipo.id_tipo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-600 dark:text-slate-300'">{{ tipo.nombre }}</span>
-            <div 
-              class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm"
-              :class="editingTipoParada === tipo.id_tipo 
-                ? 'border-[#3b82f6] bg-[#3b82f6]' 
-                : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20'"
+        <div class="space-y-3">
+          <p class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('rutas.selectNewType') }}</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <button
+              v-for="tipo in tiposParada"
+              :key="tipo.id_tipo"
+              @click="editingTipoParada = tipo.id_tipo"
+              class="flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-300 group/btn active:scale-[0.97] relative"
+              :class="editingTipoParada === tipo.id_tipo
+                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6] dark:border-[#5da6fc] shadow-[inset_0_1px_2px_rgba(59,130,246,0.1),0_4px_12px_rgba(59,130,246,0.1)]'
+                : 'bg-slate-50/50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:bg-white dark:hover:bg-white/[0.04] hover:border-slate-300 dark:hover:border-white/10 shadow-sm'"
             >
-              <HugeiconsIcon v-if="editingTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="12" class="text-white" />
-            </div>
-          </button>
+              <!-- Icon Badge -->
+              <div 
+                class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-300 shrink-0"
+                :class="editingTipoParada === tipo.id_tipo 
+                  ? 'bg-[#3b82f6] text-white border-transparent' 
+                  : getTipoIconData(tipo.nombre).color"
+              >
+                <HugeiconsIcon 
+                  :icon="getTipoIconData(tipo.nombre).icon" 
+                  :size="16" 
+                  :stroke-width="editingTipoParada === tipo.id_tipo ? 2.5 : 2" 
+                />
+              </div>
+
+              <!-- Text label -->
+              <span 
+                class="text-xs font-black uppercase tracking-wider transition-colors duration-300 flex-1 text-left"
+                :class="editingTipoParada === tipo.id_tipo 
+                  ? 'text-[#3b82f6] dark:text-[#5da6fc]' 
+                  : 'text-slate-700 dark:text-slate-300 group-hover/btn:text-slate-900 dark:group-hover/btn:text-white'"
+              >
+                {{ tipo.nombre }}
+              </span>
+
+              <!-- Checkmark Indicator -->
+              <div 
+                class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all shadow-sm shrink-0"
+                :class="editingTipoParada === tipo.id_tipo 
+                  ? 'border-[#3b82f6] bg-[#3b82f6]' 
+                  : 'border-slate-300 dark:border-white/10 bg-white/50 dark:bg-black/20'"
+              >
+                <HugeiconsIcon v-if="editingTipoParada === tipo.id_tipo" :icon="Tick01Icon" :size="10" class="text-white" />
+              </div>
+            </button>
+          </div>
         </div>
       </div>
       <template #footer>
-        <div class="flex flex-col gap-4 w-full">
-          <button type="button" @click="deleteEditingParada" class="w-full flex items-center justify-center gap-2 px-6 py-3.5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/20 rounded-xl text-sm font-bold text-red-500 transition-all uppercase tracking-tight active:scale-95">
-            <HugeiconsIcon :icon="Delete01Icon" :size="18" />
+        <div class="flex flex-col gap-3.5 w-full">
+          <button type="button" @click="deleteEditingParada" class="w-full flex items-center justify-center gap-2.5 px-6 py-3 bg-red-500/5 hover:bg-red-500 hover:text-white border border-red-500/20 hover:border-red-600 rounded-xl text-[13px] font-bold text-red-500 hover:shadow-[0_4px_12px_rgba(239,68,68,0.2)] dark:hover:shadow-[0_4px_12px_rgba(239,68,68,0.1)] transition-all duration-300 uppercase tracking-tight active:scale-[0.98]">
+            <HugeiconsIcon :icon="Delete01Icon" :size="16" />
             {{ $t('rutas.btnDelete') }}
           </button>
           <div class="flex gap-3 w-full">
-            <button type="button" @click="isEditParadaModalOpen = false; editingTipoParada = null" class="flex-1 px-6 py-3.5 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-all active:scale-95 uppercase tracking-tight shadow-sm">
+            <button type="button" @click="isEditParadaModalOpen = false; editingTipoParada = null" class="flex-1 px-6 py-3 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all active:scale-[0.98] uppercase tracking-tight shadow-sm">
               {{ $t('rutas.btnCancel') }}
             </button>
             <button 
               type="button" 
               @click="saveEditingParada" 
               :disabled="!editingTipoParada" 
-              class="flex-1 px-6 py-3.5 bg-[#3b82f6] hover:bg-[#2563eb] text-white rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 uppercase tracking-tight shadow-sm"
+              class="flex-1 px-6 py-3 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] border border-[#2563eb] rounded-xl text-[13px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-tight shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] disabled:shadow-none"
             >
               {{ $t('rutas.btnSaveChanges') }}
             </button>
@@ -413,6 +457,30 @@ const selectedParadaIndex    = ref<number | null>(null)
 const isEditParadaModalOpen  = ref(false)
 const editingParadaIndex     = ref<number | null>(null)
 const editingTipoParada      = ref<number | null>(null)
+
+// ── Iconos y colores para tipos de parada ───────────────────
+const getTipoIconData = (nombre: string) => {
+  const norm = nombre.toLowerCase().trim()
+  if (norm.includes('inicio') || norm.includes('start')) {
+    return { icon: Location01Icon, color: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20 dark:bg-emerald-500/5 dark:border-emerald-500/10' }
+  }
+  if (norm.includes('fin') || norm.includes('end')) {
+    return { icon: Location01Icon, color: 'text-rose-500 bg-rose-500/10 border-rose-500/20 dark:bg-rose-500/5 dark:border-rose-500/10' }
+  }
+  if (norm.includes('gasolinera') || norm.includes('gasolineria') || norm.includes('fuel')) {
+    return { icon: Location01Icon, color: 'text-amber-500 bg-amber-500/10 border-amber-500/20 dark:bg-amber-500/5 dark:border-amber-500/10' }
+  }
+  if (norm.includes('parqueadero') || norm.includes('parking')) {
+    return { icon: Location01Icon, color: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20 dark:bg-cyan-500/5 dark:border-cyan-500/10' }
+  }
+  if (norm.includes('balanza') || norm.includes('escala') || norm.includes('weight')) {
+    return { icon: Location01Icon, color: 'text-violet-500 bg-violet-500/10 border-violet-500/20 dark:bg-violet-500/5 dark:border-violet-500/10' }
+  }
+  if (norm.includes('control') || norm.includes('checkpoint')) {
+    return { icon: Shield01Icon, color: 'text-orange-500 bg-orange-500/10 border-orange-500/20 dark:bg-orange-500/5 dark:border-orange-500/10' }
+  }
+  return { icon: Location01Icon, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/5 dark:border-blue-500/10' }
+}
 
 // ── Color computado (reactive para los composables) ───────────
 const routeColor = computed(() => formData.value.color || '#60a5fa')
@@ -849,6 +917,9 @@ onUnmounted(() => {
 </style>
 
 <style>
+.rutas-theme-sync {
+  font-family: 'Inter', sans-serif;
+}
 .rutas-theme-sync,
 .rutas-theme-sync * {
   transition-property: background-color, border-color, color, fill, stroke, box-shadow;

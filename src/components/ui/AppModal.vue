@@ -29,7 +29,7 @@
               </div>
 
               <!-- Body -->
-              <div class="px-4 sm:px-6 pt-5 pb-6 relative z-10">
+              <div class="px-4 sm:px-6 pt-5 pb-6 relative z-20">
                 <slot></slot>
               </div>
 

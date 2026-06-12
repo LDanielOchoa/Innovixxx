@@ -11,23 +11,28 @@ import {
   Settings02Icon,
   Location01Icon,
   Alert01Icon,
-  Calendar01Icon
+  Calendar01Icon,
+  CpuIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
-import { fetchRutasApi, setRutaEstadoApi, fetchRutaDetallesApi } from '../services/rutas.api'
+import { fetchRutasApi, setRutaEstadoApi, fetchRutaDetallesApi, fetchTiposParadaApi } from '../services/rutas.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import { fetchMapPositionsApi } from '../../hardware/services/hardware.api'
-import type { Ruta } from '../types/ruta'
+import type { Ruta, TipoParada } from '../types/ruta'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
+import { useParadasManager } from '../composables/useParadasManager'
+import { useRouteDrawer } from '../composables/useRouteDrawer'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppSearch from '../../../components/ui/AppSearch.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
+import AppSelect from '../../../components/ui/AppSelect.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 
@@ -84,10 +89,10 @@ const fetchRutas = async () => {
 const selectedRuta = ref<Ruta | null>(null)
 const { loadGoogleMaps } = useGoogleMaps()
 const directionsService = shallowRef<any>(null)
-const directionsRenderers = shallowRef<any[]>([])
-const paradasMarkers = ref<any[]>([])
-const paradasInfoWindows = ref<any[]>([])
 const isLoadingRouteDetails = ref(false)
+
+const activeRouteColor = ref('#60a5fa')
+const tiposParada = ref<TipoParada[]>([])
 
 // ── Map Setup (shared composable) ───────────────────────────
 const {
@@ -106,126 +111,24 @@ const initializeMap = async (googleMapsApi: any) => {
   directionsService.value = new googleMapsApi.DirectionsService()
 }
 
+// ── Paradas Manager ───────────────────────────────────────────
+const {
+  paradasTemporales,
+  clearMarkers,
+  redrawMarkers
+} = useParadasManager(map, tiposParada, activeRouteColor, (_idx: number) => {
+  // Vista de lista no interactúa con clic en marcadores
+})
+
+// ── Route Drawer ──────────────────────────────────────────────
+const {
+  drawFullRoute,
+  clearAll: clearAllRoutes
+} = useRouteDrawer(map, directionsService)
+
 const clearMap = () => {
-  paradasInfoWindows.value.forEach(iw => {
-    if (iw) { try { iw.close() } catch(e){} }
-  })
-  paradasInfoWindows.value = []
-  
-  paradasMarkers.value.forEach(m => {
-    if (m) {
-      try { m.setVisible(false); (window as any).google.maps.event.clearInstanceListeners(m); m.setMap(null); } catch(e){}
-    }
-  })
-  paradasMarkers.value = []
-  
-  directionsRenderers.value.forEach(r => {
-    if (r) { try { r.setMap(null) } catch(e){} }
-  })
-  directionsRenderers.value = []
-}
-
-const addParadaToMap = (lat: number, lon: number, tipoNombre: string, index: number, routeColor: string) => {
-  if (!map.value || !(window as any).google) return
-
-  const marker = new (window as any).google.maps.Marker({
-    position: { lat, lng: lon },
-    map: map.value,
-    title: tipoNombre,
-    zIndex: 100 + index,
-    icon: {
-      path: "M12 0C5.37 0 0 5.37 0 12c0 9 12 24 12 24s12-15 12-24c0-6.63-5.37-12-12-12z",
-      fillColor: routeColor,
-      fillOpacity: 1,
-      strokeWeight: 2,
-      strokeColor: '#FFFFFF',
-      scale: 1.2,
-      anchor: new (window as any).google.maps.Point(12, 36),
-      labelOrigin: new (window as any).google.maps.Point(12, 12)
-    },
-    label: {
-      text: (index + 1).toString(),
-      color: 'white',
-      fontSize: '11px',
-      fontWeight: 'bold',
-      fontFamily: "'Inter', sans-serif"
-    },
-    animation: (window as any).google.maps.Animation.DROP
-  })
-  
-  const infoWindow = new (window as any).google.maps.InfoWindow({
-    content: `<div style="color: #0d1116; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: bold; padding: 2px 4px; text-transform: uppercase;">${tipoNombre}</div>`
-  })
-
-  paradasInfoWindows.value.push(infoWindow)
-
-  marker.addListener("mouseover", () => {
-    infoWindow.open({ anchor: marker, map: map.value })
-  })
-  marker.addListener("mouseout", () => {
-    infoWindow.close()
-  })
-
-  paradasMarkers.value.push(marker)
-}
-
-const drawExistingRoute = (paradas: any[], routeColor: string) => {
-  if (!directionsService.value || paradas.length < 2) return
-
-  const MAX_WAYPOINTS = 23
-  const totalPoints = paradas.length
-  const numChunks = Math.ceil((totalPoints - 1) / MAX_WAYPOINTS)
-
-  for (let chunkIndex = 0; chunkIndex < numChunks; chunkIndex++) {
-    const startIdx = chunkIndex * MAX_WAYPOINTS
-    const endIdx = Math.min(startIdx + MAX_WAYPOINTS + 1, totalPoints)
-
-    const chunk = paradas.slice(startIdx, endIdx)
-    if (chunk.length < 2) continue
-
-    const origin = chunk[0]
-    const destination = chunk[chunk.length - 1]
-
-    const waypoints = chunk.length > 2
-      ? chunk.slice(1, -1).map((p: any) => ({
-          location: { lat: p.lat, lng: p.lon },
-          stopover: true
-        }))
-      : []
-
-    const renderer = new (window as any).google.maps.DirectionsRenderer({
-      map: map.value,
-      suppressMarkers: true,
-      preserveViewport: chunkIndex > 0,
-      polylineOptions: {
-        strokeColor: routeColor,
-        strokeOpacity: 0.9,
-        strokeWeight: 4,
-      }
-    })
-    
-    directionsRenderers.value.push(renderer)
-    
-    directionsService.value.route({
-      origin: { lat: origin.lat, lng: origin.lon },
-      destination: { lat: destination.lat, lng: destination.lon },
-      waypoints: waypoints,
-      travelMode: (window as any).google.maps.TravelMode.DRIVING,
-      optimizeWaypoints: false
-    }, (response: any, status: string) => {
-      if (status === 'OK') {
-        renderer.setDirections(response)
-      } else if (waypoints.length > 0) {
-        directionsService.value.route({
-          origin: { lat: origin.lat, lng: origin.lon },
-          destination: { lat: destination.lat, lng: destination.lon },
-          travelMode: (window as any).google.maps.TravelMode.DRIVING
-        }, (retryResponse: any, retryStatus: string) => {
-          if (retryStatus === 'OK') renderer.setDirections(retryResponse)
-        })
-      }
-    })
-  }
+  clearMarkers()
+  clearAllRoutes()
 }
 
 // Custom Cinematic Fly-To Animation
@@ -315,23 +218,20 @@ const onRowClick = async (ruta: Ruta) => {
     }
 
     if (detalle && detalle.paradas && detalle.paradas.length > 0) {
-      const paradas = detalle.paradas.map(p => ({
+      activeRouteColor.value = detalle.color || '#60a5fa'
+      paradasTemporales.value = detalle.paradas.map(p => ({
         lat: parseFloat(p.lat),
         lon: parseFloat(p.lon),
-        tipo_nombre: p.tipo_nombre
+        tipo: p.id_tipo_parada
       }))
       
-      const routeColor = detalle.color || '#60a5fa'
-      
       // Dibujamos marcadores y pedimos rutas a DirectionsService
-      paradas.forEach((p, idx) => {
-        addParadaToMap(p.lat, p.lon, p.tipo_nombre, idx, routeColor)
-      })
-      drawExistingRoute(paradas, routeColor)
+      redrawMarkers()
+      drawFullRoute(paradasTemporales.value, activeRouteColor.value)
       
       // Calculamos bounds y centro
       const bounds = new (window as any).google.maps.LatLngBounds()
-      paradas.forEach(p => bounds.extend({ lat: p.lat, lng: p.lon }))
+      paradasTemporales.value.forEach(p => bounds.extend({ lat: p.lat, lng: p.lon }))
       
       const targetLatLng = bounds.getCenter()
       
@@ -345,8 +245,14 @@ const onRowClick = async (ruta: Ruta) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   startDarkModeObserver()
+
+  // Cargar tipos de parada para poder mapear los marcadores
+  if (tiposParada.value.length === 0) {
+    try { tiposParada.value = await fetchTiposParadaApi() }
+    catch (e) { console.error('Error al obtener tipos de parada:', e) }
+  }
 
   // Usar el composable singleton — si Maps ya está cargado, resolve inmediato
   loadGoogleMaps().then(initializeMap).catch(err => {
@@ -442,16 +348,23 @@ const processToggleEstado = async () => {
 const isGpsModalOpen = ref(false)
 const hardwareList = ref<HardwareSimple[]>([])
 const selectedHardwareId = ref('')
-const fechaDesde = ref('')
-const fechaHasta = ref('')
+const fechaDesde = ref<Date | null>(null)
+const fechaHasta = ref<Date | null>(null)
 const loadingHardware = ref(false)
 const trazandoGps = ref(false)
+
+const hardwareOptions = computed(() => {
+  return hardwareList.value.map(item => ({
+    value: item.id_hardware,
+    label: `${item.nombre} (${item.familia})`
+  }))
+})
 
 const openGpsModal = async () => {
   isGpsModalOpen.value = true
   selectedHardwareId.value = ''
-  fechaDesde.value = ''
-  fechaHasta.value = ''
+  fechaDesde.value = null
+  fechaHasta.value = null
   if (!selectedGroup.value?.id) return
   
   loadingHardware.value = true
@@ -474,10 +387,14 @@ const trazarRutaGps = async () => {
   
   trazandoGps.value = true
   try {
-    const formatDateTime = (val: string) => {
+    const formatDateTime = (val: Date | null) => {
       if (!val) return ''
-      const [date, time] = val.split('T')
-      return `${date} ${time}:00`
+      const y = val.getFullYear()
+      const m = String(val.getMonth() + 1).padStart(2, '0')
+      const d = String(val.getDate()).padStart(2, '0')
+      const h = String(val.getHours()).padStart(2, '0')
+      const min = String(val.getMinutes()).padStart(2, '0')
+      return `${y}-${m}-${d} ${h}:${min}:00`
     }
     
     const desdeFormatted = formatDateTime(fechaDesde.value)
@@ -596,31 +513,22 @@ const trazarRutaGps = async () => {
         </div>
       </Transition>
  
-      <!-- FLOATING SIDEBAR -->
-      <div class="absolute top-0 bottom-0 left-0 z-10 w-[340px] md:w-[380px] lg:w-[420px] flex flex-col animate-fade-in">
-        <!-- Glassmorphic panel -->
-        <div class="flex-1 flex flex-col m-4 rounded-2xl bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl border border-slate-200/70 dark:border-white/[0.07] shadow-lg dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden">
+      <!-- FLOATING SIDEBAR (Docked style consistent with RutasFormView and Sidebar.vue) -->
+      <div class="absolute top-0 bottom-0 left-0 z-10 w-[320px] md:w-[350px] lg:w-[380px] flex flex-col">
+        <!-- Docked panel consistent with Sidebar.vue -->
+        <div class="flex-1 flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden">
           
           <!-- Header -->
-          <div class="relative px-5 pt-6 pb-5 border-b border-slate-100 dark:border-white/[0.05] shrink-0 overflow-hidden">
-            <!-- Fondo decorativo -->
-            <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
-            <div class="absolute top-0 right-0 w-32 h-32 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-            
-            <div class="relative flex items-start justify-between">
-              <div class="flex items-center gap-3.5">
-                <div class="relative group/icon shrink-0">
-                  <div class="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-[#3b82f6] border border-blue-500/20 relative z-10 transition-transform duration-300 group-hover/icon:scale-105">
-                    <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
-                  </div>
+          <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
+            <div class="relative flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+                  <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
                 </div>
                 <div>
-                  <h1 class="text-[17px] font-black text-slate-800 dark:text-white uppercase tracking-tight leading-none">{{ $t('rutas.title') }}</h1>
-                  <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.15em] mt-1">
-                    <span class="inline-flex items-center gap-1.5">
-                      <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
-                      {{ filteredRutas.length }} rutas activas
-                    </span>
+                  <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ $t('rutas.title') }}</h1>
+                  <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5">
+                    {{ filteredRutas.length }} rutas activas
                   </p>
                 </div>
               </div>
@@ -628,31 +536,27 @@ const trazarRutaGps = async () => {
               <div class="flex items-center gap-2">
                 <!-- Botón Exportar Plano -->
                 <button @click="exportToExcel"
-                  class="w-10 h-10 rounded-xl flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all duration-200"
+                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
                   title="Exportar">
-                  <HugeiconsIcon :icon="Download01Icon" :size="18" :stroke-width="2" />
+                  <HugeiconsIcon :icon="Download01Icon" :size="14" :stroke-width="2" />
                 </button>
                 <!-- Botón Registrar por GPS Plano -->
-                <div class="relative group/btn" v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)">
-                  <button @click="openGpsModal"
-                    class="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-200 active:scale-95 relative z-10"
-                    title="Registrar por GPS">
-                    <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2.5" />
-                  </button>
-                </div>
+                <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openGpsModal"
+                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.97] transition-all duration-200"
+                  title="Registrar por GPS">
+                  <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" />
+                </button>
                 <!-- Botón Nueva Ruta Plano -->
-                <div class="relative group/btn" v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)">
-                  <button @click="openCreateModal"
-                    class="w-10 h-10 rounded-xl flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-95 relative z-10"
-                    title="Nueva Ruta">
-                    <HugeiconsIcon :icon="PlusSignIcon" :size="20" :stroke-width="2.5" />
-                  </button>
-                </div>
+                <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openCreateModal"
+                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97] transition-all duration-200"
+                  title="Nueva Ruta">
+                  <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" />
+                </button>
               </div>
             </div>
  
             <!-- Search -->
-            <div class="relative mt-5">
+            <div class="relative mt-4">
               <AppSearch v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" />
             </div>
           </div>
@@ -683,14 +587,14 @@ const trazarRutaGps = async () => {
                 v-for="ruta in paginatedRutas"
                 :key="ruta.id_ruta"
                 @click="onRowClick(ruta)"
-                class="group relative cursor-pointer rounded-xl transition-all duration-200 select-none border overflow-hidden"
+                class="group relative cursor-pointer rounded-[14px] transition-all duration-300 select-none border overflow-hidden"
                 :class="selectedRuta?.id_ruta === ruta.id_ruta
-                  ? 'bg-blue-50/40 dark:bg-blue-950/10 border-blue-500/40 dark:border-blue-500/30 shadow-sm'
-                  : 'bg-white/80 dark:bg-[#20242D]/40 border-slate-200/80 dark:border-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'"
+                  ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.05)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_4px_12px_rgba(59,130,246,0.1)]'
+                  : 'bg-white/80 dark:bg-[#20242D]/40 border-slate-200/60 dark:border-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'"
               >
                 <!-- Barra lateral activa -->
                 <div
-                  class="absolute left-0 top-0 bottom-0 w-[3px] bg-blue-500 transition-all duration-200"
+                  class="absolute left-0 top-0 bottom-0 w-[3px] bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-200"
                   :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'opacity-100' : 'opacity-0'"
                 ></div>
  
@@ -793,12 +697,11 @@ const trazarRutaGps = async () => {
       v-model:isOpen="isGpsModalOpen"
       title="Registrar Ruta por GPS"
       confirmText="Trazar Ruta"
-      confirmButtonClass="inline-flex justify-center items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-6 py-3 text-[13px] font-bold text-white transition-all duration-200 active:scale-95 border border-emerald-700"
       cancelText="Cancelar"
       @confirm="trazarRutaGps"
     >
       <template #icon>
-        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 border border-emerald-500/20">
+        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
           <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
         </div>
       </template>
@@ -807,64 +710,36 @@ const trazarRutaGps = async () => {
         <!-- Overlay de carga al trazar -->
         <Transition name="fade-overlay">
           <div v-if="trazandoGps" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
-            <div class="w-10 h-10 border-[3px] border-emerald-600/20 border-t-emerald-600 rounded-full animate-spin"></div>
-            <p class="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
+            <div class="w-10 h-10 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
+            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
           </div>
         </Transition>
 
         <!-- Dispositivo GPS -->
-        <div class="space-y-2">
-          <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-            Dispositivo GPS
-          </label>
-          <div class="relative">
-            <select
-              v-model="selectedHardwareId"
-              :disabled="loadingHardware"
-              class="w-full h-12 px-4 pr-10 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all appearance-none cursor-pointer font-medium"
-            >
-              <option value="" disabled>{{ loadingHardware ? 'Cargando dispositivos...' : 'Seleccione un dispositivo' }}</option>
-              <option v-for="item in hardwareList" :key="item.id_hardware" :value="item.id_hardware">
-                {{ item.nombre }} ({{ item.familia }})
-              </option>
-            </select>
-            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
-        </div>
+        <AppSelect
+          v-model="selectedHardwareId"
+          label="Dispositivo GPS"
+          placeholder="Seleccione un dispositivo"
+          :disabled="loadingHardware"
+          :icon="CpuIcon"
+          :options="hardwareOptions"
+        />
 
         <!-- Rango de Fechas -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Desde -->
-          <div class="space-y-2">
-            <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-              Desde
-            </label>
-            <div class="relative">
-              <input
-                type="datetime-local"
-                v-model="fechaDesde"
-                class="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all font-medium"
-              />
-            </div>
-          </div>
+          <AppDateTimePicker
+            v-model="fechaDesde"
+            label="Desde"
+            placeholder="Seleccione fecha desde"
+          />
 
           <!-- Hasta -->
-          <div class="space-y-2">
-            <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-              Hasta
-            </label>
-            <div class="relative">
-              <input
-                type="datetime-local"
-                v-model="fechaHasta"
-                class="w-full h-12 px-4 rounded-xl bg-slate-50 border border-slate-200 dark:bg-[#0F1115] dark:border-white/5 text-slate-800 dark:text-slate-200 text-sm focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-all font-medium"
-              />
-            </div>
-          </div>
+          <AppDateTimePicker
+            v-model="fechaHasta"
+            label="Hasta"
+            placeholder="Seleccione fecha hasta"
+          />
         </div>
       </div>
     </AppModal>
