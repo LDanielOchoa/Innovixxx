@@ -29,10 +29,13 @@ import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
+import { useToast } from 'primevue/usetoast'
+import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -43,7 +46,6 @@ const emit = defineEmits(['update:isOpen', 'saved'])
 
 const isInitializing = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const familias = ref<FamiliaHardware[]>([])
@@ -51,8 +53,8 @@ const loadingFamilias = ref(false)
 
 const isEditMode = computed(() => !!props.editItem)
 const activeSchema = computed(() => isEditMode.value ? updateHardwareSchema : createHardwareSchema)
-const { validate } = useFormValidator(activeSchema as any)
-const { getError } = useFormError('hardware-form')
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('hardware-form')
 
 const formData = ref({
   nombre: '',
@@ -172,8 +174,9 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
 
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
+    resetErrors('hardware-form')
+    clearErrors()
     isInitializing.value = true
-    isSuccess.value = false
     saving.value = false
     modalMessage.value = null
     panelActivo.value = false
@@ -208,6 +211,12 @@ watch(() => props.isOpen, async (isOpen) => {
     loadingFamilias.value = true
     try {
       familias.value = await fetchFamiliasApi()
+      if (props.editItem && !formData.value.id_familia && props.editItem.familia) {
+        const found = familias.value.find(f => f.nombre === props.editItem?.familia)
+        if (found) {
+          formData.value.id_familia = found.id_familia
+        }
+      }
     } catch (error) {
       console.error('Error fetching familias:', error)
     } finally {
@@ -224,15 +233,17 @@ watch(() => props.isOpen, async (isOpen) => {
 
 const handleSave = async () => {
   if (saving.value) return
+  clearErrors()
+  modalMessage.value = null
+
   if (!groupStore.selectedGroup?.id) {
     showMessage(t('common.errorRequiredFields') || 'Seleccione un grupo válido', 'error')
     return
   }
 
   saving.value = true
-  modalMessage.value = null
 
-  const payload = {
+  const payload: any = {
     serial: formData.value.serial,
     id_grupo: groupStore.selectedGroup.id,
     id_familia: Number(formData.value.id_familia),
@@ -247,8 +258,16 @@ const handleSave = async () => {
     clave_open: formData.value.clave_open || ''
   }
 
+  if (isEditMode.value && props.editItem) {
+    payload.id_hardware = props.editItem.id_hardware
+  }
+
   if (!validate(payload, 'hardware-form')) {
     saving.value = false
+    showMessage(
+      getFirstError('hardware-form') || t('common.errorRequiredFields') || 'Por favor complete todos los campos obligatorios.',
+      'error'
+    )
     return
   }
 
@@ -261,8 +280,14 @@ const handleSave = async () => {
       }
       const data = await updateHardwareApi({ ...payload, id_hardware: props.editItem.id_hardware })
       if (data.done) {
-        isSuccess.value = true
+        toast.add({
+          severity: 'success',
+          summary: t('hardware.alertSuccessUpdateTitle', 'Dispositivo Actualizado'),
+          detail: data.message || t('hardware.alertSuccessUpdateDetail', 'El dispositivo de hardware ha sido modificado exitosamente.'),
+          life: 4000
+        })
         emit('saved')
+        handleClose()
       } else {
         showMessage(data.message || t('hardware.alertErrorUpdate') || 'Error al actualizar', 'error')
       }
@@ -274,21 +299,51 @@ const handleSave = async () => {
       }
       const data = await createHardwareApi(payload)
       if (data.done) {
-        isSuccess.value = true
+        toast.add({
+          severity: 'success',
+          summary: t('hardware.alertSuccessCreateTitle', 'Dispositivo Registrado'),
+          detail: data.message || t('hardware.alertSuccessCreateDetail', 'El dispositivo de hardware ha sido registrado exitosamente.'),
+          life: 4000
+        })
         emit('saved')
+        formData.value = {
+          nombre: '',
+          descripcion: '',
+          serial: '',
+          imei: '',
+          mac: '',
+          id_familia: '',
+          numero_sms: '',
+          id_binario: '',
+          clave_open: ''
+        }
+        resetErrors('hardware-form')
+        clearErrors()
       } else {
         showMessage(data.message || t('hardware.alertErrorCreate') || 'Error al crear', 'error')
       }
     }
   } catch (error: any) {
     console.error('Error saving hardware:', error)
-    showMessage(error.message || (t('hardware.alertNetError') || 'Error de conexión'), 'error')
+    if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
+      const code = error.code
+      let msg = ''
+      if (code === 400 || code === 500 || code === 422) {
+        msg = error.message || getErrorMessage(code)
+      } else {
+        msg = getErrorMessage(code) || error.message
+      }
+      showMessage(msg, 'error')
+    } else {
+      showMessage(error.message || t('hardware.alertNetError') || 'Error de conexión', 'error')
+    }
   } finally {
     saving.value = false
   }
 }
 
 const handleClose = () => {
+  if (saving.value) return
   emit('update:isOpen', false)
 }
 </script>
@@ -299,10 +354,11 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleSave"
+    :close-on-click-outside="!saving"
     :title="isEditMode ? t('hardware.modalTitleEdit', 'Actualizar Dispositivo') : t('hardware.modalTitleCreate', 'Nuevo Dispositivo')"
     :confirm-text="isEditMode ? t('hardware.btnSave', 'Guardar Cambios') : t('hardware.btnRegister', 'Crear Hardware')"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -323,33 +379,6 @@ const handleClose = () => {
         <div class="h-12 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
       </div>
     </div>
-
-    <!-- SUCCESS VIEW -->
-    <Transition v-else-if="isSuccess" name="fade-slide" mode="out-in">
-      <div class="py-10 flex flex-col items-center justify-center text-center space-y-4">
-        <div class="relative group mb-2">
-          <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-            <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-          </div>
-        </div>
-        <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
-          {{ isEditMode ? 'Dispositivo Actualizado' : 'Dispositivo Registrado Exitosamente' }}
-        </h3>
-        <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-          {{ isEditMode ? 'Los datos del dispositivo han sido modificados con éxito.' : 'El dispositivo de hardware ha sido registrado exitosamente.' }}
-        </p>
-        <div class="pt-4">
-          <button
-            @click="handleClose"
-            class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-          >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-            Cerrar Ventana
-          </button>
-        </div>
-      </div>
-    </Transition>
 
     <!-- FORM -->
     <form v-else @submit.prevent="handleSave" class="space-y-6 relative">
@@ -395,12 +424,14 @@ const handleClose = () => {
             :label="t('hardware.labelName', 'Nombre (Alias)')"
             :placeholder="t('hardware.placeholderName', 'Ej: gps gl800 3')"
             :icon="Tag01Icon"
+            :disabled="saving"
           />
           <AppInput
             v-model="formData.descripcion"
             :label="t('hardware.labelDescription', 'Descripción')"
             :placeholder="t('hardware.placeholderDescription', 'Ej: 10000 mah')"
             :icon="Tag01Icon"
+            :disabled="saving"
           />
         </div>
 
@@ -416,10 +447,10 @@ const handleClose = () => {
             ref="btnFamilia"
             type="button"
             @click="abrirPanelFamilia"
-            :disabled="loadingFamilias"
+            :disabled="loadingFamilias || saving"
             class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300 w-full"
             :class="[
-              loadingFamilias ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+              loadingFamilias || saving ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
               panelActivo ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
             ]"
           >
@@ -441,18 +472,21 @@ const handleClose = () => {
               :label="t('hardware.labelSerial', 'Serial')"
               :placeholder="t('hardware.placeholderSerial', 'B123RZZR')"
               :icon="TextNumberSignIcon"
+              :disabled="saving"
             />
             <AppInput
               v-model="formData.imei"
               :label="t('hardware.labelImei', 'IMEI')"
               :placeholder="t('hardware.placeholderImei', '1234567...')"
               :icon="TextNumberSignIcon"
+              :disabled="saving"
             />
             <AppInput
               v-model="formData.mac"
               :label="t('hardware.labelMac', 'MAC')"
               :placeholder="t('hardware.placeholderMac', 'sw:ki:pl...')"
               :icon="TextNumberSignIcon"
+              :disabled="saving"
             />
           </div>
         </div>
@@ -464,30 +498,56 @@ const handleClose = () => {
               label="Número SMS"
               placeholder="Ej: 9103166133"
               :icon="SmartPhone01Icon"
+              :disabled="saving"
             />
             <AppInput
               v-model="formData.id_binario"
               label="ID Binario"
               placeholder="Ej: 2512001917"
               :icon="CpuIcon"
+              :disabled="saving"
             />
             <AppInput
               v-model="formData.clave_open"
               label="Clave Open"
               placeholder="Ej: 888888"
               :icon="LockIcon"
+              :disabled="saving"
             />
           </div>
         </div>
       </div>
     </form>
+
+    <template #footer>
+      <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
+        <button
+          type="button"
+          @click="handleClose"
+          :disabled="saving"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="handleSave"
+          :disabled="saving"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-80 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+        >
+          <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
+          <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
+          {{ saving ? (isEditMode ? 'Guardando cambios...' : 'Registrando dispositivo...') : (isEditMode ? t('hardware.btnSave', 'Guardar Cambios') : t('hardware.btnRegister', 'Crear Hardware')) }}
+        </button>
+      </div>
+    </template>
   </AppModal>
 
   <!-- PANEL FLOTANTE DE FAMILIA -->
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
-        v-if="panelActivo && isOpen && !isSuccess && !isInitializing"
+        v-if="panelActivo && isOpen && !isInitializing"
         class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden"
         :style="{
           top: panelStyle.top,

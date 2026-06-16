@@ -13,7 +13,8 @@ import {
   CircleIcon,
   SquareIcon,
   MapsIcon,
-  PaintBrush01Icon
+  PaintBrush01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { createGeocercaApi, updateGeocercaApi, fetchGeocercaDetallesApi } from '../services/geocercas.api'
 import type { GeocercaCreatePayload } from '../types/geocerca'
@@ -24,13 +25,21 @@ import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createGeocercaSchema, updateGeocercaSchema } from '../../../schemas/geocercas.schema'
+import { useToast } from 'primevue/usetoast'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 
 const props = defineProps<{ id?: string }>()
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
+const toast = useToast()
 
 // Form State
 const formData = ref({
@@ -47,6 +56,34 @@ const isSubmitting = ref(false)
 const isLoadingData = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
+// Validaciones
+const activeSchema = computed(() => isEditing.value ? updateGeocercaSchema : createGeocercaSchema)
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('geocercas-form')
+
+// Predefined Colors
+const predefinedColors = [
+  '#3b82f6', // Azul
+  '#ef4444', // Rojo
+  '#22c55e', // Verde
+  '#f59e0b', // Amarillo
+  '#8b5cf6', // Violeta
+  '#ec4899', // Rosa
+  '#14b8a6', // Teal
+  '#f97316', // Naranja
+  '#6366f1', // Indigo
+  '#84cc16'  // Lime
+]
+const showCustomColorPicker = ref(false)
+const colorInputRef = ref<HTMLInputElement | null>(null)
+
+const selectOtros = () => {
+  showCustomColorPicker.value = true
+  setTimeout(() => {
+    colorInputRef.value?.click()
+  }, 50)
+}
+
 // Google Maps Setup (shared composable)
 const { loadGoogleMaps } = useGoogleMaps()
 const {
@@ -59,12 +96,23 @@ const {
   gestureHandling: 'cooperative'
 })
 const currentDrawing = shallowRef<any>(null)
-const markers = shallowRef<any[]>([])
+let activeMapMarkers: any[] = []
 
 const initializeMap = async (googleMapsApi: any) => {
   initMap(googleMapsApi, (lat, lng) => {
     handleMapClick(lat, lng)
   })
+
+  if (map.value) {
+    map.value.addListener('rightclick', (e: any) => {
+      if (paradas.value.length === 0) return
+      if (e.domEvent && typeof e.domEvent.preventDefault === 'function') {
+        e.domEvent.preventDefault()
+      }
+      const point = e.pixel || { x: 0, y: 0 }
+      contextMenu.value = { visible: true, x: point.x, y: point.y }
+    })
+  }
 
   if (isEditing.value) {
     loadGeocercaData()
@@ -85,6 +133,11 @@ const loadGeocercaData = async () => {
         tipo: detalle.tipo === 'Poligonal' ? 2 : 1
       }
       
+      const colLower = (detalle.color || '#3b82f6').toLowerCase()
+      if (!predefinedColors.some(c => c.toLowerCase() === colLower)) {
+        showCustomColorPicker.value = true
+      }
+
       if (detalle.puntos && detalle.puntos.length > 0) {
         paradas.value = detalle.puntos.map(p => ({
           lat: parseFloat(p.lat),
@@ -132,7 +185,27 @@ const handleMapClick = (lat: number, lon: number) => {
 
 const isDraggingHandle = ref(false)
 
-let activeMapMarkers: any[] = []
+const contextMenu = ref<{ visible: boolean, x: number, y: number }>({ visible: false, x: 0, y: 0 })
+
+const closeContextMenu = () => {
+  contextMenu.value.visible = false
+}
+
+const handleDocumentClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement | null
+  if (target && target.closest('[data-geocerca-context-menu]')) return
+  closeContextMenu()
+}
+
+const handleDocumentKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') closeContextMenu()
+}
+
+const deleteDrawing = () => {
+  paradas.value = []
+  updateDrawing()
+  closeContextMenu()
+}
 
 const clearAllMarkers = () => {
   if (activeMapMarkers && activeMapMarkers.length > 0) {
@@ -344,6 +417,8 @@ watch(() => formData.value.color, () => {
 
 onMounted(() => {
   startDarkModeObserver()
+  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('keydown', handleDocumentKey)
 
   loadGoogleMaps().then(initializeMap).catch(err => {
     console.error('Error cargando Google Maps:', err)
@@ -352,41 +427,53 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // Cleanup handled by useMapSetup onUnmounted
+  document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('keydown', handleDocumentKey)
 })
 
 const saveGeocerca = async () => {
   if (isSubmitting.value) return
-  if (!selectedGroup.value?.id) {
-    showModalMessage('Debes seleccionar un grupo', 'warning')
-    return
-  }
-  if (!formData.value.nombre) {
-    showModalMessage('El nombre es obligatorio', 'warning')
-    return
-  }
-  if (paradas.value.length === 0) {
-    showModalMessage('Debes trazar la geocerca en el mapa', 'warning')
-    return
-  }
-  if (formData.value.tipo === 2 && paradas.value.length < 3) {
+  
+  clearErrors()
+  modalMessage.value = null
+
+  const idGrupo = selectedGroup.value?.id?.trim() || ''
+
+  const payload: any = isEditing.value && props.id
+    ? {
+        id_grupo: idGrupo,
+        id_geocerca: props.id,
+        nombre: formData.value.nombre,
+        descripcion: formData.value.descripcion || '',
+        color: formData.value.color,
+        tipo: formData.value.tipo,
+        paradas: paradas.value
+      }
+    : {
+        id_grupo: idGrupo,
+        nombre: formData.value.nombre,
+        descripcion: formData.value.descripcion || '',
+        color: formData.value.color,
+        tipo: formData.value.tipo,
+        paradas: paradas.value
+      }
+
+  if (formData.value.tipo === 2 && paradas.value.length < 3 && paradas.value.length > 0) {
     showModalMessage('Una geocerca poligonal requiere al menos 3 puntos', 'warning')
     return
   }
 
+  if (!validate(payload, 'geocercas-form')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      showModalMessage(firstErr, 'warning')
+    }
+    return
+  }
+
   isSubmitting.value = true
-  modalMessage.value = null
 
   try {
-    const payload: any = {
-      id_grupo: selectedGroup.value.id,
-      nombre: formData.value.nombre,
-      descripcion: formData.value.descripcion,
-      color: formData.value.color,
-      tipo: formData.value.tipo,
-      paradas: paradas.value
-    }
-
     let success = false
     if (isEditing.value && props.id) {
       if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)) {
@@ -394,21 +481,35 @@ const saveGeocerca = async () => {
         isSubmitting.value = false
         return
       }
-      payload.id_geocerca = props.id
       success = await updateGeocercaApi(payload)
     } else {
       success = await createGeocercaApi(payload as GeocercaCreatePayload)
     }
 
     if (success) {
-      showModalMessage(isEditing.value ? 'Geocerca actualizada correctamente' : 'Geocerca creada correctamente', 'success')
+      toast.add({
+        severity: 'success',
+        summary: isEditing.value ? 'Actualización exitosa' : 'Creación exitosa',
+        detail: isEditing.value ? 'Geocerca actualizada correctamente' : 'Geocerca creada correctamente',
+        life: 4000
+      })
       setTimeout(() => router.push('/geocercas'), 1500)
     } else {
-      showModalMessage(`Error al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`, 'error')
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: `Error al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`,
+        life: 4000
+      })
     }
   } catch (error) {
     console.error('Error saving geocerca:', error)
-    showModalMessage(`Error de red al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`, 'error')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: `Error de red al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`,
+      life: 4000
+    })
   } finally {
     isSubmitting.value = false
   }
@@ -448,11 +549,45 @@ const clearParadas = () => {
         </div>
       </Transition>
 
+      <!-- Menú Contextual (clic derecho en el mapa) -->
+      <div
+        v-show="contextMenu.visible"
+        data-geocerca-context-menu
+        class="absolute z-[60] min-w-[180px] rounded-xl bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.18)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.6)] overflow-hidden backdrop-blur-xl"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+        @contextmenu.prevent
+      >
+        <div class="px-3 py-2 border-b border-slate-200/60 dark:border-white/5">
+          <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Geocerca</p>
+        </div>
+        <button
+          type="button"
+          @click="deleteDrawing"
+          class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/15 transition-colors duration-150 active:scale-[0.98]"
+        >
+          <HugeiconsIcon :icon="Delete01Icon" :size="14" :stroke-width="2.2" />
+          <span class="uppercase tracking-wider">Eliminar Geocerca</span>
+        </button>
+      </div>
+
       <!-- PANEL LATERAL DE GEOCERCAS (Estilo docked consistente con RutasFormView y Sidebar.vue) -->
       <div class="absolute top-0 bottom-0 left-0 z-10 w-[320px] md:w-[350px] lg:w-[380px] flex flex-col">
         <!-- Panel acoplado consistente con Sidebar.vue -->
-        <div class="flex-1 flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden">
+        <div class="flex-1 flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)] overflow-hidden relative">
           
+          <!-- Loader Spinner Overlay -->
+          <Transition name="loader-fade">
+            <div v-if="isSubmitting" class="absolute inset-0 z-50 flex items-center justify-center bg-white/60 dark:bg-[#0C0E13]/85 backdrop-blur-md overflow-hidden animate-none">
+              <div class="flex flex-col items-center gap-4 p-8">
+                <div class="relative flex items-center justify-center">
+                  <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+                  <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+                </div>
+                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditing ? 'Actualizando' : 'Creando' }} Geocerca</p>
+              </div>
+            </div>
+          </Transition>
+
           <!-- Encabezado -->
           <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
             <div class="relative flex items-center gap-3">
@@ -503,149 +638,110 @@ const clearParadas = () => {
               </Transition>
 
               <!-- Inputs -->
-              <AppInput 
-                v-model="formData.nombre"
-                label="Nombre de la Geocerca"
-                placeholder="Ej: Zona Norte"
-                :icon="MapsIcon"
-                required
-              />
+              <div>
+                <AppInput 
+                  v-model="formData.nombre"
+                  label="Nombre de la Geocerca"
+                  placeholder="Ej: Zona Norte"
+                  :icon="MapsIcon"
+                  required
+                />
+                <span v-if="getError('nombre')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('nombre') }}</span>
+              </div>
 
-              <AppInput 
-                v-model="formData.descripcion"
-                type="textarea"
-                label="Descripción"
-                placeholder="Describe el propósito de esta geocerca..."
-                :rows="3"
-              />
+              <div>
+                <AppInput 
+                  v-model="formData.descripcion"
+                  type="textarea"
+                  label="Descripción"
+                  placeholder="Describe el propósito de esta geocerca..."
+                  :rows="3"
+                />
+                <span v-if="getError('descripcion')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('descripcion') }}</span>
+              </div>
 
-              <!-- Grilla de Color y Tipo -->
-              <div class="grid grid-cols-2 gap-4">
-                <!-- Color -->
-                <div class="space-y-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">Color</label>
-                  <div class="relative flex items-center gap-3 p-1.5 bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                    <input type="color" v-model="formData.color" class="w-8 h-8 rounded-lg border-none bg-transparent cursor-pointer overflow-hidden shadow-none shrink-0" />
-                    <span class="text-[11px] font-bold font-mono text-slate-500 dark:text-slate-400 uppercase tracking-wider">{{ formData.color }}</span>
-                  </div>
-                </div>
+              <!-- Sección: Estilo Visual (Color) -->
+              <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Color de Geocerca</label>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    v-for="color in predefinedColors"
+                    :key="color"
+                    type="button"
+                    :disabled="isSubmitting"
+                    @click="formData.color = color; showCustomColorPicker = false"
+                    class="w-6 h-6 rounded-full border border-black/10 dark:border-white/10 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none"
+                    :style="{ backgroundColor: color }"
+                    :title="color"
+                  >
+                    <HugeiconsIcon
+                      v-if="formData.color.toLowerCase() === color.toLowerCase() && !showCustomColorPicker"
+                      :icon="Tick01Icon"
+                      :size="10"
+                      class="text-white"
+                    />
+                  </button>
 
-                <!-- Tipo -->
-                <div class="space-y-2">
-                  <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">Tipo</label>
-                  <div class="flex p-1 bg-slate-100/50 dark:bg-white/5 rounded-[12px] border border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                    <button type="button" @click="changeTipo(1)"
-                      class="flex-1 flex items-center justify-center py-2 transition-all duration-300"
-                      :class="formData.tipo === 1
-                        ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
-                        : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
-                      <HugeiconsIcon :icon="CircleIcon" :size="16" :stroke-width="2" />
-                    </button>
-                    <button type="button" @click="changeTipo(2)"
-                      class="flex-1 flex items-center justify-center py-2 transition-all duration-300"
-                      :class="formData.tipo === 2
-                        ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
-                        : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
-                      <HugeiconsIcon :icon="SquareIcon" :size="16" :stroke-width="2" />
-                    </button>
+                  <!-- "Otros" (Custom Color Picker Button) -->
+                  <button
+                    type="button"
+                    :disabled="isSubmitting"
+                    @click="selectOtros"
+                    class="h-6 px-2.5 rounded-full border text-[11px] font-bold transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none flex items-center gap-1.5"
+                    :class="[
+                      showCustomColorPicker
+                        ? 'bg-gradient-to-b from-[#3b82f6] to-[#2563eb] border-[#2563eb] text-white shadow-sm'
+                        : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
+                    ]"
+                  >
+                    <span>Otros</span>
+                    <span 
+                      v-if="showCustomColorPicker" 
+                      class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
+                      :style="{ backgroundColor: formData.color }"
+                    ></span>
+                  </button>
+
+                  <!-- Color Input (visible only when showCustomColorPicker is true) -->
+                  <div v-if="showCustomColorPicker" class="flex items-center gap-2 ml-auto">
+                    <input
+                      ref="colorInputRef"
+                      type="color"
+                      v-model="formData.color"
+                      :disabled="isSubmitting"
+                      class="w-8 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0"
+                    />
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase select-none font-mono">
+                      {{ formData.color }}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <!-- Sección de Trazado -->
-              <div class="p-4 rounded-[14px] border border-slate-200/80 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02] space-y-4">
-                <div class="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
-                  <div class="flex items-center gap-2.5">
-                    <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6]" />
-                    <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Trazado en Mapa</span>
-                  </div>
-                  <button @click="clearParadas" class="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-wider transition-colors">Limpiar</button>
-                </div>
-
-                <div v-if="formData.tipo === 1" class="space-y-6 animate-fade-in">
-                  <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Haz clic en el mapa para establecer el centro o <span class="text-[#3b82f6] font-bold">arrastra el controlador blanco</span> en el borde del círculo para ajustar el radio.
-                  </p>
-                  
-                  <div class="relative pt-2 pb-4">
-                    <div class="flex items-center justify-between mb-5">
-                      <div class="flex flex-col">
-                        <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-1">Dimensión del Radio</span>
-                        <div class="flex items-baseline gap-1.5">
-                          <input 
-                            type="number" 
-                            v-model.number="radius" 
-                            min="1" 
-                            max="5000"
-                            class="w-24 bg-transparent border-none p-0 text-3xl font-bold text-[#3b82f6] dark:text-[#5da6fc] tracking-tighter leading-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                          <span class="text-[11px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-wider">Metros</span>
-                        </div>
-                      </div>
-                      
-                      <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 dark:bg-[#3b82f6]/5 flex items-center justify-center border border-[#3b82f6]/20 dark:border-[#3b82f6]/10 shadow-inner">
-                         <HugeiconsIcon :icon="CircleIcon" :size="18" class="text-[#3b82f6] animate-pulse" />
-                      </div>
-                    </div>
-
-                    <!-- Control Deslizante (Slider) Personalizado -->
-                    <div class="group relative h-10 flex items-center px-1">
-                      <!-- Fondo de la pista -->
-                      <div class="absolute inset-x-0 h-2 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                        <!-- Pista activa -->
-                        <div 
-                          class="h-full bg-[#3b82f6] rounded-full transition-all duration-300" 
-                          :style="{ width: (radius / 5000 * 100) + '%' }"
-                        ></div>
-                      </div>
-
-                      <!-- Rango nativo oculto -->
-                      <input 
-                        type="range" 
-                        v-model.number="radius" 
-                        min="1" 
-                        max="5000" 
-                        step="1" 
-                        class="absolute inset-x-0 w-full h-full opacity-0 cursor-pointer z-10" 
-                      />
-
-                      <!-- Botón deslizante personalizado -->
-                      <div 
-                        class="absolute w-6 h-6 bg-white dark:bg-[#1A1D24] border-[4px] border-[#3b82f6] rounded-full shadow-[0_4px_10px_rgba(59,130,246,0.2)] transition-all duration-100 pointer-events-none z-[5] flex items-center justify-center"
-                        :style="{ left: `calc(${(radius / 5000 * 100)}% - 12px)` }"
-                      >
-                        <div class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-ping"></div>
-                        
-                        <!-- Etiqueta flotante (Tooltip) -->
-                        <div class="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-bold rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 whitespace-nowrap shadow-md flex items-center gap-1.5">
-                          <HugeiconsIcon :icon="PaintBrush01Icon" :size="10" />
-                          {{ radius }}m
-                          <div class="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900 dark:border-t-white"></div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div class="flex justify-between mt-3 px-1">
-                      <span class="text-[9px] font-bold text-slate-300 dark:text-slate-600">1M</span>
-                      <span class="text-[9px] font-bold text-slate-300 dark:text-slate-600">5000M</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-else class="space-y-3 animate-fade-in">
-                  <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Haz clic en el mapa para añadir vértices. Puedes <span class="text-[#3b82f6] font-bold">arrastrar los números</span> para moverlos, o <span class="text-red-400 font-bold">hacerles clic para eliminarlos</span>.
-                  </p>
-                  <div class="flex flex-wrap gap-2">
-                    <div v-for="(_, i) in paradas" :key="i" class="w-7 h-7 rounded-lg bg-[#3b82f6] text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
-                      {{ i + 1 }}
-                    </div>
-                    <div v-if="paradas.length < 3" class="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-[9px] font-bold uppercase tracking-wider">
-                      Mínimo 3 puntos
-                    </div>
-                  </div>
+              <!-- Tipo de Geocerca -->
+              <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Tipo de Geocerca</label>
+                <div class="flex p-1 bg-slate-100/50 dark:bg-white/5 rounded-[12px] border border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                  <button type="button" @click="changeTipo(1)"
+                    class="flex-1 flex items-center justify-center gap-2 py-2 transition-all duration-300 font-bold text-[11px] uppercase tracking-wider"
+                    :class="formData.tipo === 1
+                      ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
+                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
+                    <HugeiconsIcon :icon="CircleIcon" :size="14" :stroke-width="2.5" />
+                    <span>Circular</span>
+                  </button>
+                  <button type="button" @click="changeTipo(2)"
+                    class="flex-1 flex items-center justify-center gap-2 py-2 transition-all duration-300 font-bold text-[11px] uppercase tracking-wider"
+                    :class="formData.tipo === 2
+                      ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
+                      : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
+                    <HugeiconsIcon :icon="SquareIcon" :size="14" :stroke-width="2.5" />
+                    <span>Poligonal</span>
+                  </button>
                 </div>
               </div>
+
+
 
             </div>
           </div>
@@ -659,7 +755,6 @@ const clearParadas = () => {
 
         </div>
       </div>
-
     </div>
   </div>
 </template>
@@ -701,4 +796,11 @@ input[type="range"]::-webkit-slider-thumb {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.loader-fade-enter-active, .loader-fade-leave-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.loader-fade-enter-from, .loader-fade-leave-to {
+  opacity: 0;
+}
 </style>

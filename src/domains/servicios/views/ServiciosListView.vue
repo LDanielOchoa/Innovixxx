@@ -29,6 +29,7 @@ import { fetchRutasApi } from '../../rutas/services/rutas.api'
 import type { Ruta } from '../../rutas/types/ruta'
 import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
 import type { Escolta } from '../../escoltas/types/escolta'
+import * as XLSX from 'xlsx'
 
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
@@ -62,7 +63,7 @@ const obtenerNombreRuta = (id: string): string => {
 
 const obtenerNombreVehiculo = (id: string): string => {
   const v = catalogoVehiculos.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.nombre} (${v.placa})` : id
+  return v ? `${v.placa} (${v.tipo})` : id
 }
 
 const obtenerNombreHardware = (id: string): string => {
@@ -73,6 +74,11 @@ const obtenerNombreHardware = (id: string): string => {
 const obtenerNombreEscolta = (id: string): string => {
   const e = escoltas.value.find(item => item.id_escolta === id)
   return e ? e.nombre : id
+}
+
+const obtenerCelularEscolta = (id: string): string => {
+  const e = escoltas.value.find(item => item.id_escolta === id)
+  return e && e.celular ? e.celular : ''
 }
 
 const currentPage = ref(1)
@@ -335,7 +341,7 @@ const fetchFiltrosData = async () => {
     const [rutasData, escoltasData, vehiculosData, hardwareData] = await Promise.all([
       fetchRutasApi(selectedGroup.value.id),
       fetchEscoltasApi(selectedGroup.value.id),
-      fetchVehiculosSimplesApi(selectedGroup.value.id),
+      fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0)
     ])
     rutas.value = rutasData
@@ -377,6 +383,23 @@ const filteredServicios = computed(() => {
     s.modo_fin?.toLowerCase().includes(query)
   )
 })
+
+const exportToExcel = () => {
+  const dataToExport = filteredServicios.value.map(s => ({
+    'ID Servicio': s.id_servicio,
+    'Fecha Inicio': formatDate(s.fecha_inicio),
+    'Modo Fin': s.modo_fin || '---',
+    'Alcance': s.alcance || 'ND',
+    'Nivel Riesgo': s.nivel_riesgo || 'ND',
+    'Rutas': (s.rutas || []).map((rId: string) => obtenerNombreRuta(rId)).join(', '),
+    'Escoltas': (s.escoltas || []).map((eId: string) => obtenerNombreEscolta(eId)).join(', '),
+    'Estado': s.estado || '---'
+  }))
+  const worksheet = XLSX.utils.json_to_sheet(dataToExport)
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios')
+  XLSX.writeFile(workbook, 'Listado_Servicios.xlsx')
+}
 
 // Watcher de filtros para recargar automáticamente al cambiar cualquier parámetro
 watch(filtros, () => {
@@ -429,52 +452,34 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="p-4 md:p-6 animate-fade-in">
+  <div class="p-4 md:p-8 space-y-8 animate-fade-in">
     <!-- Page Header -->
     <PageHeader 
       :title="t('servicios.title')" 
       :count="filteredServicios.length" 
       :icon="Calendar01Icon"
-    >
-      <template #actions>
-        <button 
-          @click="openModal('create')"
-          class="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-sm transition-all shadow-sm shadow-blue-950/10"
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          <span>{{ t('servicios.btnNew') }}</span>
-        </button>
-        <button class="w-11 h-11 flex items-center justify-center rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all">
-          <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
-        </button>
-      </template>
-    </PageHeader>
+    />
 
-    <!-- Barra de Filtros Premium Bento-Glass -->
-    <div class="relative z-30 mt-4 mb-6 flex flex-col lg:flex-row lg:items-center gap-4 bg-gradient-to-r from-slate-50/90 to-white/90 dark:from-[#13161C]/70 dark:to-[#161920]/70 backdrop-blur-xl p-4 rounded-[1.75rem] border border-slate-200/50 dark:border-white/[0.06] shadow-[0_12px_40px_rgba(0,0,0,0.03)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
-      
-      <!-- Búsqueda Integrada Inline (Misma Altura y Estilo que DatePicker) -->
-      <div class="w-full lg:w-72 relative shrink-0">
-        <input
-          v-model="searchQuery"
-          type="text"
-          :placeholder="t('servicios.searchPlaceholder')"
-          class="w-full pl-10 pr-4 py-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl text-sm font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[44px]"
-        />
-        <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none flex items-center">
-          <HugeiconsIcon :icon="Search01Icon" :size="16" />
+    <!-- Toolbar: Buscador y Filtros (izquierda) + Botones (derecha) -->
+    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+      <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
+        <!-- Buscador -->
+        <div class="relative w-full sm:w-80">
+          <input
+            v-model="searchQuery"
+            type="text"
+            :placeholder="t('servicios.searchPlaceholder')"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
+          />
+          <div class="absolute left-3.5 top-3 text-slate-400 pointer-events-none transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+          </div>
         </div>
-      </div>
 
-      <div class="hidden lg:block w-px bg-slate-200/60 dark:bg-white/5 self-stretch my-1 shrink-0"></div>
-
-      <!-- Filtros Secundarios Agrupados en fila -->
-      <div class="flex flex-wrap items-center gap-3 flex-1">
-        
-        <!-- Rango de Fechas (Alineado con h-[44px]) -->
-        <div class="w-full sm:w-auto min-w-[240px] h-[44px] flex items-center">
+        <!-- Rango de Fechas -->
+        <div class="w-full sm:w-auto min-w-[240px] h-[38px] flex items-center date-picker-container">
           <AppDateRangePicker
             v-model="fechaRango"
             label=""
@@ -483,19 +488,17 @@ onUnmounted(() => {
           />
         </div>
 
-        <div class="hidden lg:block w-px bg-slate-200/60 dark:bg-white/5 self-stretch my-1 shrink-0"></div>
-
         <!-- Ruta Dropdown -->
         <div ref="rutaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('ruta')"
-            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
-            :class="filtros.id_ruta !== 'all' ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtros.id_ruta !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
-            <HugeiconsIcon :icon="Route01Icon" :size="16" class="opacity-70" />
+            <HugeiconsIcon :icon="Route01Icon" :size="14" class="opacity-70" />
             <span class="truncate flex-1 text-left">{{ getRutaLabel() }}</span>
             <span v-if="filtros.id_ruta !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
-            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'ruta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <svg class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'ruta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -503,7 +506,7 @@ onUnmounted(() => {
           <Transition name="custom-dropdown">
             <div
               v-if="activeDropdown === 'ruta'"
-              class="absolute left-0 z-50 mt-1.5 w-[260px] bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+              class="absolute left-0 z-50 mt-1.5 w-[260px] bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar"
             >
               <button
                 @click="selectRuta('all')"
@@ -535,13 +538,13 @@ onUnmounted(() => {
         <div ref="escoltaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('escolta')"
-            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
-            :class="filtros.id_escolta !== 'all' ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtros.id_escolta !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
-            <HugeiconsIcon :icon="User02Icon" :size="16" class="opacity-70" />
+            <HugeiconsIcon :icon="User02Icon" :size="14" class="opacity-70" />
             <span class="truncate flex-1 text-left">{{ getEscoltaLabel() }}</span>
             <span v-if="filtros.id_escolta !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
-            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'escolta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <svg class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'escolta' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -549,7 +552,7 @@ onUnmounted(() => {
           <Transition name="custom-dropdown">
             <div
               v-if="activeDropdown === 'escolta'"
-              class="absolute left-0 right-0 z-50 mt-1.5 bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+              class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar"
             >
               <button
                 @click="selectEscolta('all')"
@@ -581,13 +584,13 @@ onUnmounted(() => {
         <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('estado')"
-            class="w-full flex items-center gap-2.5 bg-slate-50/50 dark:bg-[#0A0C10]/50 border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-white/5 transition-all h-[44px] cursor-pointer select-none"
-            :class="filtros.estado !== 1 ? 'border-[#3b82f6] dark:border-[#5da6fc] text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtros.estado !== 1 ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
-            <HugeiconsIcon :icon="Edit01Icon" :size="16" class="opacity-70" />
+            <HugeiconsIcon :icon="Edit01Icon" :size="14" class="opacity-70" />
             <span class="truncate flex-1 text-left">{{ getEstadoLabel() }}</span>
             <span v-if="filtros.estado !== 1" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
-            <svg class="w-4 h-4 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'estado' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'estado' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -595,7 +598,7 @@ onUnmounted(() => {
           <Transition name="custom-dropdown">
             <div
               v-if="activeDropdown === 'estado'"
-              class="absolute left-0 right-0 z-50 mt-1.5 bg-white/95 dark:bg-[#1A1D24]/95 border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-[0_15px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.4)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar backdrop-blur-xl"
+              class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar"
             >
               <button
                 v-for="opt in estadoOptions"
@@ -617,18 +620,39 @@ onUnmounted(() => {
         <button
           v-if="tieneFiltrosActivos"
           @click="limpiarFiltros"
-          class="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-[12px] font-bold h-[44px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-xs font-bold h-[38px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
         >
           <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
           <span>Limpiar</span>
         </button>
-
       </div>
 
+      <!-- Derecha: Botones Exportar y Nuevo Servicio -->
+      <div class="flex items-center gap-3 w-full xl:w-auto justify-start xl:justify-end shrink-0">
+        <button 
+          @click="exportToExcel"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all h-[38px]"
+        >
+          <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+          <span>Exportar Excel</span>
+        </button>
+
+        <button 
+          @click="openModal('create')"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10 h-[38px]"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>{{ t('servicios.btnNew') }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- Tabla -->
-    <AppTableCard class="mt-2">
+    <AppTableCard>
       <AppTable
         :value="filteredServicios"
         :loading="isLoading"
@@ -663,7 +687,7 @@ onUnmounted(() => {
         <Column field="alcance" :header="t('servicios.thScope', 'Alcance')" sortable>
           <template #body="{ data }">
             <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
-              :class="data.alcance === 'ND'
+               :class="data.alcance === 'ND'
                 ? 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'
                 : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'">
               {{ data.alcance || 'ND' }}
@@ -680,48 +704,51 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <!-- Columnas con Tooltips via Teleport -->
-        <Column :header="'Rutas'">
+        <!-- Columna Única de Asignaciones Consolidada -->
+        <Column :header="'Asignaciones'">
           <template #body="{ data }">
-            <div
-              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
-              @mouseenter="mostrarTooltip($event, data, 'rutas')"
-              @mouseleave="ocultarTooltip"
-            >
-              <HugeiconsIcon :icon="Route01Icon" :size="14" class="text-slate-400" />
-              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
-                {{ (data.rutas || []).length }} {{ (data.rutas || []).length === 1 ? 'Ruta' : 'Rutas' }}
-              </span>
-            </div>
-          </template>
-        </Column>
+            <div class="flex items-center gap-2">
+              <!-- Botón Rutas -->
+              <button
+                class="w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-150 cursor-help"
+                :class="[
+                  (data.rutas || []).length > 0
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200/60 dark:border-blue-500/20 text-blue-500 dark:text-blue-400'
+                    : 'bg-slate-50/60 dark:bg-white/[0.02] border-slate-100/60 dark:border-white/[0.03] text-slate-350 dark:text-slate-600'
+                ]"
+                @mouseenter="mostrarTooltip($event, data, 'rutas')"
+                @mouseleave="ocultarTooltip"
+              >
+                <HugeiconsIcon :icon="Route01Icon" :size="13" :stroke-width="2.5" />
+              </button>
 
-        <Column :header="'Vehículos'">
-          <template #body="{ data }">
-            <div
-              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
-              @mouseenter="mostrarTooltip($event, data, 'vehiculos')"
-              @mouseleave="ocultarTooltip"
-            >
-              <HugeiconsIcon :icon="Car01Icon" :size="14" class="text-slate-400" />
-              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
-                {{ Object.keys(data.vehiculos || {}).length }} {{ Object.keys(data.vehiculos || {}).length === 1 ? 'Vehículo' : 'Vehículos' }}
-              </span>
-            </div>
-          </template>
-        </Column>
+              <!-- Botón Vehículos -->
+              <button
+                class="w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-150 cursor-help"
+                :class="[
+                  Object.keys(data.vehiculos || {}).length > 0
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200/60 dark:border-blue-500/20 text-blue-500 dark:text-blue-400'
+                    : 'bg-slate-50/60 dark:bg-white/[0.02] border-slate-100/60 dark:border-white/[0.03] text-slate-350 dark:text-slate-600'
+                ]"
+                @mouseenter="mostrarTooltip($event, data, 'vehiculos')"
+                @mouseleave="ocultarTooltip"
+              >
+                <HugeiconsIcon :icon="Car01Icon" :size="13" :stroke-width="2.5" />
+              </button>
 
-        <Column :header="'Escoltas'">
-          <template #body="{ data }">
-            <div
-              class="flex items-center gap-1.5 cursor-help hover:text-[#5da6fc] transition-colors py-1"
-              @mouseenter="mostrarTooltip($event, data, 'escoltas')"
-              @mouseleave="ocultarTooltip"
-            >
-              <HugeiconsIcon :icon="User02Icon" :size="14" class="text-slate-400" />
-              <span class="text-[12px] font-medium text-slate-700 dark:text-slate-300">
-                {{ (data.escoltas || []).length }} {{ (data.escoltas || []).length === 1 ? 'Escolta' : 'Escoltas' }}
-              </span>
+              <!-- Botón Escoltas -->
+              <button
+                class="w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-150 cursor-help"
+                :class="[
+                  (data.escoltas || []).length > 0
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200/60 dark:border-blue-500/20 text-blue-500 dark:text-blue-400'
+                    : 'bg-slate-50/60 dark:bg-white/[0.02] border-slate-100/60 dark:border-white/[0.03] text-slate-350 dark:text-slate-600'
+                ]"
+                @mouseenter="mostrarTooltip($event, data, 'escoltas')"
+                @mouseleave="ocultarTooltip"
+              >
+                <HugeiconsIcon :icon="User02Icon" :size="13" :stroke-width="2.5" />
+              </button>
             </div>
           </template>
         </Column>
@@ -815,7 +842,7 @@ onUnmounted(() => {
                   <template v-if="(tooltipData.escoltas || []).length > 0">
                     <div v-for="eId in tooltipData.escoltas" :key="eId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
                       <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}</span>
+                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}<span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 font-normal ml-1">({{ obtenerCelularEscolta(eId) }})</span></span>
                     </div>
                   </template>
                   <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin escoltas asignados</div>
@@ -878,13 +905,12 @@ onUnmounted(() => {
         </Transition>
       </Teleport>
 
-      <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
-        <AppPagination
-          :totalRecords="filteredServicios.length"
-          v-model:currentPage="currentPage"
-          :rowsPerPage="itemsPerPage"
-        />
-      </div>
+      <!-- Paginador -->
+      <AppPagination
+        :totalRecords="filteredServicios.length"
+        v-model:currentPage="currentPage"
+        :rowsPerPage="itemsPerPage"
+      />
     </AppTableCard>
 
     <ServicioCreateModal
@@ -1007,14 +1033,16 @@ select {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 
 /* Forzar la alineación y altura del date picker button al mismo tamaño de la barra de filtros */
-:deep(.group\/input) {
-  height: 44px !important;
+.date-picker-container :deep(button) {
+  height: 38px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
-  font-size: 0.875rem !important; /* text-sm */
-  border-color: rgba(226, 232, 240, 0.6) !important; /* border-slate-200/60 en claro */
+  font-size: 0.75rem !important; /* text-xs */
+  background-color: transparent !important;
+  border-color: rgba(226, 232, 240, 0.7) !important; /* border-slate-200/70 en claro */
 }
-:global(.dark) :deep(.group\/input) {
-  border-color: rgba(255, 255, 255, 0.05) !important; /* border-white/5 en oscuro */
+:global(.dark) .date-picker-container :deep(button) {
+  background-color: rgba(19, 22, 28, 0.7) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important; /* border-white/[0.08] en oscuro */
 }
 </style>

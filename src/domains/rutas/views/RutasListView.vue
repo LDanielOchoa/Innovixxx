@@ -12,7 +12,8 @@ import {
   Location01Icon,
   Alert01Icon,
   Calendar01Icon,
-  CpuIcon
+  CpuIcon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { fetchRutasApi, setRutaEstadoApi, fetchRutaDetallesApi, fetchTiposParadaApi } from '../services/rutas.api'
@@ -28,7 +29,7 @@ import { useMapSetup } from '../../../composables/useMapSetup'
 import { useParadasManager } from '../composables/useParadasManager'
 import { useRouteDrawer } from '../composables/useRouteDrawer'
 import AppButton from '../../../components/ui/AppButton.vue'
-import AppSearch from '../../../components/ui/AppSearch.vue'
+import AppInput from '../../../components/ui/AppInput.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
@@ -59,7 +60,7 @@ const showModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 
 
 const sortKey = ref<keyof Ruta>('nombre')
 const sortOrder = ref<'asc' | 'desc'>('asc')
-const currentPage = ref(1)
+const currentPage = ref(typeof route.query.page === 'string' ? parseInt(route.query.page, 10) || 1 : 1)
 const itemsPerPage = 10
 const totalPages = computed(() => Math.max(1, Math.ceil(filteredRutas.value.length / itemsPerPage)))
 
@@ -69,6 +70,15 @@ const syncStateToUrl = () => {
   if (currentPage.value > 1) nextQuery.page = String(currentPage.value)
   void router.replace({ query: nextQuery })
 }
+
+watch(searchQuery, () => {
+  currentPage.value = 1
+  syncStateToUrl()
+})
+
+watch(currentPage, () => {
+  syncStateToUrl()
+})
 
 const fetchRutas = async () => {
   if (!selectedGroup.value?.id) {
@@ -210,13 +220,6 @@ const onRowClick = async (ruta: Ruta) => {
   try {
     const detalle = await fetchRutaDetallesApi(selectedGroup.value.id, ruta.id_ruta)
     
-    // Alejar la cámara para ganar perspectiva
-    const currentZoom = map.value.getZoom()
-    if (currentZoom > 11) {
-      map.value.setZoom(11)
-      await new Promise(resolve => setTimeout(resolve, 400)) // Esperar la animación del zoom nativo
-    }
-
     if (detalle && detalle.paradas && detalle.paradas.length > 0) {
       activeRouteColor.value = detalle.color || '#60a5fa'
       paradasTemporales.value = detalle.paradas.map(p => ({
@@ -229,14 +232,11 @@ const onRowClick = async (ruta: Ruta) => {
       redrawMarkers()
       drawFullRoute(paradasTemporales.value, activeRouteColor.value)
       
-      // Calculamos bounds y centro
+      // Calculamos bounds e instantáneamente los aplicamos
       const bounds = new (window as any).google.maps.LatLngBounds()
       paradasTemporales.value.forEach(p => bounds.extend({ lat: p.lat, lng: p.lon }))
       
-      const targetLatLng = bounds.getCenter()
-      
-      // Vuelo cinemático
-      await flyToMap(map.value, targetLatLng, 15, bounds)
+      map.value.fitBounds(bounds)
     }
   } catch(e) {
     console.error('Error fetching ruta detalles:', e)
@@ -245,8 +245,22 @@ const onRowClick = async (ruta: Ruta) => {
   }
 }
 
+const openMenuRutaId = ref<string | null>(null)
+const toggleMenu = (rutaId: string, event: Event) => {
+  event.stopPropagation()
+  if (openMenuRutaId.value === rutaId) {
+    openMenuRutaId.value = null
+  } else {
+    openMenuRutaId.value = rutaId
+  }
+}
+const closeAllMenus = () => {
+  openMenuRutaId.value = null
+}
+
 onMounted(async () => {
   startDarkModeObserver()
+  window.addEventListener('click', closeAllMenus)
 
   // Cargar tipos de parada para poder mapear los marcadores
   if (tiposParada.value.length === 0) {
@@ -265,6 +279,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('click', closeAllMenus)
   // Cleanup handled by useMapSetup onUnmounted
 })
 
@@ -365,6 +380,7 @@ const openGpsModal = async () => {
   selectedHardwareId.value = ''
   fechaDesde.value = null
   fechaHasta.value = null
+  modalMessage.value = null
   if (!selectedGroup.value?.id) return
   
   loadingHardware.value = true
@@ -412,7 +428,7 @@ const trazarRutaGps = async () => {
       isGpsModalOpen.value = false
       router.push('/rutas/nueva?gps=true')
     } else {
-      showModalMessage('No se encontraron posiciones GPS para el rango de fechas seleccionado', 'warning')
+      showModalMessage('No hay puntos de ruta para el rango seleccionado para ese dispositivo', 'warning')
     }
   } catch (error) {
     console.error('Error al obtener posiciones GPS:', error)
@@ -465,36 +481,22 @@ const trazarRutaGps = async () => {
 
 
 
-      <!-- Overlay Carga Detalles (High-Impact Design) -->
+      <!-- Overlay Carga Detalles -->
       <Transition name="fade-overlay">
         <div 
           v-if="isLoadingRouteDetails" 
-          class="absolute inset-0 z-[20] flex items-center justify-center bg-slate-900/10 backdrop-blur-[2px] pointer-events-none"
+          class="absolute inset-0 z-[20] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300 pointer-events-none"
         >
-          <!-- Grid Background Effect -->
-          <div class="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_10%,transparent_100%)] animate-[pulse_4s_ease-in-out_infinite]"></div>
-
-          <div class="relative group flex flex-col items-center">
-            <!-- Central Radar Scanner -->
-            <div class="relative w-40 h-40 flex items-center justify-center">
-              <div class="absolute inset-0 border-2 border-[#3b82f6]/20 rounded-full animate-[ping_3s_infinite]"></div>
-              <div class="absolute inset-4 border border-[#3b82f6]/30 rounded-full animate-[ping_2s_infinite]"></div>
-              <div class="absolute inset-0 border-t-2 border-l-2 border-[#3b82f6] rounded-full animate-spin [animation-duration:1.5s]"></div>
-              
-              <!-- Core Icon -->
-              <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center text-white shadow-[0_0_50px_rgba(59,130,246,0.5)] border border-white/20 transform rotate-45 group-hover:rotate-0 transition-transform duration-700">
-                <HugeiconsIcon :icon="Route01Icon" :size="36" :stroke-width="1.5" class="-rotate-45 group-hover:rotate-0 transition-transform duration-700" />
-              </div>
-            </div>
-
-            <!-- Text Content -->
-            <div class="mt-8 text-center">
-              <div class="flex flex-col items-center gap-1">
-                <p class="text-[14px] font-black text-slate-800 dark:text-white uppercase tracking-[0.5em] leading-none [text-shadow:0_0_20px_rgba(59,130,246,0.3)]">Cargando...</p>
-                <div class="h-0.5 w-24 bg-gradient-to-r from-transparent via-[#3b82f6] to-transparent mt-3 overflow-hidden">
-                  <div class="h-full bg-white w-full animate-[scan-line_2s_infinite]"></div>
-                </div>
-              </div>
+          <div class="relative">
+            <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+            <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+          </div>
+          <div class="mt-5 flex flex-col items-center">
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cargando Trayectoria...</span>
+            <div class="flex gap-1">
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
             </div>
           </div>
         </div>
@@ -542,7 +544,7 @@ const trazarRutaGps = async () => {
                 </button>
                 <!-- Botón Registrar por GPS Plano -->
                 <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openGpsModal"
-                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-emerald-600 hover:bg-emerald-500 text-white active:scale-[0.97] transition-all duration-200"
+                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
                   title="Registrar por GPS">
                   <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" />
                 </button>
@@ -557,7 +559,7 @@ const trazarRutaGps = async () => {
  
             <!-- Search -->
             <div class="relative mt-4">
-              <AppSearch v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" />
+              <AppInput v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" :icon="Search01Icon" />
             </div>
           </div>
  
@@ -587,63 +589,83 @@ const trazarRutaGps = async () => {
                 v-for="ruta in paginatedRutas"
                 :key="ruta.id_ruta"
                 @click="onRowClick(ruta)"
-                class="group relative cursor-pointer rounded-[14px] transition-all duration-300 select-none border overflow-hidden"
-                :class="selectedRuta?.id_ruta === ruta.id_ruta
-                  ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.05)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_4px_12px_rgba(59,130,246,0.1)]'
-                  : 'bg-white/80 dark:bg-[#20242D]/40 border-slate-200/60 dark:border-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'"
+                class="group relative cursor-pointer rounded-xl transition-all duration-300 select-none border p-2.5 px-3.5 flex items-center justify-between gap-3"
+                :class="[
+                  selectedRuta?.id_ruta === ruta.id_ruta
+                    ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.05)]'
+                    : 'bg-white dark:bg-[#1E222B]/40 border-slate-200/60 dark:border-white/[0.04] hover:border-slate-300 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-[#232732]/70',
+                  openMenuRutaId === ruta.id_ruta ? 'z-30' : 'z-10'
+                ]"
               >
-                <!-- Barra lateral activa -->
-                <div
-                  class="absolute left-0 top-0 bottom-0 w-[3px] bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-200"
-                  :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'opacity-100' : 'opacity-0'"
-                ></div>
- 
-                <div class="p-2.5 pl-3.5 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                    <!-- LED de estado -->
-                    <span
-                      class="w-2 h-2 rounded-full shrink-0"
-                      :class="ruta.estado === 'Habilitada' ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]' : 'bg-slate-400'"
-                      :title="ruta.estado === 'Habilitada' ? $t('rutas.statusEnabled') : $t('rutas.statusDisabled')"
-                    ></span>
- 
-                    <!-- Info -->
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center gap-1.5">
-                        <h3
-                          class="text-[12px] font-semibold uppercase tracking-tight truncate transition-colors duration-200"
-                          :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
-                        >{{ ruta.nombre }}</h3>
-                        <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono shrink-0">({{ ruta.id_ruta }})</span>
-                      </div>
-                      <p class="text-[11px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                        {{ ruta.descripcion || 'Sin descripción' }}
-                      </p>
+                <!-- Glow Effect background -->
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.04),transparent_60%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+                <!-- Content container -->
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2">
+                      <h3
+                        class="text-[12px] font-bold uppercase tracking-tight truncate transition-colors duration-200"
+                        :class="selectedRuta?.id_ruta === ruta.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
+                      >
+                        {{ ruta.nombre }}
+                      </h3>
+                      <!-- Status Text Badge -->
+                      <span
+                        class="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none select-none tracking-wide"
+                        :class="ruta.estado === 'Habilitada'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'"
+                      >
+                        {{ ruta.estado === 'Habilitada' ? 'Activo' : 'Inactiva' }}
+                      </span>
                     </div>
+                    <p class="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-1">
+                      {{ ruta.descripcion || 'Sin descripción' }}
+                    </p>
                   </div>
- 
-                  <!-- Botones de Acción (Visibles en hover) -->
-                  <div class="flex items-center gap-1 shrink-0 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <!-- Botón Editar Plano -->
-                    <button
-                      v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
-                      @click.stop="openEditModal(ruta)"
-                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all"
-                      :title="$t('rutas.tooltipEdit')"
+                </div>
+
+                <!-- Actions block (Three Dots Menu) -->
+                <div class="relative shrink-0 z-20">
+                  <button
+                    type="button"
+                    @click.stop="toggleMenu(ruta.id_ruta, $event)"
+                    class="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-[#11141A] border border-slate-200/60 dark:border-white/5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-slate-350 dark:hover:border-white/20 transition-all duration-200"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+
+                  <!-- Dropdown Menu -->
+                  <Transition name="menu-fade">
+                    <div
+                      v-if="openMenuRutaId === ruta.id_ruta"
+                      class="absolute right-0 mt-1.5 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      @click.stop
                     >
-                      <HugeiconsIcon :icon="Edit02Icon" :size="12" :stroke-width="2" />
-                    </button>
- 
-                    <!-- Botón Estado Plano -->
-                    <button
-                      v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
-                      @click.stop="toggleRutaEstado(ruta)"
-                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all"
-                      :title="ruta.estado === 'Habilitada' ? $t('rutas.tooltipDisable') : $t('rutas.tooltipEnable')"
-                    >
-                      <HugeiconsIcon :icon="Settings02Icon" :size="12" :stroke-width="2" />
-                    </button>
-                  </div>
+                      <button
+                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
+                        @click.stop="openEditModal(ruta); openMenuRutaId = null"
+                        class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <HugeiconsIcon :icon="Edit02Icon" :size="12" class="text-slate-400" />
+                        Editar
+                      </button>
+
+                      <button
+                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
+                        @click.stop="toggleRutaEstado(ruta); openMenuRutaId = null"
+                        class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <HugeiconsIcon :icon="Settings02Icon" :size="12" class="text-slate-400" />
+                        {{ ruta.estado === 'Habilitada' ? 'Deshabilitar' : 'Habilitar' }}
+                      </button>
+                    </div>
+                  </Transition>
                 </div>
               </div>
             </template>
@@ -714,6 +736,18 @@ const trazarRutaGps = async () => {
             <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
           </div>
         </Transition>
+
+        <!-- Message -->
+        <div v-if="modalMessage"
+             class="flex items-center gap-2.5 p-3 px-4 rounded-xl border text-[11px] font-bold transition-all duration-300"
+             :class="{
+               'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
+               'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
+               'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+             }">
+          <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+          {{ modalMessage.text }}
+        </div>
 
         <!-- Dispositivo GPS -->
         <AppSelect
@@ -804,5 +838,13 @@ const trazarRutaGps = async () => {
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
+}
+
+.menu-fade-enter-active, .menu-fade-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.menu-fade-enter-from, .menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.95);
 }
 </style>

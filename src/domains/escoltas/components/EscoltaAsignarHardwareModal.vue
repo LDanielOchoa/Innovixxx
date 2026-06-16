@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   CpuIcon,
@@ -8,7 +8,7 @@ import {
   Tick01Icon,
   Loading03Icon,
   User02Icon,
-  ArrowDown01Icon
+  Alert01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { asignarHardwareEscoltaApi } from '../services/escoltas.api'
@@ -16,8 +16,12 @@ import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import type { Escolta } from '../types/escolta'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
+import { useToast } from 'primevue/usetoast'
+import { useI18n } from 'vue-i18n'
 
 const groupStore = useGroupStore()
+const toast = useToast()
+const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
@@ -28,7 +32,6 @@ const emit = defineEmits(['update:isOpen', 'assigned'])
 
 const isInitializing = ref(true)
 const asignando = ref(false)
-const isSuccess = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const hardwareList = ref<HardwareSimple[]>([])
@@ -57,7 +60,6 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
-    isSuccess.value = false
     asignando.value = false
     modalMessage.value = null
     selectedHardwareId.value = null
@@ -82,6 +84,7 @@ watch(() => props.isOpen, async (isOpen) => {
 })
 
 const selectHardware = (id: string) => {
+  if (asignando.value) return
   selectedHardwareId.value = id
 }
 
@@ -106,8 +109,14 @@ const handleAsignar = async () => {
       id_hardware: selectedHardwareId.value
     })
     if (data.done) {
-      isSuccess.value = true
+      toast.add({
+        severity: 'success',
+        summary: t('escoltas.alertSuccessAssignHardwareTitle', 'Hardware Asignado'),
+        detail: data.message || t('escoltas.alertSuccessAssignHardwareDetail', 'El dispositivo de hardware ha sido asignado exitosamente al escolta.'),
+        life: 4000
+      })
       emit('assigned')
+      handleClose()
     } else {
       showMessage(data.message || 'Error al asignar hardware', 'error')
     }
@@ -120,6 +129,7 @@ const handleAsignar = async () => {
 }
 
 const handleClose = () => {
+  if (asignando.value) return
   emit('update:isOpen', false)
 }
 </script>
@@ -130,10 +140,11 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleAsignar"
+    :close-on-click-outside="!asignando"
     title="Asignar Hardware al Escolta"
     :confirm-text="'Confirmar Asignación'"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -170,116 +181,115 @@ const handleClose = () => {
         </div>
       </div>
 
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
+      <div v-if="!isInitializing" class="animate-fade-in space-y-6">
+        <Transition name="message-fade">
+          <div v-if="modalMessage"
+               class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
+               :class="{
+                 'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
+                 'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
+                 'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+               }">
+            <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+            <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
+            {{ modalMessage.text }}
+          </div>
+        </Transition>
+
+        <div class="space-y-5">
+          <div class="flex items-center gap-3 bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-[#3b82f6]">
+              <HugeiconsIcon :icon="User02Icon" :size="18" />
+            </div>
+            <div>
+              <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Escolta</span>
+              <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ escolta?.nombre || '---' }}</p>
             </div>
           </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Hardware Asignado Correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            El dispositivo ha sido asignado exitosamente al escolta.
-          </p>
-          <div class="pt-4">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
-            </button>
-          </div>
-        </div>
 
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
-
-          <div class="space-y-5">
-            <div class="flex items-center gap-3 bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-3">
-              <div class="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-[#3b82f6]">
-                <HugeiconsIcon :icon="User02Icon" :size="18" />
-              </div>
-              <div>
-                <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Escolta</span>
-                <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ escolta?.nombre || '---' }}</p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-                Dispositivo de Hardware
-              </label>
-              <div class="relative">
-                <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2">
-                  <HugeiconsIcon :icon="Search01Icon" :size="16" class="text-slate-400 shrink-0" />
-                  <input
-                    v-model="hardwareSearchQuery"
-                    type="text"
-                    placeholder="Buscar por nombre o familia..."
-                    class="flex-1 bg-transparent border-none text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none"
-                  />
-                  <button
-                    v-if="hardwareSearchQuery"
-                    type="button"
-                    @click="hardwareSearchQuery = ''"
-                    class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
-                  >
-                    <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-              <button
-                v-for="h in filteredHardware"
-                :key="h.id_hardware"
-                type="button"
-                @click="selectHardware(h.id_hardware)"
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border"
-                :class="selectedHardwareId === h.id_hardware
-                  ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/30'
-                  : 'bg-slate-50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'"
-              >
-                <div
-                  class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
-                  :class="selectedHardwareId === h.id_hardware
-                    ? 'bg-[#3b82f6] shadow-[0_2px_6px_rgba(59,130,246,0.4)]'
-                    : 'border-2 border-slate-300 dark:border-slate-600'"
+          <div class="space-y-3">
+            <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
+              Dispositivo de Hardware
+            </label>
+            <div class="relative">
+              <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2" :class="{ 'opacity-60 cursor-not-allowed': asignando }">
+                <HugeiconsIcon :icon="Search01Icon" :size="16" class="text-slate-400 shrink-0" />
+                <input
+                  v-model="hardwareSearchQuery"
+                  type="text"
+                  placeholder="Buscar por nombre o familia..."
+                  :disabled="asignando"
+                  class="flex-1 bg-transparent border-none text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none disabled:cursor-not-allowed"
+                />
+                <button
+                  v-if="hardwareSearchQuery && !asignando"
+                  type="button"
+                  @click="hardwareSearchQuery = ''"
+                  class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
                 >
-                  <HugeiconsIcon v-if="selectedHardwareId === h.id_hardware" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
-                </div>
-                <div class="flex flex-col flex-1 min-w-0">
-                  <span class="text-[13px] font-semibold truncate" :class="selectedHardwareId === h.id_hardware ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200'">
-                    {{ h.nombre }}
-                  </span>
-                  <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ h.familia || 'Sin familia' }}</span>
-                </div>
-                <HugeiconsIcon :icon="CpuIcon" :size="16" class="shrink-0" :class="selectedHardwareId === h.id_hardware ? 'text-[#3b82f6]' : 'text-slate-400'" />
-              </button>
-              <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
-                <HugeiconsIcon :icon="CpuIcon" :size="32" class="opacity-30 mb-2" />
-                <span class="text-[12px] font-medium">Sin dispositivos disponibles</span>
+                  <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
+                </button>
               </div>
             </div>
           </div>
+
+          <div class="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+            <button
+              v-for="h in filteredHardware"
+              :key="h.id_hardware"
+              type="button"
+              :disabled="asignando"
+              @click="selectHardware(h.id_hardware)"
+              class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border disabled:opacity-60 disabled:cursor-not-allowed"
+              :class="selectedHardwareId === h.id_hardware
+                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/30'
+                : 'bg-slate-50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'"
+            >
+              <div
+                class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
+                :class="selectedHardwareId === h.id_hardware
+                  ? 'bg-[#3b82f6] shadow-[0_2px_6px_rgba(59,130,246,0.4)]'
+                  : 'border-2 border-slate-300 dark:border-slate-600'"
+              >
+                <HugeiconsIcon v-if="selectedHardwareId === h.id_hardware" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+              </div>
+              <div class="flex flex-col flex-1 min-w-0">
+                <span class="text-[13px] font-semibold truncate" :class="selectedHardwareId === h.id_hardware ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200'">
+                  {{ h.nombre }}
+                </span>
+                <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ h.familia || 'Sin familia' }}</span>
+              </div>
+              <HugeiconsIcon :icon="CpuIcon" :size="16" class="shrink-0" :class="selectedHardwareId === h.id_hardware ? 'text-[#3b82f6]' : 'text-slate-400'" />
+            </button>
+            <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
+              <HugeiconsIcon :icon="CpuIcon" :size="32" class="opacity-30 mb-2" />
+              <span class="text-[12px] font-medium">Sin dispositivos disponibles</span>
+            </div>
+          </div>
         </div>
-      </Transition>
+      </div>
     </div>
+
+    <template #footer>
+      <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
+        <button
+          type="button"
+          :disabled="asignando"
+          @click="handleClose"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          :disabled="asignando"
+          @click="handleAsignar"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+        >
+          Confirmar Asignación
+        </button>
+      </div>
+    </template>
   </AppModal>
 </template>
 

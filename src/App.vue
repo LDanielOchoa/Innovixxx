@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useThemeStore } from './stores/theme.store'
 import { storeToRefs } from 'pinia'
+import Toast from 'primevue/toast'
 
 // Initializes the singleton theme on app mount — applies .dark to <html>
 // This is the single source of truth for the rest of the app
@@ -8,6 +9,7 @@ useThemeStore()
 </script>
 
 <template>
+  <Toast />
   <router-view />
 </template>
 

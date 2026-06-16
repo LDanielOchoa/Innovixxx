@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useThemeStore } from '../../stores/theme.store'
@@ -18,6 +18,15 @@ import {
 } from '@hugeicons/core-free-icons'
 import logoImg from '../../assets/logo.png'
 
+declare global {
+  interface Window {
+    grecaptcha?: {
+      ready: (callback: () => void) => void
+      execute: (siteKey: string, options: { action: string }) => Promise<string>
+    }
+  }
+}
+
 const router = useRouter()
 const { t, locale } = useI18n()
 const lang = computed(() => locale.value)
@@ -31,6 +40,48 @@ const exitoMensaje = ref('')
 const errorMensaje = ref('')
 const urlRecuperacion = ref('')
 
+const recaptchaSiteKey = '6LcHvXMsAAAAAOeJeKmkj1zjpiWsOu__Po8Pu2lK'
+const recaptchaReady = ref(false)
+
+const cargarRecaptcha = () => {
+  if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+    recaptchaReady.value = true
+    return
+  }
+  if (document.querySelector(`script[src*="recaptcha/api.js"]`)) return
+  const script = document.createElement('script')
+  script.src = `https://www.google.com/recaptcha/api.js?render=${recaptchaSiteKey}`
+  script.async = true
+  script.defer = true
+  script.onload = () => {
+    if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+      recaptchaReady.value = true
+    }
+  }
+  document.head.appendChild(script)
+}
+
+const obtenerTokenRecaptcha = async () => {
+  if (!window.grecaptcha || typeof window.grecaptcha.execute !== 'function') {
+    throw new Error('reCAPTCHA no está disponible.')
+  }
+  return await new Promise<string>((resolve, reject) => {
+    window.grecaptcha!.ready(() => {
+      window.grecaptcha!.execute(recaptchaSiteKey, { action: 'recover_pass' })
+        .then(resolve)
+        .catch(reject)
+    })
+  })
+}
+
+const mostrarBadgeRecaptcha = (visible: boolean) => {
+  const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null
+  if (badge) {
+    badge.style.visibility = visible ? 'visible' : 'hidden'
+    badge.style.setProperty('right', '0', 'important')
+    badge.style.setProperty('left', 'auto', 'important')
+  }
+}
 
 const { validate, getFirstError, resetErrors } = useFormValidator(recoverEmailSchema)
 
@@ -46,6 +97,7 @@ const recuperarClave = async () => {
   exitoMensaje.value = ''
 
   try {
+    const gcToken = await obtenerTokenRecaptcha()
     const respuesta = await fetch('/api/v1/recover_pass/', {
       method: 'POST',
       headers: {
@@ -53,7 +105,8 @@ const recuperarClave = async () => {
       },
       body: JSON.stringify({
         email: correo.value,
-        lang: lang.value
+        lang: lang.value,
+        gcToken
       })
     })
 
@@ -102,7 +155,14 @@ const handleMouseLeave = () => {
   rotateY.value = 0
 }
 
+onMounted(() => {
+  cargarRecaptcha()
+  if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') recaptchaReady.value = true
+  setTimeout(() => mostrarBadgeRecaptcha(true), 500)
+})
+
 onUnmounted(() => {
+  mostrarBadgeRecaptcha(false)
 })
 </script>
 

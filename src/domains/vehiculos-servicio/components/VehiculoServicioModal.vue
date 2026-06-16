@@ -24,9 +24,12 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 import type { VehiculoServicio } from '../types/vehiculo-servicio'
+import { useToast } from 'primevue/usetoast'
+import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -36,13 +39,12 @@ const props = defineProps<{
 const emit = defineEmits(['update:isOpen', 'saved'])
 
 const isEditMode = computed(() => !!props.vehicle)
-const { validate: validateCreate } = useFormValidator(createVehiculoServicioSchema)
-const { validate: validateUpdate } = useFormValidator(updateVehiculoServicioSchema)
-const { firstErrorMessage, clearErrors } = useFormError('vehiculo-modal-form')
+const activeSchema = computed(() => isEditMode.value ? updateVehiculoServicioSchema : createVehiculoServicioSchema)
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('vehiculo-modal-form')
 
 const isInitializing = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const isTypeDropdownOpen = ref(false)
@@ -62,6 +64,28 @@ const currentTipoLabel = computed(() => {
 const selectTipo = (opt: typeof tipoOptions[0]) => {
   formData.tipo = opt.value
   isTypeDropdownOpen.value = false
+}
+
+const predefinedColors = [
+  '#ffffff', // Blanco
+  '#000000', // Negro
+  '#94a3b8', // Plateado / Gris Claro
+  '#475569', // Gris Oscuro / Plomo
+  '#dc2626', // Rojo
+  '#1d4ed8', // Azul Marino
+  '#2563eb', // Azul Metálico
+  '#15803d', // Verde Oscuro
+  '#eab308', // Amarillo
+  '#f97316'  // Naranja
+]
+const showCustomColorPicker = ref(false)
+const colorInputRef = ref<HTMLInputElement | null>(null)
+
+const selectOtros = () => {
+  showCustomColorPicker.value = true
+  setTimeout(() => {
+    colorInputRef.value?.click()
+  }, 50)
 }
 
 const formData = reactive({
@@ -98,9 +122,9 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
 
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    resetErrors('vehiculo-modal-form')
     clearErrors()
     isInitializing.value = true
-    isSuccess.value = false
     saving.value = false
     modalMessage.value = null
     isTypeDropdownOpen.value = false
@@ -112,12 +136,20 @@ watch(() => props.isOpen, (isOpen) => {
       formData.referencia = props.vehicle.referencia || ''
       formData.modelo = parseInt(props.vehicle.modelo as any) || 0
       formData.color = props.vehicle.color || '#3b82f6'
+      showCustomColorPicker.value = !predefinedColors.includes(formData.color.toLowerCase())
       formData.cilindrada = props.vehicle.cilindrada || 0
       formData.soat = props.vehicle.soat || ''
       formData.soat_vence = props.vehicle.soat_vence ? new Date(props.vehicle.soat_vence + 'T00:00:00') : null
       formData.tecnomecanica = props.vehicle.tecnomecanica || ''
       formData.tecnomecanica_vence = props.vehicle.tecnomecanica_vence ? new Date(props.vehicle.tecnomecanica_vence + 'T00:00:00') : null
-      formData.tipo = parseInt(props.vehicle.tipo as any) || 0
+      const tipoStr = String(props.vehicle.tipo || '').toLowerCase().trim()
+      if (tipoStr.includes('car')) {
+        formData.tipo = 1
+      } else if (tipoStr.includes('moto')) {
+        formData.tipo = 2
+      } else {
+        formData.tipo = parseInt(tipoStr) || 0
+      }
     } else {
       Object.assign(formData, {
         placa: '', serial_chasis: '', marca: '', referencia: '',
@@ -125,6 +157,7 @@ watch(() => props.isOpen, (isOpen) => {
         soat: '', soat_vence: null, tecnomecanica: '', tecnomecanica_vence: null,
         tipo: 0
       })
+      showCustomColorPicker.value = false
     }
 
     setTimeout(() => {
@@ -135,13 +168,15 @@ watch(() => props.isOpen, (isOpen) => {
 
 const handleSave = async () => {
   if (saving.value) return
+  clearErrors()
+  modalMessage.value = null
+
   if (!groupStore.selectedGroup?.id) {
     showMessage('Seleccione un grupo válido', 'error')
     return
   }
 
   saving.value = true
-  modalMessage.value = null
 
   const payload: any = {
     ...formData,
@@ -157,14 +192,12 @@ const handleSave = async () => {
     payload.id_vehiculo = props.vehicle.id_vehiculo
   }
 
-  const isValid = isEditMode.value 
-    ? validateUpdate(payload, 'vehiculo-modal-form')
-    : validateCreate(payload, 'vehiculo-modal-form')
+  const isValid = validate(payload, 'vehiculo-modal-form')
 
   if (!isValid) {
     saving.value = false
     showMessage(
-      firstErrorMessage.value || t('vehiculosServicio.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      getFirstError('vehiculo-modal-form') || t('vehiculosServicio.alertValidation', 'Por favor complete todos los campos obligatorios.'),
       'error'
     )
     return
@@ -179,20 +212,49 @@ const handleSave = async () => {
     }
 
     if (data.done) {
-      isSuccess.value = true
+      toast.add({
+        severity: 'success',
+        summary: isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateTitle', 'Vehículo de Servicio Actualizado') : t('vehiculosServicio.alertSuccessCreateTitle', 'Vehículo de Servicio Registrado'),
+        detail: data.message || (isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateDetail', 'El vehículo de servicio ha sido modificado exitosamente.') : t('vehiculosServicio.alertSuccessCreateDetail', 'El vehículo de servicio ha sido registrado exitosamente.')),
+        life: 4000
+      })
       emit('saved')
+      if (isEditMode.value) {
+        handleClose()
+      } else {
+        Object.assign(formData, {
+          placa: '', serial_chasis: '', marca: '', referencia: '',
+          modelo: 0, color: '#3b82f6', cilindrada: 0,
+          soat: '', soat_vence: null, tecnomecanica: '', tecnomecanica_vence: null,
+          tipo: 0
+        })
+        resetErrors('vehiculo-modal-form')
+        clearErrors()
+      }
     } else {
       showMessage(data.message || (isEditMode.value ? 'Error al actualizar' : 'Error al registrar'), 'error')
     }
   } catch (error: any) {
     console.error('Error saving vehiculo:', error)
-    showMessage(error.message || 'Error de conexión', 'error')
+    if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
+      const code = error.code
+      let msg = ''
+      if (code === 400 || code === 500 || code === 422) {
+        msg = error.message || getErrorMessage(code)
+      } else {
+        msg = getErrorMessage(code) || error.message
+      }
+      showMessage(msg, 'error')
+    } else {
+      showMessage(error.message || 'Error de conexión', 'error')
+    }
   } finally {
     saving.value = false
   }
 }
 
 const handleClose = () => {
+  if (saving.value) return
   emit('update:isOpen', false)
 }
 
@@ -218,10 +280,11 @@ onUnmounted(() => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleSave"
+    :close-on-click-outside="!saving"
     :title="isEditMode ? t('vehiculosServicio.editTitle', 'Editar Vehículo') : t('vehiculosServicio.newTitle', 'Nuevo Vehículo')"
     :confirm-text="isEditMode ? t('vehiculosServicio.btnSave', 'Guardar Cambios') : t('vehiculosServicio.btnRegister', 'Registrar Vehículo')"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -230,7 +293,7 @@ onUnmounted(() => {
     </template>
 
     <!-- SKELETON LOADING -->
-    <div v-if="isInitializing" class="space-y-6 animate-pulse p-2">
+    <div v-if="isInitializing" class="space-y-6 animate-pulse p-2 min-h-[520px]">
       <div class="grid grid-cols-2 gap-4">
         <div v-for="i in 4" :key="i" class="space-y-3">
           <div class="h-2 w-20 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
@@ -243,35 +306,8 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- SUCCESS VIEW -->
-    <Transition v-else-if="isSuccess" name="fade-slide" mode="out-in">
-      <div class="py-10 flex flex-col items-center justify-center text-center space-y-4">
-        <div class="relative group mb-2">
-          <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-          <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-            <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-          </div>
-        </div>
-        <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
-          {{ isEditMode ? 'Vehículo Actualizado' : 'Vehículo Registrado Exitosamente' }}
-        </h3>
-        <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-          {{ isEditMode ? 'Los datos del vehículo han sido modificados con éxito.' : 'El nuevo vehículo ya se encuentra registrado en el sistema.' }}
-        </p>
-        <div class="pt-4">
-          <button
-            @click="handleClose"
-            class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-          >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-            Cerrar Ventana
-          </button>
-        </div>
-      </div>
-    </Transition>
-
     <!-- FORM -->
-    <form v-else @submit.prevent="handleSave" class="space-y-6 relative">
+    <form v-else @submit.prevent="handleSave" class="space-y-6 relative min-h-[520px]">
       <!-- Saving Overlay -->
       <Transition name="fade">
         <div v-if="saving" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
@@ -315,6 +351,7 @@ onUnmounted(() => {
             :label="t('vehiculosServicio.labelPlate', 'Placa')"
             :placeholder="t('vehiculosServicio.placeholderPlate', 'ABC-456')"
             :icon="LicenseIcon"
+            :disabled="saving"
           />
 
           <!-- Tipo de Vehículo -->
@@ -324,9 +361,12 @@ onUnmounted(() => {
               {{ t('vehiculosServicio.labelType', 'Tipo de Vehículo') }}
             </label>
             <div
-              @click="isTypeDropdownOpen = !isTypeDropdownOpen"
-              class="relative flex items-center justify-between cursor-pointer select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
-              :class="isTypeDropdownOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
+              @click="!saving && (isTypeDropdownOpen = !isTypeDropdownOpen)"
+              class="relative flex items-center justify-between select-none bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300"
+              :class="[
+                isTypeDropdownOpen ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10',
+                saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+              ]"
             >
               <div class="relative z-10 flex items-center gap-3">
                 <HugeiconsIcon :icon="Car01Icon" :size="16" :stroke-width="1.8" class="text-slate-400" />
@@ -366,6 +406,7 @@ onUnmounted(() => {
           :label="t('vehiculosServicio.labelSerial', 'Serial de Chasis')"
           :placeholder="t('vehiculosServicio.placeholderSerial', 'A456')"
           :icon="FingerPrintIcon"
+          :disabled="saving"
         />
 
         <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
@@ -375,12 +416,14 @@ onUnmounted(() => {
               :label="t('vehiculosServicio.labelBrand', 'Marca')"
               :placeholder="t('vehiculosServicio.placeholderBrand', 'Honda')"
               :icon="Car01Icon"
+              :disabled="saving"
             />
             <AppInput
               v-model="formData.referencia"
               :label="t('vehiculosServicio.labelReference', 'Referencia')"
               :placeholder="t('vehiculosServicio.placeholderReference', 'CB-190')"
               :icon="Car01Icon"
+              :disabled="saving"
             />
           </div>
         </div>
@@ -392,6 +435,7 @@ onUnmounted(() => {
             :placeholder="t('vehiculosServicio.placeholderModel', '2013')"
             :icon="Calendar01Icon"
             type="number"
+            :disabled="saving"
           />
           <AppInput
             v-model="formData.cilindrada"
@@ -399,13 +443,70 @@ onUnmounted(() => {
             :placeholder="t('vehiculosServicio.placeholderCc', '199')"
             :icon="EngineIcon"
             type="number"
+            :disabled="saving"
           />
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 text-slate-400 dark:text-slate-500">
               {{ t('vehiculosServicio.labelColor', 'Color') }}
             </label>
-            <div class="relative flex items-center justify-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-2.5 transition-all duration-300 min-h-[46px]">
-              <input type="color" v-model="formData.color" class="w-8 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0" />
+            <div class="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl p-3 min-h-[46px]">
+              <!-- Predefined Color Swatches -->
+              <button
+                v-for="color in predefinedColors"
+                :key="color"
+                type="button"
+                :disabled="saving"
+                @click="formData.color = color; showCustomColorPicker = false"
+                class="w-6 h-6 rounded-full border transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none relative flex items-center justify-center"
+                :style="{ backgroundColor: color }"
+                :class="[
+                  formData.color.toLowerCase() === color.toLowerCase() && !showCustomColorPicker
+                    ? 'border-[#3b82f6] dark:border-[#5da6fc] scale-110 ring-2 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20'
+                    : 'border-slate-300/40 dark:border-white/10'
+                ]"
+              >
+                <!-- Check icon for active color -->
+                <HugeiconsIcon
+                  v-if="formData.color.toLowerCase() === color.toLowerCase() && !showCustomColorPicker"
+                  :icon="Tick01Icon"
+                  :size="12"
+                  :class="color === '#ffffff' ? 'text-slate-900' : 'text-white'"
+                />
+              </button>
+
+              <!-- "Otros" (Custom Color Picker Button) -->
+              <button
+                type="button"
+                :disabled="saving"
+                @click="selectOtros"
+                class="h-6 px-2.5 rounded-full border text-[11px] font-bold transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none flex items-center gap-1.5"
+                :class="[
+                  showCustomColorPicker
+                    ? 'bg-gradient-to-b from-blue-500 to-blue-600 border-blue-500 text-white shadow-sm'
+                    : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
+                ]"
+              >
+                <span>Otros</span>
+                <span 
+                  v-if="showCustomColorPicker" 
+                  class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
+                  :style="{ backgroundColor: formData.color }"
+                ></span>
+              </button>
+
+              <!-- Color Input (visible only when showCustomColorPicker is true) -->
+              <div v-if="showCustomColorPicker" class="flex items-center gap-2 ml-auto">
+                <input
+                  ref="colorInputRef"
+                  type="color"
+                  v-model="formData.color"
+                  :disabled="saving"
+                  class="w-8 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0"
+                />
+                <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase select-none font-mono">
+                  {{ formData.color }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -417,12 +518,14 @@ onUnmounted(() => {
               :label="t('vehiculosServicio.labelSoat', 'SOAT')"
               :placeholder="t('vehiculosServicio.placeholderSoat', 'J456789')"
               :icon="DocumentAttachmentIcon"
+              :disabled="saving"
             />
             <AppDateTimePicker
               v-model="formData.soat_vence"
               :label="t('vehiculosServicio.labelSoatVence', 'Vencimiento SOAT')"
               :placeholder="t('vehiculosServicio.placeholderSoatVence', 'Seleccione fecha')"
               :only-date="true"
+              :disabled="saving"
             />
           </div>
         </div>
@@ -433,16 +536,41 @@ onUnmounted(() => {
             :label="t('vehiculosServicio.labelTecnomecanica', 'Tecnomecánica')"
             :placeholder="t('vehiculosServicio.placeholderTecnomecanica', 'u456790')"
             :icon="DocumentAttachmentIcon"
+            :disabled="saving"
           />
           <AppDateTimePicker
             v-model="formData.tecnomecanica_vence"
             :label="t('vehiculosServicio.labelTecnomecanicaVence', 'Venc. Tecnomecánica')"
             :placeholder="t('vehiculosServicio.placeholderTecnomecanicaVence', 'Seleccione fecha')"
             :only-date="true"
+            :disabled="saving"
           />
         </div>
       </div>
     </form>
+
+    <template #footer>
+      <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
+        <button
+          type="button"
+          @click="handleClose"
+          :disabled="saving"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          @click="handleSave"
+          :disabled="saving"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-80 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+        >
+          <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
+          <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
+          {{ saving ? (isEditMode ? 'Guardando cambios...' : 'Registrando vehículo...') : (isEditMode ? t('vehiculosServicio.btnSave', 'Guardar Cambios') : t('vehiculosServicio.btnRegister', 'Registrar Vehículo')) }}
+        </button>
+      </div>
+    </template>
   </AppModal>
 </template>
 

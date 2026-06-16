@@ -25,8 +25,14 @@ import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { servicioCreateSchema } from '../../../schemas/servicios.schema'
+import { useToast } from 'primevue/usetoast'
+
 const { t } = useI18n()
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -36,8 +42,9 @@ const emit = defineEmits(['update:isOpen', 'created'])
 
 const isInitializing = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+const { validate, getFirstError } = useFormValidator(servicioCreateSchema)
+const { getError, clearErrors } = useFormError('servicio-create')
 
 const rutas = ref<RutaSimple[]>([])
 const vehiculos = ref<VehiculoSimple[]>([])
@@ -63,7 +70,6 @@ const filteredVehiculos = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
   if (!q) return vehiculos.value
   return vehiculos.value.filter(v =>
-    v.nombre.toLowerCase().includes(q) ||
     v.placa.toLowerCase().includes(q) ||
     v.tipo.toLowerCase().includes(q)
   )
@@ -87,15 +93,6 @@ const formData = reactive({
   fecha_hora_inicio: '',
   modo_fin: '1'
 })
-
-const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
-  modalMessage.value = { text, type }
-  if (type === 'success') {
-    setTimeout(() => {
-      if (modalMessage.value?.text === text) modalMessage.value = null
-    }, 4000)
-  }
-}
 
 const formatFechaHora = (date: Date | null): string => {
   if (!date) return ''
@@ -159,9 +156,8 @@ const cerrarPanel = () => {
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
-    isSuccess.value = false
     saving.value = false
-    modalMessage.value = null
+    clearErrors()
     rutas.value = []
     vehiculos.value = []
     loadingRutas.value = false
@@ -187,7 +183,12 @@ watch(() => props.isOpen, async (isOpen) => {
         vehiculos.value = vehiculosData
       } catch (error) {
         console.error('Error fetching data:', error)
-        showMessage(t('common.errorNetwork') || 'Error al cargar datos', 'error')
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: t('common.errorNetwork') || 'Error al cargar datos',
+          life: 4000
+        })
       } finally {
         loadingRutas.value = false
         loadingVehiculos.value = false
@@ -198,7 +199,7 @@ watch(() => props.isOpen, async (isOpen) => {
       isInitializing.value = false
     }, 600)
   } else {
-    panelActivo.value = false
+    panelActivo.value = null
   }
 })
 
@@ -218,7 +219,7 @@ const selectRuta = (id: string) => {
 
 const getVehiculoLabel = (id: string) => {
   const v = vehiculos.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.nombre} (${v.placa})` : id
+  return v ? `${v.placa} (${v.tipo})` : id
 }
 
 const getRutaLabel = (id: string) => {
@@ -272,53 +273,58 @@ onUnmounted(() => {
 
 const handleCreate = async () => {
   if (saving.value) return
-  if (!groupStore.selectedGroup?.id) {
-    showMessage(t('common.errorRequiredFields') || 'Seleccione un grupo válido', 'error')
-    return
+  clearErrors()
+
+  const payload = {
+    id_grupo: groupStore.selectedGroup?.id || '',
+    id_ruta: formData.id_ruta,
+    fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
+    modo_fin: formData.modo_fin ? parseInt(formData.modo_fin.trim(), 10) : NaN,
+    vehiculos_id: selectedVehiculosIds.value
   }
 
-  if (!formData.id_ruta) {
-    showMessage(t('common.errorRequiredFields') || 'Seleccione una ruta', 'error')
-    return
-  }
-
-  if (!fechaHoraInicio.value) {
-    showMessage('La fecha y hora de inicio es requerida', 'error')
-    return
-  }
-
-  if (!formData.modo_fin.trim()) {
-    showMessage('El modo fin es requerido', 'error')
-    return
-  }
-
-  if (selectedVehiculosIds.value.length === 0) {
-    showMessage('Seleccione al menos un vehículo', 'error')
+  if (!validate(payload, 'servicio-create')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: firstErr,
+        life: 4000
+      })
+    }
     return
   }
 
   saving.value = true
-  modalMessage.value = null
-
-  const payload: ServicioCreatePayload = {
-    id_grupo: groupStore.selectedGroup.id,
-    id_ruta: formData.id_ruta,
-    fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
-    modo_fin: parseInt(formData.modo_fin.trim(), 10),
-    vehiculos_id: selectedVehiculosIds.value
-  }
 
   try {
     const data = await registrarServicioApi(payload)
     if (data.done) {
-      isSuccess.value = true
+      handleClose()
       emit('created')
+      toast.add({
+        severity: 'success',
+        summary: 'Servicio Creado',
+        detail: data.message || 'El servicio ha sido registrado exitosamente.',
+        life: 4000
+      })
     } else {
-      showMessage(data.message || (t('common.error') || 'Error al registrar'), 'error')
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || (t('common.error') || 'Error al registrar'),
+        life: 4000
+      })
     }
   } catch (error: any) {
     console.error('Error creating servicio:', error)
-    showMessage(error.message || (t('common.errorNetwork') || 'Error de conexión'), 'error')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || (t('common.errorNetwork') || 'Error de conexión'),
+      life: 4000
+    })
   } finally {
     saving.value = false
   }
@@ -338,7 +344,7 @@ const handleClose = () => {
     :title="t('servicios.modalTitleCreate', 'Registrar Servicio')"
     :confirm-text="t('servicios.btnRegister', 'Registrar Servicio')"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -379,47 +385,8 @@ const handleClose = () => {
         </div>
       </div>
 
-      <!-- SUCCESS STATE -->
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Servicio Registrado Exitosamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            El servicio ha sido registrado exitosamente en el sistema.
-          </p>
-          <div class="pt-4">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
-            </button>
-          </div>
-        </div>
-
         <!-- FORM CONTENT -->
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <!-- Feedback Message -->
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
-
+        <div v-if="!isInitializing" class="animate-fade-in space-y-6">
           <div class="space-y-5">
             <!-- Ruta -->
             <div class="space-y-2">
@@ -437,7 +404,8 @@ const handleClose = () => {
                   class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                   :class="[
                     loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
-                    panelActivo === 'rutas' ? 'panel-on' : ''
+                    panelActivo === 'rutas' ? 'panel-on' : '',
+                    getError('id_ruta') ? '!border-red-500/50' : ''
                   ]"
                 >
                   <!-- Borde superior brillante -->
@@ -475,24 +443,32 @@ const handleClose = () => {
                     <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                   </div>
                 </button>
+                <span v-if="getError('id_ruta')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('id_ruta') }}</span>
               </div>
 
               <!-- Fila 1: Fecha y Hora -->
-              <AppDateTimePicker
-                v-model="fechaHoraInicio"
-                label="Fecha y Hora de Inicio"
-                placeholder="Seleccione fecha y hora"
-              />
+              <div>
+                <AppDateTimePicker
+                  v-model="fechaHoraInicio"
+                  label="Fecha y Hora de Inicio"
+                  placeholder="Seleccione fecha y hora"
+                  disable-past
+                />
+                <span v-if="getError('fecha_hora_inicio')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_inicio') }}</span>
+              </div>
 
               <!-- Fila 2: Modo Fin -->
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <AppSelect
-                  v-model="formData.modo_fin"
-                  label="Modo Fin"
-                  placeholder="Modo de Finalización"
-                  :icon="Clock01Icon"
-                  :options="modoFinOptions"
-                />
+                <div>
+                  <AppSelect
+                    v-model="formData.modo_fin"
+                    label="Modo Fin"
+                    placeholder="Modo de Finalización"
+                    :icon="Clock01Icon"
+                    :options="modoFinOptions"
+                  />
+                  <span v-if="getError('modo_fin')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('modo_fin') }}</span>
+                </div>
               </div>
             </div>            <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
             <div class="pt-6 border-t border-white/5 space-y-5">
@@ -523,7 +499,8 @@ const handleClose = () => {
                     class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'vehiculos' ? 'panel-on' : ''
+                      panelActivo === 'vehiculos' ? 'panel-on' : '',
+                      getError('vehiculos_id') ? '!border-red-500/50' : ''
                     ]"
                   >
                     <!-- Borde superior brillante -->
@@ -575,19 +552,19 @@ const handleClose = () => {
                       <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
+                  <span v-if="getError('vehiculos_id')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('vehiculos_id') }}</span>
                 </div>
               </div>
             </div>
           </div>
-        </Transition>
-      </div>
-    </AppModal>
+    </div>
+  </AppModal>
 
   <!-- PANEL FLOTANTE DE SELECCIÓN — Teleport fuera del modal -->
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
-        v-if="panelActivo && isOpen && !isSuccess && !isInitializing"
+        v-if="panelActivo && isOpen && !isInitializing"
         class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden"
         :style="{
           top: panelStyle.top,
@@ -728,8 +705,7 @@ const handleClose = () => {
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">
-                  {{ v.nombre }}
-                  <span class="text-[10px] font-mono opacity-50 ml-1">{{ v.placa }}</span>
+                  {{ v.placa }}
                 </span>
                 <span class="text-[10px] truncate leading-none mt-0.5 text-slate-400">{{ v.tipo }}</span>
               </div>

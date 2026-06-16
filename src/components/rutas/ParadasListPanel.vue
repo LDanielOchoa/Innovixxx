@@ -34,10 +34,10 @@
               </span>
             </div>
           </div>
-          <!-- Close Button 3D -->
+        <!-- Close Button Flat -->
           <button
             @click="$emit('close')"
-            class="w-8 h-8 flex items-center justify-center rounded-[10px] text-slate-400 hover:text-[#3b82f6] bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 transition-all duration-200 shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_#1D1D24] active:translate-y-[2px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24] hover:border-[#3b82f6]/30"
+            class="w-8 h-8 flex items-center justify-center rounded-[10px] text-slate-450 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 active:scale-[0.97] transition-all duration-200"
             title="Cerrar panel"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
@@ -79,8 +79,8 @@
             class="group flex items-center gap-3 px-3 py-2.5 rounded-[14px] border cursor-pointer transition-all duration-200 relative overflow-hidden"
             :class="[
               selectedIndex === parada.originalIndex
-                ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/40 dark:border-[#3b82f6]/30 shadow-[0_3px_0_#e2e8f0,0_3px_10px_rgba(59,130,246,0.08)] dark:shadow-[0_3px_0_#1D1D24]'
-                : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] shadow-[0_2px_0_#e2e8f0,0_1px_4px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_0_#1D1D24] hover:border-slate-300 dark:hover:border-[#3b82f6]/20'
+                ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/30 shadow-sm'
+                : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-[#3b82f6]/20'
             ]"
           >
             <!-- Barra lateral izquierda activa -->
@@ -168,16 +168,16 @@
           {{ paradas.length < 2 ? 'Añade al menos 2 nodos para guardar' : 'Ruta lista para guardar' }}
         </p>
 
-        <!-- Save Button 3D -->
+        <!-- Save Button -->
         <button
           @click="$emit('save')"
           :disabled="paradas.length < 2"
-          class="w-full h-12 flex items-center justify-center gap-2 rounded-[16px] font-black text-[13px] uppercase tracking-widest transition-all duration-200 border disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
+          class="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-bold text-xs uppercase tracking-wide transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
           :class="paradas.length >= 2
-            ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb]/40 shadow-[0_4px_0_#1d4ed8,inset_0_1px_0_rgba(255,255,255,0.3),0_8px_20px_rgba(59,130,246,0.3)] active:translate-y-[4px] active:shadow-[0_0px_0_#1d4ed8]'
-            : 'bg-gradient-to-b from-slate-50 to-slate-100 dark:from-[#20242D] dark:to-[#1D1D24] text-slate-400 border-slate-200 dark:border-white/10 shadow-[0_3px_0_#e2e8f0] dark:shadow-[0_3px_0_#1D1D24]'"
+            ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97]'
+            : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-white/5'"
         >
-          <HugeiconsIcon :icon="Tick01Icon" :size="18" :stroke-width="2.5" />
+          <HugeiconsIcon :icon="Tick01Icon" :size="16" :stroke-width="2.5" />
           Guardar Ruta
         </button>
 
@@ -186,14 +186,14 @@
           <button
             @click="$emit('clear')"
             :disabled="paradas.length === 0"
-            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-[12px] text-[11px] font-black uppercase tracking-wide text-red-500 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 hover:border-red-400/50 transition-all active:translate-y-[2px] disabled:opacity-30 disabled:cursor-not-allowed shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#1D1D24] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]"
+            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide text-red-500 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 active:scale-[0.97] transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
           >
             <HugeiconsIcon :icon="Delete01Icon" :size="14" :stroke-width="2.5" />
             Limpiar
           </button>
           <button
             @click="$emit('close')"
-            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-[12px] text-[11px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-300 bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20 transition-all active:translate-y-[2px] shadow-[0_2px_0_#e2e8f0] dark:shadow-[0_2px_0_#1D1D24] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24]"
+            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide text-slate-550 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
             Cancelar

@@ -11,7 +11,8 @@ import {
   ChipIcon,
   MoreHorizontalIcon,
   Location01Icon,
-  CheckmarkCircle01Icon
+  CheckmarkCircle01Icon,
+  LockKeyIcon
 } from '@hugeicons/core-free-icons'
 
 import {
@@ -32,6 +33,7 @@ import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import HardwareFormModal from '../components/HardwareFormModal.vue'
 import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
+import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
@@ -157,13 +159,23 @@ const openPosicionModal = (item: Hardware) => {
   isPosicionModalOpen.value = true
 }
 
-const handleMenuAction = (action: 'posicion' | 'edit' | 'delete') => {
+// Modal de abrir candado
+const isAbrirCandadoModalOpen = ref(false)
+const candadoHardware = ref<Hardware | null>(null)
+
+const openAbrirCandadoModal = (item: Hardware) => {
+  candadoHardware.value = item
+  isAbrirCandadoModalOpen.value = true
+}
+
+const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado') => {
   const item = items.value.find(i => i.id_hardware === openMenuId.value)
   openMenuId.value = null
   if (!item) return
   if (action === 'posicion') openPosicionModal(item)
   else if (action === 'edit') openEditModal(item)
   else if (action === 'delete') confirmDelete(item.id_hardware)
+  else if (action === 'abrir-candado') openAbrirCandadoModal(item)
 }
 
 const deleteHardware = async () => {
@@ -401,6 +413,14 @@ const filteredItems = computed(() => {
               <span>Posición</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS)"
+              @click="handleMenuAction('abrir-candado')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="LockKeyIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Abrir Candado</span>
+            </button>
+            <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
               @click="handleMenuAction('edit')"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
@@ -447,6 +467,13 @@ const filteredItems = computed(() => {
     <HardwarePosicionModal
       v-model:is-open="isPosicionModalOpen"
       :hardware="posicionHardware"
+    />
+
+    <!-- Modal Abrir Candado -->
+    <HardwareAbrirCandadoModal
+      v-model:is-open="isAbrirCandadoModalOpen"
+      :hardware="candadoHardware"
+      @updated="fetchHardware"
     />
   </div>
 </template>

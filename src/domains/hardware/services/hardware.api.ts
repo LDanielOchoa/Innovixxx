@@ -1,12 +1,13 @@
 import { apiClient } from '../../../utils/api-client'
-import type { 
-  Hardware, 
+import type {
+  Hardware,
   FamiliaHardware,
-  HardwareCreatePayload, 
-  HardwareUpdatePayload, 
+  HardwareCreatePayload,
+  HardwareUpdatePayload,
   HardwareDeletePayload,
   MapPositionsPayload,
-  Posicion
+  Posicion,
+  HardwareAbrirCandadoPayload
 } from '../types/hardware'
 
 export const fetchHardwareApi = async (id_grupo: string): Promise<Hardware[]> => {
@@ -52,4 +53,11 @@ export const fetchMapPositionsApi = async (payload: MapPositionsPayload): Promis
     body: JSON.stringify(payload)
   })
   return data.done && data.data?.data ? data.data.data : []
+}
+
+export const abrirCandadoHardwareApi = async (payload: HardwareAbrirCandadoPayload): Promise<any> => {
+  return apiClient('/api/v1/hardware/candado/abrir/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
 }

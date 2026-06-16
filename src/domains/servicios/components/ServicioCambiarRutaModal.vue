@@ -6,7 +6,6 @@ import {
   Cancel01Icon,
   Search01Icon,
   Tick01Icon,
-  Alert01Icon,
   Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
@@ -14,7 +13,13 @@ import { cambiarRutaServicioApi } from '../services/servicios.api'
 import type { ServicioDashboard, RutaSimple } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { servicioCambiarRutaSchema } from '../../../schemas/servicios.schema'
+import { useToast } from 'primevue/usetoast'
+
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -26,35 +31,30 @@ const emit = defineEmits(['update:isOpen', 'assigned'])
 
 const isInitializing = ref(true)
 const cambiando = ref(false)
-const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+const { validate, getFirstError } = useFormValidator(servicioCambiarRutaSchema)
+const { getError, clearErrors } = useFormError('servicio-cambiar-ruta')
 
 const rutasList = ref<RutaSimple[]>([])
-const loadingRutas = ref(false)
 const selectedRutaId = ref<string | null>(null)
 const rutaSearchQuery = ref('')
 
 const filteredRutas = computed(() => {
   const q = rutaSearchQuery.value.toLowerCase().trim()
-  if (!q) return rutasList.value
-  return rutasList.value.filter(r => r.nombre.toLowerCase().includes(q))
-})
+  return rutasList.value.filter(r => {
+    // Excluir si es la ruta actual activa del servicio
+    if (props.servicio?.id_ruta === r.id_ruta) return false
 
-const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
-  modalMessage.value = { text, type }
-  if (type === 'success') {
-    setTimeout(() => {
-      if (modalMessage.value?.text === text) modalMessage.value = null
-    }, 4000)
-  }
-}
+    if (!q) return true
+    return r.nombre.toLowerCase().includes(q)
+  })
+})
 
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
-    isSuccess.value = false
     cambiando.value = false
-    modalMessage.value = null
+    clearErrors()
     selectedRutaId.value = null
     rutaSearchQuery.value = ''
 
@@ -62,7 +62,7 @@ watch(() => props.isOpen, async (isOpen) => {
 
     setTimeout(() => {
       isInitializing.value = false
-    }, 600)
+    }, 400)
   }
 })
 
@@ -78,34 +78,57 @@ const getRutaLabel = (id: string) => {
 
 const handleCambiar = async () => {
   if (cambiando.value) return
-  if (!props.servicio?.id_servicio || !groupStore.selectedGroup?.id) {
-    showMessage('Datos del servicio inválidos', 'error')
-    return
+  clearErrors()
+
+  const payload = {
+    id_grupo: groupStore.selectedGroup?.id || '',
+    id_servicio: props.servicio?.id_servicio || '',
+    id_ruta_old: props.servicio?.id_ruta || '',
+    id_ruta_new: selectedRutaId.value || ''
   }
-  if (!selectedRutaId.value) {
-    showMessage('Debe seleccionar una nueva ruta', 'error')
+
+  if (!validate(payload, 'servicio-cambiar-ruta')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: firstErr,
+        life: 4000
+      })
+    }
     return
   }
 
   cambiando.value = true
-  modalMessage.value = null
 
   try {
-    const data = await cambiarRutaServicioApi({
-      id_grupo: groupStore.selectedGroup.id,
-      id_servicio: props.servicio.id_servicio,
-      id_ruta_old: props.servicio.id_ruta || '',
-      id_ruta_new: selectedRutaId.value
-    })
+    const data = await cambiarRutaServicioApi(payload)
     if (data.done) {
-      isSuccess.value = true
+      handleClose()
       emit('assigned')
+      toast.add({
+        severity: 'success',
+        summary: 'Ruta Cambiada',
+        detail: data.message || 'La ruta ha sido actualizada con éxito.',
+        life: 4000
+      })
     } else {
-      showMessage(data.message || 'Error al cambiar ruta', 'error')
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || 'Error al cambiar ruta',
+        life: 4000
+      })
     }
   } catch (error: any) {
     console.error('Error cambiando ruta:', error)
-    showMessage(error.message || 'Error de conexión', 'error')
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Error de conexión',
+      life: 4000
+    })
   } finally {
     cambiando.value = false
   }
@@ -123,9 +146,9 @@ const handleClose = () => {
     @close="handleClose"
     @confirm="handleCambiar"
     title="Cambiar Ruta del Servicio"
-    :confirm-text="'Confirmar Cambio'"
+    confirm-text="Confirmar Cambio"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -133,7 +156,7 @@ const handleClose = () => {
       </div>
     </template>
 
-    <div class="flex flex-col gap-5 relative p-1">
+    <div class="flex flex-col gap-4 relative p-1">
       <Transition name="fade">
         <div v-if="cambiando" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
           <div class="relative">
@@ -152,128 +175,127 @@ const handleClose = () => {
       </Transition>
 
       <div v-if="isInitializing" class="space-y-6 animate-pulse p-2">
-        <div class="space-y-3">
-          <div class="h-2 w-32 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
-          <div class="h-14 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
-        </div>
-        <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
-          <div class="h-2 w-24 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
-          <div class="h-64 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
+        <div class="grid grid-cols-2 gap-6">
+          <div v-for="i in 2" :key="i" class="space-y-3">
+            <div class="h-4 w-32 bg-slate-200/60 dark:bg-white/[0.06] rounded-full"></div>
+            <div class="h-40 w-full bg-slate-200/50 dark:bg-white/[0.04] rounded-xl"></div>
+          </div>
         </div>
       </div>
 
       <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-16 flex flex-col items-center justify-center text-center space-y-3">
-          <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-            <HugeiconsIcon :icon="Tick01Icon" :size="24" class="text-emerald-500" :stroke-width="2.5" />
-          </div>
-          <h3 class="text-base font-semibold text-slate-800 dark:text-white">Ruta cambiada correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">
-            La ruta del servicio ha sido actualizada.
-          </p>
-          <div class="pt-3">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
-              Cerrar
-            </button>
-          </div>
-        </div>
-
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
-
-          <div class="space-y-5">
-            <div class="flex items-center gap-3 bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-3">
-              <div class="w-10 h-10 rounded-lg bg-slate-500/10 flex items-center justify-center text-slate-400">
-                <HugeiconsIcon :icon="Route01Icon" :size="18" />
-              </div>
-              <div>
-                <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Ruta Actual</span>
-                <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ getRutaLabel(servicio?.id_ruta || '') }}</p>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-                Nueva Ruta
-              </label>
-              <div v-if="selectedRutaId" class="flex items-center gap-3 bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 rounded-xl px-4 py-3">
-                <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/20 flex items-center justify-center text-[#3b82f6]">
-                  <HugeiconsIcon :icon="Route01Icon" :size="16" />
-                </div>
-                <div>
-                  <span class="text-[10px] font-black uppercase tracking-[0.15em] text-[#3b82f6]">Seleccionada</span>
-                  <p class="text-[13px] font-semibold text-[#3b82f6] dark:text-[#5da6fc]">{{ getRutaLabel(selectedRutaId) }}</p>
-                </div>
-              </div>
-              <div class="relative">
-                <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2">
-                  <HugeiconsIcon :icon="Search01Icon" :size="16" class="text-slate-400 shrink-0" />
-                  <input
-                    v-model="rutaSearchQuery"
-                    type="text"
-                    placeholder="Buscar por nombre..."
-                    class="flex-1 bg-transparent border-none text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none"
-                  />
-                  <button
-                    v-if="rutaSearchQuery"
-                    type="button"
-                    @click="rutaSearchQuery = ''"
-                    class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
-                  >
-                    <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div class="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-              <button
-                v-for="r in filteredRutas"
-                :key="r.id_ruta"
-                type="button"
-                @click="selectRuta(r.id_ruta)"
-                class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border"
-                :class="selectedRutaId === r.id_ruta
-                  ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/30'
-                  : 'bg-slate-50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'"
-              >
-                <div
-                  class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
-                  :class="selectedRutaId === r.id_ruta
-                    ? 'bg-[#3b82f6] shadow-[0_2px_6px_rgba(59,130,246,0.4)]'
-                    : 'border-2 border-slate-300 dark:border-slate-600'"
-                >
-                  <HugeiconsIcon v-if="selectedRutaId === r.id_ruta" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
-                </div>
-                <div class="flex flex-col flex-1 min-w-0">
-                  <span class="text-[13px] font-semibold truncate" :class="selectedRutaId === r.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200'">
-                    {{ r.nombre }}
+        <div v-if="!isInitializing" class="animate-fade-in flex flex-col gap-4">
+          <div class="tablero-trabajo grid grid-cols-1 lg:grid-cols-2 border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-[#0c0d12]/40 backdrop-blur-md">
+            
+            <!-- COLUMNA IZQUIERDA: COMPARACIÓN DE RUTA -->
+            <div class="flex flex-col border-r border-slate-200/80 dark:border-white/10">
+              <div class="flex flex-col p-5 h-[360px] bg-slate-900/5 dark:bg-[#12141c]/30 gap-6 justify-center">
+                <!-- Ruta Actual -->
+                <div class="space-y-2">
+                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
+                    Ruta Actual
                   </span>
+                  <div class="flex items-center gap-3 bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl px-4 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]">
+                    <div class="w-10 h-10 rounded-xl bg-slate-500/10 flex items-center justify-center text-slate-400 border border-slate-500/10 shrink-0">
+                      <HugeiconsIcon :icon="Route01Icon" :size="18" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-[13px] font-semibold text-slate-800 dark:text-white truncate">{{ getRutaLabel(servicio?.id_ruta || '') }}</p>
+                      <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Activa en el servicio</span>
+                    </div>
+                  </div>
                 </div>
-                <HugeiconsIcon :icon="Route01Icon" :size="16" class="shrink-0" :class="selectedRutaId === r.id_ruta ? 'text-[#3b82f6]' : 'text-slate-400'" />
-              </button>
-              <div v-if="filteredRutas.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
-                <HugeiconsIcon :icon="Route01Icon" :size="32" class="opacity-30 mb-2" />
-                <span class="text-[12px] font-medium">Sin rutas disponibles</span>
+
+                <!-- Ruta Nueva -->
+                <div class="space-y-2">
+                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] ml-1">
+                    Nueva Ruta Seleccionada
+                  </span>
+                  <div 
+                    v-if="selectedRutaId" 
+                    class="flex items-center gap-3 bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/20 dark:border-[#3b82f6]/30 rounded-xl px-4 py-3 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] transition-all"
+                  >
+                    <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/20 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/30 shrink-0">
+                      <HugeiconsIcon :icon="Route01Icon" :size="18" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-[13px] font-semibold text-[#3b82f6] dark:text-[#5da6fc] truncate">{{ getRutaLabel(selectedRutaId) }}</p>
+                      <span class="text-[9px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider">Pendiente de confirmación</span>
+                    </div>
+                  </div>
+                  <div 
+                    v-else 
+                    class="flex items-center justify-center border border-dashed border-slate-300 dark:border-white/10 rounded-xl p-5 text-slate-400 text-xs font-semibold text-center select-none"
+                  >
+                    <span>Seleccione una ruta de la lista derecha</span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            <!-- COLUMNA DERECHA: RUTAS DISPONIBLES -->
+            <div class="flex flex-col">
+              <div class="flex flex-col p-5 h-[360px]">
+                <div class="flex justify-between items-center mb-4 shrink-0">
+                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
+                    Rutas Disponibles (Grupo)
+                  </span>
+                  <div class="relative w-44 shrink-0" :class="getError('id_ruta_new') ? '!border-red-500/50' : ''">
+                    <input
+                      v-model="rutaSearchQuery"
+                      type="text"
+                      placeholder="Buscar ruta..."
+                      class="w-full text-[11px] bg-slate-100 dark:bg-slate-950/35 border border-slate-200/50 dark:border-white/5 rounded-lg pl-7 pr-2 py-1 outline-none text-slate-800 dark:text-white placeholder-slate-500 focus:border-[#3b82f6]/50 transition-all"
+                    />
+                    <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2 top-2 text-slate-500" />
+                  </div>
+                </div>
+                
+                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar space-y-1">
+                  <button
+                    v-for="r in filteredRutas"
+                    :key="r.id_ruta"
+                    type="button"
+                    @click="selectRuta(r.id_ruta)"
+                    class="w-full card-recurso flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border"
+                    :class="selectedRutaId === r.id_ruta
+                      ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/30'
+                      : 'bg-slate-50 dark:bg-[#0F1115]/50 border-slate-200/60 dark:border-white/5 hover:border-[#3b82f6]/40 dark:hover:border-[#3b82f6]/30'"
+                  >
+                    <div
+                      class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
+                      :class="selectedRutaId === r.id_ruta
+                        ? 'bg-[#3b82f6] shadow-[0_2px_6px_rgba(59,130,246,0.4)]'
+                        : 'border-2 border-slate-300 dark:border-slate-600'"
+                    >
+                      <HugeiconsIcon v-if="selectedRutaId === r.id_ruta" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+                    </div>
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <span class="text-[13px] font-semibold truncate" :class="selectedRutaId === r.id_ruta ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200'">
+                        {{ r.nombre }}
+                      </span>
+                    </div>
+                    <HugeiconsIcon :icon="Route01Icon" :size="16" class="shrink-0" :class="selectedRutaId === r.id_ruta ? 'text-[#3b82f6]' : 'text-slate-400'" />
+                  </button>
+
+                  <div v-if="filteredRutas.length === 0" class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-12">
+                    <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-20 mb-1" />
+                    <span>{{ rutaSearchQuery ? 'Sin coincidencias.' : 'Sin otras rutas en este grupo.' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
+
+          <!-- Resumen de Cambios -->
+          <div class="mt-2 flex items-center justify-between px-4 py-3 bg-slate-100/50 dark:bg-[#0c0d12]/50 border border-slate-200/50 dark:border-white/5 rounded-2xl text-xs text-slate-500 dark:text-slate-400">
+            <div class="flex gap-4 items-center">
+              <span class="flex items-center gap-1.5 font-semibold">Cambio: <strong class="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{{ selectedRutaId ? '1 programado' : '0' }}</strong></span>
+            </div>
+            <span class="text-[10px] text-slate-400 italic">Presione confirmar para actualizar la ruta del servicio</span>
+          </div>
+
         </div>
       </Transition>
     </div>
@@ -281,45 +303,12 @@ const handleClose = () => {
 </template>
 
 <style scoped>
-.animate-fade-in {
-  animation: fadeIn 0.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+.tablero-trabajo {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  transform: scale(1.03);
-  backdrop-filter: blur(0px);
-}
-.fade-enter-to, .fade-leave-from {
-  opacity: 1;
-  transform: scale(1);
-  backdrop-filter: blur(12px);
-}
-
-.message-fade-enter-from,
-.message-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-.message-fade-enter-active,
-.message-fade-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.fade-slide-enter-from, .fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
+.card-recurso {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -329,32 +318,35 @@ const handleClose = () => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
+  background: rgba(148, 163, 184, 0.15);
   border-radius: 10px;
 }
-:global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #2A313A;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
 }
 
-:deep(.modal-card .bg-slate-50) {
-  background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.2, 1, 0.3, 1) forwards;
 }
-:deep(.modal-card .border-slate-200) {
-  border-color: rgba(255,255,255,0.08) !important;
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-:deep(.modal-card .text-slate-800) {
-  color: #e2e8f0 !important;
+
+.fade-enter-active, .fade-leave-active {
+  transition: all 0.3s ease;
 }
-:deep(.modal-card .placeholder-slate-400) {
-  color: #475569 !important;
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  backdrop-filter: blur(0px);
 }
-:deep(.modal-card .placeholder-slate-600) {
-  color: #475569 !important;
+
+.fade-slide-enter-active, .fade-slide-leave-active {
+  transition: all 0.3s ease;
 }
-:deep(.modal-card .text-slate-700) {
-  color: #e2e8f0 !important;
-}
-:deep(.modal-card .bg-white) {
-  background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
+.fade-slide-enter-from, .fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 </style>

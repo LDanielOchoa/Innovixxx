@@ -17,11 +17,15 @@ function mapZodCodeToType(code: string): FieldError['type'] {
   }
 }
 
-export function useFormValidator<T extends Record<string, unknown>>(schema: ZodSchema<T>) {
+export function useFormValidator<T extends Record<string, unknown>>(schema: any) {
   const validationStore = useValidationStore()
 
   const validate = (data: T, formId: string): boolean => {
-    const result = schema.safeParse(data)
+    const unwrappedSchema = (schema && typeof schema === 'object' && 'value' in schema) 
+      ? schema.value 
+      : (typeof schema === 'function' && !schema.safeParse ? schema() : schema)
+      
+    const result = unwrappedSchema.safeParse(data)
 
     if (result.success) {
       validationStore.clearErrors(formId)

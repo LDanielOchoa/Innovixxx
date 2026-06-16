@@ -27,5 +27,5 @@ export const createGrupoApi = async (payload: GrupoCreatePayload): Promise<{ don
     method: 'POST',
     body: formData
   })
-  return { done: Boolean(data?.done), message: data?.message }
+  return { done: data?.done !== false, message: data?.message }
 }

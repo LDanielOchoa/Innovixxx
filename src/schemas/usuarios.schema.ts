@@ -21,7 +21,7 @@ export const updateUsuarioSchema = z.object({
   nombre: z.string().min(2, 'El nombre es requerido').max(100),
   email: z.string().min(1, 'El correo es requerido').email('Correo electrónico inválido'),
   lang: z.string().min(2).default('es'),
-  pass: z.string().optional()
+  pass: z.preprocess((val) => (val === '' || val === undefined ? undefined : val), passwordSchema.optional())
 })
 
 export const deleteUsuarioSchema = z.object({

@@ -21,6 +21,10 @@ export const gruposMessages = {
     noTimeZoneFound: 'No se encontró la zona horaria.',
     formLang: 'Idioma',
     alertSuccessCreate: 'Grupo creado exitosamente',
+    alertSuccessCreateTitle: 'Grupo Creado',
+    alertSuccessCreateDetail: 'El grupo ha sido registrado exitosamente.',
+    alertSuccessUpdateTitle: 'Grupo Actualizado',
+    alertSuccessUpdateDetail: 'El grupo ha sido modificado exitosamente.',
     alertErrorCreate: 'Error al crear el grupo',
     alertNetError: 'Error de red. Inténtalo de nuevo.'
   },
@@ -46,6 +50,10 @@ export const gruposMessages = {
     noTimeZoneFound: 'Time zone not found.',
     formLang: 'Language',
     alertSuccessCreate: 'Group created successfully',
+    alertSuccessCreateTitle: 'Group Created',
+    alertSuccessCreateDetail: 'The group has been registered successfully.',
+    alertSuccessUpdateTitle: 'Group Updated',
+    alertSuccessUpdateDetail: 'The group has been modified successfully.',
     alertErrorCreate: 'Error creating group',
     alertNetError: 'Network error. Please try again.'
   }

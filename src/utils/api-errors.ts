@@ -27,6 +27,7 @@ export class ApiError extends Error {
     this.code = code;
     this.originalResponse = originalResponse;
     this.name = 'ApiError';
+    Object.setPrototypeOf(this, ApiError.prototype);
   }
 }
 

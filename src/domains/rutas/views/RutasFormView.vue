@@ -60,112 +60,184 @@
               <HugeiconsIcon :icon="ArrowLeft01Icon" :size="14" :stroke-width="2.5" class="rotate-180" />
             </button>
           </div>
-
-          <div class="relative mt-4">
-            <AppButton variant="primary" @click="saveRuta" :loading="isSubmitting" class="w-full !rounded-[12px]">
-              <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
-            </AppButton>
-          </div>
         </div>
       
-        <div class="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar">
-          <form @submit.prevent="saveRuta" class="space-y-6 relative p-1">
+        <!-- Body scrolling container -->
+        <div class="flex-1 overflow-y-auto px-5 py-5 custom-scrollbar space-y-5">
+          <!-- Alertas y Mensajes -->
+          <Transition name="message-fade">
+            <div v-if="modalMessage && !isSubmitting"
+                 class="flex items-center gap-3 py-3 px-4 rounded-[12px] text-xs font-bold tracking-tight uppercase border animate-none"
+                 :class="{
+                   'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
+                   'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
+                   'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
+                 }">
+                 <HugeiconsIcon :icon="modalMessage.type === 'error' || modalMessage.type === 'warning' ? Shield01Icon : Tick01Icon" :size="16" />
+                 {{ modalMessage.text }}
+            </div>
+          </Transition>
+
+          <form @submit.prevent="saveRuta" class="space-y-5 relative">
             <Transition name="loader-fade">
               <div v-if="isSubmitting" class="absolute -inset-4 z-50 flex items-center justify-center bg-white/60 dark:bg-[#0C0E13]/80 backdrop-blur-md rounded-2xl overflow-hidden animate-none">
                 <div class="flex flex-col items-center gap-4 p-8">
                   <div class="relative flex items-center justify-center">
-                    <div class="w-16 h-16 border-[4px] border-[#3b82f6]/10 border-t-[#3b82f6] rounded-full animate-spin"></div>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                      <HugeiconsIcon :icon="Route01Icon" :size="24" class="text-[#3b82f6]" />
-                    </div>
+                    <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+                    <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
                   </div>
                   <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditMode ? 'Actualizando' : 'Creando' }} Ruta</p>
                 </div>
               </div>
             </Transition>
 
-            <Transition name="message-fade">
-              <div v-if="modalMessage && !isSubmitting"
-                   class="flex items-center gap-3 py-3 px-4 rounded-[12px] text-xs font-bold tracking-tight uppercase border animate-none"
-                   :class="{
-                     'text-red-500 bg-red-500/5 border-red-500/10': modalMessage.type === 'error',
-                     'text-amber-500 bg-amber-500/5 border-amber-500/10': modalMessage.type === 'warning',
-                     'text-[#3b82f6] bg-[#3b82f6]/5 border-[#3b82f6]/10': modalMessage.type === 'success'
-                   }">
-                   <HugeiconsIcon :icon="modalMessage.type === 'error' || modalMessage.type === 'warning' ? Shield01Icon : Tick01Icon" :size="16" />
-                   {{ modalMessage.text }}
+            <!-- Sección: Información Básica -->
+            <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-4 shadow-sm">
+              <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Información Básica</span>
+              
+              <div>
+                <AppInput 
+                  v-model="formData.nombre"
+                  :label="$t('rutas.formName')"
+                  :placeholder="$t('rutas.formNamePlaceholder')"
+                  :icon="Route01Icon"
+                  required
+                />
+                <span v-if="getError('nombre')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('nombre') }}</span>
               </div>
-            </Transition>
-
-            <AppInput 
-              v-model="formData.nombre"
-              :label="$t('rutas.formName')"
-              :placeholder="$t('rutas.formNamePlaceholder')"
-              :icon="Route01Icon"
-              required
-            />
-            
-            <AppInput 
-              v-model="formData.descripcion"
-              type="textarea"
-              :label="$t('rutas.formDesc')"
-              :placeholder="$t('rutas.formDescPlaceholder')"
-              :rows="3"
-              required
-            />
-
-            <div class="space-y-2 w-full">
-              <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider ml-1.5">{{ $t('rutas.formColor') }}</label>
-              <div class="w-full p-1.5 bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-                <div ref="pickrContainer" class="pickr-container w-full"></div>
+              
+              <div>
+                <AppInput 
+                  v-model="formData.descripcion"
+                  type="textarea"
+                  :label="$t('rutas.formDesc')"
+                  :placeholder="$t('rutas.formDescPlaceholder')"
+                  :rows="3"
+                  required
+                />
+                <span v-if="getError('descripcion')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('descripcion') }}</span>
               </div>
             </div>
 
-            <!-- Step 2: Stops Section -->
-            <div class="rounded-[14px] border border-slate-200/80 dark:border-white/5 bg-slate-50/30 dark:bg-white/[0.02] transition-all duration-300 overflow-hidden">
-              <!-- Header of stops section -->
-              <div class="flex items-center justify-between px-4 py-3.5 border-b border-slate-200/60 dark:border-white/5">
-                <div class="flex items-center gap-2.5">
-                  <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-slate-400" />
-                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{{ $t('rutas.strategicStops') }}</span>
+            <!-- Sección: Estilo Visual -->
+            <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
+              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">{{ $t('rutas.formColor') }}</label>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button
+                  v-for="color in predefinedColors"
+                  :key="color"
+                  type="button"
+                  :disabled="isSubmitting"
+                  @click="formData.color = color; showCustomColorPicker = false"
+                  class="w-6 h-6 rounded-full border border-black/10 dark:border-white/10 flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95 focus:outline-none"
+                  :style="{ backgroundColor: color }"
+                  :title="color"
+                >
+                  <HugeiconsIcon
+                    v-if="formData.color.toLowerCase() === color.toLowerCase() && !showCustomColorPicker"
+                    :icon="Tick01Icon"
+                    :size="10"
+                    class="text-white"
+                  />
+                </button>
+
+                <!-- "Otros" (Custom Color Picker Button) -->
+                <button
+                  type="button"
+                  :disabled="isSubmitting"
+                  @click="selectOtros"
+                  class="h-6 px-2.5 rounded-full border text-[11px] font-bold transition-all duration-200 hover:scale-105 active:scale-95 focus:outline-none flex items-center gap-1.5"
+                  :class="[
+                    showCustomColorPicker
+                      ? 'bg-gradient-to-b from-[#3b82f6] to-[#2563eb] border-[#2563eb] text-white shadow-sm'
+                      : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
+                  ]"
+                >
+                  <span>Otros</span>
+                  <span 
+                    v-if="showCustomColorPicker" 
+                    class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
+                    :style="{ backgroundColor: formData.color }"
+                  ></span>
+                </button>
+
+                <!-- Color Input (visible only when showCustomColorPicker is true) -->
+                <div v-if="showCustomColorPicker" class="flex items-center gap-2 ml-auto">
+                  <input
+                    ref="colorInputRef"
+                    type="color"
+                    v-model="formData.color"
+                    :disabled="isSubmitting"
+                    class="w-8 h-6 rounded border-none bg-transparent cursor-pointer p-0 shrink-0"
+                  />
+                  <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase select-none font-mono">
+                    {{ formData.color }}
+                  </span>
                 </div>
-                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full"
+              </div>
+            </div>
+
+            <!-- Sección: Paradas -->
+            <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-4 shadow-sm">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ $t('rutas.strategicStops') }}</span>
+                </div>
+                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full"
                       :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
                   {{ paradasTemporales.length > 0 ? `${paradasTemporales.length} paradas` : 'Requerido' }}
                 </span>
               </div>
 
-              <!-- Content -->
-              <div class="p-4">
-                <!-- Preview of stops if any -->
-                <div v-if="paradasTemporales.length > 0" class="flex items-center gap-2 mb-4 flex-wrap">
-                  <div v-for="(_, i) in paradasTemporales" :key="i"
-                       class="w-7 h-7 rounded-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
-                    {{ i + 1 }}
-                  </div>
-                  <div class="w-7 h-7 rounded-[8px] border border-dashed border-slate-300 dark:border-white/10 flex items-center justify-center">
-                    <HugeiconsIcon :icon="Add01Icon" :size="12" class="text-slate-400" />
-                  </div>
+              <!-- Vista previa -->
+              <div v-if="paradasTemporales.length > 0" class="flex items-center gap-1.5 flex-wrap">
+                <div v-for="(_, i) in paradasTemporales" :key="i"
+                     class="w-7 h-7 rounded-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
+                  {{ i + 1 }}
                 </div>
-
-                <button 
-                  type="button" 
-                  @click="startAddingParadas" 
-                  class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-[12px] font-bold text-[12px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] border"
-                  :class="paradasTemporales.length > 0
-                    ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5'
-                    : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-[0_4px_12px_rgba(59,130,246,0.15)]'"
-                >
-                  <HugeiconsIcon :icon="Location01Icon" :size="16" />
-                  {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa →' }}
-                </button>
-
-                <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 mt-2.5 font-medium">
-                  Mínimo 2 paradas · Haz clic en el mapa para añadirlas
-                </p>
+                <div class="w-7 h-7 rounded-[8px] border border-dashed border-slate-300 dark:border-white/10 flex items-center justify-center">
+                  <HugeiconsIcon :icon="Add01Icon" :size="12" class="text-slate-400" />
+                </div>
               </div>
+
+              <button 
+                type="button" 
+                @click="startAddingParadas" 
+                class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] border"
+                :class="paradasTemporales.length > 0
+                  ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5'
+                  : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-[0_4px_12px_rgba(59,130,246,0.15)]'"
+              >
+                <HugeiconsIcon :icon="Location01Icon" :size="15" />
+                {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa' }}
+              </button>
+
+              <span v-if="getError('paradas')" class="text-xs text-red-500 font-bold block text-center mt-1">{{ getError('paradas') }}</span>
+
+              <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+                Mínimo 2 paradas · Haz clic en el mapa para añadirlas
+              </p>
             </div>
           </form>
+        </div>
+
+        <!-- Sticky Footer for primary action buttons -->
+        <div class="px-5 py-4 border-t border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-[#11141A] shrink-0 flex items-center gap-3">
+          <button 
+            type="button"
+            @click="router.push('/rutas')"
+            class="flex-1 px-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[12px] font-bold text-slate-600 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 uppercase tracking-wide"
+          >
+            Cancelar
+          </button>
+          <AppButton 
+            variant="primary" 
+            @click="saveRuta" 
+            :loading="isSubmitting" 
+            class="flex-[2] !rounded-xl !py-3 !text-[12px] font-bold uppercase tracking-wide"
+          >
+            <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
+          </AppButton>
         </div>
       </div>
     </div>
@@ -185,13 +257,13 @@
     <!-- Barra de Búsqueda de Lugares (Solo visible al editar/trazar) -->
     <Transition name="fade-slide-down">
       <div v-show="isAddingParadas" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
-        <div class="relative flex items-center bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-white/5 rounded-[14px] shadow-[0_10px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.4)] overflow-hidden transition-all duration-200">
-          <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="2" class="absolute left-4 text-[#3b82f6] dark:text-[#5da6fc]" />
+        <div class="relative flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.4)] transition-all duration-300">
+          <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="1.8" class="absolute left-4 text-slate-400 dark:text-slate-500" />
           <input 
             id="map-search-input"
             type="text" 
             placeholder="Buscar lugar, dirección..."
-            class="w-full bg-transparent border-none py-3 pl-11 pr-4 text-[12px] font-bold text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0"
+            class="w-full bg-transparent border-none py-3 pl-11 pr-4 text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-0"
           />
         </div>
       </div>
@@ -239,15 +311,12 @@
           >
             <!-- Icon Badge -->
             <div 
-              class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-300 shrink-0"
-              :class="selectedTipoParada === tipo.id_tipo 
-                ? 'bg-[#3b82f6] text-white border-transparent' 
-                : getTipoIconData(tipo.nombre).color"
+              class="w-9 h-9 rounded-full flex items-center justify-center bg-white dark:bg-[#1C202A] border border-slate-200/80 dark:border-white/10 shadow-sm transition-colors duration-300 shrink-0 overflow-hidden"
             >
-              <HugeiconsIcon 
-                :icon="getTipoIconData(tipo.nombre).icon" 
-                :size="16" 
-                :stroke-width="selectedTipoParada === tipo.id_tipo ? 2.5 : 2" 
+              <img 
+                :src="getTipoImage(tipo.nombre)" 
+                class="w-6 h-6 object-contain"
+                alt="icono parada"
               />
             </div>
 
@@ -318,15 +387,12 @@
             >
               <!-- Icon Badge -->
               <div 
-                class="w-8 h-8 rounded-lg flex items-center justify-center border transition-colors duration-300 shrink-0"
-                :class="editingTipoParada === tipo.id_tipo 
-                  ? 'bg-[#3b82f6] text-white border-transparent' 
-                  : getTipoIconData(tipo.nombre).color"
+                class="w-9 h-9 rounded-full flex items-center justify-center bg-white dark:bg-[#1C202A] border border-slate-200/80 dark:border-white/10 shadow-sm transition-colors duration-300 shrink-0 overflow-hidden"
               >
-                <HugeiconsIcon 
-                  :icon="getTipoIconData(tipo.nombre).icon" 
-                  :size="16" 
-                  :stroke-width="editingTipoParada === tipo.id_tipo ? 2.5 : 2" 
+                <img 
+                  :src="getTipoImage(tipo.nombre)" 
+                  class="w-6 h-6 object-contain"
+                  alt="icono parada"
                 />
               </div>
 
@@ -389,8 +455,17 @@ import {
   Delete01Icon,
   Shield01Icon,
   Tick01Icon,
-  Search01Icon
+  Search01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
+
+import rutaBalanza from '../../../assets/ruta_balanza.png'
+import rutaFin from '../../../assets/ruta_fin.png'
+import rutaGasolinera from '../../../assets/ruta_gasolinera.png'
+import rutaInicio from '../../../assets/ruta_inicio.png'
+import rutaParqueadero from '../../../assets/ruta_parqueadero.png'
+import rutaPuntoControl from '../../../assets/ruta_punto_control.png'
+import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
 import { createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi } from '../services/rutas.api'
 import type { TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
@@ -398,6 +473,10 @@ import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createRutaSchema, updateRutaSchema } from '../../../schemas/rutas.schema'
+import { useToast } from 'primevue/usetoast'
 
 // ── Composables de rutas ─────────────────────────────────────
 import { useGoogleMaps }      from '../../../composables/useGoogleMaps'
@@ -413,6 +492,7 @@ import ParadasListPanel from '../../../components/rutas/ParadasListPanel.vue'
 const { t }      = useI18n()
 const route      = useRoute()
 const router     = useRouter()
+const toast      = useToast()
 
 // ── Google Maps singleton ─────────────────────────────────────
 const { loadGoogleMaps } = useGoogleMaps()
@@ -442,9 +522,32 @@ const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa' })
 const isEditMode    = ref(false)
 const editingRutaId = ref<string | null>(null)
 
-// ── Pickr Color Picker ───────────────────────────────────────
-const pickrContainer = ref<HTMLElement | null>(null)
-let pickrInstance: any = null
+const activeSchema = computed(() => isEditMode.value ? updateRutaSchema : createRutaSchema)
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('rutas-form')
+
+// ── Color Selection ───────────────────────────────────────────
+const predefinedColors = [
+  '#60a5fa', // Azul Claro
+  '#ef4444', // Rojo
+  '#22c55e', // Verde
+  '#f59e0b', // Amarillo
+  '#8b5cf6', // Violeta
+  '#ec4899', // Rosa
+  '#14b8a6', // Teal
+  '#f97316', // Naranja
+  '#6366f1', // Indigo
+  '#84cc16'  // Lime
+]
+const showCustomColorPicker = ref(false)
+const colorInputRef = ref<HTMLInputElement | null>(null)
+
+const selectOtros = () => {
+  showCustomColorPicker.value = true
+  setTimeout(() => {
+    colorInputRef.value?.click()
+  }, 50)
+}
 
 // ── UI State de Paradas ───────────────────────────────────────
 const isAddingParadas        = ref(false)
@@ -480,6 +583,17 @@ const getTipoIconData = (nombre: string) => {
     return { icon: Shield01Icon, color: 'text-orange-500 bg-orange-500/10 border-orange-500/20 dark:bg-orange-500/5 dark:border-orange-500/10' }
   }
   return { icon: Location01Icon, color: 'text-blue-500 bg-blue-500/10 border-blue-500/20 dark:bg-blue-500/5 dark:border-blue-500/10' }
+}
+
+const getTipoImage = (nombre: string) => {
+  const norm = nombre.toLowerCase().trim()
+  if (norm.includes('inicio') || norm.includes('start')) return rutaInicio
+  if (norm.includes('fin') || norm.includes('end')) return rutaFin
+  if (norm.includes('gasolinera') || norm.includes('gasolineria') || norm.includes('fuel')) return rutaGasolinera
+  if (norm.includes('parqueadero') || norm.includes('parking')) return rutaParqueadero
+  if (norm.includes('balanza') || norm.includes('escala') || norm.includes('weight')) return rutaBalanza
+  if (norm.includes('control') || norm.includes('checkpoint')) return rutaPuntoControl
+  return rutaPuntoNormal
 }
 
 // ── Color computado (reactive para los composables) ───────────
@@ -521,39 +635,7 @@ const showModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 
   }
 }
 
-// ── Pickr ─────────────────────────────────────────────────────
-const initPickr = async () => {
-  await nextTick()
-  if (!pickrContainer.value || !(window as any).Pickr) return
 
-  if (pickrInstance) {
-    pickrInstance.setColor(formData.value.color)
-    return
-  }
-
-  pickrInstance = (window as any).Pickr.create({
-    el: pickrContainer.value,
-    theme: 'nano',
-    default: formData.value.color,
-    swatches: [
-      '#60a5fa', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6',
-      '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
-    ],
-    components: {
-      preview: true, opacity: false, hue: true,
-      interaction: { hex: true, rgba: false, hsla: false, hsva: false, cmyk: false, input: true, clear: false, save: false }
-    }
-  })
-
-  pickrInstance
-    .on('change',      (color: any) => { formData.value.color = color.toHEXA().toString() })
-    .on('swatchselect', (color: any, instance: any) => {
-      formData.value.color = color.toHEXA().toString()
-      instance.applyColor()
-      instance.hide()
-    })
-    .on('changestop',  (_source: string, instance: any) => { instance.applyColor() })
-}
 
 
 
@@ -582,7 +664,6 @@ const handleMapInit = (googleMapsApi: any) => {
     if (paradasTemporales.value.length >= 2) {
       drawFullRoute(paradasTemporales.value, routeColor.value)
     }
-    if (pickrInstance) pickrInstance.setColor(formData.value.color)
   }
 }
 
@@ -602,6 +683,13 @@ const loadRouteData = async (id_ruta: string) => {
       color:       detalle.color || '#60a5fa'
     }
 
+    if (detalle.color) {
+      const colLower = detalle.color.toLowerCase()
+      if (!predefinedColors.some(c => c.toLowerCase() === colLower)) {
+        showCustomColorPicker.value = true
+      }
+    }
+
     if (detalle.paradas) {
       paradasTemporales.value = detalle.paradas.map(p => ({
         lat:  parseFloat(p.lat),
@@ -616,7 +704,6 @@ const loadRouteData = async (id_ruta: string) => {
       if (paradasTemporales.value.length >= 2) {
         drawFullRoute(paradasTemporales.value, routeColor.value)
       }
-      if (pickrInstance) pickrInstance.setColor(detalle.color || '#60a5fa')
     }
   } catch (error) {
     console.error('Error cargando detalles para edición:', error)
@@ -645,59 +732,75 @@ const startAddingParadas = async () => {
 
 const finishAddingParadas = () => {
   isAddingParadas.value = false
-  initPickr()
 }
 
-// ── Guardar ruta ──────────────────────────────────────────────
 const saveRuta = async () => {
   if (isSubmitting.value) return
 
+  clearErrors()
+  modalMessage.value = null
+
   const idGrupo = selectedGroup.value?.id?.trim() || ''
-  if (!idGrupo)             { showModalMessage(t('rutas.alertSelectGroup'),   'warning'); return }
-  if (idGrupo.length !== 8) { showModalMessage(t('rutas.alertInvalidGroup'), 'warning'); return }
+  
+  const payload = isEditMode.value && editingRutaId.value
+    ? {
+        id_grupo:    idGrupo,
+        id_ruta:     editingRutaId.value,
+        nombre:      formData.value.nombre,
+        descripcion: formData.value.descripcion || '',
+        color:       formData.value.color,
+        paradas:     paradasTemporales.value
+      }
+    : {
+        id_grupo:    idGrupo,
+        nombre:      formData.value.nombre,
+        descripcion: formData.value.descripcion || '',
+        color:       formData.value.color,
+        paradas:     paradasTemporales.value
+      }
+
+  if (!validate(payload, 'rutas-form')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      showModalMessage(firstErr, 'warning')
+    }
+    return
+  }
 
   isSubmitting.value = true
-  modalMessage.value = null
 
   try {
     const data = isEditMode.value && editingRutaId.value
-      ? await updateRutaApi({
-          id_grupo:    idGrupo,
-          id_ruta:     editingRutaId.value,
-          nombre:      formData.value.nombre,
-          descripcion: formData.value.descripcion,
-          color:       formData.value.color,
-          paradas:     paradasTemporales.value
-        })
-      : await createRutaApi({
-          id_grupo:    idGrupo,
-          nombre:      formData.value.nombre,
-          descripcion: formData.value.descripcion,
-          color:       formData.value.color,
-          paradas:     paradasTemporales.value.length > 0 ? paradasTemporales.value : undefined
-        })
+      ? await updateRutaApi(payload)
+      : await createRutaApi(payload as any)
 
     if (data.done) {
-      showModalMessage(
-        isEditMode.value ? t('rutas.alertSuccessUpdate') : t('rutas.alertSuccessCreate'),
-        'success'
-      )
+      toast.add({
+        severity: 'success',
+        summary: isEditMode.value ? t('rutas.alertSuccessUpdate') : t('rutas.alertSuccessCreate'),
+        detail: data.message || (isEditMode.value ? 'La ruta ha sido actualizada con éxito.' : 'La ruta ha sido creada con éxito.'),
+        life: 4000
+      })
       clearMarkers()
       clearAllRoutes()
       paradasTemporales.value = []
       setTimeout(() => { router.push('/rutas') }, 1500)
     } else {
-      showModalMessage(
-        data.message || (isEditMode.value ? t('rutas.alertErrorUpdate') : t('rutas.alertErrorCreate')),
-        'error'
-      )
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || (isEditMode.value ? t('rutas.alertErrorUpdate') : t('rutas.alertErrorCreate')),
+        life: 4000
+      })
     }
   } catch (error) {
     console.error('Error saving ruta:', error)
-    showModalMessage(
-      isEditMode.value ? t('rutas.alertNetErrorUpdate') : t('rutas.alertNetErrorCreate'),
-      'error'
-    )
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: isEditMode.value ? t('rutas.alertNetErrorUpdate') : t('rutas.alertNetErrorCreate'),
+      life: 4000
+    })
   } finally {
     isSubmitting.value = false
   }
@@ -778,6 +881,12 @@ watch(() => selectedGroup.value?.id, (newId) => {
   }
 }, { immediate: true })
 
+watch(routeColor, (newColor) => {
+  if (map.value && paradasTemporales.value.length >= 2) {
+    drawFullRoute(paradasTemporales.value, newColor)
+  }
+})
+
 const verificarRutaGps = async () => {
   if (route.query.gps !== 'true') return
 
@@ -794,15 +903,16 @@ const verificarRutaGps = async () => {
       catch (e) { console.error('Error al obtener tipos de parada:', e) }
     }
 
-    const tipoDefecto = tiposParada.value[0]?.id_tipo ?? 1
+    const tipoInicio = tiposParada.value.find(t => t.nombre.toLowerCase().includes('inicio'))?.id_tipo ?? 6
+    const tipoFin = tiposParada.value.find(t => t.nombre.toLowerCase().includes('fin'))?.id_tipo ?? 7
     const primera = posiciones[0]
     const ultima  = posiciones[posiciones.length - 1]
 
     // Solo inicio y fin como paradas oficiales; las líneas GPS son decorativas
     paradasTemporales.value = [
-      { lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoDefecto },
+      { lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio },
       ...(posiciones.length > 1
-        ? [{ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoDefecto }]
+        ? [{ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin }]
         : [])
     ]
 
@@ -837,14 +947,9 @@ onMounted(() => {
       isLoadingMap.value = false
     })
 
-  initPickr()
 })
 
 onUnmounted(() => {
-  if (pickrInstance) {
-    pickrInstance.destroyAndRemove()
-    pickrInstance = null
-  }
 })
 </script>
 

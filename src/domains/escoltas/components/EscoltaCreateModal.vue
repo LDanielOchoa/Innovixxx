@@ -23,6 +23,7 @@ import { useI18n } from 'vue-i18n'
 import { createEscoltaApi, updateEscoltaApi } from '../services/escoltas.api'
 import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escoltas.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
 import { fetchVehiculosServicioSimpleApi, type VehiculoServicioSimple } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
@@ -32,9 +33,12 @@ import type { Escolta } from '../types/escolta'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
+import { useToast } from 'primevue/usetoast'
+import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -45,11 +49,12 @@ const emit = defineEmits(['update:isOpen', 'created', 'updated'])
 
 const esModoEdicion = computed(() => !!props.editItem)
 const esquemaActivo = computed(() => esModoEdicion.value ? updateEscoltaSchema : createEscoltaSchema)
-const { validate } = useFormValidator(esquemaActivo as any)
+const formId = computed(() => esModoEdicion.value ? 'escolta-edit-form' : 'escolta-create-form')
+const { validate, getFirstError, resetErrors } = useFormValidator(esquemaActivo as any)
+const { getError, clearErrors } = useFormError(formId as any)
 
 const isInitializing = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
 const formData = reactive({
@@ -235,8 +240,9 @@ const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'erro
 
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
+    resetErrors(formId.value)
+    clearErrors()
     isInitializing.value = true
-    isSuccess.value = false
     saving.value = false
     modalMessage.value = null
     panelActivo.value = null
@@ -327,13 +333,15 @@ onUnmounted(() => {
 
 const handleGuardar = async () => {
   if (saving.value) return
+  clearErrors()
+  modalMessage.value = null
+
   if (!groupStore.selectedGroup?.id) {
     showMessage(t('escoltas.alertNoGroup') || 'Seleccione un grupo válido', 'error')
     return
   }
 
   saving.value = true
-  modalMessage.value = null
 
   const payload = {
     nombre: formData.nombre,
@@ -349,9 +357,12 @@ const handleGuardar = async () => {
     pase_vence: formatFecha(formData.pase_vence)
   }
 
-  const formId = esModoEdicion.value ? 'escolta-edit-form' : 'escolta-create-form'
-  if (!validate(payload, formId)) {
+  if (!validate(payload, formId.value)) {
     saving.value = false
+    showMessage(
+      getFirstError(formId.value) || t('escoltas.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      'error'
+    )
     return
   }
 
@@ -359,29 +370,59 @@ const handleGuardar = async () => {
     if (esModoEdicion.value && props.editItem) {
       const data = await updateEscoltaApi({ ...payload, id_escolta: props.editItem.id_escolta })
       if (data.done) {
-        isSuccess.value = true
+        toast.add({
+          severity: 'success',
+          summary: t('escoltas.alertSuccessUpdateTitle', 'Escolta Actualizado'),
+          detail: data.message || t('escoltas.alertSuccessUpdateDetail', 'El escolta ha sido modificado exitosamente.'),
+          life: 4000
+        })
         emit('updated')
+        handleClose()
       } else {
         showMessage(data.message || (t('escoltas.alertErrorUpdate') || 'Error al actualizar'), 'error')
       }
     } else {
       const data = await createEscoltaApi(payload)
       if (data.done) {
-        isSuccess.value = true
+        toast.add({
+          severity: 'success',
+          summary: t('escoltas.alertSuccessCreateTitle', 'Escolta Registrado'),
+          detail: data.message || t('escoltas.alertSuccessCreateDetail', 'El escolta ha sido registrado exitosamente.'),
+          life: 4000
+        })
         emit('created')
+        Object.assign(formData, {
+          nombre: '', cedula: '', email: '', celular: '',
+          id_servicio: '', id_vehiculo: '', id_hardware: '',
+          tipo_pase: '', pase: '', pase_vence: null
+        })
+        resetErrors(formId.value)
+        clearErrors()
       } else {
         showMessage(data.message || (t('escoltas.alertErrorCreate') || 'Error al registrar'), 'error')
       }
     }
   } catch (error: any) {
     console.error('Error guardando escolta:', error)
-    showMessage(error.message || (t('escoltas.alertNetError') || 'Error de conexión'), 'error')
+    if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
+      const code = error.code
+      let msg = ''
+      if (code === 400 || code === 500 || code === 422) {
+        msg = error.message || getErrorMessage(code)
+      } else {
+        msg = getErrorMessage(code) || error.message
+      }
+      showMessage(msg, 'error')
+    } else {
+      showMessage(error.message || (t('escoltas.alertNetError') || 'Error de conexión'), 'error')
+    }
   } finally {
     saving.value = false
   }
 }
 
 const handleClose = () => {
+  if (saving.value) return
   emit('update:isOpen', false)
 }
 
@@ -400,10 +441,11 @@ const formatFecha = (date: Date | null): string => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleGuardar"
+    :close-on-click-outside="!saving"
     :title="esModoEdicion ? t('escoltas.modalTitleEdit', 'Editar Escolta') : t('escoltas.modalTitleCreate', 'Nuevo Escolta')"
     :confirm-text="esModoEdicion ? t('escoltas.btnSave', 'Guardar Cambios') : t('escoltas.btnRegister', 'Registrar Escolta')"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -446,40 +488,15 @@ const formatFecha = (date: Date | null): string => {
         </div>
       </div>
 
-      <!-- SUCCESS STATE -->
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">
-            {{ esModoEdicion ? 'Escolta Actualizado Exitosamente' : 'Escolta Registrado Exitosamente' }}
-          </h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            {{ esModoEdicion ? 'Los datos del escolta han sido actualizados exitosamente.' : 'El agente escolta ha sido registrado exitosamente en el sistema.' }}
-          </p>
-          <div class="pt-4">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
-            </button>
-          </div>
-        </div>
-
-        <!-- FORM CONTENT -->
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
+      <!-- FORM CONTENT -->
+      <div v-else class="animate-fade-in space-y-6">
           <div class="space-y-5">
             <AppInput
               v-model="formData.nombre"
               :label="t('escoltas.labelName', 'Nombre Completo')"
               :placeholder="t('escoltas.placeholderName', 'Ej: Pepito Pérez')"
               :icon="User02Icon"
+              :disabled="saving"
             />
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -488,12 +505,14 @@ const formatFecha = (date: Date | null): string => {
                 :label="t('escoltas.labelDoc', 'Documento (Cédula)')"
                 :placeholder="t('escoltas.placeholderDoc', 'Ej: 79065744')"
                 :icon="ContactBookIcon"
+                :disabled="saving"
               />
               <AppInput
                 v-model="formData.celular"
                 :label="t('escoltas.labelMobile', 'Celular')"
                 :placeholder="t('escoltas.placeholderMobile', 'Ej: 3023014514')"
                 :icon="SmartPhone01Icon"
+                :disabled="saving"
               />
             </div>
 
@@ -503,6 +522,7 @@ const formatFecha = (date: Date | null): string => {
               :placeholder="t('escoltas.placeholderEmail', 'Ej: escolta@email.com')"
               :icon="Mail01Icon"
               type="email"
+              :disabled="saving"
             />
 
             <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
@@ -519,10 +539,10 @@ const formatFecha = (date: Date | null): string => {
                     ref="btnServicios"
                     type="button"
                     @click="abrirPanel('servicios')"
-                    :disabled="loadingServicios"
+                    :disabled="loadingServicios || saving"
                     class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
                     :class="[
-                      loadingServicios ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      (loadingServicios || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
                       panelActivo === 'servicios' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
                     ]"
                   >
@@ -546,10 +566,10 @@ const formatFecha = (date: Date | null): string => {
                     ref="btnVehiculos"
                     type="button"
                     @click="abrirPanel('vehiculos')"
-                    :disabled="loadingVehiculosServicio"
+                    :disabled="loadingVehiculosServicio || saving"
                     class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
                     :class="[
-                      loadingVehiculosServicio ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      (loadingVehiculosServicio || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
                       panelActivo === 'vehiculos' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
                     ]"
                   >
@@ -573,10 +593,10 @@ const formatFecha = (date: Date | null): string => {
                     ref="btnHardware"
                     type="button"
                     @click="abrirPanel('hardware')"
-                    :disabled="loadingHardware"
+                    :disabled="loadingHardware || saving"
                     class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
                     :class="[
-                      loadingHardware ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                      (loadingHardware || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
                       panelActivo === 'hardware' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
                     ]"
                   >
@@ -603,8 +623,12 @@ const formatFecha = (date: Date | null): string => {
                   ref="btnTipoPase"
                   type="button"
                   @click="abrirPanel('tipoPase')"
+                  :disabled="saving"
                   class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
-                  :class="panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : 'hover:border-slate-300 dark:hover:border-white/10'"
+                  :class="[
+                    saving ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                    panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                  ]"
                 >
                   <HugeiconsIcon :icon="LicenseIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
                   <span class="flex-1 text-sm font-medium truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
@@ -618,24 +642,47 @@ const formatFecha = (date: Date | null): string => {
                 :label="t('escoltas.labelPass', 'Número de Pase')"
                 :placeholder="t('escoltas.placeholderPass', 'Ej: 79065744')"
                 :icon="ContactBookIcon"
+                :disabled="saving"
               />
               <AppDateTimePicker
                 v-model="formData.pase_vence"
                 :label="t('escoltas.labelPassExpiry', 'Vencimiento del Pase')"
                 :placeholder="t('escoltas.placeholderPassExpiry', 'Seleccione fecha')"
+                :disabled="saving"
+                only-date
               />
             </div>
           </div>
         </div>
-      </Transition>
-    </div>
+      </div>
+
+    <template #footer>
+      <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
+        <button
+          type="button"
+          :disabled="saving"
+          @click="handleClose"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {{ t('common.cancel', 'Cancelar') }}
+        </button>
+        <button
+          type="button"
+          :disabled="saving"
+          @click="handleGuardar"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+        >
+          {{ esModoEdicion ? t('escoltas.btnSave', 'Guardar Cambios') : t('escoltas.btnRegister', 'Registrar Escolta') }}
+        </button>
+      </div>
+    </template>
   </AppModal>
 
   <!-- Panel flotante de selección -->
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
-        v-if="panelActivo && isOpen && !isSuccess && !isInitializing"
+        v-if="panelActivo && isOpen && !isInitializing"
         class="panel-flotante-escolta fixed z-[200] flex flex-col overflow-hidden"
         :style="{
           top: panelStyle.top,

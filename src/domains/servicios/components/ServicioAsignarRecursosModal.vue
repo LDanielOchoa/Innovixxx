@@ -37,7 +37,13 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { servicioAsignarRecursosSchema } from '../../../schemas/servicios.schema'
+import { useToast } from 'primevue/usetoast'
+
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -49,8 +55,10 @@ const emit = defineEmits(['update:isOpen', 'assigned'])
 // Estados de carga e inicializaciÃ³n
 const isInitializing = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+
+const { validate, getFirstError } = useFormValidator(servicioAsignarRecursosSchema)
+const { getError, clearErrors } = useFormError('servicio-asignar-recursos')
 
 // Datos maestros cargados desde la API
 const rutas = ref<RutaSimple[]>([])
@@ -137,7 +145,6 @@ const filteredVehiculos = computed(() => {
   const q = searchVehiculosQuery.value.toLowerCase().trim()
   if (!q) return vehiculos.value
   return vehiculos.value.filter(v =>
-    v.nombre.toLowerCase().includes(q) ||
     v.placa.toLowerCase().includes(q) ||
     v.tipo.toLowerCase().includes(q)
   )
@@ -206,7 +213,12 @@ const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas')
   }
   if (tipo === 'hardware') {
     if (selectedVehiculosIds.value.length === 0) {
-      modalMessage.value = { text: 'Primero seleccione al menos un vehículo', type: 'warning' }
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: 'Primero seleccione al menos un vehículo',
+        life: 4000
+      })
       return
     }
     if (!vehiculoAsignandoHardware.value || !selectedVehiculosIds.value.includes(vehiculoAsignandoHardware.value)) {
@@ -229,22 +241,12 @@ const cerrarPanel = () => {
   panelActivo.value = null
 }
 
-const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
-  modalMessage.value = { text, type }
-  if (type === 'success') {
-    setTimeout(() => {
-      if (modalMessage.value?.text === text) modalMessage.value = null
-    }, 4000)
-  }
-}
-
 // Escuchador del estado del modal para cargar datos dinÃ¡micos al abrirse
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isInitializing.value = true
-    isSuccess.value = false
     saving.value = false
-    modalMessage.value = null
+    clearErrors()
 
     // Reiniciar selecciones y campos
     selectedRutaId.value = ''
@@ -277,6 +279,16 @@ watch(() => props.isOpen, async (isOpen) => {
       } else if (props.servicio.rutas && props.servicio.rutas.length > 0) {
         selectedRutaId.value = props.servicio.rutas[0]
       }
+      if (props.servicio.vehiculos) {
+        selectedVehiculosIds.value = Object.keys(props.servicio.vehiculos).map(String)
+        vehiculosHardware.value = JSON.parse(JSON.stringify(props.servicio.vehiculos))
+        if (selectedVehiculosIds.value.length > 0) {
+          vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
+        }
+      }
+      if (props.servicio.escoltas && props.servicio.escoltas.length > 0) {
+        selectedEscoltasIds.value = [...props.servicio.escoltas].map(String)
+      }
     }
 
     // Carga paralela de todos los recursos simples necesarios
@@ -289,9 +301,9 @@ watch(() => props.isOpen, async (isOpen) => {
       try {
         const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
-          fetchVehiculosSimplesApi(groupStore.selectedGroup.id),
-          fetchHardwareSimplesApi(groupStore.selectedGroup.id),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id)
+          fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
+          fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
+          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
         ])
         rutas.value = rutasData
         vehiculos.value = vehiculosData
@@ -299,7 +311,12 @@ watch(() => props.isOpen, async (isOpen) => {
         escoltas.value = escoltasData
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
-        modalMessage.value = { text: 'Error al inicializar los recursos disponibles del grupo.', type: 'error' }
+        toast.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'Error al inicializar los recursos disponibles del grupo.',
+          life: 4000
+        })
       } finally {
         loadingRutas.value = false
         loadingVehiculos.value = false
@@ -343,9 +360,30 @@ const setVehiculoParaHardware = (vehiculoId: string) => {
   abrirPanel('hardware')
 }
 
+const obtenerVehiculoAsociadoAHardware = (hardwareId: string): string | null => {
+  if (!vehiculoAsignandoHardware.value) return null
+  const activeVehicleId = vehiculoAsignandoHardware.value
+  const entry = Object.entries(vehiculosHardware.value).find(([vId, hwIds]) => {
+    return vId !== activeVehicleId && hwIds.includes(hardwareId)
+  })
+  return entry ? entry[0] : null
+}
+
 const selectHardware = (id: string) => {
   if (!vehiculoAsignandoHardware.value) return
   const vehiculoId = vehiculoAsignandoHardware.value
+  
+  const vIdAsociado = obtenerVehiculoAsociadoAHardware(id)
+  if (vIdAsociado) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Hardware ocupado',
+      detail: `Este dispositivo ya está asignado al vehículo: ${getVehiculoLabel(vIdAsociado)}`,
+      life: 4000
+    })
+    return
+  }
+
   if (!vehiculosHardware.value[vehiculoId]) {
     vehiculosHardware.value[vehiculoId] = []
   }
@@ -390,7 +428,7 @@ const getRutaLabel = (id: string) => {
 
 const getVehiculoLabel = (id: string) => {
   const v = vehiculos.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.nombre} (${v.placa})` : id
+  return v ? `${v.placa} (${v.tipo})` : id
 }
 
 const getHardwareLabel = (id: string) => {
@@ -427,7 +465,7 @@ const clearVehiculos = () => {
   selectedVehiculosIds.value = []
 }
 
-const currentVehiculoHardwareIds = computed(() => {
+const currentHardwareIds = computed(() => {
   if (!vehiculoAsignandoHardware.value) return []
   return vehiculosHardware.value[vehiculoAsignandoHardware.value] || []
 })
@@ -439,8 +477,10 @@ const selectAllHardware = () => {
     vehiculosHardware.value[vehiculoId] = []
   }
   filteredHardware.value.forEach(h => {
-    if (!vehiculosHardware.value[vehiculoId].includes(h.id_hardware)) {
-      vehiculosHardware.value[vehiculoId].push(h.id_hardware)
+    if (!obtenerVehiculoAsociadoAHardware(h.id_hardware)) {
+      if (!vehiculosHardware.value[vehiculoId].includes(h.id_hardware)) {
+        vehiculosHardware.value[vehiculoId].push(h.id_hardware)
+      }
     }
   })
 }
@@ -504,77 +544,82 @@ onUnmounted(() => {
 // Guardar y enviar la asignaciÃ³n de recursos a la API
 const handleAsignar = async () => {
   if (saving.value) return
-
-  if (!groupStore.selectedGroup?.id) {
-    modalMessage.value = { text: 'Seleccione un grupo vÃ¡lido', type: 'error' }
-    return
-  }
-
-  if (!props.servicio?.id_servicio) {
-    modalMessage.value = { text: 'El servicio seleccionado es invÃ¡lido', type: 'error' }
-    return
-  }
-
-  if (!selectedRutaId.value) {
-    modalMessage.value = { text: 'Debe seleccionar una ruta de viaje', type: 'error' }
-    return
-  }
-
-  if (!fechaHoraInicio.value) {
-    modalMessage.value = { text: 'La fecha y hora de inicio son requeridas', type: 'error' }
-    return
-  }
-
-  if (selectedVehiculosIds.value.length === 0) {
-    modalMessage.value = { text: 'Debe seleccionar al menos un vehículo', type: 'error' }
-    return
-  }
-
-  for (const vehiculoId of selectedVehiculosIds.value) {
-    const hwIds = vehiculosHardware.value[vehiculoId] || []
-    if (hwIds.length === 0) {
-      const label = getVehiculoLabel(vehiculoId)
-      modalMessage.value = { text: `Debe asignar hardware al vehículo: ${label}`, type: 'error' }
-      return
-    }
-  }
-
-  if (selectedEscoltasIds.value.length === 0) {
-    modalMessage.value = { text: 'Debe seleccionar al menos un escolta', type: 'error' }
-    return
-  }
-
-  saving.value = true
-  modalMessage.value = null
+  clearErrors()
 
   const vehiculosPayload: Record<string, string[]> = {}
   for (const vehiculoId of selectedVehiculosIds.value) {
     vehiculosPayload[vehiculoId] = vehiculosHardware.value[vehiculoId] || []
   }
 
-  const payload: ServicioAsignarRecursosPayload = {
-    id_grupo: groupStore.selectedGroup.id,
-    id_servicio: props.servicio.id_servicio,
+  const payload = {
+    id_grupo: groupStore.selectedGroup?.id || '',
+    id_servicio: props.servicio?.id_servicio || '',
     fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
-    modo_fin: parseInt(modoFin.value, 10),
-    nivel_riesgo: parseInt(nivelRiesgo.value, 10),
-    alcance: parseInt(alcanceNacional.value, 10),
+    modo_fin: modoFin.value ? parseInt(modoFin.value, 10) : NaN,
+    nivel_riesgo: nivelRiesgo.value ? parseInt(nivelRiesgo.value, 10) : NaN,
+    alcance: alcanceNacional.value ? parseInt(alcanceNacional.value, 10) : NaN,
     id_ruta: selectedRutaId.value,
     vehiculos: vehiculosPayload,
     escoltas_id: selectedEscoltasIds.value
   }
 
+  if (!validate(payload, 'servicio-asignar-recursos')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: firstErr,
+        life: 4000
+      })
+    }
+    return
+  }
+
+  // Validación extra de hardware requerido para vehículos asignados
+  for (const vehiculoId of selectedVehiculosIds.value) {
+    const hwIds = vehiculosPayload[vehiculoId] || []
+    if (hwIds.length === 0) {
+      const label = getVehiculoLabel(vehiculoId)
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación de Hardware',
+        detail: `Debe asignar hardware al vehículo: ${label}`,
+        life: 4000
+      })
+      return
+    }
+  }
+
+  saving.value = true
+
   try {
     const data = await asignarRecursosServicioApi(payload)
     if (data.done) {
-      isSuccess.value = true
+      handleClose()
       emit('assigned')
+      toast.add({
+        severity: 'success',
+        summary: 'Recursos Asignados',
+        detail: data.message || 'Los recursos han sido programados para este servicio.',
+        life: 4000
+      })
     } else {
-      modalMessage.value = { text: data.message || 'Error al asignar recursos al servicio.', type: 'error' }
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || 'Error al asignar recursos al servicio.',
+        life: 4000
+      })
     }
   } catch (error: any) {
     console.error('Error en asignarRecursosServicioApi:', error)
-    modalMessage.value = { text: error.message || 'Error de conexión con el servidor.', type: 'error' }
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Error de conexión con el servidor.',
+      life: 4000
+    })
   } finally {
     saving.value = false
   }
@@ -604,7 +649,7 @@ const formatFechaHora = (date: Date | null): string => {
     title="Asignar Recursos al Servicio"
     :confirm-text="'Confirmar Asignación'"
     size="xl"
-    :show-footer="!isSuccess && !isInitializing"
+    :show-footer="!isInitializing"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -647,55 +692,38 @@ const formatFechaHora = (date: Date | null): string => {
         </div>
       </div>
 
-      <!-- VISTA DE ÉXITO AL ASIGNAR -->
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-16 flex flex-col items-center justify-center text-center space-y-3">
-          <div class="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center">
-            <HugeiconsIcon :icon="Tick01Icon" :size="24" class="text-emerald-500" :stroke-width="2.5" />
-          </div>
-          <h3 class="text-base font-semibold text-slate-800 dark:text-white">Recursos asignados correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400">
-            Los recursos han sido programados para este servicio.
-          </p>
-          <div class="pt-3">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-[13px] font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
-              Cerrar
-            </button>
-          </div>
-        </div>
-
         <!-- FORMULARIO DE ASIGNACIÃ“N -->
-        <div v-else-if="!isInitializing" class="animate-fade-in space-y-6">
-          <!-- Alertas -->
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
-
+        <div v-if="!isInitializing" class="animate-fade-in space-y-6">
           <div class="space-y-5">
             <div class="space-y-2">
               <label
-                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500"
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
               >
                 Ruta de Viaje
               </label>
-              <div
-                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)] opacity-80 cursor-default"
+              <button
+                ref="btnRutas"
+                type="button"
+                @click="abrirPanel('rutas')"
+                :disabled="loadingRutas"
+                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
+                :class="[
+                  loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
+                  panelActivo === 'rutas' ? 'panel-on' : '',
+                  getError('id_ruta') ? '!border-red-500/50' : ''
+                ]"
               >
-                <div class="relative z-10 text-slate-400 dark:text-slate-500 mr-2 shrink-0">
+                <!-- Borde superior brillante -->
+                <div 
+                  class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 pointer-events-none"
+                  :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
+                ></div>
+
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                  :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                >
                   <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
                 </div>
                 <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
@@ -708,38 +736,61 @@ const formatFechaHora = (date: Date | null): string => {
                     {{ loadingRutas ? 'Cargando...' : 'Sin ruta asignada' }}
                   </span>
                 </div>
-              </div>
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                  :class="[
+                    panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                    { 'rotate-180': panelActivo === 'rutas' }
+                  ]"
+                >
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
+                </div>
+              </button>
+              <span v-if="getError('id_ruta')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('id_ruta') }}</span>
             </div>
 
-            <AppDateTimePicker
-              v-model="fechaHoraInicio"
-              label="Fecha y Hora de Inicio"
-              placeholder="Seleccione fecha y hora"
-            />
+            <div>
+              <AppDateTimePicker
+                v-model="fechaHoraInicio"
+                label="Fecha y Hora de Inicio"
+                placeholder="Seleccione fecha y hora"
+                disable-past
+              />
+              <span v-if="getError('fecha_hora_inicio')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_inicio') }}</span>
+            </div>
 
               <!-- Fila 2: Modo Fin, Nivel Riesgo, Alcance -->
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <AppSelect
-                  v-model="modoFin"
-                  label="Modo Fin"
-                  placeholder="Modo de Finalización"
-                  :icon="Clock01Icon"
-                  :options="modoFinOptions"
-                />
-                <AppSelect
-                  v-model="nivelRiesgo"
-                  label="Nivel de Riesgo"
-                  placeholder="Nivel de Riesgo"
-                  :icon="Alert01Icon"
-                  :options="nivelRiesgoOptions"
-                />
-                <AppSelect
-                  v-model="alcanceNacional"
-                  label="Alcance Nacional"
-                  placeholder="Alcance"
-                  :icon="Route01Icon"
-                  :options="alcanceNacionalOptions"
-                />
+                <div>
+                  <AppSelect
+                    v-model="modoFin"
+                    label="Modo Fin"
+                    placeholder="Modo de Finalización"
+                    :icon="Clock01Icon"
+                    :options="modoFinOptions"
+                  />
+                  <span v-if="getError('modo_fin')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('modo_fin') }}</span>
+                </div>
+                <div>
+                  <AppSelect
+                    v-model="nivelRiesgo"
+                    label="Nivel de Riesgo"
+                    placeholder="Nivel de Riesgo"
+                    :icon="Alert01Icon"
+                    :options="nivelRiesgoOptions"
+                  />
+                  <span v-if="getError('nivel_riesgo')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('nivel_riesgo') }}</span>
+                </div>
+                <div>
+                  <AppSelect
+                    v-model="alcanceNacional"
+                    label="Alcance Nacional"
+                    placeholder="Alcance"
+                    :icon="Route01Icon"
+                    :options="alcanceNacionalOptions"
+                  />
+                  <span v-if="getError('alcance')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('alcance') }}</span>
+                </div>
               </div>
             </div>
 
@@ -773,7 +824,8 @@ const formatFechaHora = (date: Date | null): string => {
                     class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'vehiculos' ? 'panel-on' : ''
+                      panelActivo === 'vehiculos' ? 'panel-on' : '',
+                      getError('vehiculos') ? '!border-red-500/50' : ''
                     ]"
                   >
                     <!-- Borde superior brillante -->
@@ -825,6 +877,7 @@ const formatFechaHora = (date: Date | null): string => {
                       <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
+                  <span v-if="getError('vehiculos')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('vehiculos') }}</span>
                 </div>
 
                 <!-- 2. HARDWARE -->
@@ -901,7 +954,8 @@ const formatFechaHora = (date: Date | null): string => {
                     class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
                     :class="[
                       loadingEscoltas ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'escoltas' ? 'panel-on' : ''
+                      panelActivo === 'escoltas' ? 'panel-on' : '',
+                      getError('escoltas_id') ? '!border-red-500/50' : ''
                     ]"
                   >
                     <!-- Borde superior brillante -->
@@ -950,13 +1004,14 @@ const formatFechaHora = (date: Date | null): string => {
                         { 'rotate-180': panelActivo === 'escoltas' }
                       ]"
                     >
+                      <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                     </div>
                   </button>
+                  <span v-if="getError('escoltas_id')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('escoltas_id') }}</span>
                 </div>
               </div>
-            </div>
           </div>
-        </Transition>
+        </div>
       </div>
     </AppModal>
 
@@ -964,7 +1019,7 @@ const formatFechaHora = (date: Date | null): string => {
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
-        v-if="panelActivo && isOpen && !isSuccess && !isInitializing"
+        v-if="panelActivo && isOpen && !isInitializing"
         class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden"
         :style="{
           top: panelStyle.top,
@@ -1085,7 +1140,7 @@ const formatFechaHora = (date: Date | null): string => {
               {{ selectedVehiculosIds.length }} seleccionados
             </template>
             <template v-else-if="panelActivo === 'hardware'">
-              {{ currentVehiculoHardwareIds.length }} seleccionados
+              {{ currentHardwareIds.length }} seleccionados
             </template>
             <template v-else>
               {{ selectedEscoltasIds.length }} seleccionados
@@ -1168,8 +1223,7 @@ const formatFechaHora = (date: Date | null): string => {
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">
-                  {{ v.nombre }}
-                  <span class="text-[10px] font-mono opacity-50 ml-1">{{ v.placa }}</span>
+                  {{ v.placa }}
                 </span>
                 <span class="text-[10px] truncate leading-none mt-0.5 text-slate-400">{{ v.tipo }}</span>
               </div>
@@ -1188,17 +1242,29 @@ const formatFechaHora = (date: Date | null): string => {
               type="button"
               @click="selectHardware(h.id_hardware)"
               class="panel-row group/row"
-              :class="currentVehiculoHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off'"
+              :class="[
+                currentHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off',
+                obtenerVehiculoAsociadoAHardware(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+              ]"
             >
               <div
                 class="panel-row-dot shrink-0"
-                :class="currentVehiculoHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+                :class="[
+                  currentHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off',
+                  obtenerVehiculoAsociadoAHardware(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                ]"
               >
-                <HugeiconsIcon v-if="currentVehiculoHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-if="currentHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-else-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
-                <span class="text-[10px] truncate leading-none mt-0.5 text-slate-400">{{ h.familia || 'Sin familia' }}</span>
+                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
+                  <span class="text-slate-400">{{ h.familia || 'Sin familia' }}</span>
+                  <span v-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                    Ocupado: {{ getVehiculoLabel(obtenerVehiculoAsociadoAHardware(h.id_hardware)!) }}
+                  </span>
+                </span>
               </div>
             </button>
             <div v-if="filteredHardware.length === 0" class="panel-empty">
@@ -1254,7 +1320,7 @@ const formatFechaHora = (date: Date | null): string => {
             ({{
               panelActivo === 'rutas' ? (selectedRutaId ? '1' : '0') :
               panelActivo === 'vehiculos' ? selectedVehiculosIds.length :
-              panelActivo === 'hardware' ? currentVehiculoHardwareIds.length :
+              panelActivo === 'hardware' ? currentHardwareIds.length :
               selectedEscoltasIds.length
             }})
           </button>
@@ -1266,9 +1332,6 @@ const formatFechaHora = (date: Date | null): string => {
 </template>
 
 <style scoped>
-/* =====================================================
-   SELECTOR BUTTONS (dentro del formulario)
-===================================================== */
 .selector-btn {
   position: relative;
   display: flex;

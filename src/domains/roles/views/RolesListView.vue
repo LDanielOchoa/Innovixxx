@@ -8,41 +8,35 @@ import {
   Shield01Icon,
   Alert01Icon,
   CheckmarkCircle01Icon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { useRoute } from 'vue-router'
-
-// PrimeVue Components
 import Column from 'primevue/column'
-
-
 import PermissionsAssignModal from '../../../components/roles/PermissionsAssignModal.vue'
 import { createRoleApi, fetchRolesApi, updateRoleApi } from '../services/roles.api'
 import type { Role } from '../types/role'
 import { useI18n } from 'vue-i18n'
+import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { storeToRefs } from 'pinia'
 import { PERMISSIONS } from '../../../utils/permissions'
-
-// Shared Components (Premium UI)
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { createRoleSchema, updateRoleSchema } from '../../../schemas/roles.schema'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
-
-// Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
-import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
-import IdCell from '../../../components/shared/IdCell.vue'
 
 const { t } = useI18n()
+const toast = useToast()
 const route = useRoute()
 
 const groupStore = useGroupStore()
@@ -101,6 +95,10 @@ const itemsPerPage = 10
 const formData = ref({ nombre: '', descripcion: '' })
 const currentEditId = ref<string | null>(null)
 
+const activeSchema = computed(() => modalMode.value === 'crear' ? createRoleSchema : updateRoleSchema)
+const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
+const { getError, clearErrors } = useFormError('role-form')
+
 const filteredRoles = computed(() => {
   let result = roles.value
   if (searchQuery.value) {
@@ -127,6 +125,8 @@ const openCreateModal = () => {
   modalMode.value = 'crear'
   modalMessage.value = null
   formData.value = { nombre: '', descripcion: '' }
+  clearErrors()
+  resetErrors('role-form')
   isModalOpen.value = true
 }
 
@@ -135,6 +135,8 @@ const openEditModal = (role: Role) => {
   modalMessage.value = null
   currentEditId.value = role.id_role
   formData.value = { nombre: role.nombre, descripcion: role.descripcion || '' }
+  clearErrors()
+  resetErrors('role-form')
   isModalOpen.value = true
 }
 
@@ -159,8 +161,19 @@ const saveRole = async () => {
     return
   }
   
-  isSubmitting.value = true
+  clearErrors()
   modalMessage.value = null
+
+  const payload = modalMode.value === 'crear'
+    ? { id_grupo: selectedGroup.value.id, nombre: formData.value.nombre, descripcion: formData.value.descripcion }
+    : { id_grupo: selectedGroup.value.id, id_role: currentEditId.value, nombre: formData.value.nombre, descripcion: formData.value.descripcion }
+
+  if (!validate(payload, 'role-form')) {
+    showModalMessage(getFirstError('role-form') || '', 'warning')
+    return
+  }
+
+  isSubmitting.value = true
 
   try {
     if (modalMode.value === 'crear') {
@@ -170,7 +183,15 @@ const saveRole = async () => {
         descripcion: formData.value.descripcion
       })
       if (data.done) {
-        showModalMessage(t('roles.alertSuccessCreate'), 'success')
+        toast.add({
+          severity: 'success',
+          summary: t('roles.alertSuccessCreateTitle', 'Rol Creado'),
+          detail: t('roles.alertSuccessCreateDetail', 'El rol ha sido registrado exitosamente.'),
+          life: 4000
+        })
+        formData.value = { nombre: '', descripcion: '' }
+        clearErrors()
+        resetErrors('role-form')
         await fetchRoles(selectedGroup.value.id)
       } else {
         showModalMessage(data.message || t('roles.alertErrorCreate'), 'error')
@@ -178,6 +199,7 @@ const saveRole = async () => {
     } else if (modalMode.value === 'editar' && currentEditId.value !== null) {
       if (!authStore.hasPermission(PERMISSIONS.ROLES_EDIT)) {
         showModalMessage(t('roles.alertErrorUpdate') || 'No tienes permiso para editar roles', 'error')
+        isSubmitting.value = false
         return
       }
       const data = await updateRoleApi({
@@ -187,17 +209,30 @@ const saveRole = async () => {
         descripcion: formData.value.descripcion
       })
       if (data.done) {
-        showModalMessage(t('roles.alertSuccessUpdate'), 'success')
+        toast.add({
+          severity: 'success',
+          summary: t('roles.alertSuccessUpdateTitle', 'Rol Actualizado'),
+          detail: t('roles.alertSuccessUpdateDetail', 'El rol ha sido modificado exitosamente.'),
+          life: 4000
+        })
+        isModalOpen.value = false
         await fetchRoles(selectedGroup.value.id)
       } else {
         showModalMessage(data.message || t('roles.alertErrorUpdate'), 'error')
       }
     }
-  } catch (error) {
-    if (error instanceof ApiError) {
-      showModalMessage(getErrorMessage(error.code), 'error')
+  } catch (error: any) {
+    console.error('Error saving role:', error)
+    if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
+      const code = error.code
+      let msg = ''
+      if (code === 400 || code === 500 || code === 422) {
+        msg = error.message || getErrorMessage(code)
+      } else {
+        msg = getErrorMessage(code) || error.message
+      }
+      showModalMessage(msg, 'error')
     } else {
-      console.error('Error saving role:', error)
       showModalMessage(
         modalMode.value === 'crear' ? t('roles.alertNetErrorCreate') : t('roles.alertNetErrorUpdate'),
         'error'
@@ -420,10 +455,8 @@ onUnmounted(() => {
     <AppModal
       v-model:isOpen="isModalOpen"
       :title="modalMode==='crear' ? $t('roles.modalCreateTitle') : $t('roles.modalEditTitle')"
-      :confirmText="modalMode==='crear' ? $t('roles.btnSave') : $t('roles.btnUpdate')"
-      :cancelText="$t('roles.btnCancel')"
-      @confirm="saveRole"
       size="lg"
+      :show-footer="!isSubmitting"
     >
       <template #icon>
         <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -431,6 +464,26 @@ onUnmounted(() => {
         </div>
       </template>
       <form @submit.prevent="saveRole" class="space-y-6 relative">
+        <!-- Saving Overlay -->
+        <Transition name="fade">
+          <div v-if="isSubmitting" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
+            <div class="relative">
+              <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+              <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+            </div>
+            <div class="mt-5 flex flex-col items-center">
+              <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
+                {{ modalMode === 'crear' ? 'Guardando...' : 'Actualizando...' }}
+              </span>
+              <div class="flex gap-1">
+                <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
+              </div>
+            </div>
+          </div>
+        </Transition>
+
         <!-- Feedback Minimalista -->
         <Transition name="message-fade">
           <div v-if="modalMessage && !isSubmitting"
@@ -452,7 +505,8 @@ onUnmounted(() => {
             :label="$t('roles.formName')" 
             :icon="Shield01Icon" 
             :placeholder="$t('roles.formNamePlaceholder')" 
-            required 
+            :disabled="isSubmitting"
+            :error="getError('nombre')"
           />
           <AppInput 
             v-model="formData.descripcion" 
@@ -460,10 +514,34 @@ onUnmounted(() => {
             :icon="Shield01Icon" 
             type="textarea" 
             :placeholder="$t('roles.formDescPlaceholder')" 
-            required 
+            :disabled="isSubmitting"
+            :error="getError('descripcion')"
           />
         </div>
       </form>
+
+      <template #footer>
+        <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
+          <button
+            type="button"
+            @click="isModalOpen = false"
+            :disabled="isSubmitting"
+            class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ $t('roles.btnCancel') }}
+          </button>
+          <button
+            type="button"
+            @click="saveRole"
+            :disabled="isSubmitting"
+            class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-80 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+          >
+            <HugeiconsIcon v-if="isSubmitting" :icon="Loading03Icon" :size="16" class="animate-spin" />
+            <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
+            {{ isSubmitting ? (modalMode === 'crear' ? 'Guardando rol...' : 'Actualizando rol...') : (modalMode === 'crear' ? $t('roles.btnSave') : $t('roles.btnUpdate')) }}
+          </button>
+        </div>
+      </template>
     </AppModal>
 
     <PermissionsAssignModal

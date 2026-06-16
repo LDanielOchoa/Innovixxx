@@ -18,7 +18,13 @@ import type { ServicioDashboard, VehiculoSimple, HardwareSimple } from '../types
 import { SERVICIO_ESTADOS } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { servicioActualizarVehiculosSchema } from '../../../schemas/servicios.schema'
+import { useToast } from 'primevue/usetoast'
+
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -32,8 +38,10 @@ const emit = defineEmits(['update:isOpen', 'updated'])
 // Estados de carga y guardar
 const isLoading = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+
+const { validate, getFirstError } = useFormValidator(servicioActualizarVehiculosSchema)
+const { getError, clearErrors } = useFormError('servicio-actualizar-vehiculos')
 
 // Catálogos cargados de la API
 const vehiculosDisponibles = ref<VehiculoSimple[]>([])
@@ -99,7 +107,6 @@ const vehiculosDisponiblesFiltrados = computed(() => {
     // Filtro de texto
     if (!query) return true
     return (
-      v.nombre.toLowerCase().includes(query) ||
       v.placa.toLowerCase().includes(query) ||
       v.tipo.toLowerCase().includes(query)
     )
@@ -141,7 +148,7 @@ const todosLosHardwareAsignados = computed(() => {
 // Obtener etiquetas descriptivas
 const getVehiculoLabel = (id: string) => {
   const v = vehiculosDisponibles.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.nombre} (${v.placa})` : id
+  return v ? `${v.placa} (${v.tipo})` : id
 }
 
 const getHardwareLabel = (id: string) => {
@@ -219,9 +226,8 @@ const alternarHardwareVehiculoNuevo = (hardwareId: string) => {
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     isLoading.value = true
-    isSuccess.value = false
     saving.value = false
-    modalMessage.value = null
+    clearErrors()
 
     // Reiniciar estados
     vehiculosActualesIds.value = []
@@ -258,7 +264,12 @@ watch(() => props.isOpen, async (isOpen) => {
       }
     } catch (error) {
       console.error('Error al cargar datos:', error)
-      modalMessage.value = { text: 'Error al cargar los datos del servicio.', type: 'error' }
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: 'Error al cargar los datos del servicio.',
+        life: 4000
+      })
     } finally {
       isLoading.value = false
     }
@@ -268,13 +279,19 @@ watch(() => props.isOpen, async (isOpen) => {
 // Enviar actualización
 const handleActualizar = async () => {
   if (saving.value) return
+  clearErrors()
 
   // Validar que cada vehículo nuevo seleccionado tenga al menos un hardware asignado
   for (const vehiculoId of vehiculosEntranIds.value) {
     const hwIds = vehiculosEntranHardware.value[vehiculoId] || []
     if (hwIds.length === 0) {
       const label = getVehiculoLabel(vehiculoId)
-      modalMessage.value = { text: `Debe asignar hardware al vehículo entrante: ${label}`, type: 'warning' }
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: `Debe asignar hardware al vehículo entrante: ${label}`,
+        life: 4000
+      })
       return
     }
   }
@@ -285,7 +302,12 @@ const handleActualizar = async () => {
     const hwIds = vehiculosActualesHardwareModificado.value[vehiculoId] || []
     if (hwIds.length === 0) {
       const label = getVehiculoLabel(vehiculoId)
-      modalMessage.value = { text: `El vehículo actual ${label} no puede quedarse sin hardware.`, type: 'warning' }
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: `El vehículo actual ${label} no puede quedarse sin hardware.`,
+        life: 4000
+      })
       return
     }
   }
@@ -316,31 +338,66 @@ const handleActualizar = async () => {
 
   const final_ids_salen = Array.from(idsSalenSet)
 
+  const payload = {
+    id_grupo: groupStore.selectedGroup?.id || '',
+    id_servicio: props.servicio?.id_servicio || '',
+    ids_salen: final_ids_salen,
+    ids_entran
+  }
+
+  if (!validate(payload, 'servicio-actualizar-vehiculos')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: firstErr,
+        life: 4000
+      })
+    }
+    return
+  }
+
   if (final_ids_salen.length === 0 && Object.keys(ids_entran).length === 0) {
-    modalMessage.value = { text: 'No se detectaron cambios para actualizar.', type: 'warning' }
+    toast.add({
+      severity: 'warn',
+      summary: 'Sin cambios',
+      detail: 'No se detectaron cambios para actualizar.',
+      life: 4000
+    })
     return
   }
 
   saving.value = true
-  modalMessage.value = null
 
   try {
-    const data = await actualizarVehiculosApi({
-      id_grupo: groupStore.selectedGroup.id,
-      id_servicio: props.servicio!.id_servicio,
-      ids_salen: final_ids_salen,
-      ids_entran
-    })
+    const data = await actualizarVehiculosApi(payload)
 
     if (data.done) {
-      isSuccess.value = true
+      handleClose()
       emit('updated')
+      toast.add({
+        severity: 'success',
+        summary: 'Vehículos Actualizados',
+        detail: data.message || 'La flota de vehículos asignada y la distribución de sus dispositivos de hardware se guardaron correctamente.',
+        life: 4000
+      })
     } else {
-      modalMessage.value = { text: data.message || 'Error al actualizar vehículos.', type: 'error' }
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || 'Error al actualizar vehículos.',
+        life: 4000
+      })
     }
   } catch (error: any) {
     console.error('Error al actualizar vehículos:', error)
-    modalMessage.value = { text: error.message || 'Error de conexión con el servidor.', type: 'error' }
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Error de conexión con el servidor.',
+      life: 4000
+    })
   } finally {
     saving.value = false
   }
@@ -360,7 +417,7 @@ const handleClose = () => {
     title="Actualizar Vehículos y Hardware"
     confirm-text="Confirmar Cambios"
     size="xl"
-    :show-footer="!isSuccess && !isLoading"
+    :show-footer="!isLoading"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -398,44 +455,8 @@ const handleClose = () => {
       </div>
 
       <Transition name="fade-slide" mode="out-in">
-        <!-- Pantalla de Éxito -->
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Vehículos y Hardware Actualizados</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[340px]">
-            La flota de vehículos asignada y la distribución de sus dispositivos de hardware se guardaron correctamente.
-          </p>
-          <div class="pt-4">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
-            </button>
-          </div>
-        </div>
-
         <!-- Panel de 4 Cuadrantes -->
-        <div v-else-if="!isLoading" class="animate-fade-in flex flex-col gap-4">
-          <!-- Mensaje de error/advertencia/éxito -->
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3 px-4 rounded-xl text-sm font-semibold border mb-1"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon :icon="modalMessage.type === 'success' ? Tick01Icon : Alert01Icon" :size="18" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
+        <div v-if="!isLoading" class="animate-fade-in flex flex-col gap-4">
 
           <!-- Grid principal de 4 cuadrantes estilo tablero de trabajo -->
           <div class="tablero-trabajo grid grid-cols-1 lg:grid-cols-2 border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-[#0c0d12]/40 backdrop-blur-md">
@@ -529,9 +550,9 @@ const handleClose = () => {
                     >
                       <div class="flex items-center gap-1.5">
                         <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
-                        <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.nombre }}</span>
+                        <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.placa }}</span>
                       </div>
-                      <span class="text-[9px] font-mono opacity-60 ml-4.5">{{ v.placa }}</span>
+                      <span class="text-[9px] font-mono opacity-60 ml-4.5">{{ v.tipo }}</span>
 
                       <!-- Badge Configurar en caso de estar activo -->
                       <button

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { Calendar01Icon, ArrowLeft01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
 
@@ -9,20 +9,68 @@ interface Props {
   placeholder?: string
   disabled?: boolean
   onlyDate?: boolean
+  disablePast?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   label: '',
   placeholder: 'Seleccione fecha',
   disabled: false,
-  onlyDate: false
+  onlyDate: false,
+  disablePast: false
 })
 
 const emit = defineEmits(['update:modelValue'])
 
 const isOpen = ref(false)
 const pickerRef = ref<HTMLElement | null>(null)
+const triggerRef = ref<HTMLElement | null>(null)
 const viewDate = ref(new Date())
+
+// Floating position for the teleported dropdown
+const dropdownStyle = ref<{
+  position: string
+  top?: string
+  bottom?: string
+  left: string
+  width: string
+  zIndex: string
+}>({
+  position: 'fixed',
+  top: '0px',
+  left: '0px',
+  width: '288px',
+  zIndex: '99999'
+})
+
+const computeDropdownPosition = async () => {
+  await nextTick()
+  if (!triggerRef.value) return
+  const rect = triggerRef.value.getBoundingClientRect()
+  const DROPDOWN_HEIGHT = 380 // approximate height of the calendar
+  const GAP = 6
+  const viewportHeight = window.innerHeight
+  const spaceBelow = viewportHeight - rect.bottom
+  const spaceAbove = rect.top
+
+  const DROPDOWN_WIDTH = 288
+  const newStyle: typeof dropdownStyle.value = {
+    position: 'fixed',
+    left: `${Math.min(rect.left, window.innerWidth - DROPDOWN_WIDTH - 8)}px`,
+    width: `${DROPDOWN_WIDTH}px`,
+    zIndex: '99999'
+  }
+
+  if (spaceBelow >= DROPDOWN_HEIGHT || spaceBelow >= spaceAbove) {
+    // Open downward
+    newStyle.top = `${rect.bottom + GAP}px`
+  } else {
+    // Open upward
+    newStyle.bottom = `${viewportHeight - rect.top + GAP}px`
+  }
+
+  dropdownStyle.value = newStyle
+}
 
 const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 const weekDays = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sa']
@@ -71,6 +119,14 @@ const daysInMonth = computed(() => {
   return days
 })
 
+const isPastDay = (day: number) => {
+  if (!props.disablePast) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const date = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth(), day, 0, 0, 0, 0)
+  return date < today
+}
+
 const isToday = (day: number) => {
   const today = new Date()
   return day === today.getDate() && viewDate.value.getMonth() === today.getMonth() && viewDate.value.getFullYear() === today.getFullYear()
@@ -82,6 +138,7 @@ const isSelected = (day: number) => {
 }
 
 const selectDay = (day: number) => {
+  if (isPastDay(day)) return
   const currentH = props.onlyDate ? 0 : (props.modelValue ? props.modelValue.getHours() : 0)
   const currentM = props.onlyDate ? 0 : (props.modelValue ? props.modelValue.getMinutes() : 0)
   const date = new Date(viewDate.value.getFullYear(), viewDate.value.getMonth(), day, currentH, currentM, 0, 0)
@@ -138,10 +195,15 @@ const openDropdown = () => {
     viewDate.value = new Date()
   }
   isOpen.value = true
+  computeDropdownPosition()
 }
 
 const handleClickOutside = (event: MouseEvent) => {
-  if (pickerRef.value && !pickerRef.value.contains(event.target as Node)) {
+  const target = event.target as Node
+  // Also allow clicks inside the teleported dropdown (which is outside pickerRef in the DOM)
+  const teleportedEl = document.querySelector('.date-picker-teleport')
+  if (teleportedEl && teleportedEl.contains(target)) return
+  if (pickerRef.value && !pickerRef.value.contains(target)) {
     isOpen.value = false
   }
 }
@@ -156,7 +218,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="pickerRef" class="space-y-2 w-full relative" :class="{ 'z-30': isOpen }">
+  <div ref="pickerRef" class="space-y-2 w-full">
     <label
       v-if="label"
       class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
@@ -167,6 +229,7 @@ onUnmounted(() => {
 
     <div class="relative">
       <button
+        ref="triggerRef"
         type="button"
         @click="openDropdown"
         :disabled="disabled"
@@ -185,17 +248,48 @@ onUnmounted(() => {
         </span>
       </button>
 
+      <!-- Teleport calendar to body so modal overflow:hidden never clips it -->
+      <Teleport to="body">
       <Transition name="date-dropdown">
-        <div v-if="isOpen" class="absolute bottom-full left-0 mb-2 z-[9999] w-72">
+        <div v-if="isOpen" :style="dropdownStyle" class="date-picker-teleport">
           <div class="bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.25)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] overflow-hidden">
 
             <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-white/5">
               <button type="button" @click="prevMonth" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#3b82f6] hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
                 <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2" />
               </button>
-              <div class="text-center">
-                <span class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-wide">{{ currentMonth }}</span>
-                <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 ml-2">{{ currentYear }}</span>
+              <div class="flex items-center gap-1">
+                <!-- Month Select -->
+                <select
+                  :value="viewDate.getMonth()"
+                  @change="viewDate = new Date(viewDate.getFullYear(), parseInt(($event.target as HTMLSelectElement).value), 1)"
+                  class="bg-transparent border-none text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider outline-none cursor-pointer p-0.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
+                >
+                  <option
+                    v-for="(name, index) in monthNames"
+                    :key="index"
+                    :value="index"
+                    class="bg-white dark:bg-[#1A1D24] text-slate-800 dark:text-slate-200 normal-case font-bold"
+                  >
+                    {{ name }}
+                  </option>
+                </select>
+
+                <!-- Year Select -->
+                <select
+                  :value="viewDate.getFullYear()"
+                  @change="viewDate = new Date(parseInt(($event.target as HTMLSelectElement).value), viewDate.getMonth(), 1)"
+                  class="bg-transparent border-none text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider outline-none cursor-pointer p-0.5 hover:bg-slate-100 dark:hover:bg-white/5 rounded"
+                >
+                  <option
+                    v-for="year in Array.from({ length: 41 }, (_, i) => new Date().getFullYear() - 20 + i)"
+                    :key="year"
+                    :value="year"
+                    class="bg-white dark:bg-[#1A1D24] text-slate-800 dark:text-slate-200 font-bold"
+                  >
+                    {{ year }}
+                  </option>
+                </select>
               </div>
               <button type="button" @click="nextMonth" class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-[#3b82f6] hover:bg-slate-100 dark:hover:bg-white/5 transition-all">
                 <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2" />
@@ -212,13 +306,16 @@ onUnmounted(() => {
                   v-if="day !== null"
                   type="button"
                   @click="selectDay(day)"
+                  :disabled="isPastDay(day)"
                   class="w-8 h-8 flex items-center justify-center rounded-lg text-[13px] font-bold transition-all duration-200"
                   :class="[
                     isSelected(day)
                       ? 'bg-[#3b82f6] text-white shadow-[0_2px_12px_rgba(59,130,246,0.45)]'
-                      : isToday(day)
-                        ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10'
-                        : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
+                      : isPastDay(day)
+                        ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed opacity-30'
+                        : isToday(day)
+                          ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
                   ]"
                 >
                   {{ day }}
@@ -257,6 +354,7 @@ onUnmounted(() => {
           </div>
         </div>
       </Transition>
+      </Teleport>
     </div>
   </div>
 </template>

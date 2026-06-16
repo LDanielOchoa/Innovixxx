@@ -3,24 +3,27 @@ import { ref, watch, computed } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   ArrowRight01Icon,
-  Cancel01Icon,
   Loading03Icon,
   Alert01Icon,
-  Tick01Icon,
   Edit01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { cambiarEstadoServicioApi } from '../services/servicios.api'
 import type { ServicioDashboard } from '../types/servicio'
 import {
-  SERVICIO_ESTADOS,
   SERVICIO_ESTADOS_LABELS,
   SERVICIO_ESTADOS_VALID_NEXT_PROD,
   SERVICIO_ESTADOS_VALID_NEXT_DEV
 } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 
+import { useFormValidator } from '../../../composables/useFormValidator'
+import { useFormError } from '../../../composables/useFormError'
+import { servicioCambiarEstadoSchema } from '../../../schemas/servicios.schema'
+import { useToast } from 'primevue/usetoast'
+
 const groupStore = useGroupStore()
+const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
@@ -31,14 +34,17 @@ const emit = defineEmits(['update:isOpen', 'updated'])
 
 const isLoading = ref(true)
 const saving = ref(false)
-const isSuccess = ref(false)
-const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+const estadoDesconocido = ref(false)
+
+
+const { validate, getFirstError } = useFormValidator(servicioCambiarEstadoSchema)
+const { getError, clearErrors } = useFormError('servicio-cambiar-estado')
 
 const estadoActual = ref<number>(0)
 const nuevoEstado = ref<number>(0)
 const descripcion = ref('')
 
-const USE_DEV_MODE = false
+const USE_DEV_MODE = true
 
 const validNextStates = computed(() => {
   const map = USE_DEV_MODE ? SERVICIO_ESTADOS_VALID_NEXT_DEV : SERVICIO_ESTADOS_VALID_NEXT_PROD
@@ -46,54 +52,68 @@ const validNextStates = computed(() => {
 })
 
 const estadoActualLabel = computed(() => {
-  return SERVICIO_ESTADOS_LABELS[estadoActual.value] || 'Desconocido'
+  return SERVICIO_ESTADOS_LABELS[estadoActual.value] || 'Sin estado'
 })
 
 const estadoActualColor = computed(() => {
   const colors: Record<number, string> = {
-    1: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
-    2: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
-    3: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
-    4: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20',
-    5: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-500/20',
-    6: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-500/20'
+    1: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+    2: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
+    3: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
+    4: 'bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20',
+    5: 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-500/20',
+    6: 'bg-zinc-500/10 text-zinc-700 dark:text-zinc-400 border-zinc-200 dark:border-zinc-500/20'
   }
-  return colors[estadoActual.value] || colors[1]
+  return colors[estadoActual.value] || 'bg-slate-500/10 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-500/20'
 })
 
-const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
-  modalMessage.value = { text, type }
-  if (type === 'success') {
-    setTimeout(() => {
-      if (modalMessage.value?.text === text) modalMessage.value = null
-    }, 4000)
+const estadoKeyToNumber = (estado: string | number): number => {
+  if (estado === null || estado === undefined) return 0
+  if (typeof estado === 'number') {
+    return Number.isInteger(estado) && estado >= 1 && estado <= 6 ? estado : 0
   }
-}
 
-const estadoKeyToNumber = (estadoStr: string): number => {
-  const map: Record<string, number> = {
-    'PRERCARGA': 1,
-    'EN_ESPERA': 2,
-    'EJECUCION_OK': 3,
-    'EJECUCION_FAIL': 4,
-    'FINALIZADO': 5,
-    'EJECUCION NOVEDAD': 4
+  const trimmed = String(estado).trim()
+  if (!trimmed) return 0
+
+  if (/^\d+$/.test(trimmed)) {
+    const n = Number(trimmed)
+    if (n >= 1 && n <= 6) return n
   }
-  return map[estadoStr.toUpperCase()] || 0
+
+  const normalized = trimmed
+    .toUpperCase()
+    .replace(/^ESTADO_/, '')
+    .replace(/[\s-]+/g, '_')
+    .replace(/_+/g, '_')
+
+  const map: Record<string, number> = {
+    PRERCARGA: 1,
+    EN_ESPERA: 2,
+    EJECUCION_OK: 3,
+    EJECUCION_FAIL: 4,
+    EJECUCION_NOVEDAD: 4,
+    FINALIZADO: 5,
+    CANCELADO: 6
+  }
+
+  return map[normalized] || 0
 }
 
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     isLoading.value = true
-    isSuccess.value = false
     saving.value = false
-    modalMessage.value = null
+    estadoDesconocido.value = false
+    clearErrors()
     descripcion.value = ''
     nuevoEstado.value = 0
     estadoActual.value = 0
 
     if (props.servicio) {
-      estadoActual.value = estadoKeyToNumber(props.servicio.estado)
+      const parsed = estadoKeyToNumber(props.servicio.estado)
+      estadoActual.value = parsed
+      estadoDesconocido.value = parsed === 0
     }
     isLoading.value = false
   }
@@ -101,33 +121,68 @@ watch(() => props.isOpen, (isOpen) => {
 
 const handleCambiarEstado = async () => {
   if (saving.value) return
+  if (estadoDesconocido.value) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Estado no reconocido',
+      detail: 'No se puede cambiar el estado porque el estado actual es desconocido.',
+      life: 4000
+    })
+    return
+  }
+  clearErrors()
 
-  if (!nuevoEstado.value) {
-    modalMessage.value = { text: 'Seleccione el nuevo estado del servicio.', type: 'warning' }
+  const payload = {
+    id_grupo: groupStore.selectedGroup?.id || '',
+    id_servicio: props.servicio?.id_servicio || '',
+    old_state: estadoActual.value,
+    new_state: nuevoEstado.value,
+    descripcion: descripcion.value
+  }
+
+  if (!validate(payload, 'servicio-cambiar-estado')) {
+    const firstErr = getFirstError()
+    if (firstErr) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Validación',
+        detail: firstErr,
+        life: 4000
+      })
+    }
     return
   }
 
   saving.value = true
-  modalMessage.value = null
 
   try {
-    const data = await cambiarEstadoServicioApi({
-      id_grupo: groupStore.selectedGroup!.id,
-      id_servicio: props.servicio!.id_servicio,
-      old_state: estadoActual.value,
-      new_state: nuevoEstado.value,
-      descripcion: descripcion.value
-    })
+    const data = await cambiarEstadoServicioApi(payload)
 
     if (data.done) {
-      isSuccess.value = true
+      handleClose()
       emit('updated')
+      toast.add({
+        severity: 'success',
+        summary: 'Estado Actualizado',
+        detail: data.message || 'El estado del servicio ha sido cambiado exitosamente.',
+        life: 4000
+      })
     } else {
-      modalMessage.value = { text: data.message || 'Error al cambiar el estado.', type: 'error' }
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: data.message || 'Error al cambiar el estado.',
+        life: 4000
+      })
     }
   } catch (error: any) {
     console.error('Error en cambiarEstadoServicioApi:', error)
-    modalMessage.value = { text: error.message || 'Error de conexión con el servidor.', type: 'error' }
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: error.message || 'Error de conexión con el servidor.',
+      life: 4000
+    })
   } finally {
     saving.value = false
   }
@@ -147,7 +202,7 @@ const handleClose = () => {
     title="Cambiar Estado del Servicio"
     confirm-text="Confirmar Cambio"
     size="md"
-    :show-footer="!isSuccess && !isLoading"
+    :show-footer="!isLoading && !estadoDesconocido"
   >
     <template #icon>
       <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -186,43 +241,16 @@ const handleClose = () => {
         </div>
       </div>
 
-      <Transition name="fade-slide" mode="out-in">
-        <div v-if="isSuccess" class="py-12 flex flex-col items-center justify-center text-center space-y-4">
-          <div class="relative group mb-2">
-            <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-              <HugeiconsIcon :icon="Tick01Icon" :size="32" class="text-white drop-shadow-sm" />
-            </div>
-          </div>
-          <h3 class="text-xl font-black text-slate-800 dark:text-white tracking-tight">Estado Actualizado Correctamente</h3>
-          <p class="text-[13px] text-slate-500 dark:text-slate-400 max-w-[320px]">
-            El estado del servicio ha sido cambiado exitosamente.
-          </p>
-          <div class="pt-4">
-            <button
-              @click="handleClose"
-              class="inline-flex items-center gap-2 rounded-xl bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 px-6 py-3 text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all duration-300 shadow-sm active:scale-[0.98]"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-              Cerrar Ventana
-            </button>
-          </div>
+      <div v-if="!isLoading && estadoDesconocido" class="flex items-start gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+        <HugeiconsIcon :icon="Alert01Icon" :size="18" class="shrink-0 mt-0.5" />
+        <div>
+          <p class="font-bold">Estado no reconocido</p>
+          <p class="text-[12px] font-medium opacity-80 mt-0.5">El estado actual del servicio (código: {{ props.servicio?.estado }}) no está dentro del catálogo válido. No es posible continuar.</p>
         </div>
+      </div>
 
-        <div v-else-if="!isLoading" class="animate-fade-in space-y-6">
-          <Transition name="message-fade">
-            <div v-if="modalMessage"
-                 class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border mb-4"
-                 :class="{
-                   'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-                   'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-                   'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
-                 }">
-              <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-              <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" class="text-[#3b82f6]" />
-              {{ modalMessage.text }}
-            </div>
-          </Transition>
+      <Transition name="fade-slide" mode="out-in">
+        <div v-if="!isLoading && !estadoDesconocido" class="animate-fade-in space-y-6">
 
           <div class="space-y-5">
             <!-- ESTADO ACTUAL -->
@@ -253,8 +281,7 @@ const handleClose = () => {
                 <HugeiconsIcon :icon="ArrowRight01Icon" :size="20" class="text-[#3b82f6]" />
               </div>
             </div>
-
-            <!-- NUEVO ESTADO -->
+             <!-- NUEVO ESTADO -->
             <div class="space-y-2">
               <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
                 Nuevo Estado
@@ -266,15 +293,19 @@ const handleClose = () => {
                   type="button"
                   @click="nuevoEstado = estadoId"
                   class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-bold uppercase tracking-wider transition-all duration-200"
-                  :class="nuevoEstado === estadoId
-                    ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 text-[#3b82f6] dark:bg-[#3b82f6]/15 dark:border-[#5da6fc]/40 dark:text-[#5da6fc]'
-                    : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-[#0F1115] dark:border-white/5 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/10'"
+                  :class="[
+                    nuevoEstado === estadoId
+                      ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 text-[#3b82f6] dark:bg-[#3b82f6]/15 dark:border-[#5da6fc]/40 dark:text-[#5da6fc]'
+                      : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-[#0F1115] dark:border-white/5 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/10',
+                    getError('new_state') ? '!border-red-500/50' : ''
+                  ]"
                 >
                   {{ SERVICIO_ESTADOS_LABELS[estadoId] }}
                 </button>
               </div>
+              <span v-if="getError('new_state')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('new_state') }}</span>
               <div v-if="validNextStates.length === 0" class="text-[12px] text-amber-500 ml-1">
-                No lo podes cambiar bobo
+                No hay transiciones disponibles desde el estado actual.
               </div>
             </div>
 
@@ -288,7 +319,9 @@ const handleClose = () => {
                 rows="3"
                 placeholder="Agregue una descripción del cambio de estado..."
                 class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 resize-none"
+                :class="getError('descripcion') ? '!border-red-500/50' : ''"
               />
+              <span v-if="getError('descripcion')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('descripcion') }}</span>
             </div>
           </div>
         </div>

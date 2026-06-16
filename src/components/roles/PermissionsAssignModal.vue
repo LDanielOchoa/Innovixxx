@@ -4,17 +4,19 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Shield02Icon, 
   CheckmarkCircle01Icon, 
-  Loading01Icon, 
   Alert01Icon,
-  CheckmarkSquare02Icon
+  CheckmarkSquare02Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import BaseModal from '../common/BaseModal.vue'
 import { apiClient } from '../../utils/api-client'
 import { ApiError, getErrorMessage } from '../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
+import { useToast } from 'primevue/usetoast'
 import AppLoader from '../common/AppLoader.vue'
 
 const { t } = useI18n()
+const toast = useToast()
 
 interface Permission {
   id: number
@@ -157,17 +159,29 @@ const savePermissions = async () => {
     })
 
     if (data.done) {
+      toast.add({
+        severity: 'success',
+        summary: t('roles.alertSuccessPermissionsTitle', 'Permisos Asignados'),
+        detail: t('roles.alertSuccessPermissionsDetail', 'Los permisos han sido asignados exitosamente.'),
+        life: 4000
+      })
       emit('saved')
-      showModalMessage('Permisos asignados con éxito', 'success')
       return
     }
 
     showModalMessage(data.message || 'Error al asignar permisos', 'error')
-  } catch (error) {
-    if (error instanceof ApiError) {
-      showModalMessage(getErrorMessage(error.code), 'error')
+  } catch (error: any) {
+    console.error('Error al asignar permisos:', error)
+    if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
+      const code = error.code
+      let msg = ''
+      if (code === 400 || code === 500 || code === 422) {
+        msg = error.message || getErrorMessage(code)
+      } else {
+        msg = getErrorMessage(code) || error.message
+      }
+      showModalMessage(msg, 'error')
     } else {
-      console.error('Error al asignar permisos:', error)
       showModalMessage('Error de red al asignar permisos', 'error')
     }
   } finally {
@@ -225,12 +239,23 @@ watch(() => props.role?.id_role, () => {
 
     <div class="flex flex-col gap-6 relative h-[650px]">
       <!-- Overlay de Carga Central (Guardando) -->
-      <Transition name="loader-fade">
-        <AppLoader 
-          v-if="loadingPermissions" 
-          glass 
-          :text="t('roles.assigning')" 
-        />
+      <Transition name="fade">
+        <div v-if="loadingPermissions" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
+          <div class="relative">
+            <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+            <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+          </div>
+          <div class="mt-5 flex flex-col items-center">
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
+              {{ t('roles.assigning') || 'Asignando...' }}
+            </span>
+            <div class="flex gap-1">
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
+            </div>
+          </div>
+        </div>
       </Transition>
 
       <!-- Feedback Minimalista -->
@@ -294,11 +319,13 @@ watch(() => props.role?.id_role, () => {
                   v-for="permission in categoryPermissions"
                   :key="permission.id"
                   class="group cursor-pointer relative"
+                  :class="loadingPermissions ? 'pointer-events-none opacity-50' : ''"
                 >
                   <input
                     v-model="selectedPermissions"
                     type="checkbox"
                     :value="permission.id"
+                    :disabled="loadingPermissions"
                     class="sr-only"
                   >
 

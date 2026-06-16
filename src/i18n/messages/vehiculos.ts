@@ -26,7 +26,10 @@ export const vehiculosMessages = {
     statusActive: 'Activo',
     statusInactive: 'Inactivo',
     alertSuccessCreate: 'Vehículo registrado correctamente',
-    alertSuccessUpdate: 'Información actualizada correctamente',
+    alertSuccessCreateTitle: 'Vehículo Registrado',
+    alertSuccessCreateDetail: 'El vehículo ha sido registrado exitosamente.',
+    alertSuccessUpdateTitle: 'Vehículo Actualizado',
+    alertSuccessUpdateDetail: 'El vehículo ha sido modificado exitosamente.',
     alertErrorCreate: 'Error al registrar el vehículo',
     alertErrorUpdate: 'Error al actualizar el vehículo',
     confirmDelete: '¿Está seguro de que desea eliminar este vehículo? Esta acción no se puede deshacer.'
@@ -58,7 +61,10 @@ export const vehiculosMessages = {
     statusActive: 'Active',
     statusInactive: 'Inactive',
     alertSuccessCreate: 'Vehicle successfully registered',
-    alertSuccessUpdate: 'Information successfully updated',
+    alertSuccessCreateTitle: 'Vehicle Registered',
+    alertSuccessCreateDetail: 'The vehicle has been registered successfully.',
+    alertSuccessUpdateTitle: 'Vehicle Updated',
+    alertSuccessUpdateDetail: 'The vehicle has been modified successfully.',
     alertErrorCreate: 'Error registering the vehicle',
     alertErrorUpdate: 'Error updating the vehicle',
     confirmDelete: 'Are you sure you want to delete this vehicle? This action cannot be undone.'

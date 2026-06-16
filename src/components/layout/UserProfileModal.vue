@@ -262,7 +262,9 @@ const handleSaveProfile = async () => {
     :showFooter="true"
   >
     <template #icon>
-      <HugeiconsIcon :icon="CpuIcon" :size="22" class="text-[#3b82f6]" />
+      <div class="w-9 h-9 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
+        <HugeiconsIcon :icon="User02Icon" :size="18" :stroke-width="2" />
+      </div>
     </template>
     
     <div class="flex flex-col gap-6 relative p-1 min-h-[320px]">
@@ -315,22 +317,19 @@ const handleSaveProfile = async () => {
         <div class="lg:col-span-4 flex flex-col items-center lg:items-stretch gap-6">
           <!-- Avatar 3D con Upload -->
           <div class="flex flex-col items-center text-center">
-            <div class="relative group mb-4" style="perspective: 1200px;">
-              <label for="profilePhotoUpload" class="block w-36 h-36 rounded-[32px] bg-gradient-to-b from-white to-slate-100 dark:from-[#2A313A] dark:to-[#13161C] p-2 relative shadow-[0_15px_35px_rgba(0,0,0,0.1),0_5px_15px_rgba(0,0,0,0.05),inset_0_2px_0_rgba(255,255,255,0.8)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6),0_5px_15px_rgba(0,0,0,0.4),inset_0_2px_0_rgba(255,255,255,0.08),inset_0_-2px_0_rgba(0,0,0,0.4)] transition-all duration-500 cursor-pointer active:scale-95 group-hover:-translate-y-2 group-hover:rotate-x-6 group-hover:-rotate-y-6">
+            <div class="relative group mb-4">
+              <label for="profilePhotoUpload" class="block w-36 h-36 rounded-full bg-slate-100 dark:bg-white/5 p-1 relative border border-slate-200/80 dark:border-white/10 shadow-sm cursor-pointer active:scale-95 transition-all duration-300">
                 
-                <!-- Inner Container with deep well -->
-                <div class="w-full h-full rounded-[26px] overflow-hidden bg-slate-50 dark:bg-[#0B0D11] flex items-center justify-center shadow-[inset_0_4px_12px_rgba(0,0,0,0.1)] dark:shadow-[inset_0_4px_20px_rgba(0,0,0,0.8)] relative z-10 border border-slate-200/50 dark:border-black/50">
-                  <img v-if="fotoMostrada && !imageError" :src="fotoMostrada" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Profile" @error="imageError = true" />
-                  <HugeiconsIcon v-else :icon="User02Icon" :size="64" :stroke-width="1.5" class="text-slate-300 dark:text-slate-600 transition-all duration-500 group-hover:scale-110 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]" />
-                </div>
-
-                <!-- Ambient Glow on Hover -->
-                <div class="absolute inset-0 bg-[#3b82f6]/30 dark:bg-[#5da6fc]/20 rounded-[32px] blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>
-
-                <!-- Upload Overlay Glass -->
-                <div class="absolute inset-2 rounded-[26px] bg-gradient-to-t from-[#3b82f6]/90 to-[#3b82f6]/30 dark:from-[#5da6fc]/90 dark:to-[#5da6fc]/30 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-500 backdrop-blur-md z-20 shadow-[inset_0_2px_1px_rgba(255,255,255,0.4)] overflow-hidden">
-                   <HugeiconsIcon :icon="Camera01Icon" :size="28" class="text-white mb-2 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
-                   <span class="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">{{ t('sidebar.changePhoto') }}</span>
+                <!-- Inner Container -->
+                <div class="w-full h-full rounded-full overflow-hidden bg-slate-50 dark:bg-[#0B0D11] flex items-center justify-center border border-slate-200/50 dark:border-black/50 relative">
+                  <img v-if="fotoMostrada && !imageError" :src="fotoMostrada" class="w-full h-full object-cover" alt="Profile" @error="imageError = true" />
+                  <HugeiconsIcon v-else :icon="User02Icon" :size="64" :stroke-width="1.5" class="text-slate-300 dark:text-slate-600" />
+                  
+                  <!-- Upload Overlay Glass -->
+                  <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity duration-200">
+                     <HugeiconsIcon :icon="Camera01Icon" :size="24" class="text-white mb-1" />
+                     <span class="text-[9px] font-black text-white uppercase tracking-wider">{{ t('sidebar.changePhoto') }}</span>
+                  </div>
                 </div>
               </label>
 
@@ -345,27 +344,18 @@ const handleSaveProfile = async () => {
           </div>
           
           <!-- Stats / Info Grid (Stacked Vertically for cleaner structure!) -->
-          <div class="flex flex-col gap-3 w-full" style="perspective: 1000px;">
-            <div class="relative group/stat">
-              <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
-              <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.groupAssign') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ selectedGroup.nombre || userData.grupo || t('sidebar.none') }}</p>
-              </div>
+          <div class="flex flex-col gap-3 w-full">
+            <div class="bg-slate-50 dark:bg-[#0F1115] p-4 rounded-xl border border-slate-200/80 dark:border-white/5 shadow-sm transition-all duration-200">
+              <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{{ t('sidebar.groupAssign') }}</p>
+              <p class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ selectedGroup.nombre || userData.grupo || t('sidebar.none') }}</p>
             </div>
-            <div class="relative group/stat">
-              <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
-              <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.systemLang') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ userData.idioma || 'ES' }}</p>
-              </div>
+            <div class="bg-slate-50 dark:bg-[#0F1115] p-4 rounded-xl border border-slate-200/80 dark:border-white/5 shadow-sm transition-all duration-200">
+              <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{{ t('sidebar.systemLang') }}</p>
+              <p class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ userData.idioma || 'ES' }}</p>
             </div>
-            <div class="relative group/stat">
-              <div class="absolute inset-0 bg-gradient-to-b from-[#3b82f6]/5 to-transparent dark:from-[#5da6fc]/5 rounded-2xl opacity-0 group-hover/stat:opacity-100 transition-opacity duration-500 blur-md pointer-events-none"></div>
-              <div class="bg-gradient-to-b from-white to-slate-50/80 dark:from-[#1A1D24] dark:to-[#13161C] backdrop-blur-xl p-4 rounded-2xl border border-slate-200 dark:border-white/10 shadow-[0_4px_15px_rgba(0,0,0,0.02),inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05),inset_0_-1px_0_rgba(0,0,0,0.2)] hover:-translate-y-1 hover:rotate-x-3 transition-all duration-300 relative z-10 overflow-hidden">
-                <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1.5 relative z-10">{{ t('sidebar.timezone') }}</p>
-                <p class="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-wider relative z-10">{{ userData.tz || t('sidebar.notConfigured') }}</p>
-              </div>
+            <div class="bg-slate-50 dark:bg-[#0F1115] p-4 rounded-xl border border-slate-200/80 dark:border-white/5 shadow-sm transition-all duration-200">
+              <p class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">{{ t('sidebar.timezone') }}</p>
+              <p class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ userData.tz || t('sidebar.notConfigured') }}</p>
             </div>
           </div>
         </div>
@@ -373,16 +363,15 @@ const handleSaveProfile = async () => {
         <!-- COLUMNA DERECHA: FORMULARIOS DE EDICIÓN Y SEGURIDAD (lg:col-span-8) -->
         <div class="lg:col-span-8 space-y-6 w-full">
           <!-- Formulario de Edición -->
-          <div class="space-y-6 bg-gradient-to-b from-white/90 to-white/50 dark:from-[#1A1D24]/90 dark:to-[#0F1115]/90 backdrop-blur-2xl p-6 rounded-[24px] border border-white dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.04),inset_0_1px_0_rgba(255,255,255,0.6)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)] relative overflow-hidden group/form">
-            <div class="absolute -top-32 -right-32 w-64 h-64 bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5 rounded-full blur-3xl group-hover/form:bg-[#3b82f6]/10 transition-colors duration-700 pointer-events-none"></div>
+          <div class="space-y-6 bg-white dark:bg-[#0F1115] p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm">
 
             <!-- Información Personal -->
             <div class="space-y-5">
-              <div class="flex items-center gap-3 relative z-10">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="User02Icon" :size="20" class="drop-shadow-sm" />
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-[14px] bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+                  <HugeiconsIcon :icon="User02Icon" :size="20" />
                 </div>
-                <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ t('sidebar.editProfileInfo') }}</h3>
+                <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em]">{{ t('sidebar.editProfileInfo') }}</h3>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
@@ -394,10 +383,10 @@ const handleSaveProfile = async () => {
             <!-- Seguridad -->
             <div class="space-y-5 pt-6 mt-6 border-t border-slate-200/60 dark:border-white/5 relative z-10">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-500/20 dark:to-blue-600/5 flex items-center justify-center text-[#3b82f6] border border-blue-200/60 dark:border-blue-500/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
-                  <HugeiconsIcon :icon="Shield02Icon" :size="20" class="drop-shadow-sm" />
+                <div class="w-10 h-10 rounded-[14px] bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+                  <HugeiconsIcon :icon="Shield02Icon" :size="20" />
                 </div>
-                <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em] drop-shadow-sm">{{ t('users.formPasswordChangeTitle') }}</h3>
+                <h3 class="text-[13px] font-black text-slate-800 dark:text-white uppercase tracking-[0.15em]">{{ t('users.formPasswordChangeTitle') }}</h3>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5">

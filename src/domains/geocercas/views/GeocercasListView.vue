@@ -13,7 +13,8 @@ import {
   Delete02Icon,
   CircleIcon,
   SquareIcon,
-  Alert01Icon
+  Alert01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi, deleteGeocercaApi } from '../services/geocercas.api'
@@ -23,7 +24,7 @@ import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
-import AppSearch from '../../../components/ui/AppSearch.vue'
+import AppInput from '../../../components/ui/AppInput.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import { useAuthStore } from '../../../stores/auth.store'
@@ -39,9 +40,37 @@ const { t } = useI18n()
 const geocercas = ref<Geocerca[]>([])
 const loading = ref(false)
 const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
-
-const currentPage = ref(1)
+const currentPage = ref(typeof route.query.page === 'string' ? parseInt(route.query.page, 10) || 1 : 1)
 const itemsPerPage = 10
+
+const openMenuGeocercaId = ref<string | null>(null)
+const toggleMenu = (geocercaId: string, event: Event) => {
+  event.stopPropagation()
+  if (openMenuGeocercaId.value === geocercaId) {
+    openMenuGeocercaId.value = null
+  } else {
+    openMenuGeocercaId.value = geocercaId
+  }
+}
+const closeAllMenus = () => {
+  openMenuGeocercaId.value = null
+}
+
+const syncStateToUrl = () => {
+  const nextQuery: Record<string, string> = {}
+  if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
+  if (currentPage.value > 1) nextQuery.page = String(currentPage.value)
+  void router.replace({ query: nextQuery })
+}
+
+watch(searchQuery, () => {
+  currentPage.value = 1
+  syncStateToUrl()
+})
+
+watch(currentPage, () => {
+  syncStateToUrl()
+})
 
 const fetchGeocercas = async () => {
   if (!selectedGroup.value?.id) {
@@ -51,6 +80,9 @@ const fetchGeocercas = async () => {
   loading.value = true
   try {
     geocercas.value = await fetchGeocercasApi(selectedGroup.value.id)
+    if (map.value && !selectedGeocerca.value) {
+      await drawAllGeocercas()
+    }
   } catch (error) {
     console.error('Error al obtener geocercas:', error)
     geocercas.value = []
@@ -72,12 +104,97 @@ const {
   gestureHandling: 'cooperative'
 })
 
+let CustomLabelOverlay: any = null
+const selectedLabelOverlay = ref<any>(null)
+
 const initializeMap = async (googleMapsApi: any) => {
   initMap(googleMapsApi)
+  
+  // Registrar la clase de etiqueta personalizada cuando la API esté disponible
+  CustomLabelOverlay = class extends (window as any).google.maps.OverlayView {
+    private element: HTMLDivElement
+    private position: any
+
+    constructor(position: any, text: string, color: string) {
+      super()
+      this.position = position
+      this.element = document.createElement('div')
+      this.element.style.position = 'absolute'
+      this.element.style.transform = 'translate(-50%, -50%) scale(1)'
+      this.element.style.background = 'rgba(15, 23, 42, 0.9)'
+      this.element.style.backdropFilter = 'blur(4px)'
+      this.element.style.border = `1.5px solid ${color}`
+      this.element.style.borderRadius = '6px'
+      this.element.style.padding = '4px 8px'
+      this.element.style.color = '#ffffff'
+      this.element.style.fontSize = '9px'
+      this.element.style.fontWeight = '800'
+      this.element.style.fontFamily = 'Inter, sans-serif'
+      this.element.style.whiteSpace = 'nowrap'
+      this.element.style.pointerEvents = 'none'
+      this.element.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'
+      this.element.style.textTransform = 'uppercase'
+      this.element.style.letterSpacing = '0.06em'
+      this.element.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out'
+      this.element.innerText = text
+    }
+
+    onAdd() {
+      const panes = this.getPanes()
+      if (panes) {
+        panes.overlayMouseTarget.appendChild(this.element)
+      }
+    }
+
+    draw() {
+      const projection = this.getProjection()
+      if (!projection) return
+      const point = projection.fromLatLngToDivPixel(this.position)
+      if (point) {
+        this.element.style.left = point.x + 'px'
+        this.element.style.top = point.y + 'px'
+        
+        const mapInstance = this.getMap()
+        if (mapInstance) {
+          const zoom = mapInstance.getZoom()
+          let scale = 1
+          let opacity = 1
+
+          if (zoom >= 14) {
+            scale = 1
+            opacity = 1
+          } else if (zoom >= 10) {
+            scale = 0.65 + (zoom - 10) * (0.35 / 4)
+            opacity = 0.75 + (zoom - 10) * (0.25 / 4)
+          } else if (zoom >= 8) {
+            scale = 0.45 + (zoom - 8) * (0.2 / 2)
+            opacity = 0.2 + (zoom - 8) * (0.55 / 2)
+          } else {
+            scale = 0
+            opacity = 0
+          }
+
+          this.element.style.transform = `translate(-50%, -50%) scale(${scale})`
+          this.element.style.opacity = String(opacity)
+        }
+      }
+    }
+
+    onRemove() {
+      if (this.element.parentNode) {
+        this.element.parentNode.removeChild(this.element)
+      }
+    }
+  }
+
+  if (geocercas.value.length > 0 && !selectedGeocerca.value) {
+    await drawAllGeocercas()
+  }
 }
 
 onMounted(() => {
   startDarkModeObserver()
+  window.addEventListener('click', closeAllMenus)
 
   loadGoogleMaps().then(initializeMap).catch(err => {
     console.error('Error cargando Google Maps:', err)
@@ -90,6 +207,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearHoverTimer()
+  window.removeEventListener('click', closeAllMenus)
   // Cleanup handled by useMapSetup onUnmounted
 })
 
@@ -121,6 +239,7 @@ const paginatedGeocercas = computed(() => {
 
 const selectedGeocerca = ref<Geocerca | null>(null)
 const currentDrawing = shallowRef<any>(null)
+const allDrawings = ref<any[]>([])
 const isLoadingDetails = ref(false)
 
 const hoverTimer = ref<ReturnType<typeof setTimeout> | null>(null)
@@ -148,10 +267,93 @@ const clearHoverTimer = () => {
   }
 }
 
+const clearAllDrawings = () => {
+  allDrawings.value.forEach(d => d.setMap(null))
+  allDrawings.value = []
+}
+
 const clearDrawings = () => {
   if (currentDrawing.value) {
     currentDrawing.value.setMap(null)
     currentDrawing.value = null
+  }
+  if (selectedLabelOverlay.value) {
+    selectedLabelOverlay.value.setMap(null)
+    selectedLabelOverlay.value = null
+  }
+  clearAllDrawings()
+}
+
+const drawAllGeocercas = async () => {
+  clearAllDrawings()
+  if (!selectedGroup.value?.id || !map.value || geocercas.value.length === 0) return
+  try {
+    const promises = geocercas.value.map(g =>
+      fetchGeocercaDetallesApi(selectedGroup.value!.id, g.id_geocerca).catch(() => null)
+    )
+    const detalles = await Promise.all(promises)
+    const bounds = new (window as any).google.maps.LatLngBounds()
+    let hasPoints = false
+
+    detalles.forEach(detalle => {
+      if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
+      const color = detalle.color || '#3b82f6'
+      let centerLatLng: any = null
+
+      if (detalle.tipo === 'Circular') {
+        const p = detalle.puntos[0]
+        const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
+        const radius = parseFloat(p.radio || '0')
+        const circle = new (window as any).google.maps.Circle({
+          strokeColor: color,
+          strokeOpacity: 0.7,
+          strokeWeight: 1.5,
+          fillColor: color,
+          fillOpacity: 0.2,
+          map: map.value,
+          center,
+          radius
+        })
+        allDrawings.value.push(circle)
+        bounds.extend(center)
+        centerLatLng = center
+        hasPoints = true
+      } else {
+        const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+        const polygon = new (window as any).google.maps.Polygon({
+          paths,
+          strokeColor: color,
+          strokeOpacity: 0.7,
+          strokeWeight: 1.5,
+          fillColor: color,
+          fillOpacity: 0.2,
+          map: map.value
+        })
+        allDrawings.value.push(polygon)
+        const polyBounds = new (window as any).google.maps.LatLngBounds()
+        paths.forEach(p => {
+          bounds.extend(p)
+          polyBounds.extend(p)
+        })
+        centerLatLng = polyBounds.getCenter()
+        hasPoints = true
+      }
+
+      if (centerLatLng && map.value && CustomLabelOverlay) {
+        const position = new (window as any).google.maps.LatLng(
+          typeof centerLatLng.lat === 'function' ? centerLatLng.lat() : centerLatLng.lat,
+          typeof centerLatLng.lng === 'function' ? centerLatLng.lng() : centerLatLng.lng
+        )
+        const labelOverlay = new CustomLabelOverlay(position, detalle.nombre, color)
+        labelOverlay.setMap(map.value)
+        allDrawings.value.push(labelOverlay)
+      }
+    })
+    if (hasPoints && map.value) {
+      map.value.fitBounds(bounds)
+    }
+  } catch (e) {
+    console.error(e)
   }
 }
 
@@ -173,7 +375,7 @@ const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number 
       return
     }
 
-    const duration = 1800 // 1.8 seconds cinematic flight
+    const duration = 600 // 0.6 seconds fast cinematic flight
     const startTime = performance.now()
     
     // Zoom out farther if distance is huge
@@ -231,7 +433,12 @@ const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number 
 const onGeocercaClick = async (geocerca: Geocerca) => {
   clearHoverTimer()
   hoveredGeocerca.value = null
-  if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) return
+  if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
+    selectedGeocerca.value = null
+    clearDrawings()
+    await drawAllGeocercas()
+    return
+  }
   selectedGeocerca.value = geocerca
   
   if (!selectedGroup.value?.id || !map.value) return
@@ -261,6 +468,13 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         center: center,
         radius: radius
       })
+
+      // Dibujar etiqueta
+      if (CustomLabelOverlay) {
+        const position = new (window as any).google.maps.LatLng(center.lat, center.lng)
+        selectedLabelOverlay.value = new CustomLabelOverlay(position, detalle.nombre, color)
+        selectedLabelOverlay.value.setMap(map.value)
+      }
       
       // 2. Vuelo parabólico personalizado
       const targetLatLng = new (window as any).google.maps.LatLng(center.lat, center.lng)
@@ -281,9 +495,19 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         fillOpacity: 0.35,
         map: map.value
       })
+
+      // Dibujar etiqueta
+      const center = bounds.getCenter()
+      if (CustomLabelOverlay) {
+        const position = new (window as any).google.maps.LatLng(
+          typeof center.lat === 'function' ? center.lat() : center.lat,
+          typeof center.lng === 'function' ? center.lng() : center.lng
+        )
+        selectedLabelOverlay.value = new CustomLabelOverlay(position, detalle.nombre, color)
+        selectedLabelOverlay.value.setMap(map.value)
+      }
       
       // 2. Vuelo parabólico hacia el centro del polígono
-      const center = bounds.getCenter()
       await flyToMap(map.value, center, 15, bounds)
     }
     
@@ -384,36 +608,22 @@ const handleDeleteGeocerca = async () => {
 
 
 
-      <!-- Overlay Carga Detalles (High-Impact Design) -->
+      <!-- Overlay Carga Detalles -->
       <Transition name="fade-overlay">
         <div 
           v-if="isLoadingDetails" 
-          class="absolute inset-0 z-[20] flex items-center justify-center bg-slate-900/10 backdrop-blur-[2px] pointer-events-none"
+          class="absolute inset-0 z-[20] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300 pointer-events-none"
         >
-          <!-- Grid Background Effect (appearing only during load) -->
-          <div class="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_10%,transparent_100%)] animate-[pulse_4s_ease-in-out_infinite]"></div>
-
-          <div class="relative group flex flex-col items-center">
-            <!-- Central Radar Scanner -->
-            <div class="relative w-40 h-40 flex items-center justify-center">
-              <div class="absolute inset-0 border-2 border-[#3b82f6]/20 rounded-full animate-[ping_3s_infinite]"></div>
-              <div class="absolute inset-4 border border-[#3b82f6]/30 rounded-full animate-[ping_2s_infinite]"></div>
-              <div class="absolute inset-0 border-t-2 border-l-2 border-[#3b82f6] rounded-full animate-spin [animation-duration:1.5s]"></div>
-              
-              <!-- Core Icon -->
-              <div class="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center text-white shadow-[0_0_50px_rgba(59,130,246,0.5)] border border-white/20 transform rotate-45 group-hover:rotate-0 transition-transform duration-700">
-                <HugeiconsIcon :icon="Location01Icon" :size="36" :stroke-width="1.5" class="-rotate-45 group-hover:rotate-0 transition-transform duration-700" />
-              </div>
-            </div>
-
-            <!-- Text Content -->
-            <div class="mt-8 text-center">
-              <div class="flex flex-col items-center gap-1">
-                <p class="text-[14px] font-black text-slate-800 dark:text-white uppercase tracking-[0.5em] leading-none [text-shadow:0_0_20px_rgba(59,130,246,0.3)]">Cargando...</p>
-                <div class="h-0.5 w-24 bg-gradient-to-r from-transparent via-[#3b82f6] to-transparent mt-3 overflow-hidden">
-                  <div class="h-full bg-white w-full animate-[scan-line_2s_infinite]"></div>
-                </div>
-              </div>
+          <div class="relative">
+            <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
+            <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+          </div>
+          <div class="mt-5 flex flex-col items-center">
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cargando Geocerca...</span>
+            <div class="flex gap-1">
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
             </div>
           </div>
         </div>
@@ -470,7 +680,7 @@ const handleDeleteGeocerca = async () => {
 
             <!-- Búsqueda -->
             <div class="relative mt-4">
-              <AppSearch v-model="searchQuery" :placeholder="$t('geocercas.searchPlaceholder')" />
+              <AppInput v-model="searchQuery" :placeholder="$t('geocercas.searchPlaceholder')" :icon="Search01Icon" />
             </div>
           </div>
 
@@ -499,82 +709,87 @@ const handleDeleteGeocerca = async () => {
                 v-for="geocerca in paginatedGeocercas"
                 :key="geocerca.id_geocerca"
                 @click="onGeocercaClick(geocerca)"
-                @mouseenter="onGeocercaMouseEnter(geocerca)"
-                @mouseleave="onGeocercaMouseLeave()"
-                class="group relative cursor-pointer rounded-[14px] transition-all duration-300 select-none border overflow-hidden"
+                class="group relative cursor-pointer rounded-xl transition-all duration-300 select-none border p-2.5 px-3.5 flex items-center justify-between gap-3"
                 :class="[
                   selectedGeocerca?.id_geocerca === geocerca.id_geocerca
-                    ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.05)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_4px_12px_rgba(59,130,246,0.1)]'
-                    : 'bg-white/80 dark:bg-[#20242D]/40 border-slate-200/60 dark:border-white/[0.05] hover:border-slate-300 dark:hover:border-white/[0.1] hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'
+                    ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 shadow-[0_2px_8px_-2px_rgba(59,130,246,0.05)]'
+                    : 'bg-white dark:bg-[#1E222B]/40 border-slate-200/60 dark:border-white/[0.04] hover:border-slate-300 dark:hover:border-white/10 hover:bg-slate-50 dark:hover:bg-[#232732]/70',
+                  openMenuGeocercaId === geocerca.id_geocerca ? 'z-30' : 'z-10'
                 ]"
               >
-                <!-- Barra lateral activa -->
-                <div
-                  class="absolute left-0 top-0 bottom-0 w-[3px] bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-200"
-                  :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'opacity-100' : 'opacity-0'"
-                ></div>
+                <!-- Glow Effect background -->
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.04),transparent_60%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
-                <!-- Barra de progreso al pasar el mouse (superior) -->
-                <div
-                  v-if="hoveredGeocerca?.id_geocerca === geocerca.id_geocerca && selectedGeocerca?.id_geocerca !== geocerca.id_geocerca"
-                  class="absolute top-0 left-0 right-0 h-[2px] bg-[#3b82f6]/40 overflow-hidden"
-                >
-                  <div class="h-full bg-[#3b82f6] animate-[hover-progress_3s_linear_forwards]"></div>
+                <!-- Content container -->
+                <div class="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
+                  <!-- Icono tipo de geocerca (pequeño y elegante) -->
+                  <div
+                    class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-300"
+                    :style="{ backgroundColor: selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? `${geocerca.color}20` : 'transparent', borderColor: `${geocerca.color}40` }"
+                  >
+                    <HugeiconsIcon :icon="geocerca.tipo === 'Circular' ? CircleIcon : SquareIcon" :size="14" :stroke-width="2" :style="{ color: geocerca.color }" />
+                  </div>
+
+                  <!-- Información -->
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-1.5">
+                      <h3
+                        class="text-[12px] font-bold uppercase tracking-tight truncate transition-colors duration-200"
+                        :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
+                      >
+                        {{ geocerca.nombre }}
+                      </h3>
+                      <!-- Etiqueta de Tipo -->
+                      <span class="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none select-none tracking-wide bg-slate-100 dark:bg-white/[0.05] border border-slate-200/50 dark:border-white/[0.04] text-slate-500 dark:text-slate-400 uppercase">
+                        {{ geocerca.tipo }}
+                      </span>
+                    </div>
+                    <p class="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-1">
+                      {{ geocerca.descripcion || 'Sin descripción' }}
+                    </p>
+                  </div>
                 </div>
 
-                <div class="p-2.5 pl-3.5 flex items-center justify-between gap-3">
-                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                    <!-- Icono tipo de geocerca (pequeño y elegante) -->
+                <!-- Actions block (Three Dots Menu) -->
+                <div class="relative shrink-0 z-20">
+                  <button
+                    type="button"
+                    @click.stop="toggleMenu(geocerca.id_geocerca, $event)"
+                    class="w-7 h-7 rounded-lg flex items-center justify-center bg-slate-50 dark:bg-[#11141A] border border-slate-200/60 dark:border-white/5 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10 hover:border-slate-350 dark:hover:border-white/20 transition-all duration-200"
+                  >
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="12" cy="5" r="2" />
+                      <circle cx="12" cy="12" r="2" />
+                      <circle cx="12" cy="19" r="2" />
+                    </svg>
+                  </button>
+
+                  <!-- Dropdown Menu -->
+                  <Transition name="menu-fade">
                     <div
-                      class="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-300"
-                      :style="{ backgroundColor: selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? `${geocerca.color}20` : 'transparent', borderColor: `${geocerca.color}40` }"
+                      v-if="openMenuGeocercaId === geocerca.id_geocerca"
+                      class="absolute right-0 mt-1.5 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      @click.stop
                     >
-                      <HugeiconsIcon :icon="geocerca.tipo === 'Circular' ? CircleIcon : SquareIcon" :size="14" :stroke-width="2" :style="{ color: geocerca.color }" />
+                      <button
+                        v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)"
+                        @click.stop="router.push(`/geocercas/${geocerca.id_geocerca}/editar`); openMenuGeocercaId = null"
+                        class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
+                      >
+                        <HugeiconsIcon :icon="Edit02Icon" :size="12" class="text-slate-400" />
+                        Editar
+                      </button>
+
+                      <button
+                        v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_DELETE)"
+                        @click.stop="confirmDelete(geocerca); openMenuGeocercaId = null"
+                        class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/5 transition-colors flex items-center gap-2"
+                      >
+                        <HugeiconsIcon :icon="Delete02Icon" :size="12" class="text-red-400" />
+                        Eliminar
+                      </button>
                     </div>
-
-                    <!-- Información -->
-                    <div class="min-w-0 flex-1">
-                      <div class="flex items-center justify-between gap-1.5">
-                        <div class="flex items-center gap-1.5 min-w-0">
-                          <h3
-                            class="text-[12px] font-semibold uppercase tracking-tight truncate transition-colors duration-200"
-                            :class="selectedGeocerca?.id_geocerca === geocerca.id_geocerca ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
-                          >{{ geocerca.nombre }}</h3>
-                          <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono shrink-0">({{ geocerca.id_geocerca }})</span>
-                        </div>
-                        <!-- Etiqueta de Tipo -->
-                        <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.05] border border-slate-200/50 dark:border-white/[0.04] text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">
-                          {{ geocerca.tipo }}
-                        </span>
-                      </div>
-                      <p class="text-[11px] font-normal text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                        {{ geocerca.descripcion || 'Sin descripción' }}
-                      </p>
-                    </div>
-                  </div>
-
-                  <!-- Botones de Acción (Visibles al pasar el mouse) -->
-                  <div class="flex items-center gap-1 shrink-0 lg:opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <!-- Botón Editar Plano -->
-                    <button
-                      v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)"
-                      @click.stop="router.push(`/geocercas/${geocerca.id_geocerca}/editar`)"
-                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-95 transition-all"
-                      title="Editar Geocerca"
-                    >
-                      <HugeiconsIcon :icon="Edit02Icon" :size="12" :stroke-width="2" />
-                    </button>
-
-                    <!-- Botón Eliminar Plano -->
-                    <button
-                      v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_DELETE)"
-                      @click.stop="confirmDelete(geocerca)"
-                      class="w-6 h-6 rounded-md flex items-center justify-center bg-white dark:bg-[#20242D] border border-slate-200 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 hover:bg-white/5 active:scale-95 transition-all"
-                      title="Eliminar Geocerca"
-                    >
-                      <HugeiconsIcon :icon="Delete02Icon" :size="12" :stroke-width="2" />
-                    </button>
-                  </div>
+                  </Transition>
                 </div>
               </div>
             </template>

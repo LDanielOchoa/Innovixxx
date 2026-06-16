@@ -32,10 +32,9 @@ export interface RutaSimple {
 
 export interface VehiculoSimple {
   id_vehiculo: string
-  nombre: string
   placa: string
   tipo: string
-  estado: string
+  escolta?: string
 }
 
 export interface HardwareSimple {

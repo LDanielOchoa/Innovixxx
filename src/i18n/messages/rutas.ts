@@ -1,6 +1,6 @@
 export const rutasMessages = {
   es: {
-    title: 'Monitor de Rutas',
+    title: 'Rutas',
     subtitle: 'Listado de Coordenadas',
     btnNew: 'Nueva Ruta',
     searchPlaceholder: 'Buscar rutas...',
@@ -71,7 +71,7 @@ export const rutasMessages = {
     noDescription: 'Sin descripción detallada.'
   },
   en: {
-    title: 'Route Monitor',
+    title: 'Routes',
     subtitle: 'Coordinate List',
     btnNew: 'New Route',
     searchPlaceholder: 'Search routes...',

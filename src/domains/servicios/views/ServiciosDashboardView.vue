@@ -62,7 +62,7 @@ const fetchDatos = async () => {
   try {
     const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
       fetchRutasSimplesApi(selectedGroup.value.id),
-      fetchVehiculosSimplesApi(selectedGroup.value.id),
+      fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0),
       fetchEscoltasSimplesApi(selectedGroup.value.id, 0)
     ])
@@ -108,7 +108,13 @@ const formatFecha = (f: string) => {
 
 const obtenerHoras = (f: string): number => {
   if (!f) return 0
-  return Math.max(0, Math.floor((Date.now() - new Date(f.replace(' ', 'T')).getTime()) / 3600000))
+  let isoStr = f.replace(' ', 'T')
+  if (!isoStr.includes('Z') && !isoStr.includes('+') && !isoStr.includes('-')) {
+    isoStr += 'Z'
+  }
+  const parsedDate = new Date(isoStr)
+  if (isNaN(parsedDate.getTime())) return 0
+  return Math.max(0, Math.floor((Date.now() - parsedDate.getTime()) / 3600000))
 }
 
 const getEstadoInfo = (label: string) => ESTADOS_INFO.find(e => e.label === label)
@@ -153,41 +159,18 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
   <!-- Contenedor raíz con fondo táctico idéntico al Dashboard.vue -->
   <div class="relative w-full min-h-full bg-[#F1F4F8] dark:bg-[#13161C] overflow-hidden transition-colors duration-500">
 
-
-
-    <!-- CAPA: Luz ambiental superior -->
-    <div class="absolute inset-x-0 top-0 h-[250px] bg-[radial-gradient(ellipse_at_top,rgba(100,116,139,0.06)_0%,transparent_70%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(93,166,252,0.1)_0%,transparent_70%)] pointer-events-none z-0 transition-colors duration-700"></div>
-
     <!-- CONTENIDO -->
     <div class="relative z-10 p-6 space-y-5 animate-page-in">
 
       <!-- ══════ HEADER ══════ -->
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div class="flex items-center justify-between gap-4">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-xl bg-blue-50/60 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/60 dark:border-blue-500/20 shadow-[0_0_14px_rgba(59,130,246,0.12)]">
-            <HugeiconsIcon :icon="GridViewIcon" :size="16" :stroke-width="2" />
+          <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+            <HugeiconsIcon :icon="GridViewIcon" :size="18" :stroke-width="2" />
           </div>
           <div>
-            <h1 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.3em]">SERVICIOS DASHBOARD</h1>
-            <p class="text-[7.5px] text-slate-400/50 dark:text-slate-700 uppercase tracking-widest mt-0.5">Monitoreo en tiempo real</p>
+            <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Dashboard de Servicios</h1>
           </div>
-          <div class="flex gap-1">
-            <div class="w-1 h-1 rounded-full bg-[#3b82f6] animate-pulse"></div>
-            <div class="w-1 h-1 rounded-full bg-[#3b82f6]/40 animate-pulse [animation-delay:0.2s]"></div>
-          </div>
-        </div>
-
-        <!-- Buscador -->
-        <div class="relative group/search">
-          <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-600 group-focus-within/search:text-[#3b82f6] transition-colors z-10">
-            <HugeiconsIcon :icon="Search01Icon" :size="13" />
-          </div>
-          <input
-            v-model="searchFilter"
-            type="text"
-            placeholder="BUSCAR SERVICIO..."
-            class="w-full sm:w-60 bg-white/70 dark:bg-[#20242D]/60 border border-slate-200/70 dark:border-white/5 rounded-[14px] py-2.5 pl-10 pr-4 text-[10px] font-black text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-[#3b82f6]/20 transition-all placeholder-slate-400 dark:placeholder-slate-600 uppercase tracking-widest backdrop-blur-md shadow-[0_2px_10px_rgba(0,0,0,0.04)] dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)]"
-          />
         </div>
       </div>
 
@@ -197,68 +180,86 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
           v-for="est in ESTADOS_INFO"
           :key="est.id"
           @click="selectedEstadoFilter = selectedEstadoFilter === est.id ? null : est.id"
-          class="relative group/stat overflow-hidden rounded-[22px] bg-gradient-to-b from-white/90 to-white/50 dark:from-[#20242D]/80 dark:to-[#13161C]/80 backdrop-blur-2xl border border-slate-200/80 dark:border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_4px_16px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 ease-out cursor-pointer select-none p-4 flex flex-col items-center"
-          :class="selectedEstadoFilter === est.id ? 'ring-2' : ''"
-          :style="selectedEstadoFilter === est.id ? { '--tw-ring-color': est.color } : {}"
+          class="relative group/stat overflow-hidden rounded-xl bg-slate-50/50 dark:bg-[#0F1115]/50 border transition-all duration-300 ease-out cursor-pointer select-none p-4 flex flex-col items-center"
+          :class="[
+            selectedEstadoFilter === est.id
+              ? ''
+              : 'border-slate-200/60 dark:border-white/5 hover:border-slate-350 dark:hover:border-white/10'
+          ]"
+          :style="selectedEstadoFilter === est.id ? { 
+            borderColor: est.color, 
+            boxShadow: `0 0 0 1px ${est.color}33, inset 0 1px 2px rgba(0,0,0,0.05)` 
+          } : {}"
         >
+          <!-- Borde superior brillante en active/focus idéntico a AppInput -->
+          <div 
+            class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-transparent to-transparent opacity-0 transition-all duration-300"
+            :class="{ 'opacity-100 left-2 right-2': selectedEstadoFilter === est.id }"
+            :style="selectedEstadoFilter === est.id ? { 
+              backgroundImage: `linear-gradient(to right, transparent, ${est.color}80, transparent)` 
+            } : {}"
+          ></div>
+
           <!-- Número -->
           <p
-            class="text-3xl font-black tracking-tighter relative z-10"
-            :style="{ color: est.color, filter: `drop-shadow(0 0 14px ${est.shadow})` }"
+            class="text-2xl font-black tracking-tighter relative z-10"
+            :style="{ color: est.color }"
           >{{ conteoEstados[est.label] || 0 }}</p>
 
           <!-- Dot + Label -->
-          <div class="flex items-center gap-1.5 mt-2 relative z-10">
+          <div class="flex items-center gap-1.5 mt-1 relative z-10">
             <span
               class="w-1.5 h-1.5 rounded-full animate-pulse"
-              :style="{ backgroundColor: est.color, boxShadow: `0 0 8px ${est.shadow}` }"
+              :style="{ backgroundColor: est.color }"
             ></span>
             <p
               class="text-[8px] uppercase tracking-[0.1em] font-black text-center leading-tight"
               :style="{ color: est.color, opacity: 0.85 }"
             >{{ est.label }}</p>
           </div>
-
-          <!-- Inner border -->
-          <div class="absolute inset-0 rounded-[22px] border border-white/10 dark:border-white/5 mix-blend-overlay pointer-events-none"></div>
         </div>
       </div>
 
-      <!-- Chip de filtro activo -->
-      <Transition name="chip-fade">
-        <div
-          v-if="selectedEstadoFilter !== null && estadoFiltroActual"
-          class="inline-flex items-center gap-2.5 px-3.5 py-2 rounded-full bg-white/80 dark:bg-[#20242D]/70 backdrop-blur-md border border-slate-200/70 dark:border-white/8 shadow-sm dark:shadow-[0_4px_16px_rgba(0,0,0,0.4)]"
-        >
-          <span class="w-2 h-2 rounded-full animate-pulse" :style="{ backgroundColor: estadoFiltroActual.color, boxShadow: `0 0 8px ${estadoFiltroActual.shadow}` }"></span>
-          <span class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-            Filtrando:
-            <span class="ml-1" :style="{ color: estadoFiltroActual.color }">{{ estadoFiltroActual.label }}</span>
-            <span class="ml-2 text-slate-400 dark:text-slate-600">({{ filteredServicios.length }})</span>
-          </span>
-          <button @click="selectedEstadoFilter = null" class="text-[9px] font-black text-slate-300 dark:text-slate-700 hover:text-[#3b82f6] transition-colors">✕</button>
-        </div>
-      </Transition>
 
       <!-- ══════ SKELETON ══════ -->
-      <div v-if="isLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div v-if="isLoading" class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         <div
           v-for="i in 12" :key="i"
-          class="h-16 rounded-[14px] bg-gradient-to-b from-white/60 to-white/20 dark:from-[#20242D]/40 dark:to-[#13161C]/40 border border-slate-200/50 dark:border-white/5 animate-pulse"
-        ></div>
+          class="relative overflow-hidden rounded-xl bg-white/90 dark:bg-[#1C1F27]/90 border border-slate-200/70 dark:border-white/[0.07] shadow-sm w-full animate-pulse"
+        >
+          <div class="p-3.5 flex flex-col gap-3">
+            <!-- Estado badge y Horas transcurridas skeleton -->
+            <div class="flex items-center justify-between">
+              <div class="w-16 h-4 rounded-full bg-slate-200/60 dark:bg-white/[0.05]"></div>
+              <div class="w-6 h-3 rounded bg-slate-200/60 dark:bg-white/[0.05]"></div>
+            </div>
+
+            <!-- Fila inferior: Iconos de recursos skeleton -->
+            <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-white/[0.03]">
+              <div class="flex items-center gap-1.5">
+                <div
+                  v-for="j in 4"
+                  :key="j"
+                  class="w-6 h-6 rounded-lg bg-slate-200/60 dark:bg-white/[0.05]"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Sin resultados -->
       <div
         v-else-if="filteredServicios.length === 0"
-        class="flex flex-col items-center justify-center py-20 rounded-[24px] bg-gradient-to-b from-white/80 to-white/40 dark:from-[#20242D]/60 dark:to-[#13161C]/40 backdrop-blur-xl border border-slate-200/80 dark:border-white/5"
+        class="flex flex-col items-center justify-center py-16 text-center select-none"
       >
-        <HugeiconsIcon :icon="AlertCircleIcon" :size="32" class="text-slate-300 dark:text-slate-700 mb-4" />
-        <p class="text-[10px] font-black text-slate-400 dark:text-slate-600 uppercase tracking-[0.3em]">Sin servicios encontrados</p>
+        <HugeiconsIcon :icon="AlertCircleIcon" :size="32" class="text-slate-350 dark:text-slate-655 opacity-60 mb-3" />
+        <p class="text-[12px] font-bold text-slate-500 dark:text-slate-400">Sin servicios</p>
+        <p class="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">No hay servicios registrados en este estado</p>
       </div>
 
       <!-- ══════ GRID DE SERVICIOS ══════ -->
-      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+      <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
         <ServicioCard
           v-for="serv in filteredServicios"
           :key="serv.id_servicio"

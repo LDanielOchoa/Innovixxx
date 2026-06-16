@@ -165,6 +165,9 @@ const isActiveRoute = (menuRoute: string | undefined): boolean => {
   if (menuRoute === '/') {
     return currentPath === '/'
   }
+  if (menuRoute === '/servicios' && currentPath.startsWith('/servicios/dashboard')) {
+    return false
+  }
   return currentPath === menuRoute || currentPath.startsWith(`${menuRoute}/`)
 }
 
@@ -314,29 +317,29 @@ const cerrarSesion = () => {
             <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
               <HugeiconsIcon :icon="User02Icon" :size="15" />
             </div>
-            <span>{{ $t('sidebar.menu.myProfile') || 'Mi Perfil' }}</span>
+            <span>{{ $t('sidebar.profile') || 'Mi Perfil' }}</span>
           </button>
 
           <button 
-            @click="themeStore.toggle"
+            @click="themeStore.toggle(); isProfileMenuOpen = false"
             class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
           >
             <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
               <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="15" />
             </div>
-            <span>{{ themeStore.isDark ? 'Modo Claro' : 'Modo Oscuro' }}</span>
+            <span>{{ themeStore.isDark ? ($t('sidebar.switchToLight') || 'Modo Claro') : ($t('sidebar.switchToDark') || 'Modo Oscuro') }}</span>
           </button>
 
           <div class="h-px bg-slate-100 dark:bg-white/10 my-1.5"></div>
 
           <button 
-            @click="cerrarSesion"
+            @click="cerrarSesion(); isProfileMenuOpen = false"
             class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-red-600 dark:text-red-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-500/80 border border-transparent hover:border-red-600 transition-all duration-300 text-left active:scale-[0.97] group/opt"
           >
             <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 group-hover/opt:bg-white/10 group-hover/opt:text-white transition-colors duration-300">
               <HugeiconsIcon :icon="Logout01Icon" :size="15" />
             </div>
-            <span>{{ $t('sidebar.menu.logout') || 'Cerrar Sesión' }}</span>
+            <span>{{ $t('sidebar.logout') || 'Cerrar Sesión' }}</span>
           </button>
         </div>
       </div>

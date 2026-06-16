@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Search01Icon,
@@ -25,22 +25,15 @@ import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import { storeToRefs } from 'pinia'
-// Premium UI Components
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
-
-// Shared Domain Components
 import PageHeader from '../../../components/shared/PageHeader.vue'
-import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
-import TableActions from '../../../components/shared/TableActions.vue'
 import Column from 'primevue/column'
-import Avatar from 'primevue/avatar'
 import UsuarioCreateModal from '../components/UsuarioCreateModal.vue'
 
 const route = useRoute()
-const router = useRouter()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -65,42 +58,8 @@ const showModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 
   }
 }
 
-const USER_SORT_KEYS: Array<keyof Usuario> = ['id', 'nombre', 'email', 'lang', 'id_role', 'id_grupo', 'grupo_nombre', 'time_zone']
-const isSyncingFromRoute = ref(false)
-
-const sortKey = ref<keyof Usuario>('id')
-const sortOrder = ref<'asc' | 'desc'>('asc')
 const currentPage = ref(1)
 const itemsPerPage = 10
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsuarios.value.length / itemsPerPage)))
-
-const visiblePages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
-  const pages: (number | '...')[] = []
-  if (current <= 4) {
-    pages.push(1, 2, 3, 4, 5, '...', total)
-  } else if (current >= total - 3) {
-    pages.push(1, '...', total - 4, total - 3, total - 2, total - 1, total)
-  } else {
-    pages.push(1, '...', current - 1, current, current + 1, '...', total)
-  }
-  return pages
-})
-
-const goToPage = (p: number | '...') => {
-  if (typeof p !== 'number') return
-  currentPage.value = p
-  syncStateToUrl()
-}
-
-const syncStateToUrl = () => {
-  const nextQuery: Record<string, string> = {}
-  if (searchQuery.value.trim()) nextQuery.q = searchQuery.value.trim()
-  if (currentPage.value > 1) nextQuery.page = String(currentPage.value)
-  void router.replace({ query: nextQuery })
-}
 
 const fetchUsuarios = async () => {
   if (!selectedGroup.value?.id) {
@@ -187,11 +146,6 @@ const filteredUsuarios = computed(() => {
   return result
 })
 
-const paginatedUsuarios = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return filteredUsuarios.value.slice(start, start + itemsPerPage)
-})
-
 const exportToExcel = () => {
   const dataToExport = filteredUsuarios.value.map(u => ({
     'ID': u.id,
@@ -249,17 +203,6 @@ const deleteUsuario = async () => {
       showModalMessage(t('users.alertNetErrorDelete'), 'error')
     }
   }
-}
-
-const onPageChange = (event: any) => {
-  currentPage.value = event.page + 1
-}
-
-const prevPage = () => { if (currentPage.value > 1) { currentPage.value--; syncStateToUrl() } }
-const nextPage = () => { if (currentPage.value < totalPages.value) { currentPage.value++; syncStateToUrl() } }
-
-const getStatusType = (usuario: Usuario) => {
-  return Number(usuario.id) % 3 === 0 ? 'inactive' : 'active'
 }
 
 const copiedEmail = ref<string | null>(null)

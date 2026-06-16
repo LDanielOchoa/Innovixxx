@@ -15,6 +15,7 @@ export const fetchGruposApi = async (): Promise<Grupo[]> => {
 
 export const fetchRolesApi = async (id_grupo: string): Promise<Role[]> => {
   const data = await apiClient<BackendResponse<Role[]>>('/api/v1/role/listar/', {
+    method: 'POST',
     body: JSON.stringify({ id_grupo })
   })
   if (data.done && Array.isArray(data.data)) return data.data
@@ -23,6 +24,7 @@ export const fetchRolesApi = async (id_grupo: string): Promise<Role[]> => {
 
 export const createRoleApi = async (payload: RoleUpsertPayload): Promise<{ done: boolean; message?: string }> => {
   const data = await apiClient<BackendResponse<null>>('/api/v1/role/crear/', {
+    method: 'POST',
     body: JSON.stringify(payload)
   })
   return { done: Boolean(data?.done), message: data?.message }
@@ -30,7 +32,9 @@ export const createRoleApi = async (payload: RoleUpsertPayload): Promise<{ done:
 
 export const updateRoleApi = async (payload: RoleUpdatePayload): Promise<{ done: boolean; message?: string }> => {
   const data = await apiClient<BackendResponse<null>>('/api/v1/role/actualizar/', {
+    method: 'POST',
     body: JSON.stringify(payload)
   })
   return { done: Boolean(data?.done), message: data?.message }
 }
+
