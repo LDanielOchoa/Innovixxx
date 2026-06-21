@@ -32,8 +32,11 @@ export interface RutaSimple {
 
 export interface VehiculoSimple {
   id_vehiculo: string
+  nombre?: string
   placa: string
   tipo: string
+  estado?: string
+  id_servicio?: string
   escolta?: string
 }
 

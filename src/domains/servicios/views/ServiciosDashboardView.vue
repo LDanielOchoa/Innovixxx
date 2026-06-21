@@ -72,7 +72,16 @@ const fetchDatos = async () => {
     catalogoEscoltas.value  = escoltasData
 
     const respuesta = await fetchServicioDashboardApi({ id_grupo: selectedGroup.value.id, id_servicio: '', estado: 2 })
-    servicios.value = (respuesta.done && respuesta.data?.servicios) ? respuesta.data.servicios : []
+    if (respuesta.done && respuesta.data?.servicios) {
+      servicios.value = respuesta.data.servicios.map((s: any) => ({
+        ...s,
+        estado: typeof s.estado === 'number'
+          ? (ESTADOS_INFO.find(e => e.id === s.estado)?.label || String(s.estado))
+          : s.estado
+      }))
+    } else {
+      servicios.value = []
+    }
   } catch (e) {
     console.error('Error al cargar dashboard de servicios:', e)
   } finally {

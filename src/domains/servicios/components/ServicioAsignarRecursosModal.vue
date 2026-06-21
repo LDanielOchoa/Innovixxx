@@ -289,6 +289,15 @@ watch(() => props.isOpen, async (isOpen) => {
       if (props.servicio.escoltas && props.servicio.escoltas.length > 0) {
         selectedEscoltasIds.value = [...props.servicio.escoltas].map(String)
       }
+      if (props.servicio.modo_fin !== undefined && props.servicio.modo_fin !== null) {
+        modoFin.value = String(props.servicio.modo_fin)
+      }
+      if (props.servicio.nivel_riesgo !== undefined && props.servicio.nivel_riesgo !== null) {
+        nivelRiesgo.value = String(props.servicio.nivel_riesgo)
+      }
+      if (props.servicio.alcance !== undefined && props.servicio.alcance !== null) {
+        alcanceNacional.value = String(props.servicio.alcance)
+      }
     }
 
     // Carga paralela de todos los recursos simples necesarios

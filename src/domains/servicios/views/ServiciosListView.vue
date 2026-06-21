@@ -81,6 +81,37 @@ const obtenerCelularEscolta = (id: string): string => {
   return e && e.celular ? e.celular : ''
 }
 
+const obtenerLabelModoFin = (val: any): string => {
+  const num = Number(val)
+  if (num === 1) return 'Al llegar'
+  if (num === 2) return 'Al descargar'
+  return val || '---'
+}
+
+const obtenerLabelAlcance = (val: any): string => {
+  const num = Number(val)
+  if (num === 1) return 'Nacional'
+  if (num === 2) return 'Departamental'
+  if (num === 3) return 'Local'
+  return val || 'ND'
+}
+
+const obtenerLabelNivelRiesgo = (val: any): string => {
+  const num = Number(val)
+  if (num === 1) return 'Bajo'
+  if (num === 2) return 'Medio'
+  if (num === 3) return 'Alto'
+  return val || 'ND'
+}
+
+const obtenerLabelEstado = (val: any): string => {
+  if (typeof val === 'number') {
+    const entry = Object.entries(SERVICIO_ESTADOS).find(([_, value]) => value === val)
+    return entry ? entry[0] : String(val)
+  }
+  return val || '---'
+}
+
 const currentPage = ref(1)
 const itemsPerPage = 10
 
@@ -377,23 +408,26 @@ const formatDate = (dateStr: string): string => {
 const filteredServicios = computed(() => {
   if (!searchQuery.value) return servicios.value
   const query = searchQuery.value.toLowerCase()
-  return servicios.value.filter(s =>
-    s.id_servicio?.toLowerCase().includes(query) ||
-    s.estado?.toLowerCase().includes(query) ||
-    s.modo_fin?.toLowerCase().includes(query)
-  )
+  return servicios.value.filter(s => {
+    const idMatches = s.id_servicio?.toLowerCase().includes(query)
+    const estadoLabel = obtenerLabelEstado(s.estado).toLowerCase()
+    const estadoMatches = estadoLabel.includes(query)
+    const modoFinLabel = obtenerLabelModoFin(s.modo_fin).toLowerCase()
+    const modoFinMatches = modoFinLabel.includes(query)
+    return idMatches || estadoMatches || modoFinMatches
+  })
 })
 
 const exportToExcel = () => {
   const dataToExport = filteredServicios.value.map(s => ({
     'ID Servicio': s.id_servicio,
     'Fecha Inicio': formatDate(s.fecha_inicio),
-    'Modo Fin': s.modo_fin || '---',
-    'Alcance': s.alcance || 'ND',
-    'Nivel Riesgo': s.nivel_riesgo || 'ND',
+    'Modo Fin': obtenerLabelModoFin(s.modo_fin),
+    'Alcance': obtenerLabelAlcance(s.alcance),
+    'Nivel Riesgo': obtenerLabelNivelRiesgo(s.nivel_riesgo),
     'Rutas': (s.rutas || []).map((rId: string) => obtenerNombreRuta(rId)).join(', '),
     'Escoltas': (s.escoltas || []).map((eId: string) => obtenerNombreEscolta(eId)).join(', '),
-    'Estado': s.estado || '---'
+    'Estado': obtenerLabelEstado(s.estado)
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
@@ -679,7 +713,7 @@ onUnmounted(() => {
         <Column field="modo_fin" :header="t('servicios.thEndMode', 'Modo Fin')" sortable>
           <template #body="{ data }">
             <span class="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
-              {{ data.modo_fin || '---' }}
+              {{ obtenerLabelModoFin(data.modo_fin) }}
             </span>
           </template>
         </Column>
@@ -687,10 +721,10 @@ onUnmounted(() => {
         <Column field="alcance" :header="t('servicios.thScope', 'Alcance')" sortable>
           <template #body="{ data }">
             <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
-               :class="data.alcance === 'ND'
+               :class="obtenerLabelAlcance(data.alcance) === 'ND'
                 ? 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'
                 : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'">
-              {{ data.alcance || 'ND' }}
+              {{ obtenerLabelAlcance(data.alcance) }}
             </span>
           </template>
         </Column>
@@ -698,8 +732,8 @@ onUnmounted(() => {
         <Column field="nivel_riesgo" :header="t('servicios.thRiskLevel', 'Nivel Riesgo')" sortable>
           <template #body="{ data }">
             <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
-              :class="riesgoColors[data.nivel_riesgo?.toUpperCase()] || riesgoColors.ND">
-              {{ data.nivel_riesgo || 'ND' }}
+              :class="riesgoColors[obtenerLabelNivelRiesgo(data.nivel_riesgo).toUpperCase()] || riesgoColors.ND">
+              {{ obtenerLabelNivelRiesgo(data.nivel_riesgo) }}
             </span>
           </template>
         </Column>
@@ -758,15 +792,16 @@ onUnmounted(() => {
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full shrink-0"
                 :class="{
-                  'bg-blue-500': data.estado === 'PRERCARGA',
-                  'bg-amber-500': data.estado === 'EN_ESPERA',
-                  'bg-emerald-500': data.estado === 'EJECUCION_OK',
-                  'bg-red-500': data.estado === 'EJECUCION_FAIL',
-                  'bg-slate-400': data.estado === 'FINALIZADO'
+                  'bg-blue-500': obtenerLabelEstado(data.estado) === 'PRERCARGA',
+                  'bg-amber-500': obtenerLabelEstado(data.estado) === 'EN_ESPERA',
+                  'bg-emerald-500': obtenerLabelEstado(data.estado) === 'EJECUCION_OK',
+                  'bg-red-500': obtenerLabelEstado(data.estado) === 'EJECUCION_FAIL',
+                  'bg-slate-400': obtenerLabelEstado(data.estado) === 'FINALIZADO',
+                  'bg-slate-350': obtenerLabelEstado(data.estado) === 'CANCELADO'
                 }"></span>
               <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
-                :class="estadoColors[data.estado] || estadoColors.PRERCARGA">
-                {{ data.estado || '---' }}
+                :class="estadoColors[obtenerLabelEstado(data.estado)] || estadoColors.PRERCARGA">
+                {{ obtenerLabelEstado(data.estado) }}
               </span>
             </div>
           </template>

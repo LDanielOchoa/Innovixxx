@@ -41,9 +41,9 @@ export const fetchRutasSimplesApi = async (id_grupo: string): Promise<RutaSimple
 }
 
 export const fetchVehiculosSimplesApi = async (id_grupo: string, estado: number = 1): Promise<VehiculoSimple[]> => {
-  const data = await apiClient<{ done: boolean; data: VehiculoSimple[] }>('/api/v1/vehiculo_servicio/listar_simple/', {
+  const data = await apiClient<{ done: boolean; data: VehiculoSimple[] }>('/api/v1/vehiculo/listar_simple/', {
     method: 'POST',
-    body: JSON.stringify({ id_grupo })
+    body: JSON.stringify({ id_grupo, estado })
   })
   return data.done && Array.isArray(data.data) ? data.data : []
 }
