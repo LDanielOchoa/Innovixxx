@@ -46,9 +46,21 @@ const itemsPerPage = ref(10)
 // Mapeo de servicios asignados
 const servicios = ref<any[]>([])
 
+const ESTADOS_MAP: Record<number, string> = {
+  1: 'PRERCARGA',
+  2: 'EN ESPERA',
+  3: 'EJECUCION OK',
+  4: 'EJECUCION FAIL',
+  5: 'FINALIZADO',
+  6: 'CANCELADO'
+}
+
 const getServicioInfo = (id: string) => {
   const s = servicios.value.find(item => item.id_servicio === id)
-  return s ? `${s.fecha_inicio} (${s.estado})` : id
+  if (!s) return id
+  const estadoNum = parseInt(s.estado, 10)
+  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado || 'Sin estado'
+  return `${s.fecha_inicio} (${estadoTexto})`
 }
 
 const cargarServiciosData = async () => {

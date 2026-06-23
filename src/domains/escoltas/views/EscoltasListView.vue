@@ -30,9 +30,9 @@ import {
 } from '../services/escoltas.api'
 import {
   fetchServiciosDropdownApi,
-  fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi
 } from '../../servicios/services/servicios.api'
+import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import type { Escolta } from '../types/escolta'
 import { ESCOLTA_ESTADO, ESCOLTA_ESTADO_LABELS } from '../types/escolta'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
@@ -71,14 +71,26 @@ const servicios = ref<any[]>([])
 const vehiculos = ref<any[]>([])
 const hardwareList = ref<any[]>([])
 
+const ESTADOS_MAP: Record<number, string> = {
+  1: 'PRERCARGA',
+  2: 'EN ESPERA',
+  3: 'EJECUCION OK',
+  4: 'EJECUCION FAIL',
+  5: 'FINALIZADO',
+  6: 'CANCELADO'
+}
+
 const getServicioInfo = (id: string) => {
   const s = servicios.value.find(item => item.id_servicio === id)
-  return s ? `${s.fecha_inicio} (${s.estado})` : id
+  if (!s) return id
+  const estadoNum = parseInt(s.estado, 10)
+  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado || 'Sin estado'
+  return `${s.fecha_inicio} (${estadoTexto})`
 }
 
 const getVehiculoInfo = (id: string) => {
   const v = vehiculos.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.nombre} - ${v.placa}` : id
+  return v ? `${v.placa}${v.tipo ? ` (${v.tipo})` : ''}` : id
 }
 
 const getHardwareInfo = (id: string) => {
@@ -91,7 +103,7 @@ const cargarAsignacionesData = async () => {
   try {
     const [sData, vData, hData] = await Promise.all([
       fetchServiciosDropdownApi(selectedGroup.value.id),
-      fetchVehiculosSimplesApi(selectedGroup.value.id),
+      fetchVehiculosServicioSimpleApi(selectedGroup.value.id),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0)
     ])
     servicios.value = sData

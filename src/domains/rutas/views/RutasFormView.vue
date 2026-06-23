@@ -521,6 +521,7 @@ const modalMessage  = ref<{ text: string, type: 'success' | 'error' | 'warning' 
 const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa' })
 const isEditMode    = ref(false)
 const editingRutaId = ref<string | null>(null)
+const isGpsRoute    = computed(() => route.query.gps === 'true')
 
 const activeSchema = computed(() => isEditMode.value ? updateRutaSchema : createRutaSchema)
 const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
@@ -662,7 +663,7 @@ const handleMapInit = (googleMapsApi: any) => {
   if (paradasTemporales.value.length > 0) {
     redrawMarkers()
     if (paradasTemporales.value.length >= 2) {
-      drawFullRoute(paradasTemporales.value, routeColor.value)
+      drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
     }
   }
 }
@@ -702,7 +703,7 @@ const loadRouteData = async (id_ruta: string) => {
     if (map.value && paradasTemporales.value.length > 0) {
       redrawMarkers()
       if (paradasTemporales.value.length >= 2) {
-        drawFullRoute(paradasTemporales.value, routeColor.value)
+        drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
       }
     }
   } catch (error) {
@@ -726,7 +727,7 @@ const startAddingParadas = async () => {
   redrawMarkers() // clearMarkers() ya es llamado internamente por redrawMarkers
 
   if (paradasTemporales.value.length >= 2) {
-    recalculateFromIndex(0, paradasTemporales.value, routeColor.value)
+    recalculateFromIndex(0, paradasTemporales.value, routeColor.value, isGpsRoute.value)
   }
 }
 
@@ -817,7 +818,7 @@ const confirmParada = () => {
     selectedTipoParada.value,
     insertionIndex
   )
-  recalculateFromIndex(insertionIndex, paradasTemporales.value, routeColor.value)
+  recalculateFromIndex(insertionIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value)
 
   isTipoModalOpen.value    = false
   currentParadaCoords.value = null
@@ -835,13 +836,13 @@ const onParadaSelect = (index: number | null) => {
       map.value.setZoom(15)
     }
     const next = paradasTemporales.value[index + 1]
-    if (parada && next) highlightSegment(parada, next)
+    if (parada && next) highlightSegment(parada, next, isGpsRoute.value)
   }
 }
 
 const onParadaDelete = (index: number) => {
   deleteParada(index)
-  recalculateFromIndex(index, paradasTemporales.value, routeColor.value)
+  recalculateFromIndex(index, paradasTemporales.value, routeColor.value, isGpsRoute.value)
 
   if (selectedParadaIndex.value === index) {
     selectedParadaIndex.value = null
@@ -860,7 +861,7 @@ const clearParadasTemporales = () => {
 const saveEditingParada = () => {
   if (editingParadaIndex.value === null || editingTipoParada.value === null) return
   updateParadaTipo(editingParadaIndex.value, editingTipoParada.value)
-  recalculateFromIndex(editingParadaIndex.value, paradasTemporales.value, routeColor.value)
+  recalculateFromIndex(editingParadaIndex.value, paradasTemporales.value, routeColor.value, isGpsRoute.value)
   isEditParadaModalOpen.value = false
   editingParadaIndex.value    = null
   editingTipoParada.value     = null
@@ -883,7 +884,7 @@ watch(() => selectedGroup.value?.id, (newId) => {
 
 watch(routeColor, (newColor) => {
   if (map.value && paradasTemporales.value.length >= 2) {
-    drawFullRoute(paradasTemporales.value, newColor)
+    drawFullRoute(paradasTemporales.value, newColor, isGpsRoute.value)
   }
 })
 
@@ -905,21 +906,35 @@ const verificarRutaGps = async () => {
 
     const tipoInicio = tiposParada.value.find(t => t.nombre.toLowerCase().includes('inicio'))?.id_tipo ?? 6
     const tipoFin = tiposParada.value.find(t => t.nombre.toLowerCase().includes('fin'))?.id_tipo ?? 7
+    const tipoIntermedio = tiposParada.value.find(t => {
+      const n = t.nombre.toLowerCase()
+      return n.includes('apoyo') || n.includes('normal') || n.includes('control') || n.includes('paso') || n.includes('punto')
+    })?.id_tipo ?? tiposParada.value.find(t => t.id_tipo !== tipoInicio && t.id_tipo !== tipoFin)?.id_tipo ?? 8
+
     const primera = posiciones[0]
     const ultima  = posiciones[posiciones.length - 1]
 
-    // Solo inicio y fin como paradas oficiales; las líneas GPS son decorativas
-    paradasTemporales.value = [
-      { lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio },
-      ...(posiciones.length > 1
-        ? [{ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin }]
-        : [])
-    ]
+    const nuevasParadas = []
+    nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio })
+
+    // Mapear todos los puntos intermedios reales del GPS
+    if (posiciones.length > 2) {
+      for (let i = 1; i < posiciones.length - 1; i++) {
+        const pos = posiciones[i]
+        nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio })
+      }
+    }
+
+    if (posiciones.length > 1) {
+      nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin })
+    }
+
+    paradasTemporales.value = nuevasParadas
 
     if (map.value) {
       redrawMarkers()
       if (paradasTemporales.value.length >= 2) {
-        drawFullRoute(paradasTemporales.value, routeColor.value)
+        drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
       }
       // Encuadrar el mapa con el trayecto completo del GPS
       const limites = new (window as any).google.maps.LatLngBounds()

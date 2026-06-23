@@ -122,11 +122,20 @@ const filteredServicios = computed(() => {
 
 const filteredVehiculos = computed(() => {
   const q = searchVehiculosQuery.value.toLowerCase().trim()
-  if (!q) return vehiculosList.value
-  return vehiculosList.value.filter(v =>
-    v.placa.toLowerCase().includes(q) ||
-    v.tipo.toLowerCase().includes(q)
-  )
+  let list = [...vehiculosList.value]
+
+  if (q) {
+    list = list.filter(v =>
+      v.placa.toLowerCase().includes(q) ||
+      v.tipo.toLowerCase().includes(q)
+    )
+  }
+
+  return list.sort((a, b) => {
+    const aOcupado = esVehiculoOcupado(a) ? 1 : 0
+    const bOcupado = esVehiculoOcupado(b) ? 1 : 0
+    return aOcupado - bOcupado
+  })
 })
 
 const filteredHardware = computed(() => {
@@ -183,7 +192,23 @@ const selectServicio = (id: string) => {
   formData.id_servicio = id
 }
 
+const esVehiculoOcupado = (v: any) => {
+  if (!v.escolta || v.escolta.trim() === '') return false
+  if (props.editItem && v.escolta === props.editItem.nombre) return false
+  return true
+}
+
 const selectVehiculo = (id: string) => {
+  const v = vehiculosList.value.find(item => item.id_vehiculo === id)
+  if (v && esVehiculoOcupado(v)) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Vehículo Ocupado',
+      detail: `Este vehículo ya está asignado al escolta: ${v.escolta}`,
+      life: 4000
+    })
+    return
+  }
   formData.id_vehiculo = id
 }
 
@@ -195,10 +220,21 @@ const selectTipoPase = (value: string) => {
   formData.tipo_pase = value
 }
 
+const ESTADOS_MAP: Record<number, string> = {
+  1: 'PRERCARGA',
+  2: 'EN ESPERA',
+  3: 'EJECUCION OK',
+  4: 'EJECUCION FAIL',
+  5: 'FINALIZADO',
+  6: 'CANCELADO'
+}
+
 const getServicioLabel = (id: string) => {
   const s = servicios.value.find(item => item.id_servicio === id)
   if (!s) return id
-  const partes = [s.fecha_inicio, s.modo_fin, s.estado].filter(Boolean)
+  const estadoNum = parseInt(s.estado, 10)
+  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado
+  const partes = [s.fecha_inicio, estadoTexto].filter(Boolean)
   return partes.join(' · ')
 }
 
@@ -650,6 +686,7 @@ const formatFecha = (date: Date | null): string => {
                 :placeholder="t('escoltas.placeholderPassExpiry', 'Seleccione fecha')"
                 :disabled="saving"
                 only-date
+                disable-past
               />
             </div>
           </div>
@@ -800,12 +837,16 @@ const formatFecha = (date: Date | null): string => {
               <div class="flex flex-col min-w-0 gap-0.5">
                 <span class="text-[12px] font-semibold truncate">{{ s.fecha_inicio || '—' }}</span>
                 <div class="flex items-center gap-1.5 flex-wrap">
-                  <span v-if="s.modo_fin" class="text-[10px] text-slate-400 truncate">{{ s.modo_fin }}</span>
                   <span
                     v-if="s.estado"
                     class="text-[9px] rounded px-1 py-0.5 font-semibold leading-none"
-                    :class="s.estado === 'EN ESPERA' ? 'bg-blue-500/15 text-blue-400' : 'bg-emerald-500/15 text-emerald-400'"
-                  >{{ s.estado }}</span>
+                    :class="[
+                      parseInt(s.estado, 10) === 2 ? 'bg-blue-500/15 text-blue-400' :
+                      parseInt(s.estado, 10) === 3 ? 'bg-emerald-500/15 text-emerald-400' :
+                      parseInt(s.estado, 10) === 4 ? 'bg-red-500/15 text-red-400' :
+                      'bg-slate-500/15 text-slate-400'
+                    ]"
+                  >{{ ESTADOS_MAP[parseInt(s.estado, 10)] || s.estado }}</span>
                   <span v-if="s.nivel_riesgo && s.nivel_riesgo !== 'ND'" class="text-[9px] bg-amber-500/10 text-amber-400 rounded px-1 py-0.5 font-semibold leading-none">{{ s.nivel_riesgo }}</span>
                 </div>
               </div>
@@ -824,15 +865,27 @@ const formatFecha = (date: Date | null): string => {
               type="button"
               @click="selectVehiculo(v.id_vehiculo)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-              :class="formData.id_vehiculo === v.id_vehiculo ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+              :class="[
+                formData.id_vehiculo === v.id_vehiculo ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5',
+                esVehiculoOcupado(v) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+              ]"
             >
               <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-                :class="formData.id_vehiculo === v.id_vehiculo ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                :class="[
+                  formData.id_vehiculo === v.id_vehiculo ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500',
+                  esVehiculoOcupado(v) ? '!border-amber-500/30' : ''
+                ]">
                 <HugeiconsIcon v-if="formData.id_vehiculo === v.id_vehiculo" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+                <HugeiconsIcon v-else-if="esVehiculoOcupado(v)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
-              <div class="flex flex-col min-w-0">
+              <div class="flex flex-col min-w-0 flex-1">
                 <span class="text-[12px] font-semibold truncate">{{ v.placa }}</span>
-                <span class="text-[10px] text-slate-400 truncate">{{ v.tipo }}</span>
+                <span class="text-[10px] text-slate-400 truncate flex justify-between items-center pr-1">
+                  <span>{{ v.tipo }}</span>
+                  <span v-if="esVehiculoOcupado(v)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                    Ocupado: {{ v.escolta }}
+                  </span>
+                </span>
               </div>
             </button>
             <div v-if="filteredVehiculos.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">

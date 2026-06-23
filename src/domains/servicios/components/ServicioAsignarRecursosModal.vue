@@ -81,6 +81,7 @@ const alcanceNacional = ref('1')
 
 // Selecciones mÃºltiples de recursos
 const selectedVehiculosIds = ref<string[]>([])
+const inicialesVehiculosIds = ref<string[]>([])
 const vehiculosHardware = ref<Record<string, string[]>>({})
 const vehiculoAsignandoHardware = ref<string | null>(null)
 const selectedEscoltasIds = ref<string[]>([])
@@ -251,6 +252,7 @@ watch(() => props.isOpen, async (isOpen) => {
     // Reiniciar selecciones y campos
     selectedRutaId.value = ''
     selectedVehiculosIds.value = []
+    inicialesVehiculosIds.value = []
     vehiculosHardware.value = {}
     vehiculoAsignandoHardware.value = null
     selectedEscoltasIds.value = []
@@ -281,10 +283,13 @@ watch(() => props.isOpen, async (isOpen) => {
       }
       if (props.servicio.vehiculos) {
         selectedVehiculosIds.value = Object.keys(props.servicio.vehiculos).map(String)
+        inicialesVehiculosIds.value = [...selectedVehiculosIds.value]
         vehiculosHardware.value = JSON.parse(JSON.stringify(props.servicio.vehiculos))
         if (selectedVehiculosIds.value.length > 0) {
           vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
         }
+      } else {
+        inicialesVehiculosIds.value = []
       }
       if (props.servicio.escoltas && props.servicio.escoltas.length > 0) {
         selectedEscoltasIds.value = [...props.servicio.escoltas].map(String)
@@ -311,8 +316,8 @@ watch(() => props.isOpen, async (isOpen) => {
         const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
-          fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
+          fetchHardwareSimplesApi(groupStore.selectedGroup.id, 1),
+          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 1)
         ])
         rutas.value = rutasData
         vehiculos.value = vehiculosData
@@ -349,6 +354,28 @@ const selectRuta = (id: string) => {
 }
 
 const selectVehiculo = (id: string) => {
+  const v = vehiculos.value.find(item => item.id_vehiculo === id)
+  if (v && v.estado) {
+    if (inicialesVehiculosIds.value.includes(id)) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Vehículo Bloqueado',
+        detail: 'Este vehículo ya está asignado y en servicio para este viaje, no se puede remover.',
+        life: 4000
+      })
+      return
+    }
+    if (!selectedVehiculosIds.value.includes(id)) {
+      toast.add({
+        severity: 'warn',
+        summary: 'Vehículo Ocupado',
+        detail: `Este vehículo está ${v.estado} y no puede ser seleccionado.`,
+        life: 4000
+      })
+      return
+    }
+  }
+
   const index = selectedVehiculosIds.value.indexOf(id)
   if (index > -1) {
     selectedVehiculosIds.value.splice(index, 1)
@@ -464,14 +491,31 @@ const getEscoltaLabel = (id: string) => {
 
 const selectAllVehiculos = () => {
   filteredVehiculos.value.forEach(v => {
-    if (!selectedVehiculosIds.value.includes(v.id_vehiculo)) {
-      selectedVehiculosIds.value.push(v.id_vehiculo)
+    if (!v.estado || inicialesVehiculosIds.value.includes(v.id_vehiculo)) {
+      if (!selectedVehiculosIds.value.includes(v.id_vehiculo)) {
+        selectedVehiculosIds.value.push(v.id_vehiculo)
+        if (!vehiculosHardware.value[v.id_vehiculo]) {
+            vehiculosHardware.value[v.id_vehiculo] = []
+        }
+      }
     }
   })
 }
 
 const clearVehiculos = () => {
-  selectedVehiculosIds.value = []
+  const libres: string[] = []
+  selectedVehiculosIds.value.forEach(id => {
+    const v = vehiculos.value.find(item => item.id_vehiculo === id)
+    if (v && v.estado && inicialesVehiculosIds.value.includes(id)) {
+      libres.push(id)
+    } else {
+      delete vehiculosHardware.value[id]
+    }
+  })
+  selectedVehiculosIds.value = libres
+  if (vehiculoAsignandoHardware.value && !selectedVehiculosIds.value.includes(vehiculoAsignandoHardware.value)) {
+    vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0] || null
+  }
 }
 
 const currentHardwareIds = computed(() => {
@@ -1222,19 +1266,31 @@ const formatFechaHora = (date: Date | null): string => {
               type="button"
               @click="selectVehiculo(v.id_vehiculo)"
               class="panel-row group/row"
-              :class="selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row--on' : 'panel-row--off'"
+              :class="[
+                selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row--on' : 'panel-row--off',
+                v.estado ? 'opacity-50 cursor-not-allowed' : ''
+              ]"
             >
               <div
                 class="panel-row-dot shrink-0"
-                :class="selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+                :class="[
+                  selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row-dot--on' : 'panel-row-dot--off',
+                  v.estado ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                ]"
               >
                 <HugeiconsIcon v-if="selectedVehiculosIds.includes(v.id_vehiculo)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-else-if="v.estado" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">
                   {{ v.placa }}
                 </span>
-                <span class="text-[10px] truncate leading-none mt-0.5 text-slate-400">{{ v.tipo }}</span>
+                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
+                  <span class="text-slate-400">{{ v.tipo }}</span>
+                  <span v-if="v.estado" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                    {{ v.estado }}
+                  </span>
+                </span>
               </div>
             </button>
             <div v-if="filteredVehiculos.length === 0" class="panel-empty">

@@ -54,7 +54,7 @@ export const postValidateEscoltaApi = async (payload: EscoltaValidatePostPayload
 export interface EscoltaAsignarHardwarePayload {
   id_grupo: string
   id_escolta: string
-  id_hardware: string
+  id_hardware: string | null
 }
 
 export const asignarHardwareEscoltaApi = async (payload: EscoltaAsignarHardwarePayload): Promise<any> => {

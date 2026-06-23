@@ -41,12 +41,28 @@ const vehiculoSearchQuery = ref('')
 
 const filteredVehiculos = computed(() => {
   const q = vehiculoSearchQuery.value.toLowerCase().trim()
-  if (!q) return vehiculosList.value
-  return vehiculosList.value.filter(v =>
-    v.placa.toLowerCase().includes(q) ||
-    v.tipo.toLowerCase().includes(q) ||
-    (v.escolta && v.escolta.toLowerCase().includes(q))
-  )
+  let list = [...vehiculosList.value]
+  if (q) {
+    list = list.filter(v =>
+      v.placa.toLowerCase().includes(q) ||
+      v.tipo.toLowerCase().includes(q) ||
+      (v.escolta && v.escolta.toLowerCase().includes(q))
+    )
+  }
+  return list.sort((a, b) => {
+    const aOcupado = (a.escolta && a.escolta.trim() !== '') ? 1 : 0
+    const bOcupado = (b.escolta && b.escolta.trim() !== '') ? 1 : 0
+    return aOcupado - bOcupado
+  })
+})
+
+const vehiculoAsignado = computed(() => {
+  if (!selectedVehiculoId.value) return null
+  return vehiculosList.value.find(v => String(v.id_vehiculo) === selectedVehiculoId.value)
+})
+
+const vehiculosDisponiblesList = computed(() => {
+  return filteredVehiculos.value.filter(v => String(v.id_vehiculo) !== selectedVehiculoId.value)
 })
 
 const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
@@ -63,7 +79,7 @@ watch(() => props.isOpen, async (isOpen) => {
     isInitializing.value = true
     asignando.value = false
     modalMessage.value = null
-    selectedVehiculoId.value = null
+    selectedVehiculoId.value = (props.escolta && props.escolta.id_vehiculo) ? String(props.escolta.id_vehiculo) : null
     vehiculoSearchQuery.value = ''
 
     if (groupStore.selectedGroup?.id) {
@@ -86,6 +102,16 @@ watch(() => props.isOpen, async (isOpen) => {
 
 const selectVehiculo = (id: string) => {
   if (asignando.value) return
+  const v = vehiculosList.value.find(item => item.id_vehiculo === id)
+  if (v && v.escolta && v.escolta.trim() !== '') {
+    toast.add({
+      severity: 'warn',
+      summary: 'Vehículo Ocupado',
+      detail: `Este vehículo ya tiene asignado al escolta: ${v.escolta}`,
+      life: 4000
+    })
+    return
+  }
   selectedVehiculoId.value = id
 }
 
@@ -234,37 +260,73 @@ const handleClose = () => {
             </div>
           </div>
 
-          <div class="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
-            <button
-              v-for="v in filteredVehiculos"
-              :key="v.id_vehiculo"
-              type="button"
-              :disabled="asignando"
-              @click="selectVehiculo(v.id_vehiculo)"
-              class="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 border disabled:opacity-60 disabled:cursor-not-allowed"
-              :class="selectedVehiculoId === v.id_vehiculo
-                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/30'
-                : 'bg-slate-50 dark:bg-[#0F1115] border-slate-200/60 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'"
-            >
+          <!-- VEHÍCULO ASIGNADO (ARRIBA) -->
+          <div class="space-y-3">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5 animate-none shrink-0">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
+              Vehículo Asignado
+            </span>
+            <div v-if="vehiculoAsignado" class="flex flex-wrap gap-2.5 items-start bg-slate-900/5 dark:bg-[#12141c]/30 border border-slate-200 dark:border-white/5 p-4 rounded-2xl shrink-0">
               <div
-                class="w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all duration-200"
-                :class="selectedVehiculoId === v.id_vehiculo
-                  ? 'bg-[#3b82f6] shadow-[0_2px_6px_rgba(59,130,246,0.4)]'
-                  : 'border-2 border-slate-300 dark:border-slate-600'"
+                class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-default border bg-[#3b82f6] text-white border-blue-500 font-bold shadow-[0_4px_12px_rgba(59,130,246,0.3)] select-none"
               >
-                <HugeiconsIcon v-if="selectedVehiculoId === v.id_vehiculo" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+                <div class="flex items-center gap-1.5">
+                  <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                  <span class="text-xs font-semibold truncate max-w-[120px]">{{ vehiculoAsignado.placa }}</span>
+                </div>
+                <div class="flex justify-between items-center mt-0.5 w-full">
+                  <span class="text-[9px] font-mono opacity-80 mr-2">{{ vehiculoAsignado.tipo }}</span>
+                </div>
+                <!-- Botón Quitar Flotante -->
+                <button
+                  type="button"
+                  @click.stop="selectedVehiculoId = null"
+                  class="abs-close-btn flex items-center justify-center rounded-full bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500 transition-all !w-4 !h-4 !min-w-[16px] !min-h-[16px] !p-0"
+                  title="Quitar vehículo"
+                >
+                  <span class="text-[8px] font-black leading-none">✕</span>
+                </button>
               </div>
-              <div class="flex flex-col flex-1 min-w-0">
-                <span class="text-[13px] font-semibold truncate" :class="selectedVehiculoId === v.id_vehiculo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-800 dark:text-slate-200'">
-                  {{ v.placa }}
-                </span>
-                <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ v.tipo }}{{ v.escolta ? ` · ${v.escolta}` : '' }}</span>
+            </div>
+            <div v-else class="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl bg-slate-900/5 dark:bg-[#12141c]/10 text-xs text-slate-500 shrink-0">
+              <HugeiconsIcon :icon="Car01Icon" :size="20" class="opacity-20 mb-1" />
+              <span>Sin vehículo asignado. Seleccione uno de la lista de abajo.</span>
+            </div>
+          </div>
+
+          <!-- VEHÍCULOS DISPONIBLES (ABAJO) -->
+          <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-col">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500 shrink-0">
+              Vehículos Disponibles (Flota)
+            </span>
+            
+            <div class="max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+              <div v-if="vehiculosDisponiblesList.length > 0" class="flex flex-wrap gap-2.5 items-start">
+                <div
+                  v-for="v in vehiculosDisponiblesList"
+                  :key="v.id_vehiculo"
+                  @click="selectVehiculo(v.id_vehiculo)"
+                  class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]"
+                  :class="[
+                    v.escolta ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                  ]"
+                >
+                  <div class="flex items-center gap-1.5">
+                    <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                    <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.placa }}</span>
+                  </div>
+                  <div class="flex justify-between items-center mt-0.5 w-full">
+                    <span class="text-[9px] font-mono opacity-60 mr-2">{{ v.tipo }}</span>
+                    <span v-if="v.escolta" class="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wide">
+                      Ocupado: {{ v.escolta }}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <HugeiconsIcon :icon="Car01Icon" :size="16" class="shrink-0" :class="selectedVehiculoId === v.id_vehiculo ? 'text-[#3b82f6]' : 'text-slate-400'" />
-            </button>
-            <div v-if="filteredVehiculos.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
-              <HugeiconsIcon :icon="Car01Icon" :size="32" class="opacity-30 mb-2" />
-              <span class="text-[12px] font-medium">Sin vehículos disponibles</span>
+              <div v-if="vehiculosDisponiblesList.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
+                <HugeiconsIcon :icon="Car01Icon" :size="32" class="opacity-30 mb-2" />
+                <span class="text-[12px] font-medium">Sin vehículos disponibles</span>
+              </div>
             </div>
           </div>
         </div>
@@ -370,5 +432,31 @@ const handleClose = () => {
 }
 :deep(.modal-card .bg-white) {
   background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
+}
+
+.card-recurso {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 140px;
+}
+.card-recurso:hover:not(.opacity-50) {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.abs-close-btn {
+  position: absolute !important;
+  top: -6px !important;
+  right: -6px !important;
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  padding: 0 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9999px !important;
 }
 </style>

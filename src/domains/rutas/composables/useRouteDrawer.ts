@@ -17,8 +17,9 @@ export function useRouteDrawer(
   map: Ref<any>,
   directionsService: Ref<any>
 ) {
-  const directionsRenderers  = shallowRef<any[]>([])
-  const highlightedRenderer  = shallowRef<any>(null)
+  const directionsRenderers = shallowRef<any[]>([])
+  const polylines           = shallowRef<any[]>([])
+  const highlightedRenderer = shallowRef<any>(null)
 
   // ── Debounce ───────────────────────────────────────────────
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -33,9 +34,14 @@ export function useRouteDrawer(
   // ── Helpers internos ───────────────────────────────────────
   const _clearRenderers = (from: number = 0) => {
     const toRemove = directionsRenderers.value.slice(from)
-    const toKeep   = directionsRenderers.value.slice(0, from)
-    toRemove.forEach(r => { try { r.setMap(null) } catch (_) {} })
+    const toKeep = directionsRenderers.value.slice(0, from)
+    toRemove.forEach(r => { try { r.setMap(null) } catch (_) { } })
     directionsRenderers.value = toKeep
+
+    const polyToRemove = polylines.value.slice(from)
+    const polyToKeep = polylines.value.slice(0, from)
+    polyToRemove.forEach(p => { try { p.setMap(null) } catch (_) { } })
+    polylines.value = polyToKeep
   }
 
   const _requestChunk = (
@@ -61,11 +67,11 @@ export function useRouteDrawer(
 
     directionsService.value.route(
       {
-        origin:             { lat: origin.lat,      lng: origin.lon },
-        destination:        { lat: destination.lat, lng: destination.lon },
+        origin: { lat: origin.lat, lng: origin.lon },
+        destination: { lat: destination.lat, lng: destination.lon },
         waypoints,
-        travelMode:         (window as any).google.maps.TravelMode.DRIVING,
-        optimizeWaypoints:  false
+        travelMode: (window as any).google.maps.TravelMode.DRIVING,
+        optimizeWaypoints: false
       },
       (response: any, status: string) => {
         if (status === 'OK') {
@@ -84,7 +90,8 @@ export function useRouteDrawer(
   const recalculateFromIndex = (
     startParadaIndex: number,
     paradas: ParadaPayload[],
-    color: string
+    color: string,
+    usePolyline: boolean = false
   ) => {
     clearDebounce()
 
@@ -93,6 +100,22 @@ export function useRouteDrawer(
 
       if (paradas.length < 2) {
         _clearRenderers(0)
+        return
+      }
+
+      // Si tiene más de 15 paradas, forzar el uso de polilínea directa para no saturar la API
+      const forcePolyline = usePolyline || paradas.length > 15
+
+      if (forcePolyline) {
+        _clearRenderers(0)
+        const polyline = new (window as any).google.maps.Polyline({
+          path: paradas.map(p => ({ lat: p.lat, lng: p.lon })),
+          strokeColor: color,
+          strokeOpacity: 0.9,
+          strokeWeight: 4,
+          map: map.value
+        })
+        polylines.value.push(polyline)
         return
       }
 
@@ -113,10 +136,26 @@ export function useRouteDrawer(
   /**
    * Dibuja la ruta completa (sin debounce) — usado al cargar datos existentes.
    */
-  const drawFullRoute = (paradas: ParadaPayload[], color: string) => {
-    if (!directionsService.value || paradas.length < 2) return
+  const drawFullRoute = (paradas: ParadaPayload[], color: string, usePolyline: boolean = false) => {
     _clearRenderers(0)
+    if (paradas.length < 2) return
 
+    // Si tiene más de 15 paradas, forzar el uso de polilínea directa para no saturar la API
+    const forcePolyline = usePolyline || paradas.length > 15
+
+    if (forcePolyline) {
+      const polyline = new (window as any).google.maps.Polyline({
+        path: paradas.map(p => ({ lat: p.lat, lng: p.lon })),
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 4,
+        map: map.value
+      })
+      polylines.value.push(polyline)
+      return
+    }
+
+    if (!directionsService.value) return
     const totalChunks = Math.ceil((paradas.length - 1) / CHUNK_SIZE)
     for (let ci = 0; ci < totalChunks; ci++) {
       const startIdx = ci * CHUNK_SIZE
@@ -130,13 +169,33 @@ export function useRouteDrawer(
    */
   const highlightSegment = (
     origin: ParadaPayload,
-    destination: ParadaPayload
+    destination: ParadaPayload,
+    usePolyline: boolean = false
   ) => {
-    if (!directionsService.value || !map.value) return
+    if (!map.value) return
 
     if (highlightedRenderer.value) {
       try { highlightedRenderer.value.setMap(null) } catch (_) {}
     }
+
+    const forcePolyline = usePolyline
+
+    if (forcePolyline) {
+      highlightedRenderer.value = new (window as any).google.maps.Polyline({
+        path: [
+          { lat: origin.lat, lng: origin.lon },
+          { lat: destination.lat, lng: destination.lon }
+        ],
+        strokeColor: '#fbbf24',
+        strokeOpacity: 1.0,
+        strokeWeight: 6,
+        zIndex: 100,
+        map: map.value
+      })
+      return
+    }
+
+    if (!directionsService.value) return
 
     highlightedRenderer.value = new (window as any).google.maps.DirectionsRenderer({
       map: map.value,
@@ -147,9 +206,9 @@ export function useRouteDrawer(
 
     directionsService.value.route(
       {
-        origin:      { lat: origin.lat,      lng: origin.lon },
+        origin: { lat: origin.lat, lng: origin.lon },
         destination: { lat: destination.lat, lng: destination.lon },
-        travelMode:  (window as any).google.maps.TravelMode.DRIVING
+        travelMode: (window as any).google.maps.TravelMode.DRIVING
       },
       (response: any, status: string) => {
         if (status === 'OK') highlightedRenderer.value.setDirections(response)
@@ -160,7 +219,7 @@ export function useRouteDrawer(
   /** Limpia resaltado de segmento */
   const clearHighlight = () => {
     if (highlightedRenderer.value) {
-      try { highlightedRenderer.value.setMap(null) } catch (_) {}
+      try { highlightedRenderer.value.setMap(null) } catch (_) { }
       highlightedRenderer.value = null
     }
   }
