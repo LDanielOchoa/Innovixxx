@@ -216,7 +216,6 @@ export function useRouteDrawer(
     )
   }
 
-  /** Limpia resaltado de segmento */
   const clearHighlight = () => {
     if (highlightedRenderer.value) {
       try { highlightedRenderer.value.setMap(null) } catch (_) { }
@@ -224,7 +223,6 @@ export function useRouteDrawer(
     }
   }
 
-  /** Limpia todos los renderers del mapa */
   const clearAll = () => {
     clearDebounce()
     _clearRenderers(0)

@@ -115,15 +115,34 @@ const iniciarSesion = async () => {
       throw new Error(errorData?.message || t('errors.loginFailed'))
     }
     const data = await respuesta.json()
+    // Guardar para depurar: ver la estructura real de la respuesta
+    console.log('[Login] Respuesta completa data:', JSON.stringify(data?.data))
     if (data?.data?.token) CookieAuth.setToken(data.data.token)
     if (data?.data?.grupo) localStorage.setItem('auth-grupo', data.data.grupo)
-    if (typeof data?.data?.id_grupo === 'string' && data.data.id_grupo.trim().length === 8) {
-      const idGrupo = data.data.id_grupo.trim()
+    if (data?.data?.token_ws) localStorage.setItem('auth-token-ws', data.data.token_ws)
+
+    // grupo_id puede venir como string, número u objeto { id, nombre }
+    const grupoIdRaw = data?.data?.grupo_id ?? data?.data?.id_grupo
+    let idGrupo: string | null = null
+    if (typeof grupoIdRaw === 'string' && grupoIdRaw.trim()) {
+      idGrupo = grupoIdRaw.trim()
+    } else if (typeof grupoIdRaw === 'number') {
+      idGrupo = String(grupoIdRaw)
+    } else if (grupoIdRaw && typeof grupoIdRaw === 'object') {
+      // Objeto tipo { id: 'xxx', nombre: 'xxx' }
+      const candidato = grupoIdRaw.id ?? grupoIdRaw._id ?? grupoIdRaw.grupo_id
+      if (candidato) idGrupo = String(candidato).trim()
+    }
+
+    if (idGrupo) {
       localStorage.setItem('auth-grupo-id', idGrupo)
       localStorage.setItem('auth-grupo-obj', JSON.stringify({
         id: idGrupo,
         nombre: data?.data?.grupo || ''
       }))
+      console.log('[Login] grupo_id guardado:', idGrupo)
+    } else {
+      console.warn('[Login] No se pudo extraer grupo_id. grupoIdRaw:', grupoIdRaw)
     }
     router.push('/dashboard')
   } catch (error) {

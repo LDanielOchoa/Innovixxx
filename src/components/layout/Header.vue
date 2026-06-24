@@ -142,7 +142,9 @@ const selectGroup = (group: Group) => {
 }
 
 const openTrackingWindow = async () => {
-  const url = '/login'
+  const tokenWs = localStorage.getItem('auth-token-ws') || ''
+  const groupId = groupStore.selectedGroup?.id || localStorage.getItem('auth-grupo-id') || ''
+  const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
   const windowName = 'TrackingWindow'
   
   try {

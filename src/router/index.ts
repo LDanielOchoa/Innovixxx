@@ -30,6 +30,12 @@ const router = createRouter({
       component: () => import('../views/auth/RestablecerClave.vue'),
       meta: { guestOnly: true }
     },
+    {
+      path: '/tracking',
+      name: 'tracking',
+      component: () => import('../views/TrackingView.vue'),
+      meta: { requiresAuth: true }
+    },
 
     // ─── Shell con Sidebar + Header (se monta una sola vez) ───────────────
     {
