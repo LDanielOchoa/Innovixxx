@@ -15,6 +15,7 @@ import { ref, shallowRef, watch, onUnmounted } from 'vue'
 export interface MapSetupOptions {
   defaultZoom?: number
   gestureHandling?: 'cooperative' | 'greedy' | 'auto'
+  forceDark?: boolean
 }
 
 export interface MapSetupReturn {
@@ -71,6 +72,7 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
   const mapLoadError    = ref(false)
   const activeTheme     = ref('tactical')
   const isDarkMapMode   = ref(
+    options.forceDark ||
     document.documentElement.classList.contains('dark') ||
     document.body.classList.contains('dark')
   )
@@ -136,6 +138,7 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
   const startDarkModeObserver = () => {
     htmlClassObserver.value = new MutationObserver(() => {
       isDarkMapMode.value =
+        options.forceDark ||
         document.documentElement.classList.contains('dark') ||
         document.body.classList.contains('dark')
     })
