@@ -61,8 +61,8 @@ const vehiculosList = ref<any[]>([])
 
 const isLoadingSecondary = ref(false)
 
-// Estado del mapa y markers
-const markers = ref<Map<string, google.maps.Marker>>(new Map())
+// Estado del mapa y markers (variable plana, sin reactividad Vue para evitar interferencia con Google Maps)
+let markersMap = new Map<string, google.maps.Marker>()
 const {
   map,
   isLoadingMap,
@@ -82,6 +82,7 @@ let reconnectTimeoutId: any = null
 let reconnectAttempts = 0
 const maxReconnectAttempts = 5
 let isManualDisconnect = false
+let wsSessionId = 0 // ID de sesión que se incrementa en cada nueva conexión
 
 // Cargar APIs secundarias
 const loadSecondaryData = async () => {
@@ -125,29 +126,39 @@ const initMap = async () => {
   }
 }
 
-// Conectar WebSocket para HARDWARE
+// Limpieza de marcadores del mapa
+const clearAllMarkers = () => {
+  markersMap.forEach(m => {
+    const frameId = m.get('animationFrameId')
+    if (frameId) cancelAnimationFrame(frameId)
+    m.set('animationFrameId', null)
+    m.setMap(null)
+  })
+  markersMap.clear()
+}
+
+// Conectar WebSocket (modo dinámico según pestaña activa)
 const connectWebSocket = () => {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    console.log('[WebSocket] Conexión ya activa o en curso, ignorando duplicado.')
-    return
-  }
-
-  if (socket) {
-    socket.close()
-  }
-
   // Cancelar cualquier intento de reconexión pendiente
   if (reconnectTimeoutId) {
     clearTimeout(reconnectTimeoutId)
     reconnectTimeoutId = null
   }
 
+  // Cerrar socket previo limpiamente (nullear handlers para evitar callbacks tardíos)
+  if (socket) {
+    socket.onopen = null
+    socket.onmessage = null
+    socket.onerror = null
+    socket.onclose = null
+    socket.close()
+    socket = null
+  }
+
   isManualDisconnect = false
   wsStatus.value = 'connecting'
   wsError.value = null
 
-  // Header.vue pasa token_ws y group_id en la URL al abrir la ventana
-  // Tienen prioridad porque vienen del groupStore (valor en tiempo real)
   const queryToken = route.query.token_ws as string | undefined
   const queryGroupId = route.query.group_id as string | undefined
 
@@ -157,78 +168,95 @@ const connectWebSocket = () => {
   if (!tokenWs || !groupId) {
     wsStatus.value = 'disconnected'
     wsError.value = 'No hay sesión activa. Inicia sesión primero.'
-    console.error('[WebSocket] Faltan credenciales:', { tokenWs: tokenWs || '(vacío)', groupId: groupId || '(vacío)', queryToken, queryGroupId })
+    console.error('[WebSocket] Faltan credenciales:', { tokenWs: tokenWs || '(vacío)', groupId: groupId || '(vacío)' })
     return
   }
 
-  // Persistir en localStorage para futuras reconexiones
   localStorage.setItem('auth-token-ws', tokenWs)
   localStorage.setItem('auth-grupo-id', groupId)
 
-  const wsUrl = `ws://66.179.190.248:8900/start/?token=${tokenWs}&modo=2&group_id=${groupId}`
-  console.log('[WebSocket] Intentando conectar a:', wsUrl)
-  
+  // Capturar el sessionId y la pestaña activa en el momento de la conexión
+  wsSessionId++
+  const mySessionId = wsSessionId
+  const myTab = activeTab.value
+  const modo = myTab === 'ESCOLTAS' ? '3' : '2'
+  const wsUrl = `ws://66.179.190.248:8900/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
+  console.log(`[WebSocket][sid=${mySessionId}] Conectando modo=${modo} tab=${myTab}`)
+
   try {
     socket = new WebSocket(wsUrl)
 
     socket.onopen = () => {
+      if (wsSessionId !== mySessionId) return
       wsStatus.value = 'connected'
       wsError.value = null
-      reconnectAttempts = 0 // Reiniciar contador de intentos en caso de éxito
-      console.log('[WebSocket] Conectado exitosamente')
+      reconnectAttempts = 0
+      console.log(`[WebSocket][sid=${mySessionId}] Conectado`)
     }
 
     socket.onmessage = (event) => {
+      // Si el sessionId cambió, este socket ya no es el activo → ignorar
+      if (wsSessionId !== mySessionId) return
       try {
         const payload = JSON.parse(event.data)
-        if (payload && payload.ev === 50 && Array.isArray(payload.flota)) {
-          if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
-            // Carga inicial
-            hardwareList.value = payload.flota
-          } else {
-            // Sincronización periódica/actualizaciones
-            payload.flota.forEach((updatedItem: HardwareWs) => {
-              const index = hardwareList.value.findIndex(h => h.serial === updatedItem.serial)
-              if (index !== -1) {
-                hardwareList.value[index] = { ...hardwareList.value[index], ...updatedItem }
-              } else {
-                hardwareList.value.push(updatedItem)
-              }
-
-              // Si el elemento actualizado es el seleccionado, refrescar su detalle
-              if (selectedItem.value && selectedItem.value.serial === updatedItem.serial) {
-                selectedItem.value = { ...selectedItem.value, ...updatedItem }
-              }
-            })
+        if (payload && payload.ev === 50) {
+          if (Array.isArray(payload.flota) && myTab === 'HARDWARE') {
+            if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
+              hardwareList.value = payload.flota
+            } else {
+              payload.flota.forEach((updatedItem: HardwareWs) => {
+                const index = hardwareList.value.findIndex(h => h.serial === updatedItem.serial)
+                if (index !== -1) {
+                  hardwareList.value[index] = { ...hardwareList.value[index], ...updatedItem }
+                } else {
+                  hardwareList.value.push(updatedItem)
+                }
+                if (selectedItem.value && selectedItem.value.serial === updatedItem.serial) {
+                  selectedItem.value = { ...selectedItem.value, ...updatedItem }
+                }
+              })
+            }
+            updateMarkersOnMap()
+          } else if (Array.isArray(payload.escoltas) && myTab === 'ESCOLTAS') {
+            if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
+              escoltasList.value = payload.escoltas
+            } else {
+              payload.escoltas.forEach((updatedItem: any) => {
+                const index = escoltasList.value.findIndex(e => e.id_escolta === updatedItem.id_escolta)
+                if (index !== -1) {
+                  escoltasList.value[index] = { ...escoltasList.value[index], ...updatedItem }
+                } else {
+                  escoltasList.value.push(updatedItem)
+                }
+                if (selectedItem.value && selectedItem.value.id_escolta === updatedItem.id_escolta) {
+                  selectedItem.value = { ...selectedItem.value, ...updatedItem }
+                }
+              })
+            }
+            updateMarkersOnMap()
           }
-          updateMarkersOnMap()
         }
       } catch (err) {
         console.error('[WebSocket] Error al procesar mensaje:', err)
       }
     }
 
-    socket.onerror = (err) => {
-      console.error('[WebSocket] Error:', err)
+    socket.onerror = () => {
+      if (wsSessionId !== mySessionId) return
       wsError.value = 'Error en la conexión del servidor'
     }
 
     socket.onclose = (event) => {
+      if (wsSessionId !== mySessionId) return
       wsStatus.value = 'disconnected'
-      console.log(`[WebSocket] Conexión cerrada. Código: ${event.code}, Razón: ${event.reason || 'No provista'}, Limpio: ${event.wasClean}`)
+      console.log(`[WebSocket][sid=${mySessionId}] Cerrado. Código: ${event.code}`)
       socket = null
-
-      // Intentar reconectar si no fue desconexión manual y no se superó el límite
       if (!isManualDisconnect) {
         if (reconnectAttempts < maxReconnectAttempts) {
           reconnectAttempts++
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000)
-          console.log(`[WebSocket] Intentando reconectar en ${delay}ms... (Intento ${reconnectAttempts}/${maxReconnectAttempts})`)
-          reconnectTimeoutId = setTimeout(() => {
-            connectWebSocket()
-          }, delay)
+          reconnectTimeoutId = setTimeout(() => connectWebSocket(), delay)
         } else {
-          console.error('[WebSocket] Máximo de intentos de reconexión alcanzado.')
           wsError.value = 'No se pudo reconectar después de varios intentos'
         }
       }
@@ -243,11 +271,16 @@ const connectWebSocket = () => {
 // Desconectar WebSocket
 const disconnectWebSocket = () => {
   isManualDisconnect = true
+  wsSessionId++ // Invalidar cualquier callback pendiente de sesiones anteriores
   if (reconnectTimeoutId) {
     clearTimeout(reconnectTimeoutId)
     reconnectTimeoutId = null
   }
   if (socket) {
+    socket.onopen = null
+    socket.onmessage = null
+    socket.onerror = null
+    socket.onclose = null
     socket.close()
     socket = null
   }
@@ -261,6 +294,14 @@ const formatLockStatus = (status: string | undefined) => {
   if (normalized === 'CERRADA' || normalized === 'CERRADO') return 'CERRADO'
   if (normalized === 'ABIERTA' || normalized === 'ABIERTO') return 'ABIERTO'
   return normalized
+}
+
+const getZoomScaleFactor = () => {
+  if (!map.value) return 1
+  const zoom = map.value.getZoom() || 13
+  if (zoom >= 15) return 1
+  // Reduce el tamaño un 12% por cada nivel por debajo de 15, mínimo 0.45 de escala
+  return Math.max(0.45, 1 - (15 - zoom) * 0.12)
 }
 
 // Helper para obtener el marcador personalizado con la brújula rotada y candado dinámico
@@ -279,7 +320,7 @@ const getCustomMarkerIcon = (
   const isClosed = formatLockStatus(hw.status_lock) === 'CERRADO'
   const lockProgress = lockProgressValue !== undefined ? lockProgressValue : (isClosed ? 1 : 0)
 
-  // Interpolar color del círculo del candado (Rojo #EF4444 cuando está abierto (0), Verde #10B981 cuando está cerrado (1))
+  // Interpolar color del círculo del candado (Rojo #EF4444 al estar abierto, Verde #10B981 al estar cerrado)
   const rLock = Math.round(239 + (16 - 239) * lockProgress)
   const gLock = Math.round(68 + (185 - 68) * lockProgress)
   const bLock = Math.round(68 + (129 - 68) * lockProgress)
@@ -291,13 +332,22 @@ const getCustomMarkerIcon = (
   // Dinámicos de batería y velocidad
   const batteryVal = batteryValue !== undefined ? Math.round(batteryValue) : (hw.battery !== undefined ? hw.battery : 100)
   const speedVal = speedValue !== undefined ? Math.round(speedValue) : Math.round(hw.speed || 0)
-  
-  // Interpolar color de la batería
-  const batteryThresholdFactor = batteryVal < 20 ? 0 : 1
-  const rBat = Math.round(239 + (16 - 239) * batteryThresholdFactor)
-  const gBat = Math.round(68 + (185 - 68) * batteryThresholdFactor)
-  const bBat = Math.round(68 + (129 - 68) * batteryThresholdFactor)
-  const batteryCircleColor = `rgb(${rBat}, ${gBat}, ${bBat})`
+
+  // Color de la barra de progreso de batería
+  const batteryColor = batteryVal < 20 ? '#EF4444' : '#10B981'
+
+  // Calcular el sector circular para el clipPath de la barra de progreso
+  const cx = 460.595
+  const cy = 323.595
+  const r = 300
+  const startAngle = Math.PI // 180 grados (izquierda)
+  const endAngle = Math.PI + (Math.PI * (batteryVal / 100)) // hasta 360 grados (derecha)
+  const x1 = cx + r * Math.cos(startAngle)
+  const y1 = cy + r * Math.sin(startAngle)
+  const x2 = cx + r * Math.cos(endAngle)
+  const y2 = cy + r * Math.sin(endAngle)
+  const largeArcFlag = (batteryVal > 50) ? 1 : 0
+  const clipPathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`
 
   // Filtro de resplandor/sombra si está seleccionado
   const filterDef = isSelected 
@@ -310,53 +360,103 @@ const getCustomMarkerIcon = (
     : ''
   const filterAttr = isSelected ? 'filter="url(#selectedGlow)"' : ''
 
-  const svgString = `<svg width="701" height="874" viewBox="0 0 701 874" fill="none" xmlns="http://www.w3.org/2000/svg">
+  const svgString = `<svg width="782" height="727" viewBox="0 0 782 727" fill="none" xmlns="http://www.w3.org/2000/svg">
 ${filterDef}
+<defs>
+  <clipPath id="battery-clip-${hw.serial}">
+    <path d="${clipPathD}" />
+  </clipPath>
+  <!-- Curva guía para el texto del kilometraje/velocidad -->
+  <path id="speed-curve-${hw.serial}" d="M 300 94 A 280 280 0 0 1 621 94" fill="none" />
+</defs>
 <g id="Pin Brujula" ${filterAttr}>
 <g id="Pin Mapa">
-<path id="Pin" fill-rule="evenodd" clip-rule="evenodd" d="M449.5 215C588.4 215 701 327.6 701 466.5C701 483.454 699.322 500.017 696.124 516.031C673.926 683.308 450.822 873.69 450.822 873.69C450.822 873.69 260.958 711.673 214.103 555.239C203.695 527.644 198 497.737 198 466.5C198 327.6 310.6 215 449.5 215Z" fill="${pinColor}"/>
-<path id="Circulo" d="M653.191 472.595C653.191 360.153 562.038 269 449.595 269C337.153 269 246 360.153 246 472.595C246 585.038 337.153 676.191 449.595 676.191C562.038 676.191 653.191 585.038 653.191 472.595Z" fill="white"/>
+<path id="Pin" fill-rule="evenodd" clip-rule="evenodd" d="M460.5 68C599.4 68 712 180.6 712 319.5C712 336.454 710.322 353.017 707.124 369.031C684.926 536.308 461.822 726.69 461.822 726.69C461.822 726.69 271.958 564.673 225.103 408.239C214.695 380.644 209 350.737 209 319.5C209 180.6 321.6 68 460.5 68Z" fill="${pinColor}"/>
+<ellipse id="Ellipse 41" cx="456.5" cy="124" rx="199.5" ry="124" fill="${pinColor}"/>
+<path id="Circulo" d="M664.191 323.595C664.191 211.153 573.038 120 460.595 120C348.153 120 257 211.153 257 323.595C257 436.038 348.153 527.191 460.595 527.191C573.038 527.191 664.191 436.038 664.191 323.595Z" fill="white"/>
 </g>
 <g id="Brujula">
-<g transform="rotate(${course}, 449.5, 472.595)">
-<path id="Icono de Brujula" d="M531.361 546.013L471.646 522.202H471.645C457.407 516.525 441.593 516.525 427.355 522.202L367.638 546.015L449.5 376.275L531.361 546.013Z" fill="white" stroke="#0083F6" stroke-width="20" stroke-linejoin="round"/>
+<g transform="rotate(${course}, 460.595, 323.595)">
+<path id="Icono de Brujula" d="M542.361 397.013L482.646 373.202H482.645C468.407 367.525 452.593 367.525 438.355 373.202L378.638 397.015L460.5 227.275L542.361 397.013Z" fill="white" stroke="#0083F6" stroke-width="20" stroke-linejoin="round"/>
 </g>
 <g id="Letras Direccion">
-<path id="N" d="M461.958 280.453V316H455.22L440.107 291.342V316H433.394V280.453H440.107L455.269 305.136V280.453H461.958Z" fill="#838383"/>
-<path id="S" d="M451.997 654.771C451.997 654.088 451.891 653.478 451.68 652.94C451.484 652.387 451.118 651.891 450.581 651.451C450.06 650.995 449.32 650.556 448.359 650.133C447.415 649.693 446.195 649.238 444.697 648.766C443.037 648.245 441.491 647.659 440.059 647.008C438.626 646.357 437.365 645.6 436.274 644.737C435.2 643.875 434.362 642.882 433.76 641.759C433.158 640.619 432.856 639.301 432.856 637.804C432.856 636.339 433.166 635.004 433.784 633.8C434.419 632.595 435.314 631.562 436.47 630.699C437.625 629.82 438.984 629.145 440.547 628.673C442.126 628.201 443.867 627.965 445.771 627.965C448.408 627.965 450.687 628.445 452.607 629.405C454.544 630.366 456.042 631.668 457.1 633.312C458.158 634.955 458.687 636.803 458.687 638.854H451.997C451.997 637.747 451.761 636.77 451.289 635.924C450.833 635.077 450.133 634.41 449.189 633.922C448.262 633.434 447.09 633.189 445.674 633.189C444.307 633.189 443.167 633.393 442.256 633.8C441.361 634.207 440.685 634.76 440.229 635.46C439.79 636.16 439.57 636.941 439.57 637.804C439.57 638.455 439.725 639.041 440.034 639.562C440.343 640.066 440.807 640.546 441.426 641.002C442.044 641.441 442.809 641.856 443.721 642.247C444.648 642.621 445.723 642.996 446.943 643.37C448.896 643.956 450.605 644.607 452.07 645.323C453.551 646.039 454.78 646.853 455.757 647.765C456.75 648.676 457.49 649.701 457.979 650.841C458.483 651.98 458.735 653.274 458.735 654.723C458.735 656.253 458.434 657.62 457.832 658.824C457.23 660.029 456.367 661.054 455.244 661.9C454.121 662.747 452.77 663.39 451.191 663.829C449.629 664.269 447.879 664.488 445.942 664.488C444.217 664.488 442.508 664.26 440.815 663.805C439.139 663.333 437.617 662.633 436.25 661.705C434.883 660.761 433.792 659.573 432.979 658.141C432.165 656.692 431.758 654.999 431.758 653.062H438.496C438.496 654.186 438.675 655.146 439.033 655.943C439.408 656.725 439.928 657.368 440.596 657.872C441.279 658.36 442.077 658.718 442.988 658.946C443.9 659.174 444.884 659.288 445.942 659.288C447.31 659.288 448.433 659.101 449.312 658.727C450.207 658.336 450.874 657.799 451.313 657.115C451.769 656.432 451.997 655.65 451.997 654.771Z" fill="#838383"/>
-<path id="E" d="M640.953 476.727V482H622.057V476.727H640.953ZM624.107 446.453V482H617.394V446.453H624.107ZM638.487 461.126V466.277H622.057V461.126H638.487ZM640.88 446.453V451.751H622.057V446.453H640.88Z" fill="#838383"/>
-<path id="W" d="M267.134 478.188L274.214 449.453H278.047L278.291 455.508L270.723 485H266.67L267.134 478.188ZM262.666 449.453L268.477 478.091V485H264.058L256.001 449.453H262.666ZM285.64 477.969L291.353 449.453H298.042L289.985 485H285.566L285.64 477.969ZM279.878 449.453L286.958 478.286L287.373 485H283.32L275.776 455.483L276.069 449.453H279.878Z" fill="#838383"/>
+<path id="N" d="M472.958 131.453V167H466.22L451.107 142.342V167H444.394V131.453H451.107L466.269 156.136V131.453H472.958Z" fill="#838383"/>
+<path id="S" d="M462.997 505.771C462.997 505.088 462.891 504.478 462.68 503.94C462.484 503.387 462.118 502.891 461.581 502.451C461.06 501.995 460.32 501.556 459.359 501.133C458.415 500.693 457.195 500.238 455.697 499.766C454.037 499.245 452.491 498.659 451.059 498.008C449.626 497.357 448.365 496.6 447.274 495.737C446.2 494.875 445.362 493.882 444.76 492.759C444.158 491.619 443.856 490.301 443.856 488.804C443.856 487.339 444.166 486.004 444.784 484.8C445.419 483.595 446.314 482.562 447.47 481.699C448.625 480.82 449.984 480.145 451.547 479.673C453.126 479.201 454.867 478.965 456.771 478.965C459.408 478.965 461.687 479.445 463.607 480.405C465.544 481.366 467.042 482.668 468.1 484.312C469.158 485.955 469.687 487.803 469.687 489.854H462.997C462.997 488.747 462.761 487.77 462.289 486.924C461.833 486.077 461.133 485.41 460.189 484.922C459.262 484.434 458.09 484.189 456.674 484.189C455.307 484.189 454.167 484.393 453.256 484.8C452.361 485.207 451.685 485.76 451.229 486.46C450.79 487.16 450.57 487.941 450.57 488.804C450.57 489.455 450.725 490.041 451.034 490.562C451.343 491.066 451.807 491.546 452.426 492.002C453.044 492.441 453.809 492.856 454.721 493.247C455.648 493.621 456.723 493.996 457.943 493.996C459.896 494.956 461.605 495.607 463.07 496.323C464.551 497.039 465.78 497.853 466.757 498.765C467.75 499.676 468.49 500.701 468.979 501.841C469.483 502.98 469.735 504.274 469.735 505.723C469.735 507.253 469.434 508.62 468.832 509.824C468.23 511.029 467.367 512.054 466.244 512.9C465.121 513.747 463.77 514.39 462.191 514.829C460.629 515.269 458.879 515.488 456.942 515.488C455.217 515.488 453.508 515.26 451.815 514.805C450.139 514.333 448.617 513.633 447.25 512.705C445.883 511.761 444.792 510.573 443.979 509.141C443.165 507.692 442.758 505.999 442.758 504.062H449.496C449.496 505.186 449.675 506.146 450.033 506.943C450.408 507.725 450.928 508.368 451.596 508.872C452.279 509.36 453.077 509.718 453.988 509.946C454.9 510.174 455.884 510.288 456.942 510.288C458.31 510.288 459.433 510.101 460.312 509.727C461.207 509.336 461.874 508.799 462.313 508.115C462.769 507.432 462.997 506.65 462.997 505.771Z" fill="#838383"/>
+<path id="E" d="M651.953 327.727V333H633.057V327.727H651.953ZM635.107 297.453V333H628.394V297.453H635.107ZM649.487 312.126V317.277H633.057V312.126H649.487ZM651.88 297.453V302.751H633.057V297.453H651.88Z" fill="#838383"/>
+<path id="W" d="M278.134 329.188L285.214 300.453H289.047L289.291 306.508L281.723 336H277.67L278.134 329.188ZM273.666 300.453L279.477 329.091V336H275.058L267.001 300.453H273.666ZM296.64 328.969L302.353 300.453H309.042L300.985 336H296.566L296.64 328.969ZM290.878 300.453L297.958 329.286L298.373 336H294.32L286.776 306.483L287.069 300.453H290.878Z" fill="#838383"/>
 </g>
 </g>
 <g id="Candado">
-<circle id="Circulo del Candado" cx="99" cy="355" r="99" fill="${lockCircleColor}"/>
+<circle id="Circulo del Candado" cx="99" cy="116" r="99" fill="${lockCircleColor}"/>
 <g id="Candado Cerrado" opacity="${cerradoOpacity}">
-<path id="Vector" d="M121.107 340.25V327.958C121.107 315.739 111.202 305.833 98.9823 305.833C86.763 305.833 76.8573 315.739 76.8573 327.958V340.25" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_2" d="M106.354 340.25H91.6073C80.1277 340.25 74.388 340.25 70.0432 342.572C66.6126 344.406 63.8029 347.216 61.9694 350.647C59.6473 354.992 59.6479 360.732 59.649 372.211C59.65 383.689 59.6505 389.428 61.9729 393.772C63.8066 397.202 66.6162 400.011 70.0464 401.845C74.3908 404.167 80.1296 404.167 91.6073 404.167H106.354C117.833 404.167 123.572 404.167 127.917 401.845C131.347 400.011 134.157 397.201 135.99 393.771C138.313 389.426 138.313 383.687 138.313 372.208C138.313 360.73 138.313 354.991 135.99 350.646C134.157 347.215 131.347 344.406 127.917 342.572C123.572 340.25 117.833 340.25 106.354 340.25Z" stroke="white" stroke-width="10" stroke-linecap="round"/>
-<path id="Vector_3" d="M98.9823 382.042C104.413 382.042 108.816 377.639 108.816 372.208C108.816 366.778 104.413 362.375 98.9823 362.375C93.5515 362.375 89.1489 366.778 89.1489 372.208C89.1489 377.639 93.5515 382.042 98.9823 382.042Z" stroke="white" stroke-width="10"/>
+<path id="Vector" d="M121.107 101.25V88.9583C121.107 76.739 111.202 66.8333 98.9823 66.8333C86.763 66.8333 76.8573 76.739 76.8573 88.9583V101.25" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_2" d="M106.354 101.25H91.6073C80.1277 101.25 74.388 101.25 70.0432 103.572C66.6126 105.406 63.8029 108.216 61.9694 111.647C59.6473 115.992 59.6479 121.732 59.649 133.211C59.65 144.689 59.6505 150.428 61.9729 154.772C63.8066 158.202 66.6162 161.011 70.0464 162.845C74.3908 165.167 80.1296 165.167 91.6073 165.167H106.354C117.833 165.167 123.572 165.167 127.917 162.845C131.347 161.011 134.157 158.201 135.99 154.771C138.313 150.426 138.313 144.687 138.313 133.208C138.313 121.73 138.313 115.991 135.99 111.646C134.157 108.215 131.347 105.406 127.917 103.572C123.572 101.25 117.833 101.25 106.354 101.25Z" stroke="white" stroke-width="10" stroke-linecap="round"/>
+<path id="Vector_3" d="M98.9823 143.042C104.413 143.042 108.816 138.639 108.816 133.208C108.816 127.778 104.413 123.375 98.9823 123.375C93.5515 123.375 89.1489 127.778 89.1489 133.208C89.1489 138.639 93.5515 143.042 98.9823 143.042Z" stroke="white" stroke-width="10"/>
 </g>
 <g id="Candado Abierto" opacity="${abiertoOpacity}">
-<path id="Vector_4" d="M98.9808 382.042C104.412 382.042 108.814 377.639 108.814 372.208C108.814 350.778 104.412 346.375 98.9808 346.375C93.55 346.375 89.1475 350.778 89.1475 356.208C89.1475 361.639 93.55 366.042 98.9808 382.042Z" stroke="white" stroke-width="10"/>
-<path id="Vector_5" d="M76.8558 340.25V327.958C76.8558 315.739 86.7615 305.833 98.9809 305.833C108.614 305.833 115.61 311.99 118.648 320.583" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_6" d="M106.353 340.25H91.6058C80.1263 340.25 74.3865 340.25 70.0417 342.572C66.6112 344.406 63.8015 347.216 61.968 350.647C59.6459 354.992 59.6465 360.732 59.6475 372.211C59.6486 383.689 59.6491 389.428 61.9715 393.772C63.8051 397.202 66.6148 400.011 70.045 401.845C74.3894 404.167 80.1282 404.167 91.6058 404.167H106.353C117.831 404.167 123.571 404.167 127.915 401.845C131.346 400.011 134.156 397.201 135.989 393.771C138.311 389.426 138.311 383.687 138.311 372.208C138.311 360.73 138.311 354.991 135.989 350.646C134.156 347.215 131.346 344.406 127.915 342.572C123.571 340.25 117.831 340.25 106.353 340.25Z" stroke="white" stroke-width="10" stroke-linecap="round"/>
+<path id="Vector_4" d="M98.9808 143.042C104.412 143.042 108.814 138.639 108.814 133.208C108.814 127.778 104.412 123.375 98.9808 123.375C93.55 123.375 89.1475 127.778 89.1475 133.208C89.1475 138.639 93.55 143.042 98.9808 143.042Z" stroke="white" stroke-width="10"/>
+<path id="Vector_5" d="M76.8558 101.25V88.9583C76.8558 76.739 86.7615 66.8333 98.9809 66.8333C108.614 66.8333 115.61 72.99 118.648 81.5833" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
+<path id="Vector_6" d="M106.353 101.25H91.6058C80.1263 101.25 74.3865 101.25 70.0417 103.572C66.6112 105.406 63.8015 108.216 61.968 111.647C59.6459 115.992 59.6465 121.732 59.6475 133.211C59.6486 144.689 59.6491 150.428 61.9715 154.772C63.8051 158.202 66.6148 161.011 70.045 162.845C74.3894 165.167 80.1282 165.167 91.6058 165.167H106.353C117.831 165.167 123.571 165.167 127.915 162.845C131.346 161.011 134.156 158.201 135.989 154.771C138.311 150.426 138.311 144.687 138.311 133.208C138.311 121.73 138.311 115.991 135.989 111.646C134.156 108.215 131.346 105.406 127.915 103.572C123.571 101.25 117.831 101.25 106.353 101.25Z" stroke="white" stroke-linecap="round" stroke-width="10"/>
 </g>
 </g>
-<g id="Velocidad">
-<circle id="Circulo de la velocidad" cx="246" cy="128" r="128" fill="#0088FF"/>
-<path id="KM/H" d="M194.166 150.453V186H187.452V150.453H194.166ZM215.504 150.453L201.246 167.787L193.092 176.503L191.896 169.984L197.56 162.636L207.276 150.453H215.504ZM208.033 186L196.974 169.35L201.783 165.004L216.017 186H208.033ZM222.071 150.453H227.882L237.599 177.211L247.291 150.453H253.126L239.918 186H235.255L222.071 150.453ZM219.142 150.453H224.83L225.855 175.038V186H219.142V150.453ZM250.343 150.453H256.056V186H249.342V175.038L250.343 150.453ZM277.687 150.453L264.259 189.052H259.352L272.779 150.453H277.687ZM305.519 165.126V170.399H286.817V165.126H305.519ZM288.648 150.453V186H281.935V150.453H288.648ZM310.499 150.453V186H303.785V150.453H310.499Z" fill="white"/>
-<text x="246" y="125" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="76" fill="white" text-anchor="middle">${speedVal}</text>
+<g id="Velocidad Dispositivo">
+  <text font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="80" fill="white">
+    <textPath href="#speed-curve-${hw.serial}" startOffset="50%" text-anchor="middle">
+      ${speedVal} <tspan font-size="38" font-weight="bold" fill="#D1D5DB">KM/H</tspan>
+    </textPath>
+  </text>
 </g>
-<g id="Bateria">
-<circle id="Circulo de la bateria" cx="509.5" cy="117.5" r="94.5" fill="${batteryCircleColor}"/>
-<text x="509.5" y="130" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="52" fill="white" text-anchor="middle">${batteryVal}%</text>
+<g id="Bateria Dispositivo">
+<path id="Barra de bateria" d="M679.82 326.5C680.24 326.5 679.19 326.5 679.264 326.499C690.199 326.418 699.877 315.908 699.059 305.004C699.054 304.93 699.248 307.281 699.17 306.341C694.494 249.674 670.218 196.248 630.291 155.734C585.658 110.444 525.122 85 462 85C398.878 85 338.342 110.444 293.709 155.734C253.782 196.248 229.506 249.674 224.83 306.341C224.752 307.281 224.947 304.929 224.941 305.004C224.123 315.908 233.801 326.418 244.736 326.499C244.81 326.5 243.76 326.5 244.18 326.5V326.5C244.935 326.5 245.313 326.5 245.379 326.5C256.314 326.427 263.98 319.486 265.135 308.612C265.142 308.546 265.214 307.815 265.36 306.352C269.915 260.564 289.893 217.523 322.248 184.693C359.312 147.083 409.583 125.954 462 125.954C514.417 125.954 564.688 147.083 601.752 184.693C634.107 217.523 654.085 260.564 658.64 306.352C658.786 307.815 658.858 308.546 658.865 308.612C660.02 319.486 667.686 326.427 678.621 326.5C678.687 326.5 679.065 326.5 679.82 326.5V326.5Z" fill="#838383" fill-opacity="0.34"/>
+<path id="Progreso de bateria" clip-path="url(#battery-clip-${hw.serial})" d="M679.82 326.5C680.24 326.5 679.19 326.5 679.264 326.499C690.199 326.418 699.877 315.908 699.059 305.004C699.054 304.93 699.248 307.281 699.17 306.341C694.494 249.674 670.218 196.248 630.291 155.734C585.658 110.444 525.122 85 462 85C398.878 85 338.342 110.444 293.709 155.734C253.782 196.248 229.506 249.674 224.83 306.341C224.752 307.281 224.947 304.929 224.941 305.004C224.123 315.908 233.801 326.418 244.736 326.499C244.81 326.5 243.76 326.5 244.18 326.5V326.5C244.935 326.5 245.313 326.5 245.379 326.5C256.314 326.427 263.98 319.486 265.135 308.612C265.142 308.546 265.214 307.815 265.36 306.352C269.915 260.564 289.893 217.523 322.248 184.693C359.312 147.083 409.583 125.954 462 125.954C514.417 125.954 564.688 147.083 601.752 184.693C634.107 217.523 654.085 260.564 658.64 306.352C658.786 307.815 658.858 308.546 658.865 308.612C660.02 319.486 667.686 326.427 678.621 326.5C678.687 326.5 679.065 326.5 679.82 326.5V326.5Z" fill="${batteryColor}"/>
 </g>
 </g>
 </svg>`
 
+  const scale = getZoomScaleFactor()
+  const w = isSelected ? 120 * scale : 100 * scale
+  const h = isSelected ? 112 * scale : 93 * scale
+  const ax = isSelected ? 71 * scale : 59 * scale
+  const ay = h
+
   return {
     url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
-    anchor: isSelected ? new google.maps.Point(77, 151) : new google.maps.Point(64, 126),
-    scaledSize: isSelected ? new google.maps.Size(120, 151) : new google.maps.Size(100, 126)
+    anchor: new google.maps.Point(ax, ay),
+    scaledSize: new google.maps.Size(w, h)
+  }
+}
+
+// Icono personalizado para escoltas (un puntito con resplandor)
+const getEscoltaMarkerIcon = (isSelected: boolean) => {
+  const scale = getZoomScaleFactor()
+  const baseSize = 48 // Tamaño base en el mapa
+  const size = Math.max(20, baseSize * scale)
+  const halfSize = size / 2
+
+  const circleColor = isSelected ? '#10B981' : '#0088FF'
+  const filterDef = isSelected 
+    ? `<defs>
+        <filter id="escoltaGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+        </filter>
+       </defs>`
+    : ''
+  const filterAttr = isSelected ? 'filter="url(#escoltaGlow)"' : ''
+
+  const svgString = `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    ${filterDef}
+    <g ${filterAttr}>
+      <circle cx="60" cy="60" r="60" fill="${circleColor}"/>
+      <path d="M70 41C70 29.9543 61.0456 21 50 21C38.9543 21 30 29.9543 30 41C30 52.0456 38.9543 61 50 61C61.0456 61 70 52.0456 70 41Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M78 89C78 73.536 65.464 61 50 61C34.536 61 22 73.536 22 89" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M102 52.3752V44.25C95.7144 44.25 91 41 91 41C91 41 86.2856 44.25 80 44.25V52.3752C80 63.75 91 67 91 67C91 67 102 63.75 102 52.3752Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </svg>`
+
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
+    anchor: new google.maps.Point(halfSize, halfSize),
+    scaledSize: new google.maps.Size(size, size)
   }
 }
 
@@ -465,53 +565,85 @@ const animateMarker = (
 const updateMarkersOnMap = () => {
   if (!map.value) return
 
-  const activeSerials = new Set<string>()
+  const activeKeys = new Set<string>()
 
-  hardwareList.value.forEach(hw => {
-    const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
-    if (!hasCoordinates) return
+  if (activeTab.value === 'HARDWARE') {
+    hardwareList.value.forEach(hw => {
+      const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
+      if (!hasCoordinates) return
 
-    activeSerials.add(hw.serial)
+          activeKeys.add(hw.serial)
 
-    let marker = markers.value.get(hw.serial)
-    const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
+      let marker = markersMap.get(hw.serial)
+      const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
 
-    if (marker) {
-      animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
-      marker.setZIndex(isSelected ? 1000 : 1)
-    } else {
-      const position = { lat: hw.lat, lng: hw.lon }
-      // Crear marcador personalizado inicial
-      marker = new google.maps.Marker({
-        position,
-        map: map.value,
-        title: hw.nombre,
-        icon: getCustomMarkerIcon(hw),
-        zIndex: isSelected ? 1000 : 1
-      })
-      marker.set('currentCourse', hw.course || 0)
-      marker.set('currentSpeed', hw.speed || 0)
-      marker.set('currentBattery', hw.battery !== undefined ? hw.battery : 100)
-      marker.set('currentLockProgress', formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0)
+      if (marker) {
+        animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
+        marker.setZIndex(isSelected ? 1000 : 1)
+      } else {
+        const position = { lat: hw.lat, lng: hw.lon }
+        marker = new google.maps.Marker({
+          position,
+          map: map.value,
+          title: hw.nombre,
+          icon: getCustomMarkerIcon(hw),
+          zIndex: isSelected ? 1000 : 1
+        })
+        marker.set('currentCourse', hw.course || 0)
+        marker.set('currentSpeed', hw.speed || 0)
+        marker.set('currentBattery', hw.battery !== undefined ? hw.battery : 100)
+        marker.set('currentLockProgress', formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0)
 
-      marker.addListener('click', () => {
-        selectItem(hw)
-      })
+        marker.addListener('click', () => {
+          selectItem(hw)
+        })
 
-      markers.value.set(hw.serial, marker)
-    }
-  })
+        markersMap.set(hw.serial, marker)
+      }
+    })
+  } else if (activeTab.value === 'ESCOLTAS') {
+    escoltasList.value.forEach(esc => {
+      const hasCoordinates = esc.lat !== 0 && esc.lon !== 0
+      if (!hasCoordinates) return
+
+            activeKeys.add(esc.id_escolta)
+
+      let marker = markersMap.get(esc.id_escolta)
+      const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+
+      if (marker) {
+        marker.setPosition({ lat: esc.lat, lng: esc.lon })
+        marker.setIcon(getEscoltaMarkerIcon(isSelected))
+        marker.setZIndex(isSelected ? 1000 : 1)
+      } else {
+        const position = { lat: esc.lat, lng: esc.lon }
+        marker = new google.maps.Marker({
+          position,
+          map: map.value,
+          title: esc.nombre,
+          icon: getEscoltaMarkerIcon(isSelected),
+          zIndex: isSelected ? 1000 : 1
+        })
+
+        marker.addListener('click', () => {
+          selectItem(esc)
+        })
+
+        markersMap.set(esc.id_escolta, marker)
+      }
+    })
+  }
 
   // Limpiar marcadores obsoletos
-  markers.value.forEach((marker, serial) => {
-    if (!activeSerials.has(serial)) {
-      // Cancelar cualquier animación pendiente del marcador eliminado
+  markersMap.forEach((marker, key) => {
+    if (!activeKeys.has(key)) {
       const oldFrameId = marker.get('animationFrameId')
       if (oldFrameId) {
         cancelAnimationFrame(oldFrameId)
+        marker.set('animationFrameId', null)
       }
       marker.setMap(null)
-      markers.value.delete(serial)
+      markersMap.delete(key)
     }
   })
 }
@@ -522,6 +654,10 @@ const updateMarkersOnMap = () => {
 watch(map, (newMap) => {
   if (newMap) {
     updateMarkersOnMap()
+    // Escuchar cambios de zoom para re-escalar los marcadores
+    newMap.addListener('zoom_changed', () => {
+      updateMarkersOnMap()
+    })
   }
 })
 
@@ -538,7 +674,7 @@ const selectItem = (item: any) => {
 // Redibujar marcadores al cambiar la selección para resaltar el seleccionado
 watch(selectedItem, (newVal, oldVal) => {
   if (oldVal && oldVal.serial) {
-    const m = markers.value.get(oldVal.serial)
+    const m = markersMap.get(oldVal.serial)
     const hw = hardwareList.value.find(h => h.serial === oldVal.serial)
     if (m && hw) {
       m.setIcon(getCustomMarkerIcon(hw))
@@ -546,10 +682,25 @@ watch(selectedItem, (newVal, oldVal) => {
     }
   }
   if (newVal && newVal.serial) {
-    const m = markers.value.get(newVal.serial)
+    const m = markersMap.get(newVal.serial)
     const hw = hardwareList.value.find(h => h.serial === newVal.serial)
     if (m && hw) {
       m.setIcon(getCustomMarkerIcon(hw))
+      m.setZIndex(1000)
+    }
+  }
+
+  if (oldVal && oldVal.id_escolta) {
+    const m = markersMap.get(oldVal.id_escolta)
+    if (m) {
+      m.setIcon(getEscoltaMarkerIcon(false))
+      m.setZIndex(1)
+    }
+  }
+  if (newVal && newVal.id_escolta) {
+    const m = markersMap.get(newVal.id_escolta)
+    if (m) {
+      m.setIcon(getEscoltaMarkerIcon(true))
       m.setZIndex(1000)
     }
   }
@@ -588,16 +739,39 @@ const filteredItems = computed(() => {
   return []
 })
 
+// Helper para saber si un elemento está seleccionado
+const isItemSelected = (item: any) => {
+  if (!selectedItem.value) return false
+  if (item.serial && selectedItem.value.serial === item.serial) return true
+  if (item.id_servicio && selectedItem.value.id_servicio === item.id_servicio) return true
+  if (item.id_escolta && selectedItem.value.id_escolta === item.id_escolta) return true
+  if (item.placa && selectedItem.value.placa === item.placa) return true
+  return false
+}
+
 // Cambiar de pestaña
 const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS') => {
+  // 1. Limpiar marcadores del mapa físicamente ANTES de todo
+  clearAllMarkers()
+
+  // 2. Limpiar la lista de la pestaña anterior
+  hardwareList.value = []
+  escoltasList.value = []
+  serviciosList.value = []
+  vehiculosList.value = []
+
+  // 3. Desconectar socket anterior (invalida sessionId → ningún callback tardío podrá dibujar)
+  disconnectWebSocket()
+
+  // 4. Actualizar estado
   activeTab.value = tab
   selectedItem.value = null
   searchQuery.value = ''
-  
-  if (tab === 'HARDWARE') {
+
+  // 5. Iniciar nueva conexión/carga
+  if (tab === 'HARDWARE' || tab === 'ESCOLTAS') {
     connectWebSocket()
   } else {
-    disconnectWebSocket()
     loadSecondaryData()
   }
 }
@@ -611,8 +785,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   disconnectWebSocket()
-  markers.value.forEach(m => m.setMap(null))
-  markers.value.clear()
+  markersMap.forEach(m => m.setMap(null))
+  markersMap.clear()
 })
 </script>
 
@@ -716,7 +890,7 @@ onUnmounted(() => {
             @click="selectItem(item)"
             class="group w-full text-left p-3 px-4 rounded-xl transition-all duration-300 border border-transparent outline-none flex items-center justify-between gap-3 relative overflow-hidden"
             :class="[
-              selectedItem && (selectedItem.serial === item.serial || selectedItem.id_servicio === item.id_servicio)
+              isItemSelected(item)
                 ? 'bg-[#5da6fc]/5 dark:bg-[#5da6fc]/10 border-[#5da6fc]/20 text-white z-10 shadow-[0_2px_8px_-2px_rgba(93,166,252,0.05)]'
                 : (item.sos 
                     ? 'bg-rose-500/5 hover:bg-rose-500/10 border-red-500/15 text-white/80'
@@ -732,7 +906,7 @@ onUnmounted(() => {
                 <div class="flex items-center justify-between gap-2">
                   <h3
                     class="text-[12px] font-bold uppercase tracking-tight truncate transition-colors duration-200"
-                    :class="selectedItem && (selectedItem.serial === item.serial || selectedItem.id_servicio === item.id_servicio) ? 'text-[#5da6fc]' : 'text-slate-200'"
+                    :class="isItemSelected(item) ? 'text-[#5da6fc]' : 'text-slate-200'"
                   >
                     {{ item.nombre || item.placa || item.id_servicio }}
                   </h3>
@@ -749,7 +923,7 @@ onUnmounted(() => {
                 </div>
                 <div class="flex items-center justify-between mt-1.5 gap-2">
                   <p class="text-[10.5px] font-medium text-slate-450 dark:text-slate-500 truncate">
-                    {{ item.descripcion || item.serial || item.identificacion || 'Sin descripción' }}
+                    {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || 'Sin descripción' }}
                   </p>
                   <!-- Indicador de señal lat/lon -->
                   <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="GPS Activo"></span>
