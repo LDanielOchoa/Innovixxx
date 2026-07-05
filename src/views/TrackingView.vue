@@ -53,6 +53,7 @@ const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>('HARD
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
 const hardwareList = ref<HardwareWs[]>([])
+const svgTemplate = ref<string>('')
 
 // Mocks y datos cargados de APIs secundarias
 const serviciosList = ref<any[]>([])
@@ -76,6 +77,7 @@ const {
 
 // WebSocket
 let socket: WebSocket | null = null
+let infoWindow: any = null
 const wsStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
 const wsError = ref<string | null>(null)
 let reconnectTimeoutId: any = null
@@ -119,6 +121,9 @@ const initMap = async () => {
   try {
     const googleMaps = await loadGoogleMaps()
     initMapInstance(googleMaps)
+    infoWindow = new googleMaps.InfoWindow({
+      disableAutoPan: true
+    })
     startDarkModeObserver()
     updateMarkersOnMap()
   } catch (err) {
@@ -162,8 +167,16 @@ const connectWebSocket = () => {
   const queryToken = route.query.token_ws as string | undefined
   const queryGroupId = route.query.group_id as string | undefined
 
-  const tokenWs = (queryToken && queryToken.trim()) || localStorage.getItem('auth-token-ws') || ''
-  const groupId = (queryGroupId && queryGroupId.trim()) || localStorage.getItem('auth-grupo-id') || ''
+  if (queryToken || queryGroupId) {
+    if (queryToken) localStorage.setItem('auth-token-ws', queryToken.trim())
+    if (queryGroupId) localStorage.setItem('auth-grupo-id', queryGroupId.trim())
+    router.replace({ path: route.path, query: {} }).catch(err => {
+      console.error('Error al limpiar los query params de la URL:', err)
+    })
+  }
+
+  const tokenWs = localStorage.getItem('auth-token-ws') || ''
+  const groupId = localStorage.getItem('auth-grupo-id') || ''
 
   if (!tokenWs || !groupId) {
     wsStatus.value = 'disconnected'
@@ -171,9 +184,6 @@ const connectWebSocket = () => {
     console.error('[WebSocket] Faltan credenciales:', { tokenWs: tokenWs || '(vacío)', groupId: groupId || '(vacío)' })
     return
   }
-
-  localStorage.setItem('auth-token-ws', tokenWs)
-  localStorage.setItem('auth-grupo-id', groupId)
 
   // Capturar el sessionId y la pestaña activa en el momento de la conexión
   wsSessionId++
@@ -304,7 +314,6 @@ const getZoomScaleFactor = () => {
   return Math.max(0.45, 1 - (15 - zoom) * 0.12)
 }
 
-// Helper para obtener el marcador personalizado con la brújula rotada y candado dinámico
 const getCustomMarkerIcon = (
   hw: HardwareWs,
   courseValue?: number,
@@ -312,36 +321,53 @@ const getCustomMarkerIcon = (
   batteryValue?: number,
   lockProgressValue?: number
 ) => {
-  const course = courseValue !== undefined ? courseValue : (hw.course || 0)
-  const pinColor = hw.sos ? '#EF4444' : '#0088FF'
   const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
+  const scale = getZoomScaleFactor()
+
+  // Dimensiones de Market Mapa.svg (391 x 519)
+  const baseWidth = isSelected ? 120 : 100
+  const w = baseWidth * scale
+  const h = w * (519 / 391)
+  const ax = w / 2
+  const ay = h
 
   // Normalizar candado
+  const hasLock = hw.status_lock !== undefined && hw.status_lock !== null && hw.status_lock !== ''
+  console.log(`[GPS Lock Debug] serial: ${hw.serial}, status_lock: ${hw.status_lock}, hasLock: ${hasLock}`)
   const isClosed = formatLockStatus(hw.status_lock) === 'CERRADO'
   const lockProgress = lockProgressValue !== undefined ? lockProgressValue : (isClosed ? 1 : 0)
+  const cerradoOpacity = hasLock ? lockProgress : 0
+  const abiertoOpacity = hasLock ? (1 - lockProgress) : 0
 
-  // Interpolar color del círculo del candado (Rojo #EF4444 al estar abierto, Verde #10B981 al estar cerrado)
-  const rLock = Math.round(239 + (16 - 239) * lockProgress)
-  const gLock = Math.round(68 + (185 - 68) * lockProgress)
-  const bLock = Math.round(68 + (129 - 68) * lockProgress)
-  const lockCircleColor = `rgb(${rLock}, ${gLock}, ${bLock})`
-
-  const cerradoOpacity = lockProgress
-  const abiertoOpacity = 1 - lockProgress
-
-  // Dinámicos de batería y velocidad
+  // Normalizar batería
   const batteryVal = batteryValue !== undefined ? Math.round(batteryValue) : (hw.battery !== undefined ? hw.battery : 100)
+
+  // Determinar color de la batería según rangos
+  let batteryColor = '#7CFF6B' // Verde (51% - 100%)
+  if (batteryVal <= 25) {
+    batteryColor = '#EF4444' // Rojo (0% - 25%)
+  } else if (batteryVal <= 50) {
+    batteryColor = '#FFFF00' // Amarillo (26% - 50%)
+  }
+
+  // Normalizar dirección (curso) y velocidad
+  const course = courseValue !== undefined ? courseValue : (hw.course || 0)
   const speedVal = speedValue !== undefined ? Math.round(speedValue) : Math.round(hw.speed || 0)
 
-  // Color de la barra de progreso de batería
-  const batteryColor = batteryVal < 20 ? '#EF4444' : '#10B981'
+  if (!svgTemplate.value) {
+    return {
+      url: '/Market Mapa.svg',
+      anchor: new google.maps.Point(ax, ay),
+      scaledSize: new google.maps.Size(w, h)
+    }
+  }
 
   // Calcular el sector circular para el clipPath de la barra de progreso
-  const cx = 460.595
-  const cy = 323.595
+  const cx = 195.218
+  const cy = 208.709
   const r = 300
-  const startAngle = Math.PI // 180 grados (izquierda)
-  const endAngle = Math.PI + (Math.PI * (batteryVal / 100)) // hasta 360 grados (derecha)
+  const startAngle = Math.PI
+  const endAngle = Math.PI + (Math.PI * (batteryVal / 100))
   const x1 = cx + r * Math.cos(startAngle)
   const y1 = cy + r * Math.sin(startAngle)
   const x2 = cx + r * Math.cos(endAngle)
@@ -349,78 +375,19 @@ const getCustomMarkerIcon = (
   const largeArcFlag = (batteryVal > 50) ? 1 : 0
   const clipPathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`
 
-  // Filtro de resplandor/sombra si está seleccionado
-  const filterDef = isSelected 
-    ? `<defs>
-        <filter id="selectedGlow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/>
-          <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.25"/>
-        </filter>
-       </defs>` 
-    : ''
-  const filterAttr = isSelected ? 'filter="url(#selectedGlow)"' : ''
-
-  const svgString = `<svg width="782" height="727" viewBox="0 0 782 727" fill="none" xmlns="http://www.w3.org/2000/svg">
-${filterDef}
-<defs>
-  <clipPath id="battery-clip-${hw.serial}">
-    <path d="${clipPathD}" />
-  </clipPath>
-  <!-- Curva guía para el texto del kilometraje/velocidad -->
-  <path id="speed-curve-${hw.serial}" d="M 300 94 A 280 280 0 0 1 621 94" fill="none" />
-</defs>
-<g id="Pin Brujula" ${filterAttr}>
-<g id="Pin Mapa">
-<path id="Pin" fill-rule="evenodd" clip-rule="evenodd" d="M460.5 68C599.4 68 712 180.6 712 319.5C712 336.454 710.322 353.017 707.124 369.031C684.926 536.308 461.822 726.69 461.822 726.69C461.822 726.69 271.958 564.673 225.103 408.239C214.695 380.644 209 350.737 209 319.5C209 180.6 321.6 68 460.5 68Z" fill="${pinColor}"/>
-<ellipse id="Ellipse 41" cx="456.5" cy="124" rx="199.5" ry="124" fill="${pinColor}"/>
-<path id="Circulo" d="M664.191 323.595C664.191 211.153 573.038 120 460.595 120C348.153 120 257 211.153 257 323.595C257 436.038 348.153 527.191 460.595 527.191C573.038 527.191 664.191 436.038 664.191 323.595Z" fill="white"/>
-</g>
-<g id="Brujula">
-<g transform="rotate(${course}, 460.595, 323.595)">
-<path id="Icono de Brujula" d="M542.361 397.013L482.646 373.202H482.645C468.407 367.525 452.593 367.525 438.355 373.202L378.638 397.015L460.5 227.275L542.361 397.013Z" fill="white" stroke="#0083F6" stroke-width="20" stroke-linejoin="round"/>
-</g>
-<g id="Letras Direccion">
-<path id="N" d="M472.958 131.453V167H466.22L451.107 142.342V167H444.394V131.453H451.107L466.269 156.136V131.453H472.958Z" fill="#838383"/>
-<path id="S" d="M462.997 505.771C462.997 505.088 462.891 504.478 462.68 503.94C462.484 503.387 462.118 502.891 461.581 502.451C461.06 501.995 460.32 501.556 459.359 501.133C458.415 500.693 457.195 500.238 455.697 499.766C454.037 499.245 452.491 498.659 451.059 498.008C449.626 497.357 448.365 496.6 447.274 495.737C446.2 494.875 445.362 493.882 444.76 492.759C444.158 491.619 443.856 490.301 443.856 488.804C443.856 487.339 444.166 486.004 444.784 484.8C445.419 483.595 446.314 482.562 447.47 481.699C448.625 480.82 449.984 480.145 451.547 479.673C453.126 479.201 454.867 478.965 456.771 478.965C459.408 478.965 461.687 479.445 463.607 480.405C465.544 481.366 467.042 482.668 468.1 484.312C469.158 485.955 469.687 487.803 469.687 489.854H462.997C462.997 488.747 462.761 487.77 462.289 486.924C461.833 486.077 461.133 485.41 460.189 484.922C459.262 484.434 458.09 484.189 456.674 484.189C455.307 484.189 454.167 484.393 453.256 484.8C452.361 485.207 451.685 485.76 451.229 486.46C450.79 487.16 450.57 487.941 450.57 488.804C450.57 489.455 450.725 490.041 451.034 490.562C451.343 491.066 451.807 491.546 452.426 492.002C453.044 492.441 453.809 492.856 454.721 493.247C455.648 493.621 456.723 493.996 457.943 493.996C459.896 494.956 461.605 495.607 463.07 496.323C464.551 497.039 465.78 497.853 466.757 498.765C467.75 499.676 468.49 500.701 468.979 501.841C469.483 502.98 469.735 504.274 469.735 505.723C469.735 507.253 469.434 508.62 468.832 509.824C468.23 511.029 467.367 512.054 466.244 512.9C465.121 513.747 463.77 514.39 462.191 514.829C460.629 515.269 458.879 515.488 456.942 515.488C455.217 515.488 453.508 515.26 451.815 514.805C450.139 514.333 448.617 513.633 447.25 512.705C445.883 511.761 444.792 510.573 443.979 509.141C443.165 507.692 442.758 505.999 442.758 504.062H449.496C449.496 505.186 449.675 506.146 450.033 506.943C450.408 507.725 450.928 508.368 451.596 508.872C452.279 509.36 453.077 509.718 453.988 509.946C454.9 510.174 455.884 510.288 456.942 510.288C458.31 510.288 459.433 510.101 460.312 509.727C461.207 509.336 461.874 508.799 462.313 508.115C462.769 507.432 462.997 506.65 462.997 505.771Z" fill="#838383"/>
-<path id="E" d="M651.953 327.727V333H633.057V327.727H651.953ZM635.107 297.453V333H628.394V297.453H635.107ZM649.487 312.126V317.277H633.057V312.126H649.487ZM651.88 297.453V302.751H633.057V297.453H651.88Z" fill="#838383"/>
-<path id="W" d="M278.134 329.188L285.214 300.453H289.047L289.291 306.508L281.723 336H277.67L278.134 329.188ZM273.666 300.453L279.477 329.091V336H275.058L267.001 300.453H273.666ZM296.64 328.969L302.353 300.453H309.042L300.985 336H296.566L296.64 328.969ZM290.878 300.453L297.958 329.286L298.373 336H294.32L286.776 306.483L287.069 300.453H290.878Z" fill="#838383"/>
-</g>
-</g>
-<g id="Candado">
-<circle id="Circulo del Candado" cx="99" cy="116" r="99" fill="${lockCircleColor}"/>
-<g id="Candado Cerrado" opacity="${cerradoOpacity}">
-<path id="Vector" d="M121.107 101.25V88.9583C121.107 76.739 111.202 66.8333 98.9823 66.8333C86.763 66.8333 76.8573 76.739 76.8573 88.9583V101.25" stroke="white" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-<path id="Vector_2" d="M106.354 101.25H91.6073C80.1277 101.25 74.388 101.25 70.0432 103.572C66.6126 105.406 63.8029 108.216 61.9694 111.647C59.6473 115.992 59.6479 121.732 59.649 133.211C59.65 144.689 59.6505 150.428 61.9729 154.772C63.8066 158.202 66.6162 161.011 70.0464 162.845C74.3908 165.167 80.1296 165.167 91.6073 165.167H106.354C117.833 165.167 123.572 165.167 127.917 162.845C131.347 161.011 134.157 158.201 135.99 154.771C138.313 150.426 138.313 144.687 138.313 133.208C138.313 121.73 138.313 115.991 135.99 111.646C134.157 108.215 131.347 105.406 127.917 103.572C123.572 101.25 117.833 101.25 106.354 101.25Z" stroke="white" stroke-width="10" stroke-linecap="round"/>
-<path id="Vector_3" d="M98.9823 143.042C104.413 143.042 108.816 138.639 108.816 133.208C108.816 127.778 104.413 123.375 98.9823 123.375C93.5515 123.375 89.1489 127.778 89.1489 133.208C89.1489 138.639 93.5515 143.042 98.9823 143.042Z" stroke="white" stroke-width="10"/>
-</g>
-<g id="Candado Abierto" opacity="${abiertoOpacity}">
-<path id="Vector_4" d="M98.9808 143.042C104.412 143.042 108.814 138.639 108.814 133.208C108.814 127.778 104.412 123.375 98.9808 123.375C93.55 123.375 89.1475 127.778 89.1475 133.208C89.1475 138.639 93.55 143.042 98.9808 143.042Z" stroke="white" stroke-width="10"/>
-<path id="Vector_5" d="M76.8558 101.25V88.9583C76.8558 76.739 86.7615 66.8333 98.9809 66.8333C108.614 66.8333 115.61 72.99 118.648 81.5833" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="10"/>
-<path id="Vector_6" d="M106.353 101.25H91.6058C80.1263 101.25 74.3865 101.25 70.0417 103.572C66.6112 105.406 63.8015 108.216 61.968 111.647C59.6459 115.992 59.6465 121.732 59.6475 133.211C59.6486 144.689 59.6491 150.428 61.9715 154.772C63.8051 158.202 66.6148 161.011 70.045 162.845C74.3894 165.167 80.1282 165.167 91.6058 165.167H106.353C117.831 165.167 123.571 165.167 127.915 162.845C131.346 161.011 134.156 158.201 135.989 154.771C138.311 150.426 138.311 144.687 138.311 133.208C138.311 121.73 138.311 115.991 135.989 111.646C134.156 108.215 131.346 105.406 127.915 103.572C123.571 101.25 117.831 101.25 106.353 101.25Z" stroke="white" stroke-linecap="round" stroke-width="10"/>
-</g>
-</g>
-<g id="Velocidad Dispositivo">
-  <text font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="80" fill="white">
-    <textPath href="#speed-curve-${hw.serial}" startOffset="50%" text-anchor="middle">
-      ${speedVal} <tspan font-size="38" font-weight="bold" fill="#D1D5DB">KM/H</tspan>
-    </textPath>
-  </text>
-</g>
-<g id="Bateria Dispositivo">
-<path id="Barra de bateria" d="M679.82 326.5C680.24 326.5 679.19 326.5 679.264 326.499C690.199 326.418 699.877 315.908 699.059 305.004C699.054 304.93 699.248 307.281 699.17 306.341C694.494 249.674 670.218 196.248 630.291 155.734C585.658 110.444 525.122 85 462 85C398.878 85 338.342 110.444 293.709 155.734C253.782 196.248 229.506 249.674 224.83 306.341C224.752 307.281 224.947 304.929 224.941 305.004C224.123 315.908 233.801 326.418 244.736 326.499C244.81 326.5 243.76 326.5 244.18 326.5V326.5C244.935 326.5 245.313 326.5 245.379 326.5C256.314 326.427 263.98 319.486 265.135 308.612C265.142 308.546 265.214 307.815 265.36 306.352C269.915 260.564 289.893 217.523 322.248 184.693C359.312 147.083 409.583 125.954 462 125.954C514.417 125.954 564.688 147.083 601.752 184.693C634.107 217.523 654.085 260.564 658.64 306.352C658.786 307.815 658.858 308.546 658.865 308.612C660.02 319.486 667.686 326.427 678.621 326.5C678.687 326.5 679.065 326.5 679.82 326.5V326.5Z" fill="#838383" fill-opacity="0.34"/>
-<path id="Progreso de bateria" clip-path="url(#battery-clip-${hw.serial})" d="M679.82 326.5C680.24 326.5 679.19 326.5 679.264 326.499C690.199 326.418 699.877 315.908 699.059 305.004C699.054 304.93 699.248 307.281 699.17 306.341C694.494 249.674 670.218 196.248 630.291 155.734C585.658 110.444 525.122 85 462 85C398.878 85 338.342 110.444 293.709 155.734C253.782 196.248 229.506 249.674 224.83 306.341C224.752 307.281 224.947 304.929 224.941 305.004C224.123 315.908 233.801 326.418 244.736 326.499C244.81 326.5 243.76 326.5 244.18 326.5V326.5C244.935 326.5 245.313 326.5 245.379 326.5C256.314 326.427 263.98 319.486 265.135 308.612C265.142 308.546 265.214 307.815 265.36 306.352C269.915 260.564 289.893 217.523 322.248 184.693C359.312 147.083 409.583 125.954 462 125.954C514.417 125.954 564.688 147.083 601.752 184.693C634.107 217.523 654.085 260.564 658.64 306.352C658.786 307.815 658.858 308.546 658.865 308.612C660.02 319.486 667.686 326.427 678.621 326.5C678.687 326.5 679.065 326.5 679.82 326.5V326.5Z" fill="${batteryColor}"/>
-</g>
-</g>
-</svg>`
-
-  const scale = getZoomScaleFactor()
-  const w = isSelected ? 120 * scale : 100 * scale
-  const h = isSelected ? 112 * scale : 93 * scale
-  const ax = isSelected ? 71 * scale : 59 * scale
-  const ay = h
+  // Reemplazar opacidades de candados, el d del clip-path, color de batería, rotación de dirección y texto de velocidad en la plantilla SVG
+  const customSvg = svgTemplate.value
+    .replace('id="closed-lock" opacity="1"', `id="closed-lock" opacity="${cerradoOpacity}"`)
+    .replace('id="open-lock" opacity="0"', `id="open-lock" opacity="${abiertoOpacity}"`)
+    .replace('id="battery-clip-path" d="M 195 230 L 195 230 A 300 300 0 1 1 195 230 Z"', `id="battery-clip-path" d="${clipPathD}"`)
+    .replace('fill="#7CFF6B"', `fill="${batteryColor}"`)
+    .replace('stop-color="#7CFF6B"', `stop-color="${batteryColor}"`)
+    .replace('transform="rotate(0, 195, 153)"', `transform="rotate(${course}, 195, 153)"`)
+    .replace('100KM', `${speedVal} KM/H`)
+    .replace('id="lock-line" opacity="1"', `id="lock-line" opacity="${hasLock ? 1 : 0}"`)
 
   return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(customSvg),
     anchor: new google.maps.Point(ax, ay),
     scaledSize: new google.maps.Size(w, h)
   }
@@ -629,6 +596,37 @@ const updateMarkersOnMap = () => {
           selectItem(esc)
         })
 
+        // Mostrar mini modal con información al pasar el cursor (hover)
+        marker.addListener('mouseover', () => {
+          if (infoWindow && map.value) {
+            infoWindow.setContent(`
+              <div class="custom-infowindow" style="
+                padding: 10px 14px;
+                color: #f8fafc;
+                font-family: 'Inter', sans-serif;
+                min-width: 170px;
+              ">
+                <div style="font-weight: 700; font-size: 13.5px; color: #ffffff; margin-bottom: 5px; letter-spacing: -0.01em;">
+                  ${esc.nombre}
+                </div>
+                <div style="font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5da6fc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <span style="font-weight: 500; color: #cbd5e1;">${esc.celular || 'Sin celular'}</span>
+                </div>
+              </div>
+            `)
+            infoWindow.open(map.value, marker)
+          }
+        })
+
+        marker.addListener('mouseout', () => {
+          if (infoWindow) {
+            infoWindow.close()
+          }
+        })
+
         markersMap.set(esc.id_escolta, marker)
       }
     })
@@ -781,6 +779,16 @@ onMounted(() => {
   initMap()
   // La pestaña por defecto es HARDWARE, conectar inmediatamente
   connectWebSocket()
+
+  // Cargar plantilla del SVG de forma externa
+  fetch('/Market Mapa.svg?t=' + Date.now())
+    .then(res => res.text())
+    .then(text => {
+      svgTemplate.value = text
+    })
+    .catch(err => {
+      console.error('Error al cargar plantilla de Market Mapa.svg:', err)
+    })
 })
 
 onUnmounted(() => {
@@ -962,5 +970,47 @@ onUnmounted(() => {
 }
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(93, 166, 252, 0.4);
+}
+</style>
+
+<style>
+/* Estilos globales para personalizar el InfoWindow de Google Maps a modo oscuro */
+.gm-style-iw-c {
+  background-color: #13161c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 12px 24px -6px rgba(0, 0, 0, 0.7) !important;
+}
+
+.gm-style-iw-d {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+
+.gm-style-iw-tc::after {
+  background: #13161c !important;
+  box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.4);
+}
+
+.gm-ui-hover-effect {
+  display: none !important; /* Ocultar botón de cierre nativo al ser hover */
+}
+
+/* Animación de entrada para el contenido del InfoWindow */
+@keyframes infowindowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.custom-infowindow {
+  animation: infowindowFadeIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform-origin: bottom center;
 }
 </style>
