@@ -16,6 +16,8 @@ export interface MapSetupOptions {
   defaultZoom?: number
   gestureHandling?: 'cooperative' | 'greedy' | 'auto'
   forceDark?: boolean
+  /** Map ID de Google Cloud — habilita mapas vectoriales con setTilt() y setHeading() nativos */
+  mapId?: string
 }
 
 export interface MapSetupReturn {
@@ -80,7 +82,8 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
 
   const {
     defaultZoom = 12,
-    gestureHandling
+    gestureHandling,
+    mapId
   } = options
 
   /** Inicializa el mapa de Google Maps en el contenedor dado */
@@ -93,9 +96,18 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
     const mapOptions: google.maps.MapOptions = {
       center: { lat: 4.6097, lng: -74.0817 }, // Bogotá
       zoom: defaultZoom,
-      styles: getMapStyle(activeTheme.value, isDarkMapMode.value),
       disableDefaultUI: true,
       zoomControl: true,
+    }
+
+    if (mapId) {
+      // Mapa vectorial con Map ID — el estilo personalizado se carga automáticamente
+      // desde Google Cloud Console según el estilo asociado al Map ID.
+      // No usar colorScheme ni styles[]: ambos sobreescriben el estilo del Cloud Console.
+      mapOptions.mapId = mapId
+    } else {
+      // Fallback: mapa raster con estilos JS (sin soporte de tilt nativo)
+      mapOptions.styles = getMapStyle(activeTheme.value, isDarkMapMode.value)
     }
 
     if (gestureHandling) {
@@ -153,9 +165,9 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
     }
   }
 
-  // Reactivo al cambio de tema oscuro/claro
+  // Reactivo al cambio de tema oscuro/claro (solo aplica en mapas raster sin mapId)
   watch(isDarkMapMode, (isDark) => {
-    if (map.value) {
+    if (map.value && !mapId) {
       map.value.setOptions({ styles: getMapStyle(activeTheme.value, isDark) })
     }
   })

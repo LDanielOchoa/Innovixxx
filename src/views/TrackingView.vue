@@ -72,7 +72,9 @@ const {
 } = useMapSetup('google-map-container', {
   defaultZoom: 13,
   gestureHandling: 'greedy',
-  forceDark: true
+  forceDark: true,
+  // Map ID real con el estilo personalizado del usuario — habilita vector maps con setTilt() nativo
+  mapId: '688c00fbadb30bbb930f73e2'
 })
 
 // WebSocket
@@ -324,70 +326,126 @@ const getCustomMarkerIcon = (
   const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
   const scale = getZoomScaleFactor()
 
-  // Dimensiones de Market Mapa.svg (391 x 519)
-  const baseWidth = isSelected ? 120 : 100
+  // Proporción del marcador (200 x 240)
+  const baseWidth = isSelected ? 130 : 105
   const w = baseWidth * scale
-  const h = w * (519 / 391)
+  const h = w * (240 / 200)
   const ax = w / 2
-  const ay = h
+  // El ancla en Y debe coincidir con la base del marcador en el SVG (alrededor de Y=210 de 240)
+  const ay = h * (210 / 240)
 
   // Normalizar candado
   const hasLock = hw.status_lock !== undefined && hw.status_lock !== null && hw.status_lock !== ''
-  console.log(`[GPS Lock Debug] serial: ${hw.serial}, status_lock: ${hw.status_lock}, hasLock: ${hasLock}`)
   const isClosed = formatLockStatus(hw.status_lock) === 'CERRADO'
   const lockProgress = lockProgressValue !== undefined ? lockProgressValue : (isClosed ? 1 : 0)
-  const cerradoOpacity = hasLock ? lockProgress : 0
-  const abiertoOpacity = hasLock ? (1 - lockProgress) : 0
+  const drawClosed = lockProgress > 0.5
 
   // Normalizar batería
   const batteryVal = batteryValue !== undefined ? Math.round(batteryValue) : (hw.battery !== undefined ? hw.battery : 100)
 
   // Determinar color de la batería según rangos
-  let batteryColor = '#7CFF6B' // Verde (51% - 100%)
+  let batteryColor = '#10B981' // Verde esmeralda
   if (batteryVal <= 25) {
-    batteryColor = '#EF4444' // Rojo (0% - 25%)
+    batteryColor = '#EF4444' // Rojo
   } else if (batteryVal <= 50) {
-    batteryColor = '#FFFF00' // Amarillo (26% - 50%)
+    batteryColor = '#F59E0B' // Naranja/Amarillo
   }
 
   // Normalizar dirección (curso) y velocidad
   const course = courseValue !== undefined ? courseValue : (hw.course || 0)
   const speedVal = speedValue !== undefined ? Math.round(speedValue) : Math.round(hw.speed || 0)
 
-  if (!svgTemplate.value) {
-    return {
-      url: '/Market Mapa.svg',
-      anchor: new google.maps.Point(ax, ay),
-      scaledSize: new google.maps.Size(w, h)
-    }
-  }
+  // Nombre acortado para que quepa bien
+  const displayName = hw.nombre ? (hw.nombre.length > 14 ? hw.nombre.substring(0, 12) + '..' : hw.nombre) : hw.serial
 
-  // Calcular el sector circular para el clipPath de la barra de progreso
-  const cx = 195.218
-  const cy = 208.709
-  const r = 300
-  const startAngle = Math.PI
-  const endAngle = Math.PI + (Math.PI * (batteryVal / 100))
-  const x1 = cx + r * Math.cos(startAngle)
-  const y1 = cy + r * Math.sin(startAngle)
-  const x2 = cx + r * Math.cos(endAngle)
-  const y2 = cy + r * Math.sin(endAngle)
-  const largeArcFlag = (batteryVal > 50) ? 1 : 0
-  const clipPathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArcFlag} 1 ${x2} ${y2} Z`
+  // Crear el SVG dinámico estilo 3D Waze
+  const svgString = `<svg width="200" height="240" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <!-- Sombra suave para el globo de información -->
+      <filter id="bubble-shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.4" />
+      </filter>
+      <!-- Resplandor cuando está seleccionado -->
+      <filter id="selected-glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#5da6fc" flood-opacity="0.7" />
+        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.3" />
+      </filter>
+      <!-- Degradado de la flecha 3D principal -->
+      <linearGradient id="arrow-top" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#38BDF8" />
+        <stop offset="100%" stop-color="#0284C7" />
+      </linearGradient>
+      <linearGradient id="arrow-side" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#0369A1" />
+        <stop offset="100%" stop-color="#075985" />
+      </linearGradient>
+      <!-- Degradado de fondo tipo Glassmorphic -->
+      <linearGradient id="bubble-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#1E293B" stop-opacity="0.94" />
+        <stop offset="100%" stop-color="#0F172A" stop-opacity="0.98" />
+      </linearGradient>
+    </defs>
 
-  // Reemplazar opacidades de candados, el d del clip-path, color de batería, rotación de dirección y texto de velocidad en la plantilla SVG
-  const customSvg = svgTemplate.value
-    .replace('id="closed-lock" opacity="1"', `id="closed-lock" opacity="${cerradoOpacity}"`)
-    .replace('id="open-lock" opacity="0"', `id="open-lock" opacity="${abiertoOpacity}"`)
-    .replace('id="battery-clip-path" d="M 195 230 L 195 230 A 300 300 0 1 1 195 230 Z"', `id="battery-clip-path" d="${clipPathD}"`)
-    .replace('fill="#7CFF6B"', `fill="${batteryColor}"`)
-    .replace('stop-color="#7CFF6B"', `stop-color="${batteryColor}"`)
-    .replace('transform="rotate(0, 195, 153)"', `transform="rotate(${course}, 195, 153)"`)
-    .replace('100KM', `${speedVal} KM/H`)
-    .replace('id="lock-line" opacity="1"', `id="lock-line" opacity="${hasLock ? 1 : 0}"`)
+    <!-- Sombra del piso (Bajo la flecha) -->
+    <ellipse cx="100" cy="210" rx="28" ry="8" fill="#000000" fill-opacity="0.35" />
+
+    <!-- Flecha 3D estilo Waze (rota según dirección del curso) -->
+    <g transform="translate(100, 185) rotate(${course})">
+      <!-- Sombra proyectada por la flecha en sí -->
+      <path d="M 0 -22 L 18 16 L 0 7 L -18 16 Z" fill="#000000" fill-opacity="0.25" transform="translate(0, 2)" />
+      <!-- Parte lateral 3D (da profundidad) -->
+      <path d="M -18 16 L 0 7 L 18 16 L 18 20 L 0 11 L -18 20 Z" fill="url(#arrow-side)" />
+      <!-- Superficie superior de la flecha -->
+      <path d="M 0 -22 L 18 16 L 0 7 L -18 16 Z" fill="url(#arrow-top)" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round" />
+    </g>
+
+    <!-- Indicador de conexión hacia el globo de información (punta del globo) -->
+    <path d="M 93 128 L 100 144 L 107 128 Z" fill="#0F172A" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+
+    <!-- Globo de información estilo Waze flotando arriba -->
+    <g filter="url(#${isSelected ? 'selected-glow' : 'bubble-shadow'})">
+      <!-- Cuerpo del globo -->
+      <rect x="15" y="48" width="170" height="80" rx="18" fill="url(#bubble-bg)" stroke="${isSelected ? '#5da6fc' : 'rgba(255,255,255,0.1)'}" stroke-width="2" />
+      
+      <!-- LADO IZQUIERDO: Tacómetro / Velocidad (círculo tipo señal de tránsito) -->
+      <circle cx="48" cy="88" r="22" fill="#FFFFFF" stroke="#EF4444" stroke-width="3.5" />
+      <text x="48" y="93" font-family="'Inter', sans-serif" font-weight="900" font-size="16" fill="#1E293B" text-anchor="middle">${speedVal}</text>
+      <text x="48" y="103" font-family="'Inter', sans-serif" font-weight="800" font-size="7" fill="#64748B" text-anchor="middle">KM/H</text>
+
+      <!-- LADO DERECHO: Nombre del dispositivo y fila de estados (Batería y Candado) -->
+      <!-- Nombre -->
+      <text x="80" y="74" font-family="'Inter', sans-serif" font-weight="800" font-size="12" fill="#FFFFFF" text-anchor="start">${displayName.toUpperCase()}</text>
+
+      <!-- Icono de Batería y porcentaje -->
+      <g transform="translate(80, 84)">
+        <!-- Cuerpo de batería -->
+        <rect x="0" y="0" width="20" height="10" rx="2" fill="none" stroke="#94A3B8" stroke-width="1.5" />
+        <rect x="20" y="3" width="2" height="4" rx="0.5" fill="#94A3B8" />
+        <!-- Relleno de batería -->
+        <rect x="2" y="2" width="${16 * (batteryVal / 100)}" height="6" rx="1.2" fill="${batteryColor}" />
+        <!-- Texto de batería -->
+        <text x="27" y="9" font-family="'Inter', sans-serif" font-weight="800" font-size="9" fill="#E2E8F0" text-anchor="start">${batteryVal}%</text>
+      </g>
+
+      <!-- Estado de Seguridad (Candado o Estado Online) -->
+      <g transform="translate(80, 102)">
+        ${hasLock ? `
+          <!-- Candado -->
+          <rect x="0" y="3" width="10" height="7" rx="1.5" fill="${drawClosed ? '#EF4444' : '#10B981'}" />
+          <path d="${drawClosed ? 'M 2 3 L 2 2 A 3 3 0 0 1 8 2 L 8 3' : 'M 2 3 L 2 1.5 A 3 3 0 0 1 8 1.5 A 3 3 0 0 1 8 0'}" fill="none" stroke="${drawClosed ? '#EF4444' : '#10B981'}" stroke-width="1.5" stroke-linecap="round" />
+          <text x="15" y="10" font-family="'Inter', sans-serif" font-weight="800" font-size="9.5" fill="${drawClosed ? '#EF4444' : '#10B981'}">${drawClosed ? 'CERRADO' : 'ABIERTO'}</text>
+        ` : `
+          <!-- GPS OK / ONLINE -->
+          <circle cx="5" cy="6" r="4.5" fill="#3B82F6" />
+          <path d="M 3.5 6 L 4.5 7 L 7 4.5" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          <text x="15" y="9.5" font-family="'Inter', sans-serif" font-weight="800" font-size="9.5" fill="#3B82F6">ONLINE</text>
+        `}
+      </g>
+    </g>
+  </svg>`
 
   return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(customSvg),
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
     anchor: new google.maps.Point(ax, ay),
     scaledSize: new google.maps.Size(w, h)
   }
@@ -648,13 +706,42 @@ const updateMarkersOnMap = () => {
 
 
 
+// Perspectiva 3D nativa de Google Maps — setTilt() funciona en mapas vectoriales (mapId).
+// Rango soportado: 0° (plano) hasta 67.5° (máximo que permite la API).
+const adjustMapTilt = (targetMap: any) => {
+  if (!targetMap) return
+  const zoom = targetMap.getZoom() || 13
+
+  // Perspectiva máxima agresiva estilo Waze:
+  // Zoom ≤ 10 → 0°    (vista global, completamente plana)
+  // Zoom 11   → 20°   (primer hint de perspectiva)
+  // Zoom 12   → 40°   (perspectiva notable)
+  // Zoom 13   → 55°   (perspectiva fuerte)
+  // Zoom ≥ 14 → 67.5° (MÁXIMO de la API — efecto Waze completo)
+  let tilt = 0
+  if (zoom >= 14) {
+    tilt = 67.5
+  } else if (zoom === 13) {
+    tilt = 55
+  } else if (zoom === 12) {
+    tilt = 40
+  } else if (zoom === 11) {
+    tilt = 20
+  }
+
+  targetMap.setTilt(tilt)
+}
+
 // Sincronizar markers cuando el mapa se carga
 watch(map, (newMap) => {
   if (newMap) {
     updateMarkersOnMap()
-    // Escuchar cambios de zoom para re-escalar los marcadores
+    adjustMapTilt(newMap)
+
+    // Escuchar cambios de zoom para re-escalar los marcadores y ajustar la perspectiva 3D
     newMap.addListener('zoom_changed', () => {
       updateMarkersOnMap()
+      adjustMapTilt(newMap)
     })
   }
 })
@@ -662,10 +749,11 @@ watch(map, (newMap) => {
 // Selección de elementos
 const selectItem = (item: any) => {
   selectedItem.value = item
-  
+
   if (item.lat && item.lon && map.value) {
     map.value.panTo({ lat: item.lat, lng: item.lon })
-    map.value.setZoom(16)
+    map.value.setZoom(17) // Zoom 17 para que el tilt máximo (67.5°) se active inmediatamente
+    adjustMapTilt(map.value)
   }
 }
 
@@ -802,7 +890,7 @@ onUnmounted(() => {
   <div class="dark h-screen w-screen flex bg-[#0B0D11] text-slate-100 overflow-hidden font-sans relative">
     
     <!-- MAPA BACKDROP -->
-    <div class="absolute inset-0 z-0">
+    <div class="absolute inset-0 z-0 overflow-hidden">
       <div id="google-map-container" class="w-full h-full bg-[#0d1116]"></div>
     </div>
 
