@@ -59,6 +59,10 @@ const svgTemplate = ref<string>('')
 const hoveredItem = ref<HardwareWs | null>(null)
 const hoveredPosition = ref({ top: 0, left: 0 })
 
+// Hover state para escoltas
+const hoveredEscoltaItem = ref<any | null>(null)
+const hoveredEscoltaPosition = ref({ top: 0, left: 0 })
+
 // Reference lists for cross-linking data
 const refServicios = ref<any[]>([])
 const refEscoltas = ref<any[]>([])
@@ -88,6 +92,15 @@ const hoveredEscolta = computed(() => {
   const serviceId = hoveredItem.value.id_servicio
   if (serviceId) {
     return refEscoltas.value.find(e => e.id_servicio === serviceId)
+  }
+  return null
+})
+
+const hoveredEscoltaService = computed(() => {
+  if (!hoveredEscoltaItem.value) return null
+  const serviceId = hoveredEscoltaItem.value.id_servicio
+  if (serviceId) {
+    return refServicios.value.find(s => s.id_servicio === serviceId)
   }
   return null
 })
@@ -506,10 +519,10 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   return container
 }
 
-const createEscoltaMarkerElement = (isSelected: boolean) => {
+const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-escolta-marker'
-  container.style.cssText = 'position:relative;width:48px;height:48px;'
+  container.style.cssText = 'position:relative;width:48px;height:48px;cursor:pointer;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
@@ -547,6 +560,25 @@ const createEscoltaMarkerElement = (isSelected: boolean) => {
   inner.style.transform = `scale(${scale})`
 
   container.appendChild(inner)
+
+  // Event listeners para hover popover de escoltas
+  container.addEventListener('mouseenter', () => {
+    const mapDiv = map.value?.getDiv()
+    if (!mapDiv) return
+    const mapRect = mapDiv.getBoundingClientRect()
+    const markerRect = container.getBoundingClientRect()
+
+    hoveredEscoltaPosition.value = {
+      top: markerRect.top - mapRect.top - 10,
+      left: markerRect.left - mapRect.left + (markerRect.width / 2)
+    }
+    hoveredEscoltaItem.value = esc
+  })
+
+  container.addEventListener('mouseleave', () => {
+    hoveredEscoltaItem.value = null
+  })
+
   return container
 }
 
@@ -764,7 +796,7 @@ const updateMarkersOnMap = () => {
 
       if (marker) {
         marker.position = { lat: esc.lat, lng: esc.lon }
-        marker.content = createEscoltaMarkerElement(isSelected)
+        marker.content = createEscoltaMarkerElement(esc, isSelected)
         marker.zIndex = isSelected ? 1000 : 1
       } else {
         const position = { lat: esc.lat, lng: esc.lon }
@@ -773,44 +805,12 @@ const updateMarkersOnMap = () => {
           position,
           map: map.value,
           title: esc.nombre,
-          content: createEscoltaMarkerElement(isSelected),
-          zIndex: isSelected ? 1000 : 1,
-          anchorLeft: '24px',
-          anchorTop: '24px'
+          content: createEscoltaMarkerElement(esc, isSelected),
+          zIndex: isSelected ? 1000 : 1
         })
 
         marker.addListener('click', () => {
           selectItem(esc)
-        })
-
-        marker.addListener('mouseover', () => {
-          if (infoWindow && map.value) {
-            infoWindow.setContent(`
-              <div class="custom-infowindow" style="
-                padding: 10px 14px;
-                color: #f8fafc;
-                font-family: 'Inter', sans-serif;
-                min-width: 170px;
-              ">
-                <div style="font-weight: 700; font-size: 13.5px; color: #ffffff; margin-bottom: 5px; letter-spacing: -0.01em;">
-                  ${esc.nombre}
-                </div>
-                <div style="font-size: 11.5px; color: #94a3b8; display: flex; align-items: center; gap: 6px;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5da6fc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-                  </svg>
-                  <span style="font-weight: 500; color: #cbd5e1;">${esc.celular || 'Sin celular'}</span>
-                </div>
-              </div>
-            `)
-            infoWindow.open(map.value, marker)
-          }
-        })
-
-        marker.addListener('mouseout', () => {
-          if (infoWindow) {
-            infoWindow.close()
-          }
         })
 
         markersMap.set(esc.id_escolta, marker)
@@ -893,14 +893,14 @@ watch(selectedItem, (newVal, oldVal) => {
   if (oldVal && oldVal.id_escolta) {
     const m = markersMap.get(oldVal.id_escolta)
     if (m) {
-      m.content = createEscoltaMarkerElement(false)
+      m.content = createEscoltaMarkerElement(oldVal, false)
       m.zIndex = 1
     }
   }
   if (newVal && newVal.id_escolta) {
     const m = markersMap.get(newVal.id_escolta)
     if (m) {
-      m.content = createEscoltaMarkerElement(true)
+      m.content = createEscoltaMarkerElement(newVal, true)
       m.zIndex = 1000
     }
   }
@@ -1043,6 +1043,50 @@ onUnmounted(() => {
               <div v-if="hoveredEscolta?.celular" class="flex items-center justify-between gap-2 text-[9px]">
                 <span class="text-slate-400">Celular</span>
                 <span class="text-slate-300 font-mono">{{ hoveredEscolta.celular }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Triángulo indicador -->
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-950/85 -mt-[1px]"></div>
+        </div>
+      </Transition>
+
+      <!-- Popover de información de Escolta (con animación premium) -->
+      <Transition name="hover-card-pop">
+        <div 
+          v-if="hoveredEscoltaItem" 
+          :style="{ top: hoveredEscoltaPosition.top + 'px', left: hoveredEscoltaPosition.left + 'px' }"
+          class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
+        >
+          <!-- Contenido de la Tarjeta Minimalista -->
+          <div class="w-[200px] bg-slate-950/85 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-lg text-left flex flex-col gap-2 font-sans">
+            <!-- Header -->
+            <div class="flex items-baseline justify-between min-w-0">
+              <h4 class="text-[11px] font-bold text-white truncate max-w-[120px]">{{ hoveredEscoltaItem.nombre }}</h4>
+              <span v-if="hoveredEscoltaItem.identificacion" class="text-[8px] font-medium text-slate-400 font-mono shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
+            </div>
+
+            <!-- Separador sutil -->
+            <div class="h-[1px] bg-white/5"></div>
+
+            <!-- Información principal -->
+            <div class="flex flex-col gap-1.5 text-[9.5px]">
+              <!-- Servicio -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400">Servicio</span>
+                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredEscoltaService?.id_servicio || hoveredEscoltaItem.id_servicio || 'Sin servicio' }}</span>
+              </div>
+
+              <!-- Celular -->
+              <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between gap-2">
+                <span class="text-slate-400">Celular</span>
+                <span class="text-white font-medium truncate max-w-[120px] font-mono">{{ hoveredEscoltaItem.celular }}</span>
+              </div>
+
+              <!-- Email -->
+              <div v-if="hoveredEscoltaItem.email" class="flex items-center justify-between gap-2">
+                <span class="text-slate-400">Email</span>
+                <span class="text-white font-medium truncate max-w-[120px] font-mono">{{ hoveredEscoltaItem.email }}</span>
               </div>
             </div>
           </div>

@@ -91,7 +91,7 @@ export function useRouteDrawer(
     startParadaIndex: number,
     paradas: ParadaPayload[],
     color: string,
-    usePolyline: boolean = false
+    usePolyline: boolean = true
   ) => {
     clearDebounce()
 
@@ -103,8 +103,7 @@ export function useRouteDrawer(
         return
       }
 
-      // Si tiene más de 15 paradas, forzar el uso de polilínea directa para no saturar la API
-      const forcePolyline = usePolyline || paradas.length > 15
+      const forcePolyline = true
 
       if (forcePolyline) {
         _clearRenderers(0)
@@ -136,12 +135,11 @@ export function useRouteDrawer(
   /**
    * Dibuja la ruta completa (sin debounce) — usado al cargar datos existentes.
    */
-  const drawFullRoute = (paradas: ParadaPayload[], color: string, usePolyline: boolean = false) => {
+  const drawFullRoute = (paradas: ParadaPayload[], color: string, usePolyline: boolean = true) => {
     _clearRenderers(0)
     if (paradas.length < 2) return
 
-    // Si tiene más de 15 paradas, forzar el uso de polilínea directa para no saturar la API
-    const forcePolyline = usePolyline || paradas.length > 15
+    const forcePolyline = true
 
     if (forcePolyline) {
       const polyline = new (window as any).google.maps.Polyline({
@@ -170,7 +168,7 @@ export function useRouteDrawer(
   const highlightSegment = (
     origin: ParadaPayload,
     destination: ParadaPayload,
-    usePolyline: boolean = false
+    usePolyline: boolean = true
   ) => {
     if (!map.value) return
 
@@ -178,7 +176,7 @@ export function useRouteDrawer(
       try { highlightedRenderer.value.setMap(null) } catch (_) {}
     }
 
-    const forcePolyline = usePolyline
+    const forcePolyline = true
 
     if (forcePolyline) {
       highlightedRenderer.value = new (window as any).google.maps.Polyline({

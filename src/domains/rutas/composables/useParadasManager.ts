@@ -49,7 +49,7 @@ const getIconUrl = (tipoId: number): string => {
   }
 }
 
-const createCircularIcon = (url: string, strokeColor: string, index: number, callback: (dataUrl: string) => void) => {
+const createCircularIcon = (url: string, strokeColor: string, index: number, isNormal: boolean, callback: (dataUrl: string) => void) => {
   const size = 64
   const canvas = document.createElement('canvas')
   canvas.width = size
@@ -62,7 +62,7 @@ const createCircularIcon = (url: string, strokeColor: string, index: number, cal
   img.onload = () => {
     const centerX = size / 2
     const centerY = size / 2
-    const radius = 21
+    const radius = isNormal ? 14 : 21
 
     // Sombra suave para el círculo principal
     ctx.shadowColor = 'rgba(0, 0, 0, 0.25)'
@@ -85,40 +85,30 @@ const createCircularIcon = (url: string, strokeColor: string, index: number, cal
     ctx.stroke()
 
     // Dibujar la imagen centrada con un poco de padding
-    const imgSize = 25
+    const imgSize = isNormal ? 16 : 25
     ctx.drawImage(img, centerX - imgSize / 2, centerY - imgSize / 2, imgSize, imgSize)
-
-    // Dibujar el badge con el número arriba a la derecha del círculo
-    const badgeX = centerX + 15
-    const badgeY = centerY - 15
-    const badgeRadius = 9
-
-    // Sombra suave para el badge
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.15)'
-    ctx.shadowBlur = 3
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 1.5
-
-    ctx.beginPath()
-    ctx.arc(badgeX, badgeY, badgeRadius, 0, 2 * Math.PI)
-    ctx.fillStyle = strokeColor
-    ctx.fill()
-
-    // Borde blanco del badge
-    ctx.lineWidth = 1.5
-    ctx.strokeStyle = '#FFFFFF'
-    ctx.stroke()
-
-    // Texto del badge
-    ctx.shadowColor = 'transparent'
-    ctx.fillStyle = '#FFFFFF'
-    ctx.font = 'bold 10px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText((index + 1).toString(), badgeX, badgeY)
 
     callback(canvas.toDataURL())
   }
+}
+
+const formatFecha = (fechaStr: any): string => {
+  if (!fechaStr) return ''
+  const num = Number(fechaStr)
+  if (!isNaN(num) && num > 0) {
+    // Si tiene 10 dígitos (segundos), multiplicar por 1000
+    const dateObj = new Date(num < 10000000000 ? num * 1000 : num)
+    if (!isNaN(dateObj.getTime())) {
+      const y = dateObj.getFullYear()
+      const m = String(dateObj.getMonth() + 1).padStart(2, '0')
+      const d = String(dateObj.getDate()).padStart(2, '0')
+      const h = String(dateObj.getHours()).padStart(2, '0')
+      const min = String(dateObj.getMinutes()).padStart(2, '0')
+      const s = String(dateObj.getSeconds()).padStart(2, '0')
+      return `${y}-${m}-${d} ${h}:${min}:${s}`
+    }
+  }
+  return String(fechaStr)
 }
 
 // ── Composable ───────────────────────────────────────────────
@@ -133,37 +123,13 @@ export function useParadasManager(
   const paradasInfoWindows = ref<any[]>([])
 
   const calculateInsertionIndex = (lat: number, lon: number): number => {
-    const ps = paradasTemporales.value
-    if (ps.length === 0) return 0
-
-    const first = ps[0]!
-    if (ps.length === 1) {
-      return calcDistance(lat, lon, first.lat, first.lon) < 0.5 ? 1 : 0
-    }
-
-    let minDist = Infinity
-    let bestIdx = ps.length
-
-    for (let i = 0; i < ps.length - 1; i++) {
-      const p1 = ps[i]!, p2 = ps[i + 1]!
-      const d = distanceToSegment(lat, lon, p1.lat, p1.lon, p2.lat, p2.lon)
-      if (d < minDist) { minDist = d; bestIdx = i + 1 }
-    }
-
-    const last = ps[ps.length - 1]!
-    const dFirst = calcDistance(lat, lon, first.lat, first.lon)
-    const dLast = calcDistance(lat, lon, last.lat, last.lon)
-
-    if (dFirst < minDist * 1.5) return 0
-    if (dLast < minDist * 1.5) return ps.length
-
-    return bestIdx
+    return paradasTemporales.value.length
   }
 
   // ── Marcadores ────────────────────────────────────────────
 
   /** Agrega un marcador al mapa para una parada concreta */
-  const addMarker = (lat: number, lon: number, tipoNombre: string, index: number, tipoId: number) => {
+  const addMarker = (lat: number, lon: number, tipoNombre: string, index: number, tipoId: number, fecha?: string) => {
     if (!map.value || !(window as any).google) return
 
     const color = routeColor.value || '#3b82f6'
@@ -179,7 +145,7 @@ export function useParadasManager(
       }
     })
 
-    createCircularIcon(getIconUrl(tipoId), color, index, (dataUrl) => {
+    createCircularIcon(getIconUrl(tipoId), color, index, tipoId === 1, (dataUrl) => {
       marker.setIcon({
         url: dataUrl,
         scaledSize: new (window as any).google.maps.Size(64, 64),
@@ -187,8 +153,15 @@ export function useParadasManager(
       })
     })
 
+    let contentString = `<div style="padding: 6px 12px; text-align: center; font-family: 'Share Tech Mono', monospace; min-width: 140px;">`
+    contentString += `<div style="font-size: 13px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em;${fecha ? ' margin-bottom: 2px;' : ''}">${tipoNombre}</div>`
+    if (fecha) {
+      contentString += `<div style="font-size: 11px; color: #64748b; font-weight: 500; letter-spacing: 0.02em;">${formatFecha(fecha)}</div>`
+    }
+    contentString += `</div>`
+
     const infoWindow = new (window as any).google.maps.InfoWindow({
-      content: `<div style="color:#0d1116;font-family:'Share Tech Mono',monospace;font-size:12px;font-weight:bold;padding:2px 4px;text-transform:uppercase;">${tipoNombre}</div>`
+      content: contentString
     })
 
     paradasInfoWindows.value.push(infoWindow)
@@ -222,7 +195,7 @@ export function useParadasManager(
     clearMarkers()
     paradasTemporales.value.forEach((p, idx) => {
       const nombre = tiposParada.value.find(t => t.id_tipo === p.tipo)?.nombre || 'Parada'
-      addMarker(p.lat, p.lon, nombre, idx, p.tipo)
+      addMarker(p.lat, p.lon, nombre, idx, p.tipo, (p as any).fecha)
     })
   }
 
@@ -237,9 +210,10 @@ export function useParadasManager(
     lat: number,
     lon: number,
     tipo: number,
-    insertionIndex: number
+    insertionIndex: number,
+    fecha?: string
   ): number => {
-    const newParada: ParadaPayload = { lat, lon, tipo }
+    const newParada: ParadaPayload & { fecha?: string } = { lat, lon, tipo, fecha }
     paradasTemporales.value.splice(insertionIndex, 0, newParada)
     redrawMarkers()
     return insertionIndex

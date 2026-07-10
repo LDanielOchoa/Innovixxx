@@ -57,8 +57,8 @@ export async function apiClient<T>(
       // Si no es JSON, capturamos el status
     }
 
-    // Interceptor 401 (sesión expirada) - logout automático
-    if (response.status === 401) {
+    // Interceptor 401 (sesión expirada) y 496 (sesión eliminada/expirada) - logout automático
+    if (response.status === 401 || response.status === 496) {
       import('../stores/auth.store').then(({ useAuthStore }) => {
         import('../router').then(({ default: router }) => {
           const authStore = useAuthStore()

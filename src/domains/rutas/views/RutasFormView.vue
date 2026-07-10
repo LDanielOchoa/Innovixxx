@@ -189,16 +189,7 @@
                 </span>
               </div>
 
-              <!-- Vista previa -->
-              <div v-if="paradasTemporales.length > 0" class="flex items-center gap-1.5 flex-wrap">
-                <div v-for="(_, i) in paradasTemporales" :key="i"
-                     class="w-7 h-7 rounded-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-[11px] font-bold text-slate-700 dark:text-slate-300 shadow-sm">
-                  {{ i + 1 }}
-                </div>
-                <div class="w-7 h-7 rounded-[8px] border border-dashed border-slate-300 dark:border-white/10 flex items-center justify-center">
-                  <HugeiconsIcon :icon="Add01Icon" :size="12" class="text-slate-400" />
-                </div>
-              </div>
+
 
               <button 
                 type="button" 
@@ -451,7 +442,6 @@ import {
   ArrowLeft01Icon,
   Location01Icon,
   Route01Icon,
-  Add01Icon,
   Delete01Icon,
   Shield01Icon,
   Tick01Icon,
@@ -915,18 +905,18 @@ const verificarRutaGps = async () => {
     const ultima  = posiciones[posiciones.length - 1]
 
     const nuevasParadas = []
-    nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio })
+    nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio, fecha: primera.time_fx || primera.server_time })
 
     // Mapear todos los puntos intermedios reales del GPS
     if (posiciones.length > 2) {
       for (let i = 1; i < posiciones.length - 1; i++) {
         const pos = posiciones[i]
-        nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio })
+        nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio, fecha: pos.time_fx || pos.server_time })
       }
     }
 
     if (posiciones.length > 1) {
-      nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin })
+      nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin, fecha: ultima.time_fx || ultima.server_time })
     }
 
     paradasTemporales.value = nuevasParadas
