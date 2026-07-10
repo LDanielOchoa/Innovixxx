@@ -52,7 +52,7 @@ export function useGoogleMaps() {
 
       const script = document.createElement('script')
       script.id = SCRIPT_ID
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAP_KEY}&libraries=places&language=es`
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${MAP_KEY}&libraries=places,marker&language=es`
       script.async = true
       script.defer = true
       script.onload = () => resolve((window as any).google.maps)

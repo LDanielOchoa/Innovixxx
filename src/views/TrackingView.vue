@@ -55,6 +55,72 @@ const selectedItem = ref<any | null>(null)
 const hardwareList = ref<HardwareWs[]>([])
 const svgTemplate = ref<string>('')
 
+// Hover state for custom popup card
+const hoveredItem = ref<HardwareWs | null>(null)
+const hoveredPosition = ref({ top: 0, left: 0 })
+
+// Reference lists for cross-linking data
+const refServicios = ref<any[]>([])
+const refEscoltas = ref<any[]>([])
+const refVehiculos = ref<any[]>([])
+
+// Computeds to find linked service, vehicle, and escolta
+const hoveredService = computed(() => {
+  if (!hoveredItem.value || !hoveredItem.value.id_servicio) return null
+  return refServicios.value.find(s => s.id_servicio === hoveredItem.value!.id_servicio)
+})
+
+const hoveredVehiculo = computed(() => {
+  if (!hoveredItem.value) return null
+  const serviceId = hoveredItem.value.id_servicio
+  if (serviceId) {
+    return refVehiculos.value.find(v => v.id_servicio === serviceId)
+  }
+  return null
+})
+
+const hoveredEscolta = computed(() => {
+  if (!hoveredItem.value) return null
+  const escId = hoveredItem.value.id_escolta
+  if (escId) {
+    return refEscoltas.value.find(e => e.id_escolta === escId)
+  }
+  const serviceId = hoveredItem.value.id_servicio
+  if (serviceId) {
+    return refEscoltas.value.find(e => e.id_servicio === serviceId)
+  }
+  return null
+})
+
+const loadAllReferenceData = async () => {
+  const groupId = localStorage.getItem('auth-grupo-id') || ''
+  if (!groupId) return
+  try {
+    apiClient<{ done: boolean; data: any[] }>('/api/v1/servicio/listar_tabla/', {
+      method: 'POST',
+      body: JSON.stringify({ id_grupo: groupId, estado: 0 })
+    }).then(res => {
+      if (res.done) refServicios.value = res.data
+    })
+
+    apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
+      method: 'POST',
+      body: JSON.stringify({ id_grupo: groupId, estado: 1 })
+    }).then(res => {
+      if (res.done) refEscoltas.value = res.data
+    })
+
+    apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
+      method: 'POST',
+      body: JSON.stringify({ id_grupo: groupId, estado: 1 })
+    }).then(res => {
+      if (res.done) refVehiculos.value = res.data
+    })
+  } catch (err) {
+    console.error('Error al cargar datos de referencia:', err)
+  }
+}
+
 // Mocks y datos cargados de APIs secundarias
 const serviciosList = ref<any[]>([])
 const escoltasList = ref<any[]>([])
@@ -63,7 +129,7 @@ const vehiculosList = ref<any[]>([])
 const isLoadingSecondary = ref(false)
 
 // Estado del mapa y markers (variable plana, sin reactividad Vue para evitar interferencia con Google Maps)
-let markersMap = new Map<string, google.maps.Marker>()
+let markersMap = new Map<string, any>()
 const {
   map,
   isLoadingMap,
@@ -136,10 +202,10 @@ const initMap = async () => {
 // Limpieza de marcadores del mapa
 const clearAllMarkers = () => {
   markersMap.forEach(m => {
-    const frameId = m.get('animationFrameId')
+    const frameId = m.animationFrameId
     if (frameId) cancelAnimationFrame(frameId)
-    m.set('animationFrameId', null)
-    m.setMap(null)
+    m.animationFrameId = null
+    m.map = null
   })
   markersMap.clear()
 }
@@ -309,238 +375,291 @@ const formatLockStatus = (status: string | undefined) => {
 }
 
 const getZoomScaleFactor = () => {
-  if (!map.value) return 1
-  const zoom = map.value.getZoom() || 13
-  if (zoom >= 15) return 1
-  // Reduce el tamaño un 12% por cada nivel por debajo de 15, mínimo 0.45 de escala
-  return Math.max(0.45, 1 - (15 - zoom) * 0.12)
+  return 1
 }
 
-const getCustomMarkerIcon = (
-  hw: HardwareWs,
-  courseValue?: number,
-  speedValue?: number,
-  batteryValue?: number,
-  lockProgressValue?: number
+// ─── Battery clip path (pie sector) ──────────────────────────────────────────
+// The battery arc in Market Mapa.svg sweeps from the right side (~7°) going
+// counterclockwise (visually: right → top → left) covering ~195° total.
+// We create a pie-sector clip path proportional to batteryVal (0–1 0).
+const buildBatteryClipPath = (batteryVal: number): string => {
+  if (batteryVal <= 0) return 'M 195 208 Z'
+  if (batteryVal >= 100) return 'M 0 0 L 391 0 L 391 519 L 0 519 Z'
+
+  const cx = 195, cy = 208, r = 300
+  const startAngleDeg = 7            // right side
+  const totalSweepDeg = 195          // right → top → left
+  const sweepDeg = (batteryVal / 100) * totalSweepDeg
+  const endAngleDeg = startAngleDeg - sweepDeg // decreasing = CCW visually
+
+  const toRad = (d: number) => d * Math.PI / 180
+  const x1 = cx + r * Math.cos(toRad(startAngleDeg))
+  const y1 = cy + r * Math.sin(toRad(startAngleDeg))
+  const x2 = cx + r * Math.cos(toRad(endAngleDeg))
+  const y2 = cy + r * Math.sin(toRad(endAngleDeg))
+  const largeArc = sweepDeg > 180 ? 1 : 0
+
+  return `M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${largeArc} 0 ${x2.toFixed(1)} ${y2.toFixed(1)} Z`
+}
+
+// ─── Make SVG IDs unique per marker so multiple SVGs don't share IDs ─────────
+const makeSvgUnique = (svgStr: string, serial: string): string => {
+  const suffix = serial.replace(/[^a-zA-Z0-9]/g, '_')
+  return svgStr
+    .replace(/id="([^"]+)"/g, `id="$1_${suffix}"`)
+    .replace(/url\(#([^)]+)\)/g, `url(#$1_${suffix})`)
+}
+
+// ─── Apply dynamic data to an inline SVG element ──────────────────────────────
+const applySvgData = (
+  svgEl: Element,
+  course: number,
+  speedVal: number,
+  batteryVal: number,
+  lockProgress: number,
+  isSelected: boolean
 ) => {
-  const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
-  const scale = getZoomScaleFactor()
+  const isClosed = lockProgress > 0.5
 
-  // Proporción del marcador (200 x 240)
-  const baseWidth = isSelected ? 130 : 105
-  const w = baseWidth * scale
-  const h = w * (240 / 200)
-  const ax = w / 2
-  // El ancla en Y debe coincidir con la base del marcador en el SVG (alrededor de Y=210 de 240)
-  const ay = h * (210 / 240)
+  const arrowG = svgEl.querySelector('[id^="arrow-direction"]')
+  if (arrowG) arrowG.setAttribute('transform', `rotate(${course.toFixed(1)}, 195, 153)`)
 
-  // Normalizar candado
-  const hasLock = hw.status_lock !== undefined && hw.status_lock !== null && hw.status_lock !== ''
-  const isClosed = formatLockStatus(hw.status_lock) === 'CERRADO'
-  const lockProgress = lockProgressValue !== undefined ? lockProgressValue : (isClosed ? 1 : 0)
-  const drawClosed = lockProgress > 0.5
+  const speedText = svgEl.querySelector('[id^="speed-text"]')
+  if (speedText) speedText.textContent = `${Math.round(speedVal)}KM`
 
-  // Normalizar batería
-  const batteryVal = batteryValue !== undefined ? Math.round(batteryValue) : (hw.battery !== undefined ? hw.battery : 100)
+  const clipPath = svgEl.querySelector('[id^="battery-clip-path"]')
+  if (clipPath) clipPath.setAttribute('d', buildBatteryClipPath(batteryVal))
 
-  // Determinar color de la batería según rangos
-  let batteryColor = '#10B981' // Verde esmeralda
-  if (batteryVal <= 25) {
-    batteryColor = '#EF4444' // Rojo
-  } else if (batteryVal <= 50) {
-    batteryColor = '#F59E0B' // Naranja/Amarillo
-  }
+  const closedLock = svgEl.querySelector('[id^="closed-lock"]')
+  if (closedLock) closedLock.setAttribute('opacity', isClosed ? '1' : '0')
+  const openLock = svgEl.querySelector('[id^="open-lock"]')
+  if (openLock) openLock.setAttribute('opacity', isClosed ? '0' : '1')
+  const lockLine = svgEl.querySelector('[id^="lock-line"]')
+  if (lockLine) lockLine.setAttribute('opacity', hasLockStatus(isClosed) ? '1' : '0')
 
-  // Normalizar dirección (curso) y velocidad
-  const course = courseValue !== undefined ? courseValue : (hw.course || 0)
-  const speedVal = speedValue !== undefined ? Math.round(speedValue) : Math.round(hw.speed || 0)
-
-  // Nombre acortado para que quepa bien
-  const displayName = hw.nombre ? (hw.nombre.length > 14 ? hw.nombre.substring(0, 12) + '..' : hw.nombre) : hw.serial
-
-  // Crear el SVG dinámico estilo 3D Waze
-  const svgString = `<svg width="200" height="240" viewBox="0 0 200 240" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <!-- Sombra suave para el globo de información -->
-      <filter id="bubble-shadow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000000" flood-opacity="0.4" />
-      </filter>
-      <!-- Resplandor cuando está seleccionado -->
-      <filter id="selected-glow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#5da6fc" flood-opacity="0.7" />
-        <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.3" />
-      </filter>
-      <!-- Degradado de la flecha 3D principal -->
-      <linearGradient id="arrow-top" x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stop-color="#38BDF8" />
-        <stop offset="100%" stop-color="#0284C7" />
-      </linearGradient>
-      <linearGradient id="arrow-side" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#0369A1" />
-        <stop offset="100%" stop-color="#075985" />
-      </linearGradient>
-      <!-- Degradado de fondo tipo Glassmorphic -->
-      <linearGradient id="bubble-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#1E293B" stop-opacity="0.94" />
-        <stop offset="100%" stop-color="#0F172A" stop-opacity="0.98" />
-      </linearGradient>
-    </defs>
-
-    <!-- Sombra del piso (Bajo la flecha) -->
-    <ellipse cx="100" cy="210" rx="28" ry="8" fill="#000000" fill-opacity="0.35" />
-
-    <!-- Flecha 3D estilo Waze (rota según dirección del curso) -->
-    <g transform="translate(100, 185) rotate(${course})">
-      <!-- Sombra proyectada por la flecha en sí -->
-      <path d="M 0 -22 L 18 16 L 0 7 L -18 16 Z" fill="#000000" fill-opacity="0.25" transform="translate(0, 2)" />
-      <!-- Parte lateral 3D (da profundidad) -->
-      <path d="M -18 16 L 0 7 L 18 16 L 18 20 L 0 11 L -18 20 Z" fill="url(#arrow-side)" />
-      <!-- Superficie superior de la flecha -->
-      <path d="M 0 -22 L 18 16 L 0 7 L -18 16 Z" fill="url(#arrow-top)" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round" />
-    </g>
-
-    <!-- Indicador de conexión hacia el globo de información (punta del globo) -->
-    <path d="M 93 128 L 100 144 L 107 128 Z" fill="#0F172A" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
-
-    <!-- Globo de información estilo Waze flotando arriba -->
-    <g filter="url(#${isSelected ? 'selected-glow' : 'bubble-shadow'})">
-      <!-- Cuerpo del globo -->
-      <rect x="15" y="48" width="170" height="80" rx="18" fill="url(#bubble-bg)" stroke="${isSelected ? '#5da6fc' : 'rgba(255,255,255,0.1)'}" stroke-width="2" />
-      
-      <!-- LADO IZQUIERDO: Tacómetro / Velocidad (círculo tipo señal de tránsito) -->
-      <circle cx="48" cy="88" r="22" fill="#FFFFFF" stroke="#EF4444" stroke-width="3.5" />
-      <text x="48" y="93" font-family="'Inter', sans-serif" font-weight="900" font-size="16" fill="#1E293B" text-anchor="middle">${speedVal}</text>
-      <text x="48" y="103" font-family="'Inter', sans-serif" font-weight="800" font-size="7" fill="#64748B" text-anchor="middle">KM/H</text>
-
-      <!-- LADO DERECHO: Nombre del dispositivo y fila de estados (Batería y Candado) -->
-      <!-- Nombre -->
-      <text x="80" y="74" font-family="'Inter', sans-serif" font-weight="800" font-size="12" fill="#FFFFFF" text-anchor="start">${displayName.toUpperCase()}</text>
-
-      <!-- Icono de Batería y porcentaje -->
-      <g transform="translate(80, 84)">
-        <!-- Cuerpo de batería -->
-        <rect x="0" y="0" width="20" height="10" rx="2" fill="none" stroke="#94A3B8" stroke-width="1.5" />
-        <rect x="20" y="3" width="2" height="4" rx="0.5" fill="#94A3B8" />
-        <!-- Relleno de batería -->
-        <rect x="2" y="2" width="${16 * (batteryVal / 100)}" height="6" rx="1.2" fill="${batteryColor}" />
-        <!-- Texto de batería -->
-        <text x="27" y="9" font-family="'Inter', sans-serif" font-weight="800" font-size="9" fill="#E2E8F0" text-anchor="start">${batteryVal}%</text>
-      </g>
-
-      <!-- Estado de Seguridad (Candado o Estado Online) -->
-      <g transform="translate(80, 102)">
-        ${hasLock ? `
-          <!-- Candado -->
-          <rect x="0" y="3" width="10" height="7" rx="1.5" fill="${drawClosed ? '#EF4444' : '#10B981'}" />
-          <path d="${drawClosed ? 'M 2 3 L 2 2 A 3 3 0 0 1 8 2 L 8 3' : 'M 2 3 L 2 1.5 A 3 3 0 0 1 8 1.5 A 3 3 0 0 1 8 0'}" fill="none" stroke="${drawClosed ? '#EF4444' : '#10B981'}" stroke-width="1.5" stroke-linecap="round" />
-          <text x="15" y="10" font-family="'Inter', sans-serif" font-weight="800" font-size="9.5" fill="${drawClosed ? '#EF4444' : '#10B981'}">${drawClosed ? 'CERRADO' : 'ABIERTO'}</text>
-        ` : `
-          <!-- GPS OK / ONLINE -->
-          <circle cx="5" cy="6" r="4.5" fill="#3B82F6" />
-          <path d="M 3.5 6 L 4.5 7 L 7 4.5" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
-          <text x="15" y="9.5" font-family="'Inter', sans-serif" font-weight="800" font-size="9.5" fill="#3B82F6">ONLINE</text>
-        `}
-      </g>
-    </g>
-  </svg>`
-
-  return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
-    anchor: new google.maps.Point(ax, ay),
-    scaledSize: new google.maps.Size(w, h)
-  }
+  // Selection: change pin fill color
+  const mainFill = svgEl.querySelector('path:first-of-type') as SVGElement | null
+  if (mainFill) mainFill.setAttribute('fill', isSelected ? '#22d3ee' : '#0088FF')
 }
 
-// Icono personalizado para escoltas (un puntito con resplandor)
-const getEscoltaMarkerIcon = (isSelected: boolean) => {
-  const scale = getZoomScaleFactor()
-  const baseSize = 48 // Tamaño base en el mapa
-  const size = Math.max(20, baseSize * scale)
-  const halfSize = size / 2
+// helper to decide if lock line should show
+const hasLockStatus = (isClosed: boolean) => isClosed
+
+const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
+  const container = document.createElement('div')
+  container.className = 'custom-gps-marker'
+  // 391×519 viewBox scaled to 0.2 ≈ 78×104 px.
+  container.style.cssText = 'position:relative;width:78px;height:104px;cursor:pointer;'
+
+  const inner = document.createElement('div')
+  inner.className = 'marker-inner-wrapper'
+  inner.style.cssText = [
+    'position:absolute',
+    'top:0',
+    'left:0',
+    'width:78px',
+    'height:104px',
+    'transform-origin:39px 104px',
+    'transition:transform 0.1s ease-out'
+  ].join(';')
+
+  if (svgTemplate.value) {
+    const uniqueSvg = makeSvgUnique(svgTemplate.value, hw.serial)
+    inner.innerHTML = uniqueSvg
+    const svgEl = inner.querySelector('svg')
+    if (svgEl) {
+      svgEl.setAttribute('width', '78')
+      svgEl.setAttribute('height', '104')
+      const course = hw.course || 0
+      const battery = hw.battery !== undefined ? hw.battery : 100
+      const lockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
+      applySvgData(svgEl, course, hw.speed || 0, battery, lockProgress, isSelected)
+    }
+  } else {
+    // Placeholder while SVG loads
+    inner.innerHTML = `
+      <div style="width:24px;height:24px;border-radius:50%;background:#0088FF;
+        border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);
+        position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+    `
+  }
+
+  // Hover popover event listeners
+  container.addEventListener('mouseenter', () => {
+    const mapDiv = map.value?.getDiv()
+    if (!mapDiv) return
+    const mapRect = mapDiv.getBoundingClientRect()
+    const markerRect = container.getBoundingClientRect()
+
+    hoveredPosition.value = {
+      top: markerRect.top - mapRect.top - 10,
+      left: markerRect.left - mapRect.left + (markerRect.width / 2)
+    }
+    hoveredItem.value = hw
+  })
+
+  container.addEventListener('mouseleave', () => {
+    hoveredItem.value = null
+  })
+
+  container.appendChild(inner)
+  return container
+}
+
+const createEscoltaMarkerElement = (isSelected: boolean) => {
+  const container = document.createElement('div')
+  container.className = 'custom-escolta-marker'
+  container.style.cssText = 'position:relative;width:48px;height:48px;'
+
+  const inner = document.createElement('div')
+  inner.className = 'marker-inner-wrapper'
+  inner.style.cssText = [
+    'position:absolute',
+    'top:0',
+    'left:0',
+    'width:48px',
+    'height:48px',
+    'transform-origin:center center',
+    'transition:transform 0.15s ease-out'
+  ].join(';')
 
   const circleColor = isSelected ? '#10B981' : '#0088FF'
-  const filterDef = isSelected 
-    ? `<defs>
-        <filter id="escoltaGlow" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
-        </filter>
-       </defs>`
+  const filterDef = isSelected
+    ? `<defs><filter id="escoltaGlow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+       </filter></defs>`
     : ''
   const filterAttr = isSelected ? 'filter="url(#escoltaGlow)"' : ''
 
-  const svgString = `<svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-    ${filterDef}
-    <g ${filterAttr}>
-      <circle cx="60" cy="60" r="60" fill="${circleColor}"/>
-      <path d="M70 41C70 29.9543 61.0456 21 50 21C38.9543 21 30 29.9543 30 41C30 52.0456 38.9543 61 50 61C61.0456 61 70 52.0456 70 41Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M78 89C78 73.536 65.464 61 50 61C34.536 61 22 73.536 22 89" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-      <path d="M102 52.3752V44.25C95.7144 44.25 91 41 91 41C91 41 86.2856 44.25 80 44.25V52.3752C80 63.75 91 67 91 67C91 67 102 63.75 102 52.3752Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-  </svg>`
+  inner.innerHTML = `
+    <svg width="100%" height="100%" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+      ${filterDef}
+      <g ${filterAttr}>
+        <circle cx="60" cy="60" r="60" fill="${circleColor}"/>
+        <path d="M70 41C70 29.9543 61.0456 21 50 21C38.9543 21 30 29.9543 30 41C30 52.0456 38.9543 61 50 61C61.0456 61 70 52.0456 70 41Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M78 89C78 73.536 65.464 61 50 61C34.536 61 22 73.536 22 89" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M102 52.3752V44.25C95.7144 44.25 91 41 91 41C91 41 86.2856 44.25 80 44.25V52.3752C80 63.75 91 67 91 67C91 67 102 63.75 102 52.3752Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </svg>
+  `
 
-  return {
-    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
-    anchor: new google.maps.Point(halfSize, halfSize),
-    scaledSize: new google.maps.Size(size, size)
+  const scale = getZoomScaleFactor()
+  inner.style.transform = `scale(${scale})`
+
+  container.appendChild(inner)
+  return container
+}
+
+const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) => {
+  const content = marker.content as HTMLElement
+  if (!content) return
+
+  const svgEl = content.querySelector('svg')
+  if (!svgEl) return
+
+  const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
+  const speedVal = marker.currentSpeed !== undefined ? marker.currentSpeed : (hw.speed || 0)
+  const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
+  const lockProgress = marker.currentLockProgress !== undefined
+    ? marker.currentLockProgress
+    : (formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0)
+
+  applySvgData(svgEl, course, speedVal, batteryVal, lockProgress, isSelected)
+
+  // Scale based on zoom
+  const scale = getZoomScaleFactor()
+  const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
+  if (inner) {
+    inner.style.transform = `scale(${scale})`
   }
 }
 
-// Animación suave de posición, rotación, velocidad, batería y candado del marcador
+const syncMarkerTransforms = () => {
+  const scale = getZoomScaleFactor()
+  markersMap.forEach((marker) => {
+    const content = marker.content as HTMLElement | undefined
+    if (!content) return
+    const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
+    if (inner) {
+      inner.style.transform = `scale(${scale})`
+    }
+  })
+}
+
 const animateMarker = (
-  marker: google.maps.Marker,
+  marker: any,
   targetLat: number,
   targetLng: number,
   targetCourse: number,
   hw: HardwareWs,
   duration = 1000
 ) => {
+  const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
   const isClosedTarget = formatLockStatus(hw.status_lock) === 'CERRADO'
   const targetLockProgress = isClosedTarget ? 1 : 0
   const targetSpeed = hw.speed || 0
   const targetBattery = hw.battery !== undefined ? hw.battery : 100
 
-  const startPosition = marker.getPosition()
-  if (!startPosition) {
-    marker.setPosition({ lat: targetLat, lng: targetLng })
-    marker.setIcon(getCustomMarkerIcon(hw, targetCourse, targetSpeed, targetBattery, targetLockProgress))
-    marker.set('currentCourse', targetCourse)
-    marker.set('currentSpeed', targetSpeed)
-    marker.set('currentBattery', targetBattery)
-    marker.set('currentLockProgress', targetLockProgress)
+  const startPosition = marker.position
+  if (!startPosition || !startPosition.lat) {
+    marker.position = { lat: targetLat, lng: targetLng }
+    marker.currentCourse = targetCourse
+    marker.currentSpeed = targetSpeed
+    marker.currentBattery = targetBattery
+    marker.currentLockProgress = targetLockProgress
+    updateMarkerContent(marker, hw, isSelected)
     return
   }
 
-  const startLat = startPosition.lat()
-  const startLng = startPosition.lng()
-  
-  let startCourse = marker.get('currentCourse')
+  const startLat = typeof startPosition.lat === 'function' ? startPosition.lat() : startPosition.lat
+  const startLng = typeof startPosition.lng === 'function' ? startPosition.lng() : startPosition.lng
+
+  // If the coordinate change is negligible (less than 0.00001 degrees, approx. 1m), skip animation
+  const latDiff = Math.abs(targetLat - startLat)
+  const lngDiff = Math.abs(targetLng - startLng)
+  if (latDiff < 0.00001 && lngDiff < 0.00001) {
+    marker.position = { lat: targetLat, lng: targetLng }
+    marker.currentCourse = targetCourse
+    marker.currentSpeed = targetSpeed
+    marker.currentBattery = targetBattery
+    marker.currentLockProgress = targetLockProgress
+    updateMarkerContent(marker, hw, isSelected)
+
+    const oldFrameId = marker.animationFrameId
+    if (oldFrameId) {
+      cancelAnimationFrame(oldFrameId)
+      marker.animationFrameId = null
+    }
+    return
+  }
+
+  let startCourse = marker.currentCourse
   if (startCourse === undefined || startCourse === null) {
     startCourse = targetCourse
   }
 
-  let startSpeed = marker.get('currentSpeed')
+  let startSpeed = marker.currentSpeed
   if (startSpeed === undefined || startSpeed === null) {
     startSpeed = targetSpeed
   }
 
-  let startBattery = marker.get('currentBattery')
+  let startBattery = marker.currentBattery
   if (startBattery === undefined || startBattery === null) {
     startBattery = targetBattery
   }
 
-  let startLockProgress = marker.get('currentLockProgress')
+  let startLockProgress = marker.currentLockProgress
   if (startLockProgress === undefined || startLockProgress === null) {
     startLockProgress = targetLockProgress
   }
 
-  // Encontrar el camino de rotación más corto
   let diff = targetCourse - startCourse
   while (diff < -180) diff += 360
   while (diff > 180) diff -= 360
   const adjustedTargetCourse = startCourse + diff
 
   const startTime = performance.now()
-  const oldFrameId = marker.get('animationFrameId')
+  const oldFrameId = marker.animationFrameId
   if (oldFrameId) {
     cancelAnimationFrame(oldFrameId)
   }
@@ -548,45 +667,47 @@ const animateMarker = (
   const animateStep = (time: number) => {
     const elapsed = time - startTime
     const progress = Math.min(elapsed / duration, 1)
-
-    // Easing sinusoidal para mayor suavidad
     const easeProgress = 0.5 - Math.cos(progress * Math.PI) / 2
 
     const currentLat = startLat + (targetLat - startLat) * easeProgress
     const currentLng = startLng + (targetLng - startLng) * easeProgress
-    marker.setPosition({ lat: currentLat, lng: currentLng })
+    marker.position = { lat: currentLat, lng: currentLng }
 
     const currentCourse = startCourse + (adjustedTargetCourse - startCourse) * easeProgress
     const currentSpeed = startSpeed + (targetSpeed - startSpeed) * easeProgress
     const currentBattery = startBattery + (targetBattery - startBattery) * easeProgress
     const currentLockProgress = startLockProgress + (targetLockProgress - startLockProgress) * easeProgress
 
-    marker.setIcon(getCustomMarkerIcon(hw, currentCourse, currentSpeed, currentBattery, currentLockProgress))
-    
-    marker.set('currentCourse', currentCourse)
-    marker.set('currentSpeed', currentSpeed)
-    marker.set('currentBattery', currentBattery)
-    marker.set('currentLockProgress', currentLockProgress)
+    marker.currentCourse = currentCourse
+    marker.currentSpeed = currentSpeed
+    marker.currentBattery = currentBattery
+    marker.currentLockProgress = currentLockProgress
+
+    // Update SVG elements live during animation
+    const svgEl = (marker.content as HTMLElement)?.querySelector('svg')
+    if (svgEl) {
+      const arrowG = svgEl.querySelector('[id^="arrow-direction"]')
+      if (arrowG) arrowG.setAttribute('transform', `rotate(${currentCourse.toFixed(1)}, 195, 153)`)
+      const speedText = svgEl.querySelector('[id^="speed-text"]')
+      if (speedText) speedText.textContent = `${Math.round(currentSpeed)}KM`
+    }
 
     if (progress < 1) {
-      const frameId = requestAnimationFrame(animateStep)
-      marker.set('animationFrameId', frameId)
+      marker.animationFrameId = requestAnimationFrame(animateStep)
     } else {
-      marker.set('animationFrameId', null)
-      marker.setPosition({ lat: targetLat, lng: targetLng })
-      marker.setIcon(getCustomMarkerIcon(hw, targetCourse, targetSpeed, targetBattery, targetLockProgress))
-      marker.set('currentCourse', targetCourse % 360)
-      marker.set('currentSpeed', targetSpeed)
-      marker.set('currentBattery', targetBattery)
-      marker.set('currentLockProgress', targetLockProgress)
+      marker.animationFrameId = null
+      marker.position = { lat: targetLat, lng: targetLng }
+      marker.currentCourse = targetCourse % 360
+      marker.currentSpeed = targetSpeed
+      marker.currentBattery = targetBattery
+      marker.currentLockProgress = targetLockProgress
+      updateMarkerContent(marker, hw, isSelected)
     }
   }
 
-  const frameId = requestAnimationFrame(animateStep)
-  marker.set('animationFrameId', frameId)
+  marker.animationFrameId = requestAnimationFrame(animateStep)
 }
 
-// Actualizar marcadores en el mapa
 const updateMarkersOnMap = () => {
   if (!map.value) return
 
@@ -597,27 +718,32 @@ const updateMarkersOnMap = () => {
       const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
       if (!hasCoordinates) return
 
-          activeKeys.add(hw.serial)
+      activeKeys.add(hw.serial)
 
       let marker = markersMap.get(hw.serial)
       const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
 
       if (marker) {
         animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
-        marker.setZIndex(isSelected ? 1000 : 1)
+        marker.zIndex = isSelected ? 1000 : 1
       } else {
         const position = { lat: hw.lat, lng: hw.lon }
-        marker = new google.maps.Marker({
+        const content = createHardwareMarkerElement(hw, isSelected)
+        
+        marker = new (google.maps as any).marker.AdvancedMarkerElement({
           position,
           map: map.value,
           title: hw.nombre,
-          icon: getCustomMarkerIcon(hw),
+          content,
           zIndex: isSelected ? 1000 : 1
         })
-        marker.set('currentCourse', hw.course || 0)
-        marker.set('currentSpeed', hw.speed || 0)
-        marker.set('currentBattery', hw.battery !== undefined ? hw.battery : 100)
-        marker.set('currentLockProgress', formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0)
+        
+        marker.currentCourse = hw.course || 0
+        marker.currentSpeed = hw.speed || 0
+        marker.currentBattery = hw.battery !== undefined ? hw.battery : 100
+        marker.currentLockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
+
+        updateMarkerContent(marker, hw, isSelected)
 
         marker.addListener('click', () => {
           selectItem(hw)
@@ -631,30 +757,32 @@ const updateMarkersOnMap = () => {
       const hasCoordinates = esc.lat !== 0 && esc.lon !== 0
       if (!hasCoordinates) return
 
-            activeKeys.add(esc.id_escolta)
+      activeKeys.add(esc.id_escolta)
 
       let marker = markersMap.get(esc.id_escolta)
       const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
 
       if (marker) {
-        marker.setPosition({ lat: esc.lat, lng: esc.lon })
-        marker.setIcon(getEscoltaMarkerIcon(isSelected))
-        marker.setZIndex(isSelected ? 1000 : 1)
+        marker.position = { lat: esc.lat, lng: esc.lon }
+        marker.content = createEscoltaMarkerElement(isSelected)
+        marker.zIndex = isSelected ? 1000 : 1
       } else {
         const position = { lat: esc.lat, lng: esc.lon }
-        marker = new google.maps.Marker({
+        
+        marker = new (google.maps as any).marker.AdvancedMarkerElement({
           position,
           map: map.value,
           title: esc.nombre,
-          icon: getEscoltaMarkerIcon(isSelected),
-          zIndex: isSelected ? 1000 : 1
+          content: createEscoltaMarkerElement(isSelected),
+          zIndex: isSelected ? 1000 : 1,
+          anchorLeft: '24px',
+          anchorTop: '24px'
         })
 
         marker.addListener('click', () => {
           selectItem(esc)
         })
 
-        // Mostrar mini modal con información al pasar el cursor (hover)
         marker.addListener('mouseover', () => {
           if (infoWindow && map.value) {
             infoWindow.setContent(`
@@ -690,104 +818,90 @@ const updateMarkersOnMap = () => {
     })
   }
 
-  // Limpiar marcadores obsoletos
   markersMap.forEach((marker, key) => {
     if (!activeKeys.has(key)) {
-      const oldFrameId = marker.get('animationFrameId')
+      const oldFrameId = marker.animationFrameId
       if (oldFrameId) {
         cancelAnimationFrame(oldFrameId)
-        marker.set('animationFrameId', null)
+        marker.animationFrameId = null
       }
-      marker.setMap(null)
+      marker.map = null
       markersMap.delete(key)
     }
   })
 }
 
-
-
-// Perspectiva 3D nativa de Google Maps — setTilt() funciona en mapas vectoriales (mapId).
-// Rango soportado: 0° (plano) hasta 67.5° (máximo que permite la API).
+// 2D flat map — never tilt
 const adjustMapTilt = (targetMap: any) => {
   if (!targetMap) return
-  const zoom = targetMap.getZoom() || 13
-
-  // Perspectiva máxima agresiva estilo Waze:
-  // Zoom ≤ 10 → 0°    (vista global, completamente plana)
-  // Zoom 11   → 20°   (primer hint de perspectiva)
-  // Zoom 12   → 40°   (perspectiva notable)
-  // Zoom 13   → 55°   (perspectiva fuerte)
-  // Zoom ≥ 14 → 67.5° (MÁXIMO de la API — efecto Waze completo)
-  let tilt = 0
-  if (zoom >= 14) {
-    tilt = 67.5
-  } else if (zoom === 13) {
-    tilt = 55
-  } else if (zoom === 12) {
-    tilt = 40
-  } else if (zoom === 11) {
-    tilt = 20
-  }
-
-  targetMap.setTilt(tilt)
+  targetMap.setTilt(0)
+  targetMap.setHeading(0)
 }
 
-// Sincronizar markers cuando el mapa se carga
 watch(map, (newMap) => {
   if (newMap) {
     updateMarkersOnMap()
     adjustMapTilt(newMap)
 
-    // Escuchar cambios de zoom para re-escalar los marcadores y ajustar la perspectiva 3D
     newMap.addListener('zoom_changed', () => {
-      updateMarkersOnMap()
       adjustMapTilt(newMap)
+      syncMarkerTransforms()
     })
   }
 })
 
-// Selección de elementos
+// When the SVG template loads, re-render all existing markers
+watch(svgTemplate, () => {
+  markersMap.forEach((marker, serial) => {
+    const hw = hardwareList.value.find(h => h.serial === serial)
+    if (hw) {
+      const isSelected = selectedItem.value && selectedItem.value.serial === serial
+      marker.content = createHardwareMarkerElement(hw, isSelected)
+      updateMarkerContent(marker, hw, isSelected)
+    }
+  })
+})
+
 const selectItem = (item: any) => {
   selectedItem.value = item
 
   if (item.lat && item.lon && map.value) {
     map.value.panTo({ lat: item.lat, lng: item.lon })
-    map.value.setZoom(17) // Zoom 17 para que el tilt máximo (67.5°) se active inmediatamente
+    map.value.setZoom(17)
     adjustMapTilt(map.value)
   }
 }
 
-// Redibujar marcadores al cambiar la selección para resaltar el seleccionado
 watch(selectedItem, (newVal, oldVal) => {
   if (oldVal && oldVal.serial) {
     const m = markersMap.get(oldVal.serial)
     const hw = hardwareList.value.find(h => h.serial === oldVal.serial)
     if (m && hw) {
-      m.setIcon(getCustomMarkerIcon(hw))
-      m.setZIndex(1)
+      updateMarkerContent(m, hw, false)
+      m.zIndex = 1
     }
   }
   if (newVal && newVal.serial) {
     const m = markersMap.get(newVal.serial)
     const hw = hardwareList.value.find(h => h.serial === newVal.serial)
     if (m && hw) {
-      m.setIcon(getCustomMarkerIcon(hw))
-      m.setZIndex(1000)
+      updateMarkerContent(m, hw, true)
+      m.zIndex = 1000
     }
   }
 
   if (oldVal && oldVal.id_escolta) {
     const m = markersMap.get(oldVal.id_escolta)
     if (m) {
-      m.setIcon(getEscoltaMarkerIcon(false))
-      m.setZIndex(1)
+      m.content = createEscoltaMarkerElement(false)
+      m.zIndex = 1
     }
   }
   if (newVal && newVal.id_escolta) {
     const m = markersMap.get(newVal.id_escolta)
     if (m) {
-      m.setIcon(getEscoltaMarkerIcon(true))
-      m.setZIndex(1000)
+      m.content = createEscoltaMarkerElement(true)
+      m.zIndex = 1000
     }
   }
 })
@@ -867,6 +981,7 @@ onMounted(() => {
   initMap()
   // La pestaña por defecto es HARDWARE, conectar inmediatamente
   connectWebSocket()
+  loadAllReferenceData()
 
   // Cargar plantilla del SVG de forma externa
   fetch('/Market Mapa.svg?t=' + Date.now())
@@ -881,8 +996,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   disconnectWebSocket()
-  markersMap.forEach(m => m.setMap(null))
-  markersMap.clear()
+  clearAllMarkers()
 })
 </script>
 
@@ -892,6 +1006,50 @@ onUnmounted(() => {
     <!-- MAPA BACKDROP -->
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div id="google-map-container" class="w-full h-full bg-[#0d1116]"></div>
+
+      <!-- Popover de información de Hardware (con animación premium) -->
+      <Transition name="hover-card-pop">
+        <div 
+          v-if="hoveredItem" 
+          :style="{ top: hoveredPosition.top + 'px', left: hoveredPosition.left + 'px' }"
+          class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
+        >
+          <!-- Contenido de la Tarjeta Minimalista -->
+          <div class="w-[200px] bg-slate-950/85 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-lg text-left flex flex-col gap-2 font-sans">
+            <!-- Header -->
+            <div class="flex items-baseline justify-between min-w-0">
+              <h4 class="text-[11px] font-bold text-white truncate max-w-[120px]">{{ hoveredItem.nombre }}</h4>
+              <span class="text-[8px] font-medium text-slate-400 font-mono shrink-0">{{ hoveredItem.serial }}</span>
+            </div>
+
+            <!-- Separador sutil -->
+            <div class="h-[1px] bg-white/5"></div>
+
+            <!-- Información principal -->
+            <div class="flex flex-col gap-1.5 text-[9.5px]">
+              <!-- Servicio -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400">Servicio</span>
+                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredService?.id_servicio || hoveredItem.id_servicio || 'Sin servicio' }}</span>
+              </div>
+
+              <!-- Escolta -->
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-400">Escolta</span>
+                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredEscolta?.nombre || 'Sin escolta' }}</span>
+              </div>
+
+              <!-- Celular (si está disponible) -->
+              <div v-if="hoveredEscolta?.celular" class="flex items-center justify-between gap-2 text-[9px]">
+                <span class="text-slate-400">Celular</span>
+                <span class="text-slate-300 font-mono">{{ hoveredEscolta.celular }}</span>
+              </div>
+            </div>
+          </div>
+          <!-- Triángulo indicador -->
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-950/85 -mt-[1px]"></div>
+        </div>
+      </Transition>
     </div>
 
     <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[600px] z-20">
@@ -1100,5 +1258,21 @@ onUnmounted(() => {
 .custom-infowindow {
   animation: infowindowFadeIn 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   transform-origin: bottom center;
+}
+
+/* Hover Card Transitions */
+.hover-card-pop-enter-active {
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.hover-card-pop-leave-active {
+  transition: all 0.15s cubic-bezier(0.25, 1, 0.50, 1);
+}
+.hover-card-pop-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -92%) scale(0.92);
+}
+.hover-card-pop-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -96%) scale(0.95);
 }
 </style>
