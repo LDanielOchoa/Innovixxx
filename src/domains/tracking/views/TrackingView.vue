@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useGoogleMaps } from '../composables/useGoogleMaps'
-import { useMapSetup } from '../composables/useMapSetup'
-import { apiClient } from '../utils/api-client'
+import { ThreeMarkerRenderer } from '../../../utils/threeMarkerRenderer'
+import { useGoogleMaps } from '../../../composables/useGoogleMaps'
+import { useMapSetup } from '../../../composables/useMapSetup'
+import { apiClient } from '../../../utils/api-client'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { useRouter, useRoute } from 'vue-router'
-import AppInput from '../components/ui/AppInput.vue'
+import AppInput from '../../../components/ui/AppInput.vue'
 import {
   Location01Icon,
   ArrowLeft01Icon,
@@ -20,29 +21,7 @@ import {
   RefreshIcon,
   Search01Icon
 } from '@hugeicons/core-free-icons'
-
-// Tipos de datos
-interface HardwareWs {
-  serial: string
-  id_familia: number
-  nombre: string
-  descripcion: string
-  id_grupo_servicio: string
-  estado: number
-  id_servicio: string
-  id_hardware: string
-  lat: number
-  lon: number
-  time_fx: number
-  speed: number
-  course: number
-  battery: number
-  comm_pending?: string
-  sos?: boolean
-  status_lock?: string
-  device_ts?: string
-  gps_valido?: boolean
-}
+import type { HardwareWs } from '../types/tracking'
 
 const router = useRouter()
 const route = useRoute()
@@ -52,8 +31,7 @@ const { loadGoogleMaps } = useGoogleMaps()
 const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>('HARDWARE')
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
-const hardwareList = ref<HardwareWs[]>([])
-const svgTemplate = ref<string>('')
+
 
 // Hover state for custom popup card
 const hoveredItem = ref<HardwareWs | null>(null)
@@ -63,10 +41,7 @@ const hoveredPosition = ref({ top: 0, left: 0 })
 const hoveredEscoltaItem = ref<any | null>(null)
 const hoveredEscoltaPosition = ref({ top: 0, left: 0 })
 
-// Reference lists for cross-linking data
-const refServicios = ref<any[]>([])
-const refEscoltas = ref<any[]>([])
-const refVehiculos = ref<any[]>([])
+
 
 // Computeds to find linked service, vehicle, and escolta
 const hoveredService = computed(() => {
@@ -105,41 +80,27 @@ const hoveredEscoltaService = computed(() => {
   return null
 })
 
-const loadAllReferenceData = async () => {
-  const groupId = localStorage.getItem('auth-grupo-id') || ''
-  if (!groupId) return
-  try {
-    apiClient<{ done: boolean; data: any[] }>('/api/v1/servicio/listar_tabla/', {
-      method: 'POST',
-      body: JSON.stringify({ id_grupo: groupId, estado: 0 })
-    }).then(res => {
-      if (res.done) refServicios.value = res.data
-    })
+import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
+import TrackingSidebar from '../components/TrackingSidebar.vue'
 
-    apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
-      method: 'POST',
-      body: JSON.stringify({ id_grupo: groupId, estado: 1 })
-    }).then(res => {
-      if (res.done) refEscoltas.value = res.data
-    })
-
-    apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
-      method: 'POST',
-      body: JSON.stringify({ id_grupo: groupId, estado: 1 })
-    }).then(res => {
-      if (res.done) refVehiculos.value = res.data
-    })
-  } catch (err) {
-    console.error('Error al cargar datos de referencia:', err)
-  }
-}
-
-// Mocks y datos cargados de APIs secundarias
-const serviciosList = ref<any[]>([])
-const escoltasList = ref<any[]>([])
-const vehiculosList = ref<any[]>([])
-
-const isLoadingSecondary = ref(false)
+const {
+  hardwareList,
+  serviciosList,
+  escoltasList,
+  vehiculosList,
+  refServicios,
+  refEscoltas,
+  refVehiculos,
+  isLoadingSecondary,
+  wsStatus,
+  wsError,
+  loadAllReferenceData,
+  loadSecondaryData,
+  connectWebSocket,
+  disconnectWebSocket
+} = useTrackingWebSocket(activeTab, selectedItem, () => {
+  updateMarkersOnMap()
+})
 
 // Estado del mapa y markers (variable plana, sin reactividad Vue para evitar interferencia con Google Maps)
 let markersMap = new Map<string, any>()
@@ -152,50 +113,10 @@ const {
   defaultZoom: 13,
   gestureHandling: 'greedy',
   forceDark: true,
-  // Map ID real con el estilo personalizado del usuario — habilita vector maps con setTilt() nativo
   mapId: '688c00fbadb30bbb930f73e2'
 })
 
-// WebSocket
-let socket: WebSocket | null = null
 let infoWindow: any = null
-const wsStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
-const wsError = ref<string | null>(null)
-let reconnectTimeoutId: any = null
-let reconnectAttempts = 0
-const maxReconnectAttempts = 5
-let isManualDisconnect = false
-let wsSessionId = 0 // ID de sesión que se incrementa en cada nueva conexión
-
-// Cargar APIs secundarias
-const loadSecondaryData = async () => {
-  isLoadingSecondary.value = true
-  try {
-    if (activeTab.value === 'SERVICIOS') {
-      const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/servicio/listar_tabla/', {
-        method: 'POST',
-        body: JSON.stringify({})
-      })
-      if (res.done) serviciosList.value = res.data
-    } else if (activeTab.value === 'ESCOLTAS') {
-      const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
-        method: 'POST',
-        body: JSON.stringify({})
-      })
-      if (res.done) escoltasList.value = res.data
-    } else if (activeTab.value === 'VEHICULOS') {
-      const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
-        method: 'POST',
-        body: JSON.stringify({})
-      })
-      if (res.done) vehiculosList.value = res.data
-    }
-  } catch (err) {
-    console.error('Error cargando datos de pestaña:', err)
-  } finally {
-    isLoadingSecondary.value = false
-  }
-}
 
 // Inicializar Google Maps
 const initMap = async () => {
@@ -218,164 +139,13 @@ const clearAllMarkers = () => {
     const frameId = m.animationFrameId
     if (frameId) cancelAnimationFrame(frameId)
     m.animationFrameId = null
+    if (m.threeRenderer) {
+      m.threeRenderer.destroy()
+      m.threeRenderer = null
+    }
     m.map = null
   })
   markersMap.clear()
-}
-
-// Conectar WebSocket (modo dinámico según pestaña activa)
-const connectWebSocket = () => {
-  // Cancelar cualquier intento de reconexión pendiente
-  if (reconnectTimeoutId) {
-    clearTimeout(reconnectTimeoutId)
-    reconnectTimeoutId = null
-  }
-
-  // Cerrar socket previo limpiamente (nullear handlers para evitar callbacks tardíos)
-  if (socket) {
-    socket.onopen = null
-    socket.onmessage = null
-    socket.onerror = null
-    socket.onclose = null
-    socket.close()
-    socket = null
-  }
-
-  isManualDisconnect = false
-  wsStatus.value = 'connecting'
-  wsError.value = null
-
-  const queryToken = route.query.token_ws as string | undefined
-  const queryGroupId = route.query.group_id as string | undefined
-
-  if (queryToken || queryGroupId) {
-    if (queryToken) localStorage.setItem('auth-token-ws', queryToken.trim())
-    if (queryGroupId) localStorage.setItem('auth-grupo-id', queryGroupId.trim())
-    router.replace({ path: route.path, query: {} }).catch(err => {
-      console.error('Error al limpiar los query params de la URL:', err)
-    })
-  }
-
-  const tokenWs = localStorage.getItem('auth-token-ws') || ''
-  const groupId = localStorage.getItem('auth-grupo-id') || ''
-
-  if (!tokenWs || !groupId) {
-    wsStatus.value = 'disconnected'
-    wsError.value = 'No hay sesión activa. Inicia sesión primero.'
-    console.error('[WebSocket] Faltan credenciales:', { tokenWs: tokenWs || '(vacío)', groupId: groupId || '(vacío)' })
-    return
-  }
-
-  // Capturar el sessionId y la pestaña activa en el momento de la conexión
-  wsSessionId++
-  const mySessionId = wsSessionId
-  const myTab = activeTab.value
-  const modo = myTab === 'ESCOLTAS' ? '3' : '2'
-  const wsUrl = `ws://66.179.190.248:8900/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
-  console.log(`[WebSocket][sid=${mySessionId}] Conectando modo=${modo} tab=${myTab}`)
-
-  try {
-    socket = new WebSocket(wsUrl)
-
-    socket.onopen = () => {
-      if (wsSessionId !== mySessionId) return
-      wsStatus.value = 'connected'
-      wsError.value = null
-      reconnectAttempts = 0
-      console.log(`[WebSocket][sid=${mySessionId}] Conectado`)
-    }
-
-    socket.onmessage = (event) => {
-      // Si el sessionId cambió, este socket ya no es el activo → ignorar
-      if (wsSessionId !== mySessionId) return
-      try {
-        const payload = JSON.parse(event.data)
-        if (payload && payload.ev === 50) {
-          if (Array.isArray(payload.flota) && myTab === 'HARDWARE') {
-            if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
-              hardwareList.value = payload.flota
-            } else {
-              payload.flota.forEach((updatedItem: HardwareWs) => {
-                const index = hardwareList.value.findIndex(h => h.serial === updatedItem.serial)
-                if (index !== -1) {
-                  hardwareList.value[index] = { ...hardwareList.value[index], ...updatedItem }
-                } else {
-                  hardwareList.value.push(updatedItem)
-                }
-                if (selectedItem.value && selectedItem.value.serial === updatedItem.serial) {
-                  selectedItem.value = { ...selectedItem.value, ...updatedItem }
-                }
-              })
-            }
-            updateMarkersOnMap()
-          } else if (Array.isArray(payload.escoltas) && myTab === 'ESCOLTAS') {
-            if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
-              escoltasList.value = payload.escoltas
-            } else {
-              payload.escoltas.forEach((updatedItem: any) => {
-                const index = escoltasList.value.findIndex(e => e.id_escolta === updatedItem.id_escolta)
-                if (index !== -1) {
-                  escoltasList.value[index] = { ...escoltasList.value[index], ...updatedItem }
-                } else {
-                  escoltasList.value.push(updatedItem)
-                }
-                if (selectedItem.value && selectedItem.value.id_escolta === updatedItem.id_escolta) {
-                  selectedItem.value = { ...selectedItem.value, ...updatedItem }
-                }
-              })
-            }
-            updateMarkersOnMap()
-          }
-        }
-      } catch (err) {
-        console.error('[WebSocket] Error al procesar mensaje:', err)
-      }
-    }
-
-    socket.onerror = () => {
-      if (wsSessionId !== mySessionId) return
-      wsError.value = 'Error en la conexión del servidor'
-    }
-
-    socket.onclose = (event) => {
-      if (wsSessionId !== mySessionId) return
-      wsStatus.value = 'disconnected'
-      console.log(`[WebSocket][sid=${mySessionId}] Cerrado. Código: ${event.code}`)
-      socket = null
-      if (!isManualDisconnect) {
-        if (reconnectAttempts < maxReconnectAttempts) {
-          reconnectAttempts++
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000)
-          reconnectTimeoutId = setTimeout(() => connectWebSocket(), delay)
-        } else {
-          wsError.value = 'No se pudo reconectar después de varios intentos'
-        }
-      }
-    }
-  } catch (err) {
-    wsStatus.value = 'disconnected'
-    wsError.value = 'No se pudo establecer la conexión'
-    console.error('[WebSocket] Excepción al conectar:', err)
-  }
-}
-
-// Desconectar WebSocket
-const disconnectWebSocket = () => {
-  isManualDisconnect = true
-  wsSessionId++ // Invalidar cualquier callback pendiente de sesiones anteriores
-  if (reconnectTimeoutId) {
-    clearTimeout(reconnectTimeoutId)
-    reconnectTimeoutId = null
-  }
-  if (socket) {
-    socket.onopen = null
-    socket.onmessage = null
-    socket.onerror = null
-    socket.onclose = null
-    socket.close()
-    socket = null
-  }
-  wsStatus.value = 'disconnected'
 }
 
 // Normalizar estado del candado
@@ -391,78 +161,12 @@ const getZoomScaleFactor = () => {
   return 1
 }
 
-// ─── Battery clip path (pie sector) ──────────────────────────────────────────
-// The battery arc in Market Mapa.svg sweeps from the right side (~7°) going
-// counterclockwise (visually: right → top → left) covering ~195° total.
-// We create a pie-sector clip path proportional to batteryVal (0–1 0).
-const buildBatteryClipPath = (batteryVal: number): string => {
-  if (batteryVal <= 0) return 'M 195 208 Z'
-  if (batteryVal >= 100) return 'M 0 0 L 391 0 L 391 519 L 0 519 Z'
 
-  const cx = 195, cy = 208, r = 300
-  const startAngleDeg = 7            // right side
-  const totalSweepDeg = 195          // right → top → left
-  const sweepDeg = (batteryVal / 100) * totalSweepDeg
-  const endAngleDeg = startAngleDeg - sweepDeg // decreasing = CCW visually
-
-  const toRad = (d: number) => d * Math.PI / 180
-  const x1 = cx + r * Math.cos(toRad(startAngleDeg))
-  const y1 = cy + r * Math.sin(toRad(startAngleDeg))
-  const x2 = cx + r * Math.cos(toRad(endAngleDeg))
-  const y2 = cy + r * Math.sin(toRad(endAngleDeg))
-  const largeArc = sweepDeg > 180 ? 1 : 0
-
-  return `M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${largeArc} 0 ${x2.toFixed(1)} ${y2.toFixed(1)} Z`
-}
-
-// ─── Make SVG IDs unique per marker so multiple SVGs don't share IDs ─────────
-const makeSvgUnique = (svgStr: string, serial: string): string => {
-  const suffix = serial.replace(/[^a-zA-Z0-9]/g, '_')
-  return svgStr
-    .replace(/id="([^"]+)"/g, `id="$1_${suffix}"`)
-    .replace(/url\(#([^)]+)\)/g, `url(#$1_${suffix})`)
-}
-
-// ─── Apply dynamic data to an inline SVG element ──────────────────────────────
-const applySvgData = (
-  svgEl: Element,
-  course: number,
-  speedVal: number,
-  batteryVal: number,
-  lockProgress: number,
-  isSelected: boolean
-) => {
-  const isClosed = lockProgress > 0.5
-
-  const arrowG = svgEl.querySelector('[id^="arrow-direction"]')
-  if (arrowG) arrowG.setAttribute('transform', `rotate(${course.toFixed(1)}, 195, 153)`)
-
-  const speedText = svgEl.querySelector('[id^="speed-text"]')
-  if (speedText) speedText.textContent = `${Math.round(speedVal)}KM`
-
-  const clipPath = svgEl.querySelector('[id^="battery-clip-path"]')
-  if (clipPath) clipPath.setAttribute('d', buildBatteryClipPath(batteryVal))
-
-  const closedLock = svgEl.querySelector('[id^="closed-lock"]')
-  if (closedLock) closedLock.setAttribute('opacity', isClosed ? '1' : '0')
-  const openLock = svgEl.querySelector('[id^="open-lock"]')
-  if (openLock) openLock.setAttribute('opacity', isClosed ? '0' : '1')
-  const lockLine = svgEl.querySelector('[id^="lock-line"]')
-  if (lockLine) lockLine.setAttribute('opacity', hasLockStatus(isClosed) ? '1' : '0')
-
-  // Selection: change pin fill color
-  const mainFill = svgEl.querySelector('path:first-of-type') as SVGElement | null
-  if (mainFill) mainFill.setAttribute('fill', isSelected ? '#22d3ee' : '#0088FF')
-}
-
-// helper to decide if lock line should show
-const hasLockStatus = (isClosed: boolean) => isClosed
 
 const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-gps-marker'
-  // 391×519 viewBox scaled to 0.2 ≈ 78×104 px.
-  container.style.cssText = 'position:relative;width:78px;height:104px;cursor:pointer;'
+  container.style.cssText = 'position:relative;width:112px;height:112px;cursor:pointer;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
@@ -470,32 +174,19 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
     'position:absolute',
     'top:0',
     'left:0',
-    'width:78px',
-    'height:104px',
-    'transform-origin:39px 104px',
+    'width:112px',
+    'height:112px',
+    'transform-origin:center center',
     'transition:transform 0.1s ease-out'
   ].join(';')
 
-  if (svgTemplate.value) {
-    const uniqueSvg = makeSvgUnique(svgTemplate.value, hw.serial)
-    inner.innerHTML = uniqueSvg
-    const svgEl = inner.querySelector('svg')
-    if (svgEl) {
-      svgEl.setAttribute('width', '78')
-      svgEl.setAttribute('height', '104')
-      const course = hw.course || 0
-      const battery = hw.battery !== undefined ? hw.battery : 100
-      const lockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
-      applySvgData(svgEl, course, hw.speed || 0, battery, lockProgress, isSelected)
-    }
-  } else {
-    // Placeholder while SVG loads
-    inner.innerHTML = `
-      <div style="width:24px;height:24px;border-radius:50%;background:#0088FF;
-        border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.4);
-        position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
-    `
-  }
+  // Añadir el canvas para Three.js que ocupará los 112px completos del marcador
+  const canvas = document.createElement('canvas')
+  canvas.className = 'marker-3d-canvas'
+  canvas.width = 112
+  canvas.height = 112
+  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
+  inner.appendChild(canvas)
 
   // Hover popover event listeners
   container.addEventListener('mouseenter', () => {
@@ -586,9 +277,6 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
   const content = marker.content as HTMLElement
   if (!content) return
 
-  const svgEl = content.querySelector('svg')
-  if (!svgEl) return
-
   const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
   const speedVal = marker.currentSpeed !== undefined ? marker.currentSpeed : (hw.speed || 0)
   const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
@@ -596,7 +284,10 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
     ? marker.currentLockProgress
     : (formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0)
 
-  applySvgData(svgEl, course, speedVal, batteryVal, lockProgress, isSelected)
+  if (marker.threeRenderer) {
+    const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal)
+  }
 
   // Scale based on zoom
   const scale = getZoomScaleFactor()
@@ -606,17 +297,7 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
   }
 }
 
-const syncMarkerTransforms = () => {
-  const scale = getZoomScaleFactor()
-  markersMap.forEach((marker) => {
-    const content = marker.content as HTMLElement | undefined
-    if (!content) return
-    const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
-    if (inner) {
-      inner.style.transform = `scale(${scale})`
-    }
-  })
-}
+
 
 const animateMarker = (
   marker: any,
@@ -718,10 +399,13 @@ const animateMarker = (
     // Update SVG elements live during animation
     const svgEl = (marker.content as HTMLElement)?.querySelector('svg')
     if (svgEl) {
-      const arrowG = svgEl.querySelector('[id^="arrow-direction"]')
-      if (arrowG) arrowG.setAttribute('transform', `rotate(${currentCourse.toFixed(1)}, 195, 153)`)
       const speedText = svgEl.querySelector('[id^="speed-text"]')
       if (speedText) speedText.textContent = `${Math.round(currentSpeed)}KM`
+    }
+
+    if (marker.threeRenderer) {
+      const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery)
     }
 
     if (progress < 1) {
@@ -769,6 +453,11 @@ const updateMarkersOnMap = () => {
           content,
           zIndex: isSelected ? 1000 : 1
         })
+
+        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+        if (canvas) {
+          marker.threeRenderer = new ThreeMarkerRenderer(canvas)
+        }
         
         marker.currentCourse = hw.course || 0
         marker.currentSpeed = hw.speed || 0
@@ -831,11 +520,23 @@ const updateMarkersOnMap = () => {
   })
 }
 
-// 2D flat map — never tilt
+// Adaptar inclinación del mapa de forma fluida y progresiva utilizando el soporte nativo de Google Maps
 const adjustMapTilt = (targetMap: any) => {
   if (!targetMap) return
-  targetMap.setTilt(0)
-  targetMap.setHeading(0)
+  const zoom = targetMap.getZoom() || 13
+  
+  let target = 0
+  if (zoom >= 17) {
+    target = 45
+  } else if (zoom >= 15) {
+    target = (zoom - 15) * 22.5
+  } else {
+    target = 0
+  }
+  
+  if (targetMap.getTilt() !== target) {
+    targetMap.setTilt(target)
+  }
 }
 
 watch(map, (newMap) => {
@@ -843,24 +544,32 @@ watch(map, (newMap) => {
     updateMarkersOnMap()
     adjustMapTilt(newMap)
 
+    // El motor vectorial puede requerir que el mapa esté inactivo (idle) para aplicar setTilt la primera vez
+    newMap.addListener('idle', () => {
+      adjustMapTilt(newMap)
+    })
+
     newMap.addListener('zoom_changed', () => {
       adjustMapTilt(newMap)
-      syncMarkerTransforms()
+    })
+
+    // Sincronizar los renderers Three.js cada vez que el tilt del mapa cambie
+    newMap.addListener('tilt_changed', () => {
+      const currentTilt = newMap.getTilt() || 0
+      markersMap.forEach((marker, serial) => {
+        if (!marker.threeRenderer) return
+        const hw = hardwareList.value.find((h: any) => h.serial === serial)
+        if (!hw) return
+        const isSelected = selectedItem.value && selectedItem.value.serial === serial
+        const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
+        const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
+        marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal)
+      })
     })
   }
 })
 
-// When the SVG template loads, re-render all existing markers
-watch(svgTemplate, () => {
-  markersMap.forEach((marker, serial) => {
-    const hw = hardwareList.value.find(h => h.serial === serial)
-    if (hw) {
-      const isSelected = selectedItem.value && selectedItem.value.serial === serial
-      marker.content = createHardwareMarkerElement(hw, isSelected)
-      updateMarkerContent(marker, hw, isSelected)
-    }
-  })
-})
+
 
 const selectItem = (item: any) => {
   selectedItem.value = item
@@ -1116,122 +825,20 @@ onUnmounted(() => {
     </div>
 
     <!-- PANEL LATERAL IZQUIERDO -->
-    <div class="absolute top-0 bottom-0 left-0 w-[320px] md:w-[350px] lg:w-[380px] bg-[#13161C] border-r border-white/5 z-20 flex flex-col overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.4)]">
-      
-      <!-- Cabecera Panel -->
-      <div class="p-5 border-b border-white/5 shrink-0">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2.5">
-            <div class="w-9 h-9 rounded-xl bg-[#5da6fc]/10 flex items-center justify-center text-[#5da6fc] shadow-inner">
-              <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="17" />
-              <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="17" />
-              <HugeiconsIcon v-else-if="activeTab === 'ESCOLTAS'" :icon="UserGroupIcon" :size="17" />
-              <HugeiconsIcon v-else :icon="Car02Icon" :size="17" />
-            </div>
-            <div>
-              <h2 class="text-[14px] font-bold text-white tracking-tight capitalize">{{ activeTab.toLowerCase() }}</h2>
-              <span class="text-[9px] font-bold text-white/40 uppercase tracking-widest block mt-0.5">
-                {{ filteredItems.length }} {{ filteredItems.length === 1 ? 'elemento' : 'elementos' }}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Buscador -->
-        <div class="relative flex items-center gap-2">
-          <AppInput 
-            v-model="searchQuery"
-            placeholder="Buscar..."
-            :icon="Search01Icon"
-            class="flex-1"
-          />
-          <button 
-            v-if="activeTab === 'HARDWARE'"
-            @click="connectWebSocket"
-            title="Reconectar"
-            class="w-10 h-10 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
-          >
-            <HugeiconsIcon :icon="RefreshIcon" :size="14" :class="{ 'animate-spin': wsStatus === 'connecting' }" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Cuerpo / Lista -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-[#13161C]/50">
-        <!-- Error de sesión / credenciales -->
-        <div v-if="wsError && activeTab === 'HARDWARE'" class="mx-1 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-2">
-          <p class="text-[10px] font-bold text-rose-400">{{ wsError }}</p>
-          <button @click="connectWebSocket" class="text-[9px] font-black uppercase tracking-wider text-[#5da6fc] hover:underline self-start">
-            Reintentar
-          </button>
-        </div>
-
-        <!-- Loader -->
-        <div v-if="isLoadingSecondary" class="py-12 flex flex-col items-center justify-center gap-3">
-          <div class="w-8 h-8 rounded-full border-2 border-white/10 border-t-[#5da6fc] animate-spin"></div>
-          <span class="text-[10px] font-bold text-white/40 uppercase tracking-widest">Cargando datos...</span>
-        </div>
-
-        <!-- Lista Vacía -->
-        <div v-else-if="filteredItems.length === 0 && !wsError" class="py-16 text-center flex flex-col items-center gap-2">
-          <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20">
-            <HugeiconsIcon :icon="Location01Icon" :size="20" />
-          </div>
-          <p class="text-[11px] font-bold text-white/30">No se encontraron elementos</p>
-        </div>
-
-        <!-- Elementos -->
-        <template v-else>
-          <button
-            v-for="item in filteredItems"
-            :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
-            @click="selectItem(item)"
-            class="group w-full text-left p-3 px-4 rounded-xl transition-all duration-300 border border-transparent outline-none flex items-center justify-between gap-3 relative overflow-hidden"
-            :class="[
-              isItemSelected(item)
-                ? 'bg-[#5da6fc]/5 dark:bg-[#5da6fc]/10 border-[#5da6fc]/20 text-white z-10 shadow-[0_2px_8px_-2px_rgba(93,166,252,0.05)]'
-                : (item.sos 
-                    ? 'bg-rose-500/5 hover:bg-rose-500/10 border-red-500/15 text-white/80'
-                    : 'bg-transparent border-transparent hover:bg-white/[0.02] dark:hover:bg-[#1E222B]/20 hover:border-white/5 text-white/80')
-            ]"
-          >
-            <!-- Glow Effect background -->
-            <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(93,166,252,0.04),transparent_60%)] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-
-            <!-- Content container -->
-            <div class="flex items-center gap-2.5 min-w-0 flex-1 relative z-10">
-              <div class="min-w-0 flex-1">
-                <div class="flex items-center justify-between gap-2">
-                  <h3
-                    class="text-[12px] font-bold uppercase tracking-tight truncate transition-colors duration-200"
-                    :class="isItemSelected(item) ? 'text-[#5da6fc]' : 'text-slate-200'"
-                  >
-                    {{ item.nombre || item.placa || item.id_servicio }}
-                  </h3>
-                  <!-- Badges de batería / SOS -->
-                  <div class="flex items-center gap-2 shrink-0">
-                    <span v-if="item.sos" class="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 leading-none select-none tracking-wide">
-                      SOS
-                    </span>
-                    <span v-if="item.battery !== undefined" class="text-[10px] font-bold text-emerald-450 dark:text-emerald-400 flex items-center gap-0.5 leading-none select-none tracking-wide">
-                      <HugeiconsIcon :icon="BatteryCharging01Icon" :size="10.5" class="opacity-80" />
-                      {{ item.battery }}%
-                    </span>
-                  </div>
-                </div>
-                <div class="flex items-center justify-between mt-1.5 gap-2">
-                  <p class="text-[10.5px] font-medium text-slate-450 dark:text-slate-500 truncate">
-                    {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || 'Sin descripción' }}
-                  </p>
-                  <!-- Indicador de señal lat/lon -->
-                  <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="GPS Activo"></span>
-                </div>
-              </div>
-            </div>
-          </button>
-        </template>
-      </div>
-    </div>
+    <TrackingSidebar
+      v-model:searchQuery="searchQuery"
+      :activeTab="activeTab"
+      :hardwareList="hardwareList"
+      :serviciosList="serviciosList"
+      :escoltasList="escoltasList"
+      :vehiculosList="vehiculosList"
+      :isLoadingSecondary="isLoadingSecondary"
+      :wsStatus="wsStatus"
+      :wsError="wsError"
+      :selectedItem="selectedItem"
+      @reconnect="connectWebSocket"
+      @select="selectItem"
+    />
   </div>
 </template>
 

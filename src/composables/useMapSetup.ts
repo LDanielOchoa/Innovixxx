@@ -102,8 +102,6 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
 
     if (mapId) {
       // Mapa vectorial con Map ID — el estilo personalizado se carga automáticamente
-      // desde Google Cloud Console según el estilo asociado al Map ID.
-      // No usar colorScheme ni styles[]: ambos sobreescriben el estilo del Cloud Console.
       mapOptions.mapId = mapId
     } else {
       // Fallback: mapa raster con estilos JS (sin soporte de tilt nativo)

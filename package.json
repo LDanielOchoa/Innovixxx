@@ -21,6 +21,7 @@
     "pinia": "^3.0.4",
     "pinia-plugin-persistedstate": "^4.7.1",
     "primevue": "^4.5.5",
+    "three": "^0.185.1",
     "vue": "^3.5.25",
     "vue-advanced-cropper": "^2.8.9",
     "vue-i18n": "^9.14.5",
@@ -31,6 +32,7 @@
   "devDependencies": {
     "@types/dompurify": "^3.2.0",
     "@types/node": "^24.10.1",
+    "@types/three": "^0.185.1",
     "@vitejs/plugin-vue": "^6.0.2",
     "@vue/tsconfig": "^0.8.1",
     "autoprefixer": "^10.4.27",

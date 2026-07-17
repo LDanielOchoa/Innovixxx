@@ -33,7 +33,7 @@ const router = createRouter({
     {
       path: '/tracking',
       name: 'tracking',
-      component: () => import('../views/TrackingView.vue'),
+      component: () => import('../domains/tracking/views/TrackingView.vue'),
       meta: { requiresAuth: true }
     },
 
