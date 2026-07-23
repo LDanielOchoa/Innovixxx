@@ -599,13 +599,31 @@ const {
   insertParada,
   deleteParada,
   updateParadaTipo
-} = useParadasManager(map, tiposParada, routeColor, (idx: number) => {
-  if (isAddingParadas.value) {
+} = useParadasManager(
+  map,
+  tiposParada,
+  routeColor,
+  // Click izquierdo → abrir modal de edición.
+  // FIX: funciona siempre (también tras cargar una ruta por GPS, sin entrar
+  // antes en modo edición). Carga los tipos de parada bajo demanda.
+  async (idx: number) => {
+    if (tiposParada.value.length === 0) {
+      try   { tiposParada.value = await fetchTiposParadaApi() }
+      catch (e) { console.error('Error fetching tipos parada', e) }
+    }
     editingParadaIndex.value = idx
     editingTipoParada.value  = paradasTemporales.value[idx]?.tipo ?? null
     isEditParadaModalOpen.value = true
+  },
+  // Click derecho → eliminar parada directamente
+  (idx: number) => {
+    onParadaDelete(idx)
+  },
+  // Arrastrar marcador (dragend) → recalcular ruta desde ese índice
+  (idx: number) => {
+    recalculateFromIndex(idx, paradasTemporales.value, routeColor.value, isGpsRoute.value)
   }
-})
+)
 
 // ── Route Drawer ──────────────────────────────────────────────
 const {
@@ -831,14 +849,20 @@ const onParadaSelect = (index: number | null) => {
 }
 
 const onParadaDelete = (index: number) => {
-  deleteParada(index)
-  recalculateFromIndex(index, paradasTemporales.value, routeColor.value, isGpsRoute.value)
+  const realIndex = deleteParada(index)
+  if (realIndex === -1) return
 
-  if (selectedParadaIndex.value === index) {
+  // Actualizar índice seleccionado inmediatamente (no bloquea)
+  if (selectedParadaIndex.value === realIndex) {
     selectedParadaIndex.value = null
-  } else if (selectedParadaIndex.value !== null && selectedParadaIndex.value > index) {
+  } else if (selectedParadaIndex.value !== null && selectedParadaIndex.value > realIndex) {
     selectedParadaIndex.value--
   }
+
+  // Diferir el recálculo de la polilínea al siguiente tick para no congelar la UI
+  nextTick(() => {
+    recalculateFromIndex(realIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value, true)
+  })
 }
 
 const clearParadasTemporales = () => {
@@ -974,6 +998,25 @@ onUnmounted(() => {
   display: none !important;
 }
 
+/* FIX: InfoWindow de paradas legible en ESTE mapa. Al ir con #id tienen más
+   especificidad que los estilos globales oscuros que TrackingView inyecta
+   sobre .gm-style-iw-c (que dejaban el tooltip con fondo y texto oscuros). */
+#google-map-container-form :deep(.gm-style-iw-c) {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(226, 232, 240, 0.9) !important;
+  border-radius: 12px !important;
+  padding: 4px !important;
+  box-shadow: 0 12px 24px -6px rgba(15, 23, 42, 0.18) !important;
+}
+#google-map-container-form :deep(.gm-style-iw-d) {
+  overflow: hidden !important;
+  padding: 0 !important;
+}
+#google-map-container-form :deep(.gm-style-iw-tc::after) {
+  background: #ffffff !important;
+  box-shadow: 3px 3px 7px rgba(15, 23, 42, 0.12);
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
 }
@@ -1031,7 +1074,7 @@ onUnmounted(() => {
   font-family: 'Inter', sans-serif;
 }
 .rutas-theme-sync,
-.rutas-theme-sync * {
+.rutas-theme-sync *:not(.gm-style *):not(.pac-container *) {
   transition-property: background-color, border-color, color, fill, stroke, box-shadow;
   transition-duration: 180ms;
   transition-timing-function: ease;
@@ -1042,9 +1085,6 @@ onUnmounted(() => {
   transition: none !important;
 }
 
-/* ════════════════════════════════════════════════════════════
-   Google Maps Places Autocomplete Dropdown - Glassmorphic 3D
-   ════════════════════════════════════════════════════════════ */
 .pac-container {
   background-color: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(24px) !important;
@@ -1116,74 +1156,6 @@ html.dark .pac-container:after {
   filter: invert(1) opacity(0.5); /* Makes the Google logo dark-mode friendly */
 }
 
-/* ════════════════════════════════════════════════════════════
-   Pickr Color Picker - Custom Styling
-   ════════════════════════════════════════════════════════════ */
-.pickr-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.pickr {
-  width: 100% !important;
-}
-
-.pickr .pcr-button {
-  width: 100% !important;
-  height: 48px !important;
-  border-radius: 14px !important;
-  border: 2px solid rgba(255, 255, 255, 0.35) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-  position: relative !important;
-  overflow: visible !important;
-}
-
-html.dark .pickr .pcr-button {
-  border: 2px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4) !important;
-}
-
-.pickr .pcr-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15) !important;
-}
-
-.pickr .pcr-button:active {
-  transform: translateY(1px);
-}
-
-/* Override Pickr internal styles to match our theme */
-.pcr-app {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px) !important;
-  border-radius: 16px !important;
-  border: 1px solid rgba(0, 0, 0, 0.05) !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2) !important;
-  padding: 12px !important;
-}
-
-html.dark .pcr-app {
-  background: rgba(15, 17, 23, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.05) !important;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
-}
-
-.pcr-app .pcr-interaction input {
-  background: rgba(0, 0, 0, 0.05) !important;
-  border-radius: 8px !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  color: #1e293b !important;
-  font-family: 'Inter', sans-serif !important;
-  font-weight: 700 !important;
-}
-
-html.dark .pcr-app .pcr-interaction input {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  color: #f8fafc !important;
-}
 </style>
 
 

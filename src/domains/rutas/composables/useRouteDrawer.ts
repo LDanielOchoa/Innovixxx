@@ -85,17 +85,19 @@ export function useRouteDrawer(
 
   /**
    * Recalcula la ruta a partir de un índice de parada.
-   * Incluye debounce de 400ms para agrupar ediciones rápidas.
+   * Incluye debounce de 400ms para agrupar ediciones rápidas,
+   * o ejecución inmediata si immediate = true.
    */
   const recalculateFromIndex = (
     startParadaIndex: number,
     paradas: ParadaPayload[],
     color: string,
-    usePolyline: boolean = true
+    usePolyline: boolean = true,
+    immediate: boolean = false
   ) => {
     clearDebounce()
 
-    debounceTimer = setTimeout(() => {
+    const doRecalculate = () => {
       debounceTimer = null
 
       if (paradas.length < 2) {
@@ -129,7 +131,13 @@ export function useRouteDrawer(
         const chunk    = paradas.slice(startIdx, endIdx)
         _requestChunk(chunk, color, true)
       }
-    }, 400)
+    }
+
+    if (immediate) {
+      doRecalculate()
+    } else {
+      debounceTimer = setTimeout(doRecalculate, 400)
+    }
   }
 
   /**

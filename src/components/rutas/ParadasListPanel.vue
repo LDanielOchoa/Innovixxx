@@ -71,7 +71,7 @@
         </div>
 
         <!-- Stop Items -->
-        <TransitionGroup name="stop-item" tag="div" class="space-y-1.5">
+        <TransitionGroup :name="paradas.length <= 30 ? 'stop-item' : 'stop-item-fast'" tag="div" class="space-y-1.5">
           <div
             v-for="parada in paginatedParadas"
             :key="parada.originalIndex"
@@ -165,7 +165,7 @@
       <div class="px-4 pb-4 pt-3 border-t border-slate-100 dark:border-white/[0.05] flex flex-col gap-2.5">
         <!-- Hint line -->
         <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 text-center uppercase tracking-widest">
-          {{ paradas.length < 2 ? 'Añade al menos 2 nodos para guardar' : 'Ruta lista para guardar' }}
+          {{ paradas.length < 2 ? 'Añade al menos 2 puntos' : 'Ruta lista' }}
         </p>
 
         <!-- Save Button -->
@@ -178,7 +178,7 @@
             : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-white/5'"
         >
           <HugeiconsIcon :icon="Tick01Icon" :size="16" :stroke-width="2.5" />
-          Guardar Ruta
+          LISTO
         </button>
 
         <!-- Secondary Actions -->
@@ -362,12 +362,13 @@ const totalDistanceStr = computed(() => {
   background: rgba(100, 116, 139, 0.35);
 }
 
-/* Stop list transition */
+/* Stop list transition (used when <=30 stops) */
 .stop-item-enter-active {
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .stop-item-leave-active {
-  transition: all 0.25s cubic-bezier(0.4, 0, 1, 1);
+  transition: all 0.2s ease;
+  /* No usar position:absolute aquí — evita reflow masivo */
 }
 .stop-item-enter-from {
   opacity: 0;
@@ -375,11 +376,22 @@ const totalDistanceStr = computed(() => {
 }
 .stop-item-leave-to {
   opacity: 0;
-  transform: translateX(-10px) scale(0.96);
+  transform: scale(0.95);
 }
 .stop-item-move {
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* Fast transition (used when >30 stops) — sin move animation */
+.stop-item-fast-enter-active {
+  transition: opacity 0.15s ease;
+}
+.stop-item-fast-leave-active {
+  transition: opacity 0.1s ease;
+}
+.stop-item-fast-enter-from { opacity: 0; }
+.stop-item-fast-leave-to   { opacity: 0; }
+/* Sin .stop-item-fast-move = sin animación de reorden = sin freeze */
 
 /* Hint card fade */
 .hint-fade-enter-active, .hint-fade-leave-active {

@@ -3,24 +3,9 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { ThreeMarkerRenderer } from '../../../utils/threeMarkerRenderer'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
-import { apiClient } from '../../../utils/api-client'
-import { HugeiconsIcon } from '@hugeicons/vue'
 import { useRouter, useRoute } from 'vue-router'
-import AppInput from '../../../components/ui/AppInput.vue'
-import {
-  Location01Icon,
-  ArrowLeft01Icon,
-  ChipIcon,
-  UserGroupIcon,
-  Settings02Icon,
-  Car02Icon,
-  BatteryCharging01Icon,
-  CompassIcon,
-  DashboardBrowsingIcon,
-  LockIcon,
-  RefreshIcon,
-  Search01Icon
-} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
+import { ChipIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 
 const router = useRouter()
@@ -81,6 +66,7 @@ const hoveredEscoltaService = computed(() => {
 })
 
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
+import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
 import TrackingSidebar from '../components/TrackingSidebar.vue'
 
 const {
@@ -115,6 +101,13 @@ const {
   forceDark: true,
   mapId: '688c00fbadb30bbb930f73e2'
 })
+
+// Composable de Geocercas para Tracking
+const {
+  showGeocercas,
+  loadingGeocercas,
+  toggleGeocercas
+} = useTrackingGeocercas(map)
 
 let infoWindow: any = null
 
@@ -707,6 +700,100 @@ onUnmounted(() => {
   disconnectWebSocket()
   clearAllMarkers()
 })
+// Formatear la fecha_inicio del servicio (ej. "2026-07-22 14:30:00" o "2026-07-22T14:30:00")
+const formatServiceDateTime = (fechaStr: string | undefined) => {
+  if (!fechaStr) return { fecha: null, hora: null }
+  try {
+    // Si viene en formato "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
+    const cleaned = fechaStr.replace(' ', 'T')
+    const d = new Date(cleaned)
+    if (!isNaN(d.getTime())) {
+      const fecha = d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })
+      return { fecha, hora }
+    }
+    // Fallback split si Date no parsea
+    const parts = fechaStr.split(' ')
+    return { fecha: parts[0] || fechaStr, hora: parts[1] || null }
+  } catch {
+    return { fecha: fechaStr, hora: null }
+  }
+}
+
+// Mapear los estados del servicio a nombres y clases CSS (Paleta idéntica a ServiciosDashboardView)
+const getServicioEstadoInfo = (estadoVal: any) => {
+  const num = Number(estadoVal)
+  switch (num) {
+    case 1:
+      return { 
+        label: 'PRERCARGA', 
+        style: 'color: #D65900; background-color: rgba(214, 89, 0, 0.12); border-color: rgba(214, 89, 0, 0.3);', 
+        dotStyle: 'background-color: #D65900;' 
+      }
+    case 2:
+      return { 
+        label: 'EN ESPERA', 
+        style: 'color: #9D21D6; background-color: rgba(157, 33, 214, 0.12); border-color: rgba(157, 33, 214, 0.3);', 
+        dotStyle: 'background-color: #9D21D6;' 
+      }
+    case 3:
+      return { 
+        label: 'EJECUCION OK', 
+        style: 'color: #00C5D6; background-color: rgba(0, 197, 214, 0.12); border-color: rgba(0, 197, 214, 0.3);', 
+        dotStyle: 'background-color: #00C5D6;' 
+      }
+    case 4:
+      return { 
+        label: 'EJECUCION FAIL', 
+        style: 'color: #A1D600; background-color: rgba(161, 214, 0, 0.12); border-color: rgba(161, 214, 0, 0.3);', 
+        dotStyle: 'background-color: #A1D600;' 
+      }
+    case 5:
+      return { 
+        label: 'FINALIZADO', 
+        style: 'color: #814F2B; background-color: rgba(129, 79, 43, 0.12); border-color: rgba(129, 79, 43, 0.3);', 
+        dotStyle: 'background-color: #814F2B;' 
+      }
+    case 6:
+      return { 
+        label: 'CANCELADO', 
+        style: 'color: #ef4444; background-color: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3);', 
+        dotStyle: 'background-color: #ef4444;' 
+      }
+    default:
+      return null
+  }
+}
+
+// Helper computed para fecha y hora del servicio hover de hardware
+const hoveredServiceDateTime = computed(() => {
+  const service = hoveredService.value
+  if (!service) return { fecha: null, hora: null }
+  const fechaRaw = service.fecha_inicio || service.fecha_hora_inicio || service.fecha_creacion || service.fecha_creada || service.created_at
+  return formatServiceDateTime(fechaRaw)
+})
+
+// Helper computed para fecha y hora del servicio hover de escolta
+const hoveredEscoltaServiceDateTime = computed(() => {
+  const service = hoveredEscoltaService.value
+  if (!service) return { fecha: null, hora: null }
+  const fechaRaw = service.fecha_inicio || service.fecha_hora_inicio || service.fecha_creacion || service.fecha_creada || service.created_at
+  return formatServiceDateTime(fechaRaw)
+})
+
+// Helper computed para información del estado del servicio hover de hardware
+const hoveredServiceEstadoInfo = computed(() => {
+  const service = hoveredService.value
+  if (!service || service.estado === undefined || service.estado === null) return null
+  return getServicioEstadoInfo(service.estado)
+})
+
+// Helper computed para información del estado del servicio hover de escolta
+const hoveredEscoltaServiceEstadoInfo = computed(() => {
+  const service = hoveredEscoltaService.value
+  if (!service || service.estado === undefined || service.estado === null) return null
+  return getServicioEstadoInfo(service.estado)
+})
 </script>
 
 <template>
@@ -716,91 +803,127 @@ onUnmounted(() => {
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div id="google-map-container" class="w-full h-full bg-[#0d1116]"></div>
 
-      <!-- Popover de información de Hardware (con animación premium) -->
+      <!-- Popover de información de Hardware (con diseño consistente al Sidebar/Sistema) -->
       <Transition name="hover-card-pop">
         <div 
           v-if="hoveredItem" 
           :style="{ top: hoveredPosition.top + 'px', left: hoveredPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <!-- Contenido de la Tarjeta Minimalista -->
-          <div class="w-[200px] bg-slate-950/85 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-lg text-left flex flex-col gap-2 font-sans">
-            <!-- Header -->
-            <div class="flex items-baseline justify-between min-w-0">
-              <h4 class="text-[11px] font-bold text-white truncate max-w-[120px]">{{ hoveredItem.nombre }}</h4>
-              <span class="text-[8px] font-medium text-slate-400 font-mono shrink-0">{{ hoveredItem.serial }}</span>
+          <!-- Contenido de la Tarjeta Estilo Sistema/Sidebar -->
+          <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <!-- Header: Nombre del Dispositivo y Serial -->
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
+                  <HugeiconsIcon :icon="ChipIcon" :size="15" />
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredItem.nombre }}</h4>
+                  <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 block truncate">Dispositivo GPS</span>
+                </div>
+              </div>
+              <span class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredItem.serial }}</span>
             </div>
 
-            <!-- Separador sutil -->
-            <div class="h-[1px] bg-white/5"></div>
-
-            <!-- Información principal -->
-            <div class="flex flex-col gap-1.5 text-[9.5px]">
-              <!-- Servicio -->
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-slate-400">Servicio</span>
-                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredService?.id_servicio || hoveredItem.id_servicio || 'Sin servicio' }}</span>
+            <!-- Bloque de Servicio -->
+            <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
+                <span 
+                  class="text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1.5 border"
+                  :style="hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.style : ''"
+                  :class="!hoveredServiceEstadoInfo ? 'bg-slate-200/50 dark:bg-white/5 text-slate-400 dark:text-white/40 border-transparent' : ''"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :style="hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.dotStyle : ''" :class="!hoveredServiceEstadoInfo ? 'bg-slate-400' : ''"></span>
+                  {{ hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.label : 'Sin Servicio' }}
+                </span>
               </div>
 
-              <!-- Escolta -->
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-slate-400">Escolta</span>
-                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredEscolta?.nombre || 'Sin escolta' }}</span>
-              </div>
+              <template v-if="hoveredServiceDateTime.fecha || hoveredServiceDateTime.hora">
+                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/40 dark:border-white/5">
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
+                  <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
+                    <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredServiceDateTime.fecha }}</span>
+                    <span v-if="hoveredServiceDateTime.hora" class="text-[#3b82f6] dark:text-[#5da6fc] font-bold">{{ hoveredServiceDateTime.hora }}</span>
+                  </div>
+                </div>
+              </template>
+            </div>
 
-              <!-- Celular (si está disponible) -->
-              <div v-if="hoveredEscolta?.celular" class="flex items-center justify-between gap-2 text-[9px]">
-                <span class="text-slate-400">Celular</span>
-                <span class="text-slate-300 font-mono">{{ hoveredEscolta.celular }}</span>
+            <!-- Bloque de Escolta -->
+            <div class="flex items-center justify-between text-[10px] px-1">
+              <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <HugeiconsIcon :icon="UserGroupIcon" :size="13" class="text-slate-400" />
+                <span>Escolta</span>
+              </div>
+              <div class="flex flex-col items-end">
+                <span class="text-slate-800 dark:text-white font-semibold truncate max-w-[120px]">{{ hoveredEscolta?.nombre || 'Sin asignar' }}</span>
+                <span v-if="hoveredEscolta?.celular" class="text-[9px] font-mono text-slate-400 dark:text-slate-400">{{ hoveredEscolta.celular }}</span>
               </div>
             </div>
           </div>
           <!-- Triángulo indicador -->
-          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-950/85 -mt-[1px]"></div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
 
-      <!-- Popover de información de Escolta (con animación premium) -->
+      <!-- Popover de información de Escolta (con diseño consistente al Sidebar/Sistema) -->
       <Transition name="hover-card-pop">
         <div 
           v-if="hoveredEscoltaItem" 
           :style="{ top: hoveredEscoltaPosition.top + 'px', left: hoveredEscoltaPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <!-- Contenido de la Tarjeta Minimalista -->
-          <div class="w-[200px] bg-slate-950/85 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-lg text-left flex flex-col gap-2 font-sans">
-            <!-- Header -->
-            <div class="flex items-baseline justify-between min-w-0">
-              <h4 class="text-[11px] font-bold text-white truncate max-w-[120px]">{{ hoveredEscoltaItem.nombre }}</h4>
-              <span v-if="hoveredEscoltaItem.identificacion" class="text-[8px] font-medium text-slate-400 font-mono shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
+          <!-- Contenido de la Tarjeta Estilo Sistema/Sidebar -->
+          <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <!-- Header: Nombre del Escolta e Identificación -->
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
+                  <HugeiconsIcon :icon="UserGroupIcon" :size="15" />
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredEscoltaItem.nombre }}</h4>
+                  <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 block truncate">Escolta Oficial</span>
+                </div>
+              </div>
+              <span v-if="hoveredEscoltaItem.identificacion" class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
             </div>
 
-            <!-- Separador sutil -->
-            <div class="h-[1px] bg-white/5"></div>
-
-            <!-- Información principal -->
-            <div class="flex flex-col gap-1.5 text-[9.5px]">
-              <!-- Servicio -->
-              <div class="flex items-center justify-between gap-2">
-                <span class="text-slate-400">Servicio</span>
-                <span class="text-white font-medium truncate max-w-[120px]">{{ hoveredEscoltaService?.id_servicio || hoveredEscoltaItem.id_servicio || 'Sin servicio' }}</span>
+            <!-- Bloque de Servicio -->
+            <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
+              <div class="flex items-center justify-between">
+                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
+                <span 
+                  class="text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1.5 border"
+                  :style="hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.style : ''"
+                  :class="!hoveredEscoltaServiceEstadoInfo ? 'bg-slate-200/50 dark:bg-white/5 text-slate-400 dark:text-white/40 border-transparent' : ''"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full" :style="hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.dotStyle : ''" :class="!hoveredEscoltaServiceEstadoInfo ? 'bg-slate-400' : ''"></span>
+                  {{ hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.label : 'Sin Servicio' }}
+                </span>
               </div>
 
-              <!-- Celular -->
-              <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between gap-2">
-                <span class="text-slate-400">Celular</span>
-                <span class="text-white font-medium truncate max-w-[120px] font-mono">{{ hoveredEscoltaItem.celular }}</span>
-              </div>
+              <template v-if="hoveredEscoltaServiceDateTime.fecha || hoveredEscoltaServiceDateTime.hora">
+                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/40 dark:border-white/5">
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
+                  <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
+                    <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredEscoltaServiceDateTime.fecha }}</span>
+                    <span v-if="hoveredEscoltaServiceDateTime.hora" class="text-[#3b82f6] dark:text-[#5da6fc] font-bold">{{ hoveredEscoltaServiceDateTime.hora }}</span>
+                  </div>
+                </div>
+              </template>
+            </div>
 
-              <!-- Email -->
-              <div v-if="hoveredEscoltaItem.email" class="flex items-center justify-between gap-2">
-                <span class="text-slate-400">Email</span>
-                <span class="text-white font-medium truncate max-w-[120px] font-mono">{{ hoveredEscoltaItem.email }}</span>
-              </div>
+            <!-- Contacto -->
+            <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between text-[10px] px-1">
+              <span class="text-slate-500 dark:text-slate-400 font-medium">Celular</span>
+              <span class="text-slate-800 dark:text-white font-mono font-medium">{{ hoveredEscoltaItem.celular }}</span>
             </div>
           </div>
           <!-- Triángulo indicador -->
-          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-slate-950/85 -mt-[1px]"></div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
     </div>
@@ -836,8 +959,11 @@ onUnmounted(() => {
       :wsStatus="wsStatus"
       :wsError="wsError"
       :selectedItem="selectedItem"
+      :showGeocercas="showGeocercas"
+      :loadingGeocercas="loadingGeocercas"
       @reconnect="connectWebSocket"
       @select="selectItem"
+      @toggleGeocercas="toggleGeocercas"
     />
   </div>
 </template>

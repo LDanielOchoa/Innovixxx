@@ -10,7 +10,9 @@ import {
   Location01Icon,
   RefreshIcon,
   Search01Icon,
-  BatteryCharging01Icon
+  BatteryCharging01Icon,
+  MapsIcon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 
@@ -25,13 +27,20 @@ interface Props {
   wsStatus: 'disconnected' | 'connecting' | 'connected'
   wsError: string | null
   selectedItem: any | null
+  showGeocercas?: boolean
+  loadingGeocercas?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showGeocercas: false,
+  loadingGeocercas: false
+})
+
 const emit = defineEmits<{
   (e: 'update:searchQuery', val: string): void
   (e: 'reconnect'): void
   (e: 'select', item: any): void
+  (e: 'toggleGeocercas'): void
 }>()
 
 const localSearchQuery = computed({
@@ -108,8 +117,20 @@ const isItemSelected = (item: any) => {
         </div>
       </div>
 
-      <!-- Buscador -->
+      <!-- Buscador y Acciones -->
       <div class="relative flex items-center gap-2">
+        <button
+          @click="emit('toggleGeocercas')"
+          :title="showGeocercas ? 'Ocultar Geocercas en el mapa' : 'Mostrar Geocercas en el mapa'"
+          class="w-10 h-10 rounded-[10px] flex items-center justify-center border transition-all duration-200 shrink-0 relative overflow-hidden"
+          :class="showGeocercas 
+            ? 'bg-[#3b82f6]/15 dark:bg-[#5da6fc]/20 border-[#3b82f6]/30 dark:border-[#5da6fc]/30 text-[#3b82f6] dark:text-[#5da6fc] shadow-[0_2px_10px_rgba(59,130,246,0.2)]'
+            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10'"
+        >
+          <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="16" class="animate-spin text-[#3b82f6] dark:text-[#5da6fc]" />
+          <HugeiconsIcon v-else :icon="MapsIcon" :size="16" />
+        </button>
+
         <AppInput 
           v-model="localSearchQuery"
           placeholder="Buscar..."
@@ -137,26 +158,20 @@ const isItemSelected = (item: any) => {
         </button>
       </div>
 
-      <!-- Skeletons de Carga -->
-      <div v-if="isLoadingSecondary" class="space-y-2">
+      <!-- Skeletons de Carga (Diseño limpio y fluido) -->
+      <div v-if="isLoadingSecondary || (activeTab === 'HARDWARE' && wsStatus === 'connecting' && hardwareList.length === 0)" class="space-y-2">
         <div 
           v-for="i in 5" 
           :key="i" 
-          class="w-full p-2.5 px-3 rounded-[14px] border border-slate-100/50 dark:border-white/5 flex items-center justify-between gap-3 animate-pulse bg-white/30 dark:bg-white/5"
+          class="w-full p-3 rounded-xl border border-slate-100 dark:border-white/[0.04] flex items-center gap-3 bg-white/40 dark:bg-white/[0.02] animate-pulse"
         >
-          <!-- Left: Icon Skeleton -->
-          <div class="w-9 h-9 rounded-lg bg-slate-200/60 dark:bg-white/10 shrink-0"></div>
+          <!-- Icon Circle Skeleton -->
+          <div class="w-8 h-8 rounded-lg bg-slate-200/50 dark:bg-white/[0.06] shrink-0"></div>
 
-          <!-- Center: Text Skeletons -->
-          <div class="min-w-0 flex-1 space-y-2">
-            <div class="h-3 w-2/3 bg-slate-200/60 dark:bg-white/10 rounded-md"></div>
-            <div class="h-2.5 w-1/2 bg-slate-100/60 dark:bg-white/5 rounded-md"></div>
-          </div>
-
-          <!-- Right: Badges Skeleton -->
-          <div class="flex flex-col items-end gap-2 shrink-0">
-            <div class="h-3 w-10 bg-slate-200/60 dark:bg-white/10 rounded-md"></div>
-            <div class="h-1.5 w-4 bg-slate-100/60 dark:bg-white/5 rounded-full"></div>
+          <!-- Text lines -->
+          <div class="flex-1 space-y-1.5 min-w-0">
+            <div class="h-3.5 bg-slate-200/50 dark:bg-white/[0.06] rounded-md w-3/5"></div>
+            <div class="h-2.5 bg-slate-100 dark:bg-white/[0.03] rounded-md w-2/5"></div>
           </div>
         </div>
       </div>

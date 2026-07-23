@@ -1,147 +1,204 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://maps.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://maps.gstatic.com https://maps.googleapis.com https://flagcdn.com https://i.pravatar.cc https://innovix.gfandino.xyz; connect-src 'self' data: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* ws://66.179.190.248:* http://66.179.190.248:* ws://66.179.190.248:8900 http://66.179.190.248:8900 https://maps.googleapis.com https://maps.gstatic.com https://mapsresources-pa.googleapis.com https://cdn.jsdelivr.net https://www.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
 
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css"/>
-    <title>Innovix</title>
-    <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: #1E2228;
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://maps.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://maps.gstatic.com https://maps.googleapis.com https://flagcdn.com https://i.pravatar.cc https://innovix.gfandino.xyz; connect-src 'self' data: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* ws://66.179.190.248:* http://66.179.190.248:* ws://66.179.190.248:8901 http://66.179.190.248:8900 https://maps.googleapis.com https://maps.gstatic.com https://mapsresources-pa.googleapis.com https://cdn.jsdelivr.net https://www.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+
+  <title>Innovix</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #1E2228;
+    }
+
+    #app-loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 99999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      background: radial-gradient(circle, #22272E 0%, #1A1E23 100%);
+      font-family: "Share Tech Mono", monospace;
+    }
+
+    .contenedor-cargador {
+      width: 460px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      filter: drop-shadow(0px 18px 42px rgba(93, 166, 252, 0.3));
+    }
+
+    .loader-stage {
+      position: relative;
+      width: 400px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loader-glow {
+      position: absolute;
+      width: 340px;
+      height: 340px;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(93, 166, 252, 0.35) 0%, rgba(93, 166, 252, 0.12) 35%, rgba(93, 166, 252, 0.04) 60%, transparent 80%);
+      animation: glowPulse 2.2s ease-in-out infinite;
+      filter: blur(20px);
+    }
+
+    .loader-logo {
+      width: 320px;
+      height: 320px;
+      object-fit: contain;
+      position: relative;
+      z-index: 2;
+      animation: logoFloat 1.8s ease-in-out infinite;
+      filter: drop-shadow(0 0 40px rgba(93, 166, 252, 0.95)) drop-shadow(0 0 100px rgba(93, 166, 252, 0.6));
+    }
+
+    .loader-text {
+      color: #bfdbfe;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      text-align: center;
+      animation: textGlow 1.8s ease-in-out infinite;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .loader-dots {
+      display: inline-flex;
+      gap: 6px;
+    }
+
+    .loader-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: #93c5fd;
+      opacity: 0.3;
+      animation: dotBlink 1s ease-in-out infinite;
+    }
+
+    .loader-dots span:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .loader-dots span:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes logoFloat {
+
+      0%,
+      100% {
+        transform: translateY(0px) scale(1);
       }
-      #app-loader {
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 99999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        width: 100vw;
-        background: radial-gradient(circle, #22272E 0%, #1A1E23 100%);
-        font-family: "Share Tech Mono", monospace;
+
+      50% {
+        transform: translateY(-4px) scale(1.02);
       }
+    }
+
+    @keyframes glowPulse {
+
+      0%,
+      100% {
+        opacity: 0.35;
+        transform: scale(0.95);
+      }
+
+      50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+      }
+    }
+
+    @keyframes textGlow {
+
+      0%,
+      100% {
+        text-shadow: 0 0 0 rgba(93, 166, 252, 0);
+      }
+
+      50% {
+        text-shadow: 0 0 22px rgba(93, 166, 252, 0.55);
+      }
+    }
+
+    @keyframes dotBlink {
+
+      0%,
+      80%,
+      100% {
+        opacity: 0.2;
+        transform: translateY(0);
+      }
+
+      40% {
+        opacity: 1;
+        transform: translateY(-1px);
+      }
+    }
+
+    @media (max-width: 640px) {
       .contenedor-cargador {
-        width: 460px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 18px;
-        filter: drop-shadow(0px 18px 42px rgba(93, 166, 252, 0.3));
+        width: 92vw;
+        gap: 24px;
       }
+
       .loader-stage {
-        position: relative;
-        width: 400px;
-        height: 400px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        width: 280px;
+        height: 280px;
       }
+
       .loader-glow {
-        position: absolute;
-        width: 340px;
-        height: 340px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(93, 166, 252, 0.35) 0%, rgba(93, 166, 252, 0.12) 35%, rgba(93, 166, 252, 0.04) 60%, transparent 80%);
-        animation: glowPulse 2.2s ease-in-out infinite;
-        filter: blur(20px);
+        width: 260px;
+        height: 260px;
       }
+
       .loader-logo {
-        width: 320px;
-        height: 320px;
-        object-fit: contain;
-        position: relative;
-        z-index: 2;
-        animation: logoFloat 1.8s ease-in-out infinite;
-        filter: drop-shadow(0 0 40px rgba(93, 166, 252, 0.95)) drop-shadow(0 0 100px rgba(93, 166, 252, 0.6));
+        width: 180px;
+        height: 180px;
       }
+
       .loader-text {
-        color: #bfdbfe;
-        font-size: 16px;
-        font-weight: 700;
-        letter-spacing: 0.4em;
-        text-transform: uppercase;
-        text-align: center;
-        animation: textGlow 1.8s ease-in-out infinite;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        font-size: 14px;
+        letter-spacing: 0.3em;
       }
-      .loader-dots {
-        display: inline-flex;
-        gap: 6px;
-      }
-      .loader-dots span {
-        width: 5px;
-        height: 5px;
-        border-radius: 999px;
-        background: #93c5fd;
-        opacity: 0.3;
-        animation: dotBlink 1s ease-in-out infinite;
-      }
-      .loader-dots span:nth-child(2) { animation-delay: 0.15s; }
-      .loader-dots span:nth-child(3) { animation-delay: 0.3s; }
+    }
+  </style>
+</head>
 
-      @keyframes logoFloat {
-        0%, 100% { transform: translateY(0px) scale(1); }
-        50% { transform: translateY(-4px) scale(1.02); }
-      }
-      @keyframes glowPulse {
-        0%, 100% { opacity: 0.35; transform: scale(0.95); }
-        50% { opacity: 0.7; transform: scale(1.05); }
-      }
-      @keyframes textGlow {
-        0%, 100% { text-shadow: 0 0 0 rgba(93, 166, 252, 0); }
-        50% { text-shadow: 0 0 22px rgba(93, 166, 252, 0.55); }
-      }
-      @keyframes dotBlink {
-        0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
-        40% { opacity: 1; transform: translateY(-1px); }
-      }
-
-      @media (max-width: 640px) {
-        .contenedor-cargador {
-          width: 92vw;
-          gap: 24px;
-        }
-        .loader-stage {
-          width: 280px;
-          height: 280px;
-        }
-        .loader-glow {
-          width: 260px;
-          height: 260px;
-        }
-        .loader-logo {
-          width: 180px;
-          height: 180px;
-        }
-        .loader-text {
-          font-size: 14px;
-          letter-spacing: 0.3em;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div id="app-loader">
-      <div class="contenedor-cargador">
-        <div class="loader-stage" aria-label="Cargando aplicación Innovix">
-          <span class="loader-glow"></span>
-          <img class="loader-logo" src="/src/assets/innovixlogo.png" alt="Innovix" />
-        </div>
-        <div class="loader-text">CARGANDO<span class="loader-dots" aria-hidden="true"><span></span><span></span><span></span></span></div>
+<body>
+  <div id="app-loader">
+    <div class="contenedor-cargador">
+      <div class="loader-stage" aria-label="Cargando aplicación Innovix">
+        <span class="loader-glow"></span>
+        <img class="loader-logo" src="/src/assets/innovixlogo.png" alt="Innovix" />
       </div>
+      <div class="loader-text">CARGANDO<span class="loader-dots"
+          aria-hidden="true"><span></span><span></span><span></span></span></div>
     </div>
-    <div id="app"></div>
-    <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
-    <script type="module" src="/src/main.ts"></script>
-  </body>
+  </div>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+
 </html>

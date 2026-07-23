@@ -79,7 +79,7 @@ const connectWebSocket = () => {
   localStorage.setItem('auth-token-ws', tokenWs)
   localStorage.setItem('auth-grupo-id', groupId)
 
-  const wsUrl = `ws://66.179.190.248:8900/start/?token=${tokenWs}&modo=5&group_id=${groupId}`
+  const wsUrl = `ws://66.179.190.248:8901/start/?token=${tokenWs}&modo=5&group_id=${groupId}`
   console.log(`[Dashboard WebSocket] Conectando a ${wsUrl}`)
 
   try {

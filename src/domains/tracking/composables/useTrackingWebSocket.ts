@@ -27,15 +27,32 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   let isManualDisconnect = false
   let wsSessionId = 0
 
+  const getServiceListPayload = (groupId: string) => {
+    const today = new Date()
+    const pastDate = new Date()
+    pastDate.setMonth(today.getMonth() - 4)
+
+    const formatDate = (d: Date) => d.toISOString().split('T')[0]
+
+    return {
+      id_grupo: groupId,
+      estado: 0,
+      fecha_registro_inicial: formatDate(pastDate),
+      fecha_registro_final: formatDate(today),
+      id_ruta: 'all',
+      id_escolta: 'all'
+    }
+  }
+
   const loadAllReferenceData = async () => {
     const groupId = localStorage.getItem('auth-grupo-id') || ''
     if (!groupId) return
     try {
       apiClient<{ done: boolean; data: any[] }>('/api/v1/servicio/listar_tabla/', {
         method: 'POST',
-        body: JSON.stringify({ id_grupo: groupId, estado: 0 })
+        body: JSON.stringify(getServiceListPayload(groupId))
       }).then(res => {
-        if (res.done) refServicios.value = res.data
+        if (res.done && Array.isArray(res.data)) refServicios.value = res.data
       })
 
       apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
@@ -57,24 +74,25 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   }
 
   const loadSecondaryData = async () => {
+    const groupId = localStorage.getItem('auth-grupo-id') || ''
     isLoadingSecondary.value = true
     try {
       if (activeTab.value === 'SERVICIOS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/servicio/listar_tabla/', {
           method: 'POST',
-          body: JSON.stringify({})
+          body: JSON.stringify(getServiceListPayload(groupId))
         })
         if (res.done) serviciosList.value = res.data
       } else if (activeTab.value === 'ESCOLTAS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
           method: 'POST',
-          body: JSON.stringify({})
+          body: JSON.stringify({ id_grupo: groupId, estado: 1 })
         })
         if (res.done) escoltasList.value = res.data
       } else if (activeTab.value === 'VEHICULOS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
           method: 'POST',
-          body: JSON.stringify({})
+          body: JSON.stringify({ id_grupo: groupId, estado: 1 })
         })
         if (res.done) vehiculosList.value = res.data
       }
@@ -128,7 +146,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     const mySessionId = wsSessionId
     const myTab = activeTab.value
     const modo = myTab === 'ESCOLTAS' ? '3' : '2'
-    const wsUrl = `ws://66.179.190.248:8900/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
+    const wsUrl = `ws://66.179.190.248:8901/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
 
     try {
       socket = new WebSocket(wsUrl)
