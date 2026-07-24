@@ -54,10 +54,11 @@
             <button
               v-if="isAddingParadas && !isFormHiddenDuringMap"
               @click="isFormHiddenDuringMap = true"
-              class="w-8 h-8 rounded-[12px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all duration-200 active:scale-[0.97] shrink-0 shadow-sm"
-              title="Ocultar panel"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-all duration-200 active:scale-[0.97] shrink-0 border border-slate-200/60 dark:border-white/10"
+              title="Ocultar panel para ver mapa completo"
             >
-              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="14" :stroke-width="2.5" class="rotate-180" />
+              <span class="text-[10px] font-bold uppercase tracking-wider">Ocultar</span>
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="13" :stroke-width="2.5" />
             </button>
           </div>
         </div>
@@ -177,19 +178,15 @@
               </div>
             </div>
 
-            <!-- Sección: Paradas -->
+            <!-- Sección: Paradas Estratégicas -->
             <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-4 shadow-sm">
               <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ $t('rutas.strategicStops') }}</span>
-                </div>
+                <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ $t('rutas.strategicStops') }}</span>
                 <span class="text-[9px] font-bold px-2 py-0.5 rounded-full"
                       :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
                   {{ paradasTemporales.length > 0 ? `${paradasTemporales.length} paradas` : 'Requerido' }}
                 </span>
               </div>
-
-
 
               <button 
                 type="button" 
@@ -208,6 +205,34 @@
               <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
                 Mínimo 2 paradas · Haz clic en el mapa para añadirlas
               </p>
+            </div>
+
+            <!-- Sección Independiente: Asistente GPS -->
+            <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-[#3b82f6]/15 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+                    <HugeiconsIcon :icon="CpuIcon" :size="13" />
+                  </div>
+                  <div>
+                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Nuevos datos de GPS</h3>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">Cargar recorrido desde un dispositivo</p>
+                  </div>
+                </div>
+
+                <span v-if="isGpsReconstructed" class="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Cargado
+                </span>
+              </div>
+
+              <button
+                type="button"
+                @click="openGpsModal"
+                class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] bg-white dark:bg-[#1E222B] border border-blue-500/30 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] dark:hover:text-white shadow-xs group"
+              >
+                <HugeiconsIcon :icon="Location01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
+                <span>{{ isGpsReconstructed ? 'Cambiar dispositivo o fechas GPS' : 'Cargar nuevos datos de GPS' }}</span>
+              </button>
             </div>
           </form>
         </div>
@@ -238,10 +263,11 @@
       <button 
         v-if="isAddingParadas && isFormHiddenDuringMap"
         @click="isFormHiddenDuringMap = false"
-        class="absolute left-6 top-6 z-40 w-10 h-10 rounded-[14px] bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-white/5 shadow-[0_4px_20px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_25px_rgba(0,0,0,0.3)] flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/5 active:scale-[0.97] transition-all duration-200 group animate-none"
-        title="Mostrar Detalles de Ruta"
+        class="absolute left-6 top-6 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg text-slate-700 dark:text-slate-200 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/40 active:scale-[0.97] transition-all duration-200 group"
+        title="Mostrar panel de ruta"
       >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="18" :stroke-width="2.2" class="rotate-180 group-hover:translate-x-0.5 transition-transform duration-300" />
+        <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2.5" class="text-[#3b82f6] dark:text-[#5da6fc] group-hover:translate-x-0.5 transition-transform" />
+        <span class="text-[11px] font-bold uppercase tracking-wider">Ver formulario</span>
       </button>
     </Transition>
  
@@ -432,6 +458,70 @@
         </div>
       </template>
     </AppModal>
+
+    <!-- Modal Registrar por GPS -->
+    <AppModal
+      v-model:isOpen="isGpsModalOpen"
+      title="Cargar Nuevos Datos de GPS"
+      confirmText="Trazar Ruta"
+      cancelText="Cancelar"
+      @confirm="trazarRutaGps"
+    >
+      <template #icon>
+        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
+          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        </div>
+      </template>
+
+      <div class="flex flex-col gap-5 p-1 relative select-none">
+        <!-- Overlay de carga al trazar -->
+        <Transition name="fade-overlay">
+          <div v-if="trazandoGps" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
+            <div class="w-10 h-10 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
+            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
+          </div>
+        </Transition>
+
+        <!-- Message -->
+        <div v-if="gpsModalMessage"
+             class="flex items-center gap-2.5 p-3 px-4 rounded-xl border text-[11px] font-bold transition-all duration-300"
+             :class="{
+               'text-red-500 bg-red-500/10 border-red-500/20': gpsModalMessage.type === 'error',
+               'text-amber-500 bg-amber-500/10 border-amber-500/20': gpsModalMessage.type === 'warning',
+               'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': gpsModalMessage.type === 'success'
+             }">
+          <HugeiconsIcon v-if="gpsModalMessage.type === 'error' || gpsModalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+          {{ gpsModalMessage.text }}
+        </div>
+
+        <!-- Dispositivo GPS -->
+        <AppSelect
+          v-model="selectedHardwareId"
+          label="Dispositivo GPS"
+          placeholder="Seleccione un dispositivo"
+          :disabled="loadingHardware"
+          :icon="CpuIcon"
+          :options="hardwareOptions"
+        />
+
+        <!-- Rango de Fechas -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Desde -->
+          <AppDateTimePicker
+            v-model="fechaDesde"
+            label="Desde"
+            placeholder="Seleccione fecha desde"
+          />
+
+          <!-- Hasta -->
+          <AppDateTimePicker
+            v-model="fechaHasta"
+            label="Hasta"
+            placeholder="Seleccione fecha hasta"
+          />
+        </div>
+      </div>
+    </AppModal>
   </div>
 </template>
 
@@ -440,13 +530,16 @@ import { ref, computed, shallowRef, onMounted, onUnmounted, watch, nextTick } fr
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   ArrowLeft01Icon,
+  ArrowRight01Icon,
   Location01Icon,
   Route01Icon,
   Delete01Icon,
   Shield01Icon,
   Tick01Icon,
   Search01Icon,
-  Loading03Icon
+  Loading03Icon,
+  Alert01Icon,
+  CpuIcon
 } from '@hugeicons/core-free-icons'
 
 import rutaBalanza from '../../../assets/ruta_balanza.png'
@@ -458,7 +551,10 @@ import rutaPuntoControl from '../../../assets/ruta_punto_control.png'
 import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
 import { createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi } from '../services/rutas.api'
+import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
+import { fetchMapPositionsApi } from '../../hardware/services/hardware.api'
 import type { TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
+import type { HardwareSimple } from '../../servicios/types/servicio'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
@@ -477,6 +573,8 @@ import { useRouteDrawer }     from '../composables/useRouteDrawer'
 import AppModal         from '../../../components/ui/AppModal.vue'
 import AppButton        from '../../../components/ui/AppButton.vue'
 import AppInput         from '../../../components/ui/AppInput.vue'
+import AppSelect        from '../../../components/ui/AppSelect.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 import ParadasListPanel from '../../../components/rutas/ParadasListPanel.vue'
 
 const { t }      = useI18n()
@@ -511,7 +609,8 @@ const modalMessage  = ref<{ text: string, type: 'success' | 'error' | 'warning' 
 const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa' })
 const isEditMode    = ref(false)
 const editingRutaId = ref<string | null>(null)
-const isGpsRoute    = computed(() => route.query.gps === 'true')
+const isGpsRoute    = computed(() => route.query.gps === 'true' || isGpsReconstructed.value)
+const isGpsReconstructed = ref(false)
 
 const activeSchema = computed(() => isEditMode.value ? updateRutaSchema : createRutaSchema)
 const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema as any)
@@ -538,6 +637,99 @@ const selectOtros = () => {
   setTimeout(() => {
     colorInputRef.value?.click()
   }, 50)
+}
+
+// ── Lógica del modal para registro/sobreponer por GPS ──
+const isGpsModalOpen = ref(false)
+const hardwareList = ref<HardwareSimple[]>([])
+const selectedHardwareId = ref('')
+const fechaDesde = ref<Date | null>(null)
+const fechaHasta = ref<Date | null>(null)
+const loadingHardware = ref(false)
+const trazandoGps = ref(false)
+const gpsModalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+const showGpsModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
+  gpsModalMessage.value = { text, type }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (gpsModalMessage.value?.text === text) gpsModalMessage.value = null
+    }, 4000)
+  }
+}
+
+const hardwareOptions = computed(() => {
+  return hardwareList.value.map(item => ({
+    value: item.id_hardware,
+    label: `${item.nombre} (${item.familia})`
+  }))
+})
+
+const openGpsModal = async () => {
+  isGpsModalOpen.value = true
+  selectedHardwareId.value = ''
+  fechaDesde.value = null
+  fechaHasta.value = null
+  gpsModalMessage.value = null
+  if (!selectedGroup.value?.id) return
+  
+  loadingHardware.value = true
+  try {
+    const response = await fetchHardwareSimplesApi(selectedGroup.value.id, 0)
+    hardwareList.value = response || []
+  } catch (error) {
+    console.error('Error al obtener hardware simple:', error)
+    showGpsModalMessage('Error al cargar dispositivos GPS', 'error')
+  } finally {
+    loadingHardware.value = false
+  }
+}
+
+const trazarRutaGps = async () => {
+  if (!selectedHardwareId.value || !fechaDesde.value || !fechaHasta.value) {
+    showGpsModalMessage('Por favor completa todos los campos requeridos', 'warning')
+    return
+  }
+  
+  trazandoGps.value = true
+  try {
+    const formatDateTime = (val: Date | null) => {
+      if (!val) return ''
+      const y = val.getFullYear()
+      const m = String(val.getMonth() + 1).padStart(2, '0')
+      const d = String(val.getDate()).padStart(2, '0')
+      const h = String(val.getHours()).padStart(2, '0')
+      const min = String(val.getMinutes()).padStart(2, '0')
+      return `${y}-${m}-${d} ${h}:${min}:00`
+    }
+    
+    const desdeFormatted = formatDateTime(fechaDesde.value)
+    const hastaFormatted = formatDateTime(fechaHasta.value)
+    
+    const data = await fetchMapPositionsApi({
+      id_hardware: selectedHardwareId.value,
+      id_grupo: selectedGroup.value.id,
+      desde: desdeFormatted,
+      hasta: hastaFormatted
+    })
+    
+    if (data && data.length > 0) {
+      // Limpiar datos anteriores de la ruta (marcadores y trazados)
+      clearParadasTemporales()
+      
+      // Aplicar las nuevas posiciones GPS a la ruta
+      await procesarPosicionesGps(data)
+      
+      isGpsModalOpen.value = false
+    } else {
+      showGpsModalMessage('No hay puntos de ruta para el rango seleccionado para ese dispositivo', 'warning')
+    }
+  } catch (error) {
+    console.error('Error al obtener posiciones GPS:', error)
+    showGpsModalMessage('Error al consultar el historial GPS', 'error')
+  } finally {
+    trazandoGps.value = false
+  }
 }
 
 // ── UI State de Paradas ───────────────────────────────────────
@@ -902,6 +1094,55 @@ watch(routeColor, (newColor) => {
   }
 })
 
+const procesarPosicionesGps = async (posiciones: any[]) => {
+  if (!Array.isArray(posiciones) || posiciones.length === 0) return
+
+  // Cargar tipos de parada si aún no están disponibles
+  if (tiposParada.value.length === 0) {
+    try { tiposParada.value = await fetchTiposParadaApi() }
+    catch (e) { console.error('Error al obtener tipos de parada:', e) }
+  }
+
+  const tipoInicio = tiposParada.value.find(t => t.nombre.toLowerCase().includes('inicio'))?.id_tipo ?? 6
+  const tipoFin = tiposParada.value.find(t => t.nombre.toLowerCase().includes('fin'))?.id_tipo ?? 7
+  const tipoIntermedio = tiposParada.value.find(t => {
+    const n = t.nombre.toLowerCase()
+    return n.includes('apoyo') || n.includes('normal') || n.includes('control') || n.includes('paso') || n.includes('punto')
+  })?.id_tipo ?? tiposParada.value.find(t => t.id_tipo !== tipoInicio && t.id_tipo !== tipoFin)?.id_tipo ?? 8
+
+  const primera = posiciones[0]
+  const ultima  = posiciones[posiciones.length - 1]
+
+  const nuevasParadas = []
+  nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio, fecha: primera.time_fx || primera.server_time })
+
+  // Mapear todos los puntos intermedios reales del GPS
+  if (posiciones.length > 2) {
+    for (let i = 1; i < posiciones.length - 1; i++) {
+      const pos = posiciones[i]
+      nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio, fecha: pos.time_fx || pos.server_time })
+    }
+  }
+
+  if (posiciones.length > 1) {
+    nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin, fecha: ultima.time_fx || ultima.server_time })
+  }
+
+  isGpsReconstructed.value = true
+  paradasTemporales.value = nuevasParadas
+
+  if (map.value) {
+    redrawMarkers()
+    if (paradasTemporales.value.length >= 2) {
+      drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
+    }
+    // Encuadrar el mapa con el trayecto completo del GPS
+    const limites = new (window as any).google.maps.LatLngBounds()
+    posiciones.forEach((p: any) => limites.extend({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+    map.value.fitBounds(limites)
+  }
+}
+
 const verificarRutaGps = async () => {
   if (route.query.gps !== 'true') return
 
@@ -910,52 +1151,7 @@ const verificarRutaGps = async () => {
 
   try {
     const posiciones: any[] = JSON.parse(crudo)
-    if (!Array.isArray(posiciones) || posiciones.length === 0) return
-
-    // Cargar tipos de parada si aún no están disponibles
-    if (tiposParada.value.length === 0) {
-      try { tiposParada.value = await fetchTiposParadaApi() }
-      catch (e) { console.error('Error al obtener tipos de parada:', e) }
-    }
-
-    const tipoInicio = tiposParada.value.find(t => t.nombre.toLowerCase().includes('inicio'))?.id_tipo ?? 6
-    const tipoFin = tiposParada.value.find(t => t.nombre.toLowerCase().includes('fin'))?.id_tipo ?? 7
-    const tipoIntermedio = tiposParada.value.find(t => {
-      const n = t.nombre.toLowerCase()
-      return n.includes('apoyo') || n.includes('normal') || n.includes('control') || n.includes('paso') || n.includes('punto')
-    })?.id_tipo ?? tiposParada.value.find(t => t.id_tipo !== tipoInicio && t.id_tipo !== tipoFin)?.id_tipo ?? 8
-
-    const primera = posiciones[0]
-    const ultima  = posiciones[posiciones.length - 1]
-
-    const nuevasParadas = []
-    nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio, fecha: primera.time_fx || primera.server_time })
-
-    // Mapear todos los puntos intermedios reales del GPS
-    if (posiciones.length > 2) {
-      for (let i = 1; i < posiciones.length - 1; i++) {
-        const pos = posiciones[i]
-        nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio, fecha: pos.time_fx || pos.server_time })
-      }
-    }
-
-    if (posiciones.length > 1) {
-      nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin, fecha: ultima.time_fx || ultima.server_time })
-    }
-
-    paradasTemporales.value = nuevasParadas
-
-    if (map.value) {
-      redrawMarkers()
-      if (paradasTemporales.value.length >= 2) {
-        drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
-      }
-      // Encuadrar el mapa con el trayecto completo del GPS
-      const limites = new (window as any).google.maps.LatLngBounds()
-      posiciones.forEach((p: any) => limites.extend({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
-      map.value.fitBounds(limites)
-    }
-
+    await procesarPosicionesGps(posiciones)
     sessionStorage.removeItem('temp_gps_positions')
   } catch (e) {
     console.error('Error al procesar posiciones de GPS:', e)

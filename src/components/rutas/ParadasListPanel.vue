@@ -1,204 +1,142 @@
 <template>
-  <!-- Floating Side Panel — Glassmorphic 3D Style -->
+  <!-- Floating Side Panel — Clean & Sleek Design -->
   <div
     class="absolute bottom-6 right-6 z-40 w-[340px] flex flex-col pointer-events-auto"
     style="max-height: calc(100vh - 80px);"
   >
-    <!-- Glass Card -->
-    <div class="flex flex-col bg-white/95 dark:bg-[#13161C] backdrop-blur-3xl rounded-2xl border border-slate-200/70 dark:border-white/[0.07] shadow-[0_20px_50px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.7)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.04)] overflow-hidden">
+    <!-- Clean Card Container -->
+    <div class="flex flex-col bg-white dark:bg-[#13161C] rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-xl overflow-hidden">
 
       <!-- ═══ HEADER ═══ -->
-      <div class="relative px-5 pt-5 pb-4 border-b border-slate-100 dark:border-white/[0.05] overflow-hidden">
-        <!-- Fondo decorativo -->
-        <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.06] via-transparent to-transparent pointer-events-none"></div>
-        <div class="absolute top-0 right-0 w-24 h-24 bg-[#3b82f6]/[0.04] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-
-        <div class="relative flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <!-- Route Icon con glow -->
-            <div class="relative group/icon shrink-0">
-              <div class="absolute inset-0 bg-[#3b82f6] blur-lg rounded-[14px] opacity-40 group-hover/icon:opacity-60 transition-opacity duration-300"></div>
-              <div class="w-10 h-10 rounded-[14px] bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white flex items-center justify-center shadow-[0_4px_10px_rgba(59,130,246,0.5),inset_0_2px_0_rgba(255,255,255,0.3)] border border-[#2563eb]/30 relative z-10">
-                <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
-              </div>
-            </div>
-            <div class="flex flex-col">
-              <span class="text-[9px] font-black tracking-[0.2em] uppercase text-[#3b82f6] dark:text-[#5da6fc]">Asignación de Paradas</span>
-              <span class="text-[13px] font-black text-slate-800 dark:text-white tracking-tight leading-tight mt-0.5 flex items-center gap-2">
-                <span v-if="paradas.length === 0" class="text-slate-400 dark:text-slate-500 font-bold text-[12px]">Inicia a trazar en el mapa</span>
-                <template v-else>
-                  <span>{{ paradas.length }} {{ paradas.length === 1 ? 'Parada' : 'Paradas' }}</span>
-                  <span class="w-1 h-1 rounded-full bg-[#3b82f6] animate-pulse"></span>
-                  <span class="text-[#3b82f6] dark:text-[#5da6fc]">{{ totalDistanceStr }}</span>
-                </template>
-              </span>
-            </div>
+      <div class="px-5 py-4 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+            <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
           </div>
-        <!-- Close Button Flat -->
-          <button
-            @click="$emit('close')"
-            class="w-8 h-8 flex items-center justify-center rounded-[10px] text-slate-450 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 active:scale-[0.97] transition-all duration-200"
-            title="Cerrar panel"
-          >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
-          </button>
+          <div>
+            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Asignación de Paradas</h2>
+            <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
+              <span v-if="paradas.length === 0" class="text-slate-400 font-medium">Sin puntos asignados</span>
+              <template v-else>
+                <span>{{ filteredParadas.length }} {{ filteredParadas.length === 1 ? 'Novedad' : 'Novedades' }}</span>
+                <span>•</span>
+                <span>{{ totalDistanceStr }}</span>
+              </template>
+            </p>
+          </div>
         </div>
+
+        <!-- Botón Cerrar Plano -->
+        <button
+          @click="$emit('close')"
+          class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
+          title="Cerrar panel"
+        >
+          <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
+        </button>
       </div>
 
-      <!-- Search Bar (visible only when there are more than 5 stops) -->
-      <div v-if="paradas.length > 5" class="px-3 pt-2 shrink-0">
-        <div class="relative flex items-center bg-slate-50 dark:bg-[#0A0C10] border border-slate-200/80 dark:border-white/5 rounded-xl overflow-hidden shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
-          <HugeiconsIcon :icon="Search01Icon" :size="14" class="absolute left-3.5 text-slate-400" />
+      <!-- Buscador (Solo si hay más de 5 paradas) -->
+      <div v-if="paradas.length > 5" class="px-4 pt-3 shrink-0">
+        <div class="relative flex items-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 rounded-xl overflow-hidden">
+          <HugeiconsIcon :icon="Search01Icon" :size="14" class="absolute left-3 text-slate-400" />
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar parada (Ej: 3, normal)..."
-            class="w-full bg-transparent border-none py-2.5 pl-10 pr-3 text-[11px] font-bold text-slate-700 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-0"
+            placeholder="Buscar novedad..."
+            class="w-full bg-transparent border-none py-2 pl-9 pr-3 text-[11px] font-medium text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0"
           />
         </div>
       </div>
 
-      <!-- ═══ STOPS LIST ═══ -->
-      <div ref="stopListContainer" class="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-1.5" style="max-height: 320px; min-height: 80px;">
+      <!-- ═══ LISTA DE NOVEDADES ═══ -->
+      <div ref="stopListContainer" class="flex-1 overflow-y-auto custom-scrollbar px-4 py-3 space-y-2" style="max-height: 320px; min-height: 80px;">
 
         <!-- Empty State -->
-        <div v-if="paradas.length === 0" class="flex flex-col items-center justify-center py-10 text-center">
-          <div class="w-16 h-16 rounded-[20px] bg-slate-100/50 dark:bg-white/[0.02] border border-slate-200/80 dark:border-white/5 flex items-center justify-center text-slate-300 dark:text-slate-600 mb-4 animate-[float_6s_ease-in-out_infinite] shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_4px_rgba(255,255,255,0.02),0_10px_20px_rgba(0,0,0,0.2)]">
-            <HugeiconsIcon :icon="Location01Icon" :size="32" :stroke-width="1.5" />
+        <div v-if="filteredParadas.length === 0" class="flex flex-col items-center justify-center py-8 text-center gap-2">
+          <div class="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-300 dark:text-slate-600">
+            <HugeiconsIcon :icon="Location01Icon" :size="24" :stroke-width="1.5" />
           </div>
-          <p class="text-[11px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Sin paradas</p>
-          <p class="text-[10px] text-slate-400 dark:text-slate-600 mt-1 font-medium">Haz clic en el mapa para agregar nodos</p>
+          <div>
+            <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Sin novedades</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">No hay puntos especiales en este trayecto</p>
+          </div>
         </div>
 
         <!-- Stop Items -->
-        <TransitionGroup :name="paradas.length <= 30 ? 'stop-item' : 'stop-item-fast'" tag="div" class="space-y-1.5">
+        <TransitionGroup name="stop-item" tag="div" class="space-y-2">
           <div
             v-for="parada in paginatedParadas"
             :key="parada.originalIndex"
             @click="$emit('select', parada.originalIndex)"
-            class="group flex items-center gap-3 px-3 py-2.5 rounded-[14px] border cursor-pointer transition-all duration-200 relative overflow-hidden"
+            class="group flex items-center justify-between p-2.5 px-3 rounded-xl border cursor-pointer transition-all duration-200"
             :class="[
               selectedIndex === parada.originalIndex
-                ? 'bg-gradient-to-b from-white to-slate-50/80 dark:from-[#20242D] dark:to-[#1A1E28] border-[#3b82f6]/30 shadow-sm'
-                : 'bg-gradient-to-b from-white/80 to-slate-50/60 dark:from-[#20242D]/60 dark:to-[#1A1E28]/60 border-slate-200/80 dark:border-white/[0.07] hover:border-slate-300 dark:hover:border-[#3b82f6]/20'
+                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/40'
+                : 'bg-slate-50/50 dark:bg-[#1E222B]/40 border-slate-200/60 dark:border-white/5 hover:bg-slate-100/70 dark:hover:bg-[#232732]/70 hover:border-slate-300 dark:hover:border-white/10'
             ]"
           >
-            <!-- Barra lateral izquierda activa -->
-            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-gradient-to-b from-[#60a5fa] to-[#2563eb] transition-all duration-300"
-              :class="selectedIndex === parada.originalIndex ? 'opacity-100 h-[65%]' : 'opacity-0 h-0'"></div>
-            <!-- Node Index + Type Icon -->
-            <div class="relative shrink-0">
-              <!-- Connection Line (top, skip first) -->
-              <div v-if="parada.originalIndex > 0" class="absolute -top-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
-                   :class="isNodePassed(parada.originalIndex) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
-              </div>
-              <!-- Connection Line (bottom, skip last) -->
-              <div v-if="parada.originalIndex < paradas.length - 1" class="absolute -bottom-[14px] left-1/2 -translate-x-1/2 w-[2px] h-3 rounded-full"
-                   :class="isNodePassed(parada.originalIndex + 1) ? 'bg-[#3b82f6] dark:bg-[#5da6fc]' : 'bg-slate-200 dark:bg-white/10'">
-              </div>
-
-              <div class="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-black border transition-all"
-                   :class="[
-                     selectedIndex === parada.originalIndex
-                       ? 'bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] text-white border-[#2563eb] shadow-[0_4px_10px_rgba(59,130,246,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]'
-                       : isNodePassed(parada.originalIndex)
-                         ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#5da6fc]/15 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)]'
-                         : 'bg-slate-50 dark:bg-[#0A0C10] text-slate-400 dark:text-slate-500 border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]'
-                   ]">
+            <div class="flex items-center gap-3 min-w-0">
+              <!-- Número de Parada -->
+              <div
+                class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors"
+                :class="[
+                  selectedIndex === parada.originalIndex
+                    ? 'bg-[#3b82f6] text-white'
+                    : 'bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/10'
+                ]"
+              >
                 {{ parada.originalIndex + 1 }}
               </div>
+
+              <!-- Info de Parada -->
+              <div class="flex flex-col min-w-0">
+                <span
+                  class="text-[11px] font-bold truncate"
+                  :class="selectedIndex === parada.originalIndex ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
+                >
+                  {{ getTipoNombre(parada.tipo) }}
+                </span>
+                <span class="text-[9.5px] font-medium text-slate-400">
+                  {{ parada.originalIndex === 0 ? 'Punto Inicial' : getDistanceStr(paradas[parada.originalIndex - 1], parada) }}
+                </span>
+              </div>
             </div>
 
-            <!-- Stop Info -->
-            <div class="flex-1 min-w-0 flex items-center">
-              <span class="text-[11px] font-black uppercase tracking-wider truncate"
-                    :class="selectedIndex === parada.originalIndex ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'">
-                {{ getTipoNombre(parada.tipo) }}
-              </span>
-              <!-- Distance badge (between stops) -->
-              <span v-if="parada.originalIndex > 0" class="text-[9px] font-bold px-1.5 py-0.5 rounded-md shrink-0 ml-auto"
-                    :class="isNodePassed(parada.originalIndex) ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' : 'bg-slate-100 dark:bg-white/5 text-slate-400'">
-                {{ getDistanceStr(paradas[parada.originalIndex - 1], parada) }}
-              </span>
-              <span v-else class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0 ml-auto uppercase tracking-wide">
-                Inicio
-              </span>
-            </div>
-
-            <!-- Delete Button (visible on selected) -->
+            <!-- Botón Eliminar -->
             <button
               v-if="selectedIndex === parada.originalIndex"
               @click.stop="$emit('delete', parada.originalIndex)"
-              class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 hover:border-red-500 transition-all duration-200 active:scale-90 shrink-0"
+              class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all duration-200 shrink-0"
               title="Eliminar parada"
             >
-              <HugeiconsIcon :icon="Delete01Icon" :size="14" />
+              <HugeiconsIcon :icon="Delete01Icon" :size="13" />
             </button>
           </div>
         </TransitionGroup>
       </div>
 
-      <!-- Pagination Controls (only if totalPages > 1) -->
-      <div v-if="totalPages > 1" class="px-4 py-2.5 flex items-center justify-between border-t border-slate-100 dark:border-white/[0.05] bg-slate-50/50 dark:bg-white/[0.02] shrink-0 select-none">
+      <!-- Paginación Simple -->
+      <div v-if="totalPages > 1" class="px-4 py-2 flex items-center justify-between border-t border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
         <button
           type="button"
           @click="currentPage > 1 ? currentPage-- : null"
           :disabled="currentPage === 1"
-          class="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-35 transition-all"
+          class="w-6 h-6 rounded-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 transition-all"
         >
-          <HugeiconsIcon :icon="ArrowLeft01Icon" :size="12" />
+          <HugeiconsIcon :icon="ArrowLeft01Icon" :size="11" />
         </button>
-        <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-          Pág. {{ currentPage }} de {{ totalPages }}
+        <span class="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">
+          {{ currentPage }} / {{ totalPages }}
         </span>
         <button
           type="button"
           @click="currentPage < totalPages ? currentPage++ : null"
           :disabled="currentPage === totalPages"
-          class="w-7 h-7 rounded-lg border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-35 transition-all"
+          class="w-6 h-6 rounded-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 disabled:opacity-30 transition-all"
         >
-          <HugeiconsIcon :icon="ArrowRight01Icon" :size="12" />
+          <HugeiconsIcon :icon="ArrowRight01Icon" :size="11" />
         </button>
-      </div>
-
-      <!-- ═══ FOOTER ACTIONS ═══ -->
-      <div class="px-4 pb-4 pt-3 border-t border-slate-100 dark:border-white/[0.05] flex flex-col gap-2.5">
-        <!-- Hint line -->
-        <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 text-center uppercase tracking-widest">
-          {{ paradas.length < 2 ? 'Añade al menos 2 puntos' : 'Ruta lista' }}
-        </p>
-
-        <!-- Save Button -->
-        <button
-          @click="$emit('save')"
-          :disabled="paradas.length < 2"
-          class="w-full h-11 flex items-center justify-center gap-2 rounded-xl font-bold text-xs uppercase tracking-wide transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
-          :class="paradas.length >= 2
-            ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97]'
-            : 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-slate-600 border border-slate-200 dark:border-white/5'"
-        >
-          <HugeiconsIcon :icon="Tick01Icon" :size="16" :stroke-width="2.5" />
-          LISTO
-        </button>
-
-        <!-- Secondary Actions -->
-        <div class="flex gap-2">
-          <button
-            @click="$emit('clear')"
-            :disabled="paradas.length === 0"
-            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide text-red-500 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 active:scale-[0.97] transition-all duration-200 disabled:opacity-35 disabled:cursor-not-allowed"
-          >
-            <HugeiconsIcon :icon="Delete01Icon" :size="14" :stroke-width="2.5" />
-            Limpiar
-          </button>
-          <button
-            @click="$emit('close')"
-            class="flex-1 h-10 flex items-center justify-center gap-1.5 rounded-xl text-[11px] font-bold uppercase tracking-wide text-slate-550 dark:text-slate-400 bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
-          >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
-            Cancelar
-          </button>
-        </div>
       </div>
 
     </div>
@@ -252,10 +190,16 @@ const getTipoNombre = (tipoId: number): string => {
   return tipo.nombre.length > 15 ? tipo.nombre.substring(0, 12) + '...' : tipo.nombre
 }
 
-// Filtered paradas with original indexes preserved
+// Filtered paradas with original indexes preserved (Excluye las paradas de tipo 'Normal' para mostrar solo novedades/puntos clave)
 const filteredParadas = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  const list = props.paradas.map((p, idx) => ({ ...p, originalIndex: idx }))
+  const list = props.paradas
+    .map((p, idx) => ({ ...p, originalIndex: idx }))
+    .filter(p => {
+      const nombre = getTipoNombre(p.tipo).toLowerCase().trim()
+      // Omitir si es tipo 'normal' o 'punto normal'
+      return !nombre.includes('normal')
+    })
   
   if (!query) return list
   
