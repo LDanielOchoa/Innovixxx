@@ -156,19 +156,39 @@ const getZoomScaleFactor = () => {
 
 
 
+// Helper para calcular el color hexadecimal de la flecha 3D según el tiempo de transmisión (time_fx en segundos o milisegundos Unix)
+const getArrowColorHex = (timeFx?: number | string, isSelected = false): number => {
+  if (isSelected) return 0x22d3ee // Azul cian neón al seleccionar
+  if (!timeFx) return 0x10b981 // Verde por defecto si no viene timestamp
+
+  let timeFxSeconds = Number(timeFx)
+  if (isNaN(timeFxSeconds) || timeFxSeconds <= 0) return 0x10b981
+
+  // Si viene en milisegundos (13 dígitos), convertir a segundos
+  if (timeFxSeconds > 1e11) {
+    timeFxSeconds = Math.floor(timeFxSeconds / 1000)
+  }
+
+  const nowUnix = Math.floor(Date.now() / 1000)
+  const diffMinutes = (nowUnix - timeFxSeconds) / 60
+
+  // Si transmitió hace 30 minutos o menos: Verde (0x10b981)
+  // Si lleva más de 30 minutos sin transmitir: Amarillo (0xf59e0b)
+  return diffMinutes <= 30 ? 0x10b981 : 0xf59e0b
+}
+
 const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-gps-marker'
-  container.style.cssText = 'position:relative;width:112px;height:112px;cursor:pointer;'
+  container.style.cssText = 'position:relative;width:112px;height:148px;cursor:pointer;display:flex;flex-direction:column;align-items:center;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
   inner.style.cssText = [
-    'position:absolute',
-    'top:0',
-    'left:0',
+    'position:relative',
     'width:112px',
     'height:112px',
+    'flex-shrink:0',
     'transform-origin:center center',
     'transition:transform 0.1s ease-out'
   ].join(';')
@@ -180,6 +200,106 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   canvas.height = 112
   canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
   inner.appendChild(canvas)
+
+  // ── Colita de información (Diseño AESTHETIC Minimalista) ──
+  const speedVal = hw.speed || 0
+  const hasLockStatus = hw.status_lock !== undefined && hw.status_lock !== null && hw.status_lock !== ''
+  const lockStatus = hasLockStatus ? formatLockStatus(hw.status_lock) : ''
+  const isLocked = lockStatus === 'CERRADO'
+
+  // SVGs ultra nítidos estilo Hugeicons con glows sutiles
+  const speedIconSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 13L15.5 9.5" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="12" cy="13" r="1.5" fill="#38bdf8"/>
+    <path d="M20.5 15A9 9 0 1 0 3.5 15" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-dasharray="32 2"/>
+  </svg>`
+
+  const lockClosedSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/>
+    <path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="12" cy="16" r="1.2" fill="#10b981"/>
+  </svg>`
+
+  const lockOpenSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="2"/>
+    <path d="M8 11V7a4 4 0 0 1 8 0" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="12" cy="16" r="1.2" fill="#f59e0b"/>
+  </svg>`
+
+  // Conector estilizado (Línea de luz puntual)
+  const connector = document.createElement('div')
+  connector.style.cssText = 'width:2px;height:7px;background:linear-gradient(to bottom, #38bdf8 0%, rgba(56,189,248,0) 100%);opacity:0.6;margin-top:-2px;border-radius:1px;'
+
+  // Contenedor principal con efecto Flotante Glassmorphism Avanzado
+  const tail = document.createElement('div')
+  tail.className = 'marker-info-tail'
+  tail.style.cssText = [
+    'display:flex',
+    'align-items:center',
+    'gap:6px',
+    'padding:3px 10px 3px 8px',
+    'background:rgba(11, 15, 25, 0.85)',
+    'backdrop-filter:blur(16px) saturate(180%)',
+    '-webkit-backdrop-filter:blur(16px) saturate(180%)',
+    'border:1px solid rgba(255, 255, 255, 0.12)',
+    'border-radius:9999px',
+    'white-space:nowrap',
+    'pointer-events:none',
+    'box-shadow:0 8px 32px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15)',
+    'z-index:3',
+    'position:relative',
+    'transition:all 0.3s cubic-bezier(0.16,1,0.3,1)'
+  ].join(';')
+
+  // ── Bloque Velocidad ──
+  const speedSection = document.createElement('div')
+  speedSection.style.cssText = 'display:flex;align-items:center;gap:4px;'
+
+  const speedIconEl = document.createElement('div')
+  speedIconEl.innerHTML = speedIconSvg
+  speedIconEl.style.cssText = 'display:flex;align-items:center;'
+
+  const speedBadge = document.createElement('span')
+  speedBadge.className = 'tail-speed'
+  speedBadge.style.cssText = 'font-size:11px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:-0.02em;color:#ffffff;line-height:1;'
+  speedBadge.textContent = `${Math.round(speedVal)}`
+
+  const speedUnit = document.createElement('span')
+  speedUnit.style.cssText = 'font-size:8px;font-weight:700;font-family:Inter,sans-serif;color:rgba(148,163,184,0.7);letter-spacing:0.05em;text-transform:uppercase;line-height:1;'
+  speedUnit.textContent = 'km/h'
+
+  speedSection.appendChild(speedIconEl)
+  speedSection.appendChild(speedBadge)
+  speedSection.appendChild(speedUnit)
+
+  tail.appendChild(speedSection)
+
+  // ── Bloque Candado (Solo si el dispositivo tiene status_lock) ──
+  if (hasLockStatus) {
+    const dotDivider = document.createElement('div')
+    dotDivider.className = 'tail-lock-divider'
+    dotDivider.style.cssText = 'width:3px;height:3px;border-radius:9999px;background:rgba(255,255,255,0.25);flex-shrink:0;'
+
+    const lockSection = document.createElement('div')
+    lockSection.className = 'tail-lock-section'
+    lockSection.style.cssText = 'display:flex;align-items:center;gap:4px;'
+
+    const lockIconEl = document.createElement('div')
+    lockIconEl.className = 'tail-lock-icon'
+    lockIconEl.innerHTML = isLocked ? lockClosedSvg : lockOpenSvg
+    lockIconEl.style.cssText = 'display:flex;align-items:center;'
+
+    const lockLabel = document.createElement('span')
+    lockLabel.className = 'tail-lock'
+    lockLabel.style.cssText = `font-size:9px;font-weight:800;font-family:Inter,sans-serif;letter-spacing:0.06em;text-transform:uppercase;color:${isLocked ? '#34d399' : '#fbbf24'};line-height:1;`
+    lockLabel.textContent = isLocked ? 'Cerrado' : 'Abierto'
+
+    lockSection.appendChild(lockIconEl)
+    lockSection.appendChild(lockLabel)
+
+    tail.appendChild(dotDivider)
+    tail.appendChild(lockSection)
+  }
 
   // Hover popover event listeners
   container.addEventListener('mouseenter', () => {
@@ -200,13 +320,15 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   })
 
   container.appendChild(inner)
+  container.appendChild(connector)
+  container.appendChild(tail)
   return container
 }
 
 const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-escolta-marker'
-  container.style.cssText = 'position:relative;width:48px;height:48px;cursor:pointer;'
+  container.style.cssText = 'position:relative;width:112px;height:112px;cursor:pointer;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
@@ -214,36 +336,19 @@ const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
     'position:absolute',
     'top:0',
     'left:0',
-    'width:48px',
-    'height:48px',
+    'width:112px',
+    'height:112px',
     'transform-origin:center center',
-    'transition:transform 0.15s ease-out'
+    'transition:transform 0.1s ease-out'
   ].join(';')
 
-  const circleColor = isSelected ? '#10B981' : '#0088FF'
-  const filterDef = isSelected
-    ? `<defs><filter id="escoltaGlow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
-       </filter></defs>`
-    : ''
-  const filterAttr = isSelected ? 'filter="url(#escoltaGlow)"' : ''
-
-  inner.innerHTML = `
-    <svg width="100%" height="100%" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      ${filterDef}
-      <g ${filterAttr}>
-        <circle cx="60" cy="60" r="60" fill="${circleColor}"/>
-        <path d="M70 41C70 29.9543 61.0456 21 50 21C38.9543 21 30 29.9543 30 41C30 52.0456 38.9543 61 50 61C61.0456 61 70 52.0456 70 41Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M78 89C78 73.536 65.464 61 50 61C34.536 61 22 73.536 22 89" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M102 52.3752V44.25C95.7144 44.25 91 41 91 41C91 41 86.2856 44.25 80 44.25V52.3752C80 63.75 91 67 91 67C91 67 102 63.75 102 52.3752Z" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-      </g>
-    </svg>
-  `
-
-  const scale = getZoomScaleFactor()
-  inner.style.transform = `scale(${scale})`
-
-  container.appendChild(inner)
+  // Canvas para el render 3D de Escoltas
+  const canvas = document.createElement('canvas')
+  canvas.className = 'marker-3d-canvas'
+  canvas.width = 112
+  canvas.height = 112
+  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
+  inner.appendChild(canvas)
 
   // Event listeners para hover popover de escoltas
   container.addEventListener('mouseenter', () => {
@@ -263,7 +368,28 @@ const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
     hoveredEscoltaItem.value = null
   })
 
+  container.appendChild(inner)
   return container
+}
+
+const updateEscoltaMarkerContent = (marker: any, esc: any, isSelected: boolean) => {
+  const content = marker.content as HTMLElement
+  if (!content) return
+
+  const course = marker.currentCourse !== undefined ? marker.currentCourse : (esc.course || 0)
+
+  if (marker.threeRenderer) {
+    const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    const colorHex = isSelected ? 0x22d3ee : 0x0088ff
+    // Desactivar el anillo de batería pasando showBatteryRing = false
+    marker.threeRenderer.update(course, isSelected, mapTilt, 100, colorHex, false)
+  }
+
+  const scale = getZoomScaleFactor()
+  const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
+  if (inner) {
+    inner.style.transform = `scale(${scale})`
+  }
 }
 
 const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) => {
@@ -279,7 +405,8 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
 
   if (marker.threeRenderer) {
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
-    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal)
+    const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
+    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex)
   }
 
   // Scale based on zoom
@@ -287,6 +414,22 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
   const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
   if (inner) {
     inner.style.transform = `scale(${scale})`
+  }
+
+  // Actualizar colita de info (velocidad + candado)
+  const speedBadge = content.querySelector('.tail-speed') as HTMLElement | null
+  if (speedBadge) {
+    speedBadge.textContent = `${Math.round(speedVal)}`
+  }
+  const lockBadge = content.querySelector('.tail-lock') as HTMLElement | null
+  const lockIconEl = content.querySelector('.tail-lock-icon') as HTMLElement | null
+  if (lockBadge && lockIconEl) {
+    const isLocked = lockProgress >= 0.5
+    const lockClosedSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="#10b981" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.2" fill="#10b981"/></svg>`
+    const lockOpenSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="2"/><path d="M8 11V7a4 4 0 0 1 8 0" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.2" fill="#f59e0b"/></svg>`
+    lockIconEl.innerHTML = isLocked ? lockClosedSvg : lockOpenSvg
+    lockBadge.textContent = isLocked ? 'Cerrado' : 'Abierto'
+    lockBadge.style.color = isLocked ? '#34d399' : '#fbbf24'
   }
 }
 
@@ -389,16 +532,27 @@ const animateMarker = (
     marker.currentBattery = currentBattery
     marker.currentLockProgress = currentLockProgress
 
-    // Update SVG elements live during animation
-    const svgEl = (marker.content as HTMLElement)?.querySelector('svg')
-    if (svgEl) {
-      const speedText = svgEl.querySelector('[id^="speed-text"]')
-      if (speedText) speedText.textContent = `${Math.round(currentSpeed)}KM`
+    // Update colita info live during animation
+    const tailContent = marker.content as HTMLElement
+    const speedBadge = tailContent?.querySelector('.tail-speed') as HTMLElement | null
+    if (speedBadge) {
+      speedBadge.textContent = `${Math.round(currentSpeed)}`
+    }
+    const lockBadge = tailContent?.querySelector('.tail-lock') as HTMLElement | null
+    const lockIconEl = tailContent?.querySelector('.tail-lock-icon') as HTMLElement | null
+    if (lockBadge && lockIconEl) {
+      const isLocked = currentLockProgress >= 0.5
+      const lockClosedSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4" stroke="#10b981" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.2" fill="#10b981"/></svg>`
+      const lockOpenSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="11" width="14" height="10" rx="3" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="2"/><path d="M8 11V7a4 4 0 0 1 8 0" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1.2" fill="#f59e0b"/></svg>`
+      lockIconEl.innerHTML = isLocked ? lockClosedSvg : lockOpenSvg
+      lockBadge.textContent = isLocked ? 'Cerrado' : 'Abierto'
+      lockBadge.style.color = isLocked ? '#34d399' : '#fbbf24'
     }
 
     if (marker.threeRenderer) {
       const mapTilt = map.value ? map.value.getTilt() || 0 : 0
-      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery)
+      const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
+      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery, arrowColorHex)
     }
 
     if (progress < 1) {
@@ -435,6 +589,7 @@ const updateMarkersOnMap = () => {
       if (marker) {
         animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
         marker.zIndex = isSelected ? 1000 : 1
+        updateMarkerContent(marker, hw, isSelected)
       } else {
         const position = { lat: hw.lat, lng: hw.lon }
         const content = createHardwareMarkerElement(hw, isSelected)
@@ -478,18 +633,27 @@ const updateMarkersOnMap = () => {
 
       if (marker) {
         marker.position = { lat: esc.lat, lng: esc.lon }
-        marker.content = createEscoltaMarkerElement(esc, isSelected)
         marker.zIndex = isSelected ? 1000 : 1
+        updateEscoltaMarkerContent(marker, esc, isSelected)
       } else {
         const position = { lat: esc.lat, lng: esc.lon }
-        
+        const content = createEscoltaMarkerElement(esc, isSelected)
+
         marker = new (google.maps as any).marker.AdvancedMarkerElement({
           position,
           map: map.value,
           title: esc.nombre,
-          content: createEscoltaMarkerElement(esc, isSelected),
+          content,
           zIndex: isSelected ? 1000 : 1
         })
+
+        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+        if (canvas) {
+          marker.threeRenderer = new ThreeMarkerRenderer(canvas)
+        }
+
+        marker.currentCourse = esc.course || 0
+        updateEscoltaMarkerContent(marker, esc, isSelected)
 
         marker.addListener('click', () => {
           selectItem(esc)
@@ -507,11 +671,25 @@ const updateMarkersOnMap = () => {
         cancelAnimationFrame(oldFrameId)
         marker.animationFrameId = null
       }
+      if (marker.threeRenderer) {
+        marker.threeRenderer.destroy()
+        marker.threeRenderer = null
+      }
       marker.map = null
       markersMap.delete(key)
     }
   })
 }
+
+// Forzar renderizado inmediato al recibir o actualizar la lista de hardware
+watch(hardwareList, () => {
+  updateMarkersOnMap()
+}, { deep: true })
+
+// Forzar renderizado inmediato al recibir o actualizar la lista de escoltas
+watch(escoltasList, () => {
+  updateMarkersOnMap()
+}, { deep: true })
 
 // Adaptar inclinación del mapa de forma fluida y progresiva utilizando el soporte nativo de Google Maps
 const adjustMapTilt = (targetMap: any) => {
@@ -549,14 +727,24 @@ watch(map, (newMap) => {
     // Sincronizar los renderers Three.js cada vez que el tilt del mapa cambie
     newMap.addListener('tilt_changed', () => {
       const currentTilt = newMap.getTilt() || 0
-      markersMap.forEach((marker, serial) => {
+      markersMap.forEach((marker, key) => {
         if (!marker.threeRenderer) return
-        const hw = hardwareList.value.find((h: any) => h.serial === serial)
-        if (!hw) return
-        const isSelected = selectedItem.value && selectedItem.value.serial === serial
-        const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
-        const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
-        marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal)
+        if (activeTab.value === 'HARDWARE') {
+          const hw = hardwareList.value.find((h: any) => h.serial === key)
+          if (!hw) return
+          const isSelected = selectedItem.value && selectedItem.value.serial === key
+          const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
+          const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
+          const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
+          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, true)
+        } else if (activeTab.value === 'ESCOLTAS') {
+          const esc = escoltasList.value.find((e: any) => e.id_escolta === key)
+          if (!esc) return
+          const isSelected = selectedItem.value && selectedItem.value.id_escolta === key
+          const course = marker.currentCourse !== undefined ? marker.currentCourse : (esc.course || 0)
+          const colorHex = isSelected ? 0x22d3ee : 0x0088ff
+          marker.threeRenderer.update(course, isSelected, currentTilt, 100, colorHex, false)
+        }
       })
     })
   }
@@ -594,15 +782,17 @@ watch(selectedItem, (newVal, oldVal) => {
 
   if (oldVal && oldVal.id_escolta) {
     const m = markersMap.get(oldVal.id_escolta)
-    if (m) {
-      m.content = createEscoltaMarkerElement(oldVal, false)
+    const esc = escoltasList.value.find(e => e.id_escolta === oldVal.id_escolta)
+    if (m && esc) {
+      updateEscoltaMarkerContent(m, esc, false)
       m.zIndex = 1
     }
   }
   if (newVal && newVal.id_escolta) {
     const m = markersMap.get(newVal.id_escolta)
-    if (m) {
-      m.content = createEscoltaMarkerElement(newVal, true)
+    const esc = escoltasList.value.find(e => e.id_escolta === newVal.id_escolta)
+    if (m && esc) {
+      updateEscoltaMarkerContent(m, esc, true)
       m.zIndex = 1000
     }
   }

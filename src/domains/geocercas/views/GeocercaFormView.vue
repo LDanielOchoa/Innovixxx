@@ -93,7 +93,7 @@ const {
   startDarkModeObserver
 } = useMapSetup('geocerca-form-map-container', {
   defaultZoom: 12,
-  gestureHandling: 'cooperative'
+  gestureHandling: 'greedy'
 })
 const currentDrawing = shallowRef<any>(null)
 let activeMapMarkers: any[] = []

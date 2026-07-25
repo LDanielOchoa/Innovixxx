@@ -542,12 +542,6 @@ const trazarRutaGps = async () => {
                   title="Exportar">
                   <HugeiconsIcon :icon="Download01Icon" :size="14" :stroke-width="2" />
                 </button>
-                <!-- Botón Registrar por GPS Plano -->
-                <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openGpsModal"
-                  class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
-                  title="Registrar por GPS">
-                  <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" />
-                </button>
                 <!-- Botón Nueva Ruta Plano -->
                 <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openCreateModal"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97] transition-all duration-200"

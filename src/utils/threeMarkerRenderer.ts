@@ -9,28 +9,51 @@ export class ThreeMarkerRenderer {
   private model: THREE.Group | null = null
   private baseMesh: THREE.Mesh | null = null
   private markerGroup: THREE.Group | null = null
+  private textureCanvas: HTMLCanvasElement | null = null
+  private baseTexture: THREE.CanvasTexture | null = null
+  private baseScale = 1.0
+  private isDestroyed = false
   // Caché para evitar redibujados innecesarios y subidas de textura redundantes a la GPU
   private lastBattery = -1
   private lastSelected = false
+  private lastCourse = 0
+  private lastTilt = 0
+  private lastCustomColorHex?: number
+  private lastShowBatteryRing = true
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
+
+    // Crear el canvas de textura 2D e inicializar la textura inmediatamente (sincrónico)
+    this.textureCanvas = document.createElement('canvas')
+    this.textureCanvas.width = 256
+    this.textureCanvas.height = 256
+    this.baseTexture = new THREE.CanvasTexture(this.textureCanvas)
+    this.baseTexture.colorSpace = THREE.SRGBColorSpace
+
     this.init()
   }
 
-  private drawBaseTexture(battery: number, isSelected: boolean) {
+  private drawBaseTexture(battery: number, isSelected: boolean, showBatteryRing = true) {
     const roundedBattery = Math.round(battery)
-    if (this.lastBattery === roundedBattery && this.lastSelected === isSelected) {
+    if (this.lastBattery === roundedBattery && this.lastSelected === isSelected && this.lastShowBatteryRing === showBatteryRing) {
       return // Evitar procesamiento si el estado no cambió
     }
     this.lastBattery = roundedBattery
     this.lastSelected = isSelected
+    this.lastShowBatteryRing = showBatteryRing
 
     if (!this.textureCanvas) return
     const ctx = this.textureCanvas.getContext('2d')
     if (!ctx) return
 
     ctx.clearRect(0, 0, 256, 256)
+
+    // Si se indica no mostrar el anillo de batería (modo Escolta), no dibujar nada en el canvas
+    if (!showBatteryRing) {
+      if (this.baseTexture) this.baseTexture.needsUpdate = true
+      return
+    }
 
     const radius = 98
 
@@ -40,7 +63,7 @@ export class ThreeMarkerRenderer {
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'
     ctx.fill()
 
-    // 2. Borde del círculo único (borde base)
+    // 2. Borde del círculo único (borde base para Hardware)
     ctx.lineWidth = 14
     ctx.strokeStyle = isSelected ? '#22d3ee' : 'rgba(165, 243, 252, 0.2)'
     ctx.stroke()
@@ -63,6 +86,23 @@ export class ThreeMarkerRenderer {
     }
     ctx.strokeStyle = strokeColor
     ctx.stroke()
+
+    // 4. Marcador de origen de batería (Muesca de precisión UI refinada)
+    // Línea radial de inicio (corte pulido a 12 en punto)
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(128, 128 - (radius - 12))
+    ctx.lineTo(128, 128 - (radius + 12))
+    ctx.lineWidth = 3
+    ctx.strokeStyle = '#ffffff'
+    ctx.stroke()
+
+    // Micro-nodo central incrustado perfectamente en el canal del anillo
+    ctx.beginPath()
+    ctx.arc(128, 128 - radius, 4, 0, 2 * Math.PI)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+    ctx.restore()
 
     if (this.baseTexture) {
       this.baseTexture.needsUpdate = true
@@ -94,15 +134,15 @@ export class ThreeMarkerRenderer {
       this.camera.position.set(0, 0, 4)
       this.camera.lookAt(0, 0, 0)
 
-      // Iluminación
-      const ambient = new THREE.AmbientLight(0xffffff, 0.8)
+      // Iluminación (luces neutras para evitar tintes o reflejos azules indeseados)
+      const ambient = new THREE.AmbientLight(0xffffff, 0.9)
       this.scene.add(ambient)
 
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.8)
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
       keyLight.position.set(2, 3, 5)
       this.scene.add(keyLight)
 
-      const fillLight = new THREE.DirectionalLight(0x88aaff, 0.4)
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
       fillLight.position.set(-2, -3, 2)
       this.scene.add(fillLight)
 
@@ -110,14 +150,8 @@ export class ThreeMarkerRenderer {
       this.markerGroup = new THREE.Group()
       this.scene.add(this.markerGroup)
 
-      // Crear el canvas de textura 2D para la base
-      this.textureCanvas = document.createElement('canvas')
-      this.textureCanvas.width = 256
-      this.textureCanvas.height = 256
-      this.baseTexture = new THREE.CanvasTexture(this.textureCanvas)
-      this.baseTexture.colorSpace = THREE.SRGBColorSpace
-
-      this.drawBaseTexture(100, false)
+      // Dibujar textura de base inmediatamente con los últimos datos guardados (respetando showBatteryRing)
+      this.drawBaseTexture(this.lastBattery !== -1 ? this.lastBattery : 100, this.lastSelected, this.lastShowBatteryRing)
 
       // Mesh plano para el círculo y el anillo de batería
       const baseGeo = new THREE.PlaneGeometry(3.8, 3.8)
@@ -129,6 +163,8 @@ export class ThreeMarkerRenderer {
       this.baseMesh = new THREE.Mesh(baseGeo, baseMat)
       // Posición en Z ligeramente detrás para evitar z-fighting con el modelo
       this.baseMesh.position.z = -0.05
+      // Ocultar el disco de base si es un marcador de escolta (sin anillo de batería)
+      this.baseMesh.visible = this.lastShowBatteryRing
       this.markerGroup.add(this.baseMesh)
 
       // Preparar el modelo 3D
@@ -140,8 +176,8 @@ export class ThreeMarkerRenderer {
             color: 0x0088ff,
             normalMap: assets.normalMap,
             normalScale: new THREE.Vector2(2.5, 2.5),
-            shininess: 90,
-            specular: new THREE.Color(0xaaccff)
+            shininess: 40,
+            specular: new THREE.Color(0xffffff)
           })
         }
       })
@@ -158,25 +194,45 @@ export class ThreeMarkerRenderer {
       this.model.position.set(0, 0, 0.05)
       this.markerGroup.add(this.model)
 
-      this.render()
+      // Dibujar y actualizar de inmediato con los datos actuales acumulados
+      this.update(
+        this.lastCourse,
+        this.lastSelected,
+        this.lastTilt,
+        this.lastBattery !== -1 ? this.lastBattery : 100,
+        this.lastCustomColorHex,
+        this.lastShowBatteryRing
+      )
     } catch (err) {
       console.error('Error al inicializar ThreeMarkerRenderer:', err)
     }
   }
 
   // Actualiza rumbo, selección, batería e inclinación 3D del mapa
-  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100) {
-    // 1. Actualizar textura de base
-    this.drawBaseTexture(battery, isSelected)
+  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100, customColorHex?: number, showBatteryRing = true) {
+    this.lastCourse = course
+    this.lastTilt = mapTilt
+    this.lastCustomColorHex = customColorHex
+    this.lastShowBatteryRing = showBatteryRing
+
+    // 1. Actualizar textura de base y visibilidad del disco circular
+    this.drawBaseTexture(battery, isSelected, showBatteryRing)
+    if (this.baseMesh) {
+      this.baseMesh.visible = showBatteryRing
+    }
 
     // 2. Rotar la flecha según el rumbo
     if (this.model) {
       this.model.rotation.z = -THREE.MathUtils.degToRad(course)
       
+      const arrowColor = customColorHex !== undefined 
+        ? customColorHex 
+        : (isSelected ? 0x22d3ee : 0x0088ff)
+
       this.model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           const mat = child.material as THREE.MeshPhongMaterial
-          if (mat) mat.color.setHex(isSelected ? 0x22d3ee : 0x0088ff)
+          if (mat) mat.color.setHex(arrowColor)
         }
       })
 

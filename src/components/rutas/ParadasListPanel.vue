@@ -14,7 +14,7 @@
             <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
           </div>
           <div>
-            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Asignación de Paradas</h2>
+            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Gestión del trazado</h2>
             <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
               <span v-if="paradas.length === 0" class="text-slate-400 font-medium">Sin puntos asignados</span>
               <template v-else>

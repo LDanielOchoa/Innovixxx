@@ -32,15 +32,9 @@
         
         <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
           <div class="relative flex items-center gap-3">
-            <!-- Botón Volver Plano -->
-            <button @click="router.push('/rutas')"
-              class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0">
-              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.2" />
-            </button>
-
             <!-- Ícono plano -->
-            <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
-              <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
+            <div class="w-10 h-10 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+              <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
             </div>
 
             <div class="flex-1 min-w-0">
@@ -54,11 +48,11 @@
             <button
               v-if="isAddingParadas && !isFormHiddenDuringMap"
               @click="isFormHiddenDuringMap = true"
-              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 transition-all duration-200 active:scale-[0.97] shrink-0 border border-slate-200/60 dark:border-white/10"
-              title="Ocultar panel para ver mapa completo"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 transition-all duration-200 active:scale-[0.97] shrink-0 border border-slate-200 dark:border-white/15 shadow-sm"
+              title="Ocultar panel lateral"
             >
-              <span class="text-[10px] font-bold uppercase tracking-wider">Ocultar</span>
-              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="13" :stroke-width="2.5" />
+              <HugeiconsIcon :icon="ArrowLeft01Icon" :size="15" :stroke-width="2.5" />
+              <span class="text-[11px] font-bold uppercase tracking-wider">Ocultar panel</span>
             </button>
           </div>
         </div>
@@ -179,11 +173,20 @@
             </div>
 
             <!-- Sección: Paradas Estratégicas -->
-            <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-4 shadow-sm">
+            <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
               <div class="flex items-center justify-between">
-                <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ $t('rutas.strategicStops') }}</span>
-                <span class="text-[9px] font-bold px-2 py-0.5 rounded-full"
-                      :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-[#3b82f6]/15 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+                    <HugeiconsIcon :icon="Location01Icon" :size="13" />
+                  </div>
+                  <div>
+                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ $t('rutas.strategicStops') }}</h3>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">Puntos de control y trazado</p>
+                  </div>
+                </div>
+
+                <span class="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                      :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
                   {{ paradasTemporales.length > 0 ? `${paradasTemporales.length} paradas` : 'Requerido' }}
                 </span>
               </div>
@@ -191,13 +194,10 @@
               <button 
                 type="button" 
                 @click="startAddingParadas" 
-                class="w-full flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] border"
-                :class="paradasTemporales.length > 0
-                  ? 'bg-gradient-to-r from-[#3b82f6]/10 to-transparent dark:from-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border-[#3b82f6]/20 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/5'
-                  : 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-[0_4px_12px_rgba(59,130,246,0.15)]'"
+                class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] bg-white dark:bg-[#1E222B] border border-blue-500/30 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] dark:hover:text-white shadow-xs group"
               >
-                <HugeiconsIcon :icon="Location01Icon" :size="15" />
-                {{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa' }}
+                <HugeiconsIcon :icon="Location01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
+                <span>{{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa' }}</span>
               </button>
 
               <span v-if="getError('paradas')" class="text-xs text-red-500 font-bold block text-center mt-1">{{ getError('paradas') }}</span>
@@ -207,7 +207,7 @@
               </p>
             </div>
 
-            <!-- Sección Independiente: Asistente GPS -->
+            <!-- Sección: Asistente GPS -->
             <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -267,13 +267,13 @@
         title="Mostrar panel de ruta"
       >
         <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2.5" class="text-[#3b82f6] dark:text-[#5da6fc] group-hover:translate-x-0.5 transition-transform" />
-        <span class="text-[11px] font-bold uppercase tracking-wider">Ver formulario</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider">Ver Panel</span>
       </button>
     </Transition>
- 
-    <!-- Barra de Búsqueda de Lugares (Solo visible al editar/trazar) -->
+
+    <!-- Barra de Búsqueda de Lugares (Solo visible al estar trazando con el panel oculto) -->
     <Transition name="fade-slide-down">
-      <div v-show="isAddingParadas" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
+      <div v-show="isAddingParadas && isFormHiddenDuringMap" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
         <div class="relative flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.4)] transition-all duration-300">
           <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="1.8" class="absolute left-4 text-slate-400 dark:text-slate-500" />
           <input 
@@ -285,11 +285,11 @@
         </div>
       </div>
     </Transition>
- 
-    <!-- Panel de Paradas: Modo Edición (Floating Side Panel) -->
+
+    <!-- Panel de Paradas: Modo Edición (Floating Side Panel, solo visible cuando el formulario está oculto) -->
     <Transition name="panel-float">
       <ParadasListPanel
-        v-if="isAddingParadas"
+        v-if="isAddingParadas && isFormHiddenDuringMap"
         :paradas="paradasTemporales"
         :tipos-parada="tiposParada"
         :selected-index="selectedParadaIndex"

@@ -101,7 +101,7 @@ const {
   startDarkModeObserver
 } = useMapSetup('geocercas-map-container', {
   defaultZoom: 12,
-  gestureHandling: 'cooperative'
+  gestureHandling: 'greedy'
 })
 
 let CustomLabelOverlay: any = null
