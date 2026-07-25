@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   plugins: [vue()],
   server: {
+    allowedHosts: ['innovix.gfandino.xyz'],
     proxy: {
       '/api': {
         target: 'https://innovix.gfandino.xyz',
