@@ -146,7 +146,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     const mySessionId = wsSessionId
     const myTab = activeTab.value
     const modo = myTab === 'ESCOLTAS' ? '3' : '2'
-    const wsUrl = `ws://66.179.190.248:8901/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const wsUrl = `${wsProtocol}://66.179.190.248:8901/start/?token=${tokenWs}&modo=${modo}&group_id=${groupId}`
 
     try {
       socket = new WebSocket(wsUrl)
