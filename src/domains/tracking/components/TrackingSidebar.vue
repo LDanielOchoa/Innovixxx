@@ -229,11 +229,33 @@ const isItemSelected = (item: any) => {
                   : (item.sos ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]')
               ]"
             >
-              {{ item.nombre || item.placa || item.id_servicio }}
+              {{ item.id_servicio ? `Servicio ${item.id_servicio}` : (item.nombre || item.placa) }}
             </h3>
-            <p class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-              {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || 'Sin descripción' }}
-            </p>
+            
+            <!-- Detalles de Servicio -->
+            <template v-if="activeTab === 'SERVICIOS'">
+              <p class="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate mt-0.5">
+                {{ item.nombre_ruta || item.id_ruta || 'Sin Ruta' }}
+              </p>
+              <div class="flex items-center gap-1.5 mt-1 flex-wrap text-[9px] font-bold">
+                <span v-if="item.nivel_riesgo !== undefined" class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  Riesgo {{ item.nivel_riesgo }}
+                </span>
+                <span v-if="item.alcance !== undefined" class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                  {{ item.alcance === 1 ? 'Nacional' : (item.alcance === 2 ? 'Departamental' : 'Local') }}
+                </span>
+                <span v-if="item.modo_fin !== undefined" class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                  {{ item.modo_fin === 1 ? 'Al llegar' : 'Al descargar' }}
+                </span>
+              </div>
+            </template>
+
+            <!-- Otros ítems -->
+            <template v-else>
+              <p class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || 'Sin descripción' }}
+              </p>
+            </template>
           </div>
 
           <!-- Right: Badges e Indicador GPS -->

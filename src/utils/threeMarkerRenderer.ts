@@ -1,11 +1,84 @@
 import * as THREE from 'three'
 import { load3dAssets } from './three3dLoader'
 
+/**
+ * threeMarkerRenderer.ts
+ * ─────────────────────────────────────────────────────────────
+ * Render de marcadores 3D con UN SOLO contexto WebGL compartido.
+ *
+ * PROBLEMA que resuelve:
+ *   Antes, cada marcador creaba su propio THREE.WebGLRenderer
+ *   (1 contexto WebGL por dispositivo). Chrome solo mantiene
+ *   ~16 contextos WebGL activos; al superarlos destruye los más
+ *   antiguos, lo que provocaba marcadores en blanco, parpadeos
+ *   y un arranque muy lento (crear un contexto cuesta ~10-30ms
+ *   en el hilo principal, multiplicado por cada marcador).
+ *
+ * SOLUCIÓN:
+ *   Un único WebGLRenderer offscreen compartido (singleton).
+ *   Cada marcador conserva su propio grafo de objetos (modelo,
+ *   textura de batería) y, al actualizarse, monta su grupo en la
+ *   escena compartida, renderiza y copia el resultado a su
+ *   canvas 2D visible con drawImage(). La API pública se mantiene
+ *   idéntica: constructor(canvas) / update(...) / destroy().
+ * ─────────────────────────────────────────────────────────────
+ */
+
+// Tamaño del buffer compartido: 112px CSS * 2 (DPR máx soportado)
+const SHARED_SIZE = 224
+
+interface SharedEngine {
+  renderer: THREE.WebGLRenderer
+  scene: THREE.Scene
+  camera: THREE.PerspectiveCamera
+}
+
+let sharedEngine: SharedEngine | null = null
+
+function getSharedEngine(): SharedEngine {
+  if (sharedEngine) return sharedEngine
+
+  const canvas = document.createElement('canvas')
+  canvas.width = SHARED_SIZE
+  canvas.height = SHARED_SIZE
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true, // Habilitar antialiasing para que los bordes se vean lisos y suaves
+    powerPreference: 'high-performance',
+    precision: 'mediump'
+  })
+  renderer.setSize(SHARED_SIZE, SHARED_SIZE, false)
+  renderer.setPixelRatio(1)
+  renderer.setClearColor(0x000000, 0)
+
+  const scene = new THREE.Scene()
+
+  // Cámara cenital fija mirando al centro
+  const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100)
+  camera.position.set(0, 0, 4)
+  camera.lookAt(0, 0, 0)
+
+  // Iluminación (luces neutras para evitar tintes o reflejos azules indeseados)
+  const ambient = new THREE.AmbientLight(0xffffff, 0.9)
+  scene.add(ambient)
+
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
+  keyLight.position.set(2, 3, 5)
+  scene.add(keyLight)
+
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
+  fillLight.position.set(-2, -3, 2)
+  scene.add(fillLight)
+
+  sharedEngine = { renderer, scene, camera }
+  return sharedEngine
+}
+
 export class ThreeMarkerRenderer {
   private canvas: HTMLCanvasElement
-  private renderer: THREE.WebGLRenderer | null = null
-  private scene: THREE.Scene | null = null
-  private camera: THREE.PerspectiveCamera | null = null
+  private ctx: CanvasRenderingContext2D | null = null
   private model: THREE.Group | null = null
   private baseMesh: THREE.Mesh | null = null
   private markerGroup: THREE.Group | null = null
@@ -23,6 +96,14 @@ export class ThreeMarkerRenderer {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
+
+    // El canvas pasa a ser un destino 2D: ajustar su resolución interna
+    // al DPR para mantener la misma nitidez que daba el renderer WebGL directo
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.0)
+    const cssSize = canvas.width || 120
+    canvas.width = Math.round(cssSize * dpr)
+    canvas.height = Math.round(cssSize * dpr)
+    this.ctx = canvas.getContext('2d')
 
     // Crear el canvas de textura 2D e inicializar la textura inmediatamente (sincrónico)
     this.textureCanvas = document.createElement('canvas')
@@ -72,7 +153,7 @@ export class ThreeMarkerRenderer {
     const clampedBattery = Math.max(0, Math.min(100, battery))
     const startAngle = -Math.PI / 2
     const endAngle = startAngle + (clampedBattery / 100) * 2 * Math.PI
-    
+
     ctx.beginPath()
     ctx.arc(128, 128, radius, startAngle, endAngle)
     ctx.lineWidth = 14
@@ -114,41 +195,8 @@ export class ThreeMarkerRenderer {
       const assets = await load3dAssets()
       if (this.isDestroyed) return
 
-      const size = this.canvas.width || 120
-
-      this.renderer = new THREE.WebGLRenderer({
-        canvas: this.canvas,
-        alpha: true,
-        antialias: true, // Habilitar antialiasing para que los bordes se vean lisos y suaves
-        powerPreference: 'high-performance',
-        precision: 'mediump'
-      })
-      this.renderer.setSize(size, size, false)
-      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0)) // Escalar dinámicamente limitando el máximo para balancear nitidez y rendimiento
-      this.renderer.setClearColor(0x000000, 0)
-
-      this.scene = new THREE.Scene()
-
-      // Cámara cenital fija mirando al centro
-      this.camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100)
-      this.camera.position.set(0, 0, 4)
-      this.camera.lookAt(0, 0, 0)
-
-      // Iluminación (luces neutras para evitar tintes o reflejos azules indeseados)
-      const ambient = new THREE.AmbientLight(0xffffff, 0.9)
-      this.scene.add(ambient)
-
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
-      keyLight.position.set(2, 3, 5)
-      this.scene.add(keyLight)
-
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
-      fillLight.position.set(-2, -3, 2)
-      this.scene.add(fillLight)
-
-      // Grupo para el marcador completo
+      // Grupo para el marcador completo (se monta en la escena compartida solo al renderizar)
       this.markerGroup = new THREE.Group()
-      this.scene.add(this.markerGroup)
 
       // Dibujar textura de base inmediatamente con los últimos datos guardados (respetando showBatteryRing)
       this.drawBaseTexture(this.lastBattery !== -1 ? this.lastBattery : 100, this.lastSelected, this.lastShowBatteryRing)
@@ -156,7 +204,7 @@ export class ThreeMarkerRenderer {
       // Mesh plano para el círculo y el anillo de batería
       const baseGeo = new THREE.PlaneGeometry(3.8, 3.8)
       const baseMat = new THREE.MeshBasicMaterial({
-        map: this.baseTexture,
+        map: this.baseTexture!,
         transparent: true,
         depthWrite: false
       })
@@ -224,9 +272,9 @@ export class ThreeMarkerRenderer {
     // 2. Rotar la flecha según el rumbo
     if (this.model) {
       this.model.rotation.z = -THREE.MathUtils.degToRad(course)
-      
-      const arrowColor = customColorHex !== undefined 
-        ? customColorHex 
+
+      const arrowColor = customColorHex !== undefined
+        ? customColorHex
         : (isSelected ? 0x22d3ee : 0x0088ff)
 
       this.model.traverse((child) => {
@@ -253,42 +301,58 @@ export class ThreeMarkerRenderer {
   }
 
   private render() {
-    if (this.renderer && this.scene && this.camera) {
-      this.renderer.render(this.scene, this.camera)
+    if (!this.markerGroup || !this.ctx || this.isDestroyed) return
+    try {
+      const engine = getSharedEngine()
+      engine.scene.add(this.markerGroup)
+      engine.renderer.render(engine.scene, engine.camera)
+      // Copiar el frame renderizado al canvas 2D visible del marcador
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      this.ctx.drawImage(engine.renderer.domElement, 0, 0, this.canvas.width, this.canvas.height)
+      engine.scene.remove(this.markerGroup)
+    } catch (err) {
+      // Si WebGL no está disponible, el marcador simplemente queda sin flecha 3D
+      console.error('Error al renderizar marcador 3D:', err)
     }
   }
 
   public destroy() {
     this.isDestroyed = true
-    if (this.renderer) {
-      this.renderer.dispose()
-    }
     if (this.baseTexture) {
       this.baseTexture.dispose()
+      this.baseTexture = null
     }
 
-    // Liberar en profundidad la memoria GPU de los meshes, geometrías y materiales
-    if (this.scene) {
-      this.scene.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          if (object.geometry) object.geometry.dispose()
-          if (object.material) {
-            if (Array.isArray(object.material)) {
-              object.material.forEach((mat) => mat.dispose())
-            } else {
-              object.material.dispose()
-            }
+    // Liberar la geometría y material propios del disco de base
+    if (this.baseMesh) {
+      if (this.baseMesh.geometry) this.baseMesh.geometry.dispose()
+      const baseMat = this.baseMesh.material as THREE.Material | THREE.Material[]
+      if (Array.isArray(baseMat)) {
+        baseMat.forEach((mat) => mat.dispose())
+      } else if (baseMat) {
+        baseMat.dispose()
+      }
+    }
+
+    // Liberar SOLO los materiales del modelo clonado.
+    // La geometría y la normalMap pertenecen al asset global compartido
+    // (load3dAssets) y NO deben disponerse aquí.
+    if (this.model) {
+      this.model.traverse((object) => {
+        if (object instanceof THREE.Mesh && object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach((mat) => mat.dispose())
+          } else {
+            object.material.dispose()
           }
         }
       })
     }
 
-    this.scene = null
-    this.camera = null
+    this.ctx = null
     this.model = null
     this.baseMesh = null
     this.markerGroup = null
     this.textureCanvas = null
   }
 }
-

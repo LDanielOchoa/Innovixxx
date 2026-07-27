@@ -1,34 +1,99 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { ThreeMarkerRenderer } from '../../../utils/threeMarkerRenderer'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
-import { useRouter, useRoute } from 'vue-router'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { ChipIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
+import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
+import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
+import TrackingSidebar from '../components/TrackingSidebar.vue'
 
-const router = useRouter()
-const route = useRoute()
+import { useRouteDrawer } from '../../rutas/composables/useRouteDrawer'
+import { fetchRutaDetallesApi } from '../../rutas/services/rutas.api'
+
 const { loadGoogleMaps } = useGoogleMaps()
 
+// ── Arranque inmediato (sin esperar al montaje del DOM) ──
+const googleMapsPromise = loadGoogleMaps()
+
+// three.js es, con diferencia, el módulo más pesado de esta vista.
+// IMPORTANTE: se carga con import dinámico en segundo plano para NO retrasar
+// la ejecución del setup (donde se conecta el WebSocket y se piden los datos).
+// Con un import estático, el setup no corre hasta que three.js termine de
+// descargarse, y la petición del WebSocket sale varios segundos tarde.
+type ThreeMarkerRendererInstance = import('../../../utils/threeMarkerRenderer').ThreeMarkerRenderer
+type ThreeMarkerRendererCtor = new (canvas: HTMLCanvasElement) => ThreeMarkerRendererInstance
+let threeMarkerRendererCtor: ThreeMarkerRendererCtor | null = null
+
+const threeModulePromise = Promise.all([
+  import('../../../utils/threeMarkerRenderer'),
+  import('../../../utils/three3dLoader')
+])
+threeModulePromise
+  .then(([rendererMod, loaderMod]) => {
+    threeMarkerRendererCtor = rendererMod.ThreeMarkerRenderer
+    // Precargar el modelo 3D y la textura apenas el módulo esté disponible
+    loaderMod.load3dAssets().catch(() => {})
+  })
+  .catch(err => console.error('Error cargando el motor 3D de marcadores:', err))
+
 // Estado
-const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>('HARDWARE')
+const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>('SERVICIOS')
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
 
+// Helper para determinar si un ítem pertenece al servicio seleccionado actualmente
+const isItemBelongingToSelectedService = (itemServiceId?: string) => {
+  if (!selectedItem.value) return true // Si no hay nada seleccionado, todos se ven normales
+  const selectedServId = String(selectedItem.value.id_servicio || '').trim().toLowerCase()
+  if (!selectedServId) return true // Si el ítem seleccionado no es/tiene servicio, se ven normales
+  const targetId = String(itemServiceId || '').trim().toLowerCase()
+  return targetId === selectedServId
+}
 
-// Hover state for custom popup card
+// Hover state para popovers
 const hoveredItem = ref<HardwareWs | null>(null)
 const hoveredPosition = ref({ top: 0, left: 0 })
 
-// Hover state para escoltas
 const hoveredEscoltaItem = ref<any | null>(null)
 const hoveredEscoltaPosition = ref({ top: 0, left: 0 })
 
+// Agrupa múltiples solicitudes de repintado en un solo frame (rAF).
+// El WebSocket puede entregar varios mensajes por segundo; sin esto
+// cada mensaje dispararía un repintado completo de todos los marcadores.
+let markersUpdateScheduled = false
+const scheduleMarkersUpdate = () => {
+  if (markersUpdateScheduled) return
+  markersUpdateScheduled = true
+  requestAnimationFrame(() => {
+    markersUpdateScheduled = false
+    updateMarkersOnMap()
+  })
+}
 
+const {
+  hardwareList,
+  serviciosList,
+  escoltasList,
+  vehiculosList,
+  refServicios,
+  refEscoltas,
+  refVehiculos,
+  isLoadingSecondary,
+  wsStatus,
+  wsError,
+  loadAllReferenceData,
+  connectWebSocket,
+  disconnectWebSocket
+} = useTrackingWebSocket(activeTab, selectedItem, scheduleMarkersUpdate)
 
-// Computeds to find linked service, vehicle, and escolta
+// Conectar el WebSocket y cargar las referencias de inmediato (no necesitan
+// el DOM): gana el tiempo que antes se perdía esperando al onMounted.
+connectWebSocket()
+loadAllReferenceData()
+
+// Computeds para encontrar información relacionada en hover
 const hoveredService = computed(() => {
   if (!hoveredItem.value || !hoveredItem.value.id_servicio) return null
   return refServicios.value.find(s => s.id_servicio === hoveredItem.value!.id_servicio)
@@ -65,34 +130,10 @@ const hoveredEscoltaService = computed(() => {
   return null
 })
 
-import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
-import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
-import TrackingSidebar from '../components/TrackingSidebar.vue'
-
-const {
-  hardwareList,
-  serviciosList,
-  escoltasList,
-  vehiculosList,
-  refServicios,
-  refEscoltas,
-  refVehiculos,
-  isLoadingSecondary,
-  wsStatus,
-  wsError,
-  loadAllReferenceData,
-  loadSecondaryData,
-  connectWebSocket,
-  disconnectWebSocket
-} = useTrackingWebSocket(activeTab, selectedItem, () => {
-  updateMarkersOnMap()
-})
-
-// Estado del mapa y markers (variable plana, sin reactividad Vue para evitar interferencia con Google Maps)
+// Estado del mapa y marcadores
 let markersMap = new Map<string, any>()
 const {
   map,
-  isLoadingMap,
   initMap: initMapInstance,
   startDarkModeObserver
 } = useMapSetup('google-map-container', {
@@ -102,7 +143,9 @@ const {
   mapId: '688c00fbadb30bbb930f73e2'
 })
 
-// Composable de Geocercas para Tracking
+const directionsServiceRef = ref<any>(null)
+const { drawFullRoute, clearAll: clearRouteLines } = useRouteDrawer(map, directionsServiceRef)
+
 const {
   showGeocercas,
   loadingGeocercas,
@@ -111,11 +154,13 @@ const {
 
 let infoWindow: any = null
 
-// Inicializar Google Maps
 const initMap = async () => {
   try {
-    const googleMaps = await loadGoogleMaps()
+    const googleMaps = await googleMapsPromise
     initMapInstance(googleMaps)
+    if (googleMaps.DirectionsService) {
+      directionsServiceRef.value = new googleMaps.DirectionsService()
+    }
     infoWindow = new googleMaps.InfoWindow({
       disableAutoPan: true
     })
@@ -126,8 +171,8 @@ const initMap = async () => {
   }
 }
 
-// Limpieza de marcadores del mapa
 const clearAllMarkers = () => {
+  clearRouteLines()
   markersMap.forEach(m => {
     const frameId = m.animationFrameId
     if (frameId) cancelAnimationFrame(frameId)
@@ -141,7 +186,6 @@ const clearAllMarkers = () => {
   markersMap.clear()
 }
 
-// Normalizar estado del candado
 const formatLockStatus = (status: string | undefined) => {
   if (!status) return 'CERRADO'
   const normalized = status.trim().toUpperCase()
@@ -154,17 +198,13 @@ const getZoomScaleFactor = () => {
   return 1
 }
 
-
-
-// Helper para calcular el color hexadecimal de la flecha 3D según el tiempo de transmisión (time_fx en segundos o milisegundos Unix)
 const getArrowColorHex = (timeFx?: number | string, isSelected = false): number => {
-  if (isSelected) return 0x22d3ee // Azul cian neón al seleccionar
-  if (!timeFx) return 0x10b981 // Verde por defecto si no viene timestamp
+  if (isSelected) return 0x22d3ee
+  if (!timeFx) return 0x10b981
 
   let timeFxSeconds = Number(timeFx)
   if (isNaN(timeFxSeconds) || timeFxSeconds <= 0) return 0x10b981
 
-  // Si viene en milisegundos (13 dígitos), convertir a segundos
   if (timeFxSeconds > 1e11) {
     timeFxSeconds = Math.floor(timeFxSeconds / 1000)
   }
@@ -172,8 +212,6 @@ const getArrowColorHex = (timeFx?: number | string, isSelected = false): number 
   const nowUnix = Math.floor(Date.now() / 1000)
   const diffMinutes = (nowUnix - timeFxSeconds) / 60
 
-  // Si transmitió hace 30 minutos o menos: Verde (0x10b981)
-  // Si lleva más de 30 minutos sin transmitir: Amarillo (0xf59e0b)
   return diffMinutes <= 30 ? 0x10b981 : 0xf59e0b
 }
 
@@ -193,7 +231,6 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
     'transition:transform 0.1s ease-out'
   ].join(';')
 
-  // Añadir el canvas para Three.js que ocupará los 112px completos del marcador
   const canvas = document.createElement('canvas')
   canvas.className = 'marker-3d-canvas'
   canvas.width = 112
@@ -201,13 +238,11 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
   inner.appendChild(canvas)
 
-  // ── Colita de información (Diseño AESTHETIC Minimalista) ──
   const speedVal = hw.speed || 0
   const hasLockStatus = hw.status_lock !== undefined && hw.status_lock !== null && hw.status_lock !== ''
   const lockStatus = hasLockStatus ? formatLockStatus(hw.status_lock) : ''
   const isLocked = lockStatus === 'CERRADO'
 
-  // SVGs ultra nítidos estilo Hugeicons con glows sutiles
   const speedIconSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M12 13L15.5 9.5" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
     <circle cx="12" cy="13" r="1.5" fill="#38bdf8"/>
@@ -226,11 +261,9 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
     <circle cx="12" cy="16" r="1.2" fill="#f59e0b"/>
   </svg>`
 
-  // Conector estilizado (Línea de luz puntual)
   const connector = document.createElement('div')
   connector.style.cssText = 'width:2px;height:7px;background:linear-gradient(to bottom, #38bdf8 0%, rgba(56,189,248,0) 100%);opacity:0.6;margin-top:-2px;border-radius:1px;'
 
-  // Contenedor principal con efecto Flotante Glassmorphism Avanzado
   const tail = document.createElement('div')
   tail.className = 'marker-info-tail'
   tail.style.cssText = [
@@ -238,20 +271,17 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
     'align-items:center',
     'gap:6px',
     'padding:3px 10px 3px 8px',
-    'background:rgba(11, 15, 25, 0.85)',
-    'backdrop-filter:blur(16px) saturate(180%)',
-    '-webkit-backdrop-filter:blur(16px) saturate(180%)',
+    'background:rgba(11, 15, 25, 0.92)',
     'border:1px solid rgba(255, 255, 255, 0.12)',
     'border-radius:9999px',
     'white-space:nowrap',
     'pointer-events:none',
-    'box-shadow:0 8px 32px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15)',
+    'box-shadow:0 4px 16px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15)',
     'z-index:3',
     'position:relative',
     'transition:all 0.3s cubic-bezier(0.16,1,0.3,1)'
   ].join(';')
 
-  // ── Bloque Velocidad ──
   const speedSection = document.createElement('div')
   speedSection.style.cssText = 'display:flex;align-items:center;gap:4px;'
 
@@ -274,7 +304,6 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
 
   tail.appendChild(speedSection)
 
-  // ── Bloque Candado (Solo si el dispositivo tiene status_lock) ──
   if (hasLockStatus) {
     const dotDivider = document.createElement('div')
     dotDivider.className = 'tail-lock-divider'
@@ -301,7 +330,6 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
     tail.appendChild(lockSection)
   }
 
-  // Hover popover event listeners
   container.addEventListener('mouseenter', () => {
     const mapDiv = map.value?.getDiv()
     if (!mapDiv) return
@@ -342,7 +370,6 @@ const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
     'transition:transform 0.1s ease-out'
   ].join(';')
 
-  // Canvas para el render 3D de Escoltas
   const canvas = document.createElement('canvas')
   canvas.className = 'marker-3d-canvas'
   canvas.width = 112
@@ -350,7 +377,6 @@ const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
   canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
   inner.appendChild(canvas)
 
-  // Event listeners para hover popover de escoltas
   container.addEventListener('mouseenter', () => {
     const mapDiv = map.value?.getDiv()
     if (!mapDiv) return
@@ -381,7 +407,6 @@ const updateEscoltaMarkerContent = (marker: any, esc: any, isSelected: boolean) 
   if (marker.threeRenderer) {
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
     const colorHex = isSelected ? 0x22d3ee : 0x0088ff
-    // Desactivar el anillo de batería pasando showBatteryRing = false
     marker.threeRenderer.update(course, isSelected, mapTilt, 100, colorHex, false)
   }
 
@@ -409,14 +434,12 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
     marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex)
   }
 
-  // Scale based on zoom
   const scale = getZoomScaleFactor()
   const inner = content.querySelector('.marker-inner-wrapper') as HTMLElement | null
   if (inner) {
     inner.style.transform = `scale(${scale})`
   }
 
-  // Actualizar colita de info (velocidad + candado)
   const speedBadge = content.querySelector('.tail-speed') as HTMLElement | null
   if (speedBadge) {
     speedBadge.textContent = `${Math.round(speedVal)}`
@@ -432,8 +455,6 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
     lockBadge.style.color = isLocked ? '#34d399' : '#fbbf24'
   }
 }
-
-
 
 const animateMarker = (
   marker: any,
@@ -463,7 +484,6 @@ const animateMarker = (
   const startLat = typeof startPosition.lat === 'function' ? startPosition.lat() : startPosition.lat
   const startLng = typeof startPosition.lng === 'function' ? startPosition.lng() : startPosition.lng
 
-  // If the coordinate change is negligible (less than 0.00001 degrees, approx. 1m), skip animation
   const latDiff = Math.abs(targetLat - startLat)
   const lngDiff = Math.abs(targetLng - startLng)
   if (latDiff < 0.00001 && lngDiff < 0.00001) {
@@ -532,7 +552,6 @@ const animateMarker = (
     marker.currentBattery = currentBattery
     marker.currentLockProgress = currentLockProgress
 
-    // Update colita info live during animation
     const tailContent = marker.content as HTMLElement
     const speedBadge = tailContent?.querySelector('.tail-speed') as HTMLElement | null
     if (speedBadge) {
@@ -571,98 +590,131 @@ const animateMarker = (
   marker.animationFrameId = requestAnimationFrame(animateStep)
 }
 
+// Crea el renderer 3D del marcador si el módulo de three.js ya cargó;
+// si aún no, lo adjunta en cuanto termine la descarga en segundo plano.
+// El marcador (DOM + etiqueta) es visible desde el primer momento mientras tanto.
+const attachThreeRenderer = (marker: any, canvas: HTMLCanvasElement | null, refreshContent: () => void) => {
+  if (!canvas) return
+  if (threeMarkerRendererCtor) {
+    marker.threeRenderer = new threeMarkerRendererCtor(canvas)
+    return
+  }
+  threeModulePromise.then(() => {
+    // Si el marcador fue removido del mapa o ya tiene renderer, no hacer nada
+    if (!threeMarkerRendererCtor || marker.threeRenderer || !marker.map) return
+    marker.threeRenderer = new threeMarkerRendererCtor(canvas)
+    refreshContent()
+  }).catch(() => {})
+}
+
 const updateMarkersOnMap = () => {
   if (!map.value) return
-
   const activeKeys = new Set<string>()
 
-  if (activeTab.value === 'HARDWARE') {
-    hardwareList.value.forEach(hw => {
-      const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
-      if (!hasCoordinates) return
+  hardwareList.value.forEach(hw => {
+    const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
+    if (!hasCoordinates) return
 
-      activeKeys.add(hw.serial)
+    activeKeys.add(hw.serial)
 
-      let marker = markersMap.get(hw.serial)
-      const isSelected = selectedItem.value && selectedItem.value.serial === hw.serial
+    let marker = markersMap.get(hw.serial)
+    const isSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
+    const isBelonging = isItemBelongingToSelectedService(hw.id_servicio)
 
-      if (marker) {
-        animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
-        marker.zIndex = isSelected ? 1000 : 1
-        updateMarkerContent(marker, hw, isSelected)
-      } else {
-        const position = { lat: hw.lat, lng: hw.lon }
-        const content = createHardwareMarkerElement(hw, isSelected)
-        
-        marker = new (google.maps as any).marker.AdvancedMarkerElement({
-          position,
-          map: map.value,
-          title: hw.nombre,
-          content,
-          zIndex: isSelected ? 1000 : 1
-        })
-
-        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
-        if (canvas) {
-          marker.threeRenderer = new ThreeMarkerRenderer(canvas)
-        }
-        
-        marker.currentCourse = hw.course || 0
-        marker.currentSpeed = hw.speed || 0
-        marker.currentBattery = hw.battery !== undefined ? hw.battery : 100
-        marker.currentLockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
-
-        updateMarkerContent(marker, hw, isSelected)
-
-        marker.addListener('click', () => {
-          selectItem(hw)
-        })
-
-        markersMap.set(hw.serial, marker)
+    if (marker) {
+      // animateMarker ya actualiza el contenido del marcador en cada frame
+      // y al finalizar; no es necesario un updateMarkerContent extra aquí.
+      animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
+      marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
+      if (marker.content) {
+        (marker.content as HTMLElement).style.opacity = isBelonging ? '1' : '0.25';
+        (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
       }
-    })
-  } else if (activeTab.value === 'ESCOLTAS') {
-    escoltasList.value.forEach(esc => {
-      const hasCoordinates = esc.lat !== 0 && esc.lon !== 0
-      if (!hasCoordinates) return
+    } else {
+      const position = { lat: hw.lat, lng: hw.lon }
+      const content = createHardwareMarkerElement(hw, isSelected)
+      content.style.opacity = isBelonging ? '1' : '0.25'
+      content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+      content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
+      
+      marker = new (google.maps as any).marker.AdvancedMarkerElement({
+        position,
+        map: map.value,
+        title: hw.nombre,
+        content,
+        zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
+      })
 
-      activeKeys.add(esc.id_escolta)
+      const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+      attachThreeRenderer(marker, canvas, () => {
+        const stillSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
+        updateMarkerContent(marker, hw, !!stillSelected)
+      })
 
-      let marker = markersMap.get(esc.id_escolta)
-      const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+      marker.currentCourse = hw.course || 0
+      marker.currentSpeed = hw.speed || 0
+      marker.currentBattery = hw.battery !== undefined ? hw.battery : 100
+      marker.currentLockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
 
-      if (marker) {
-        marker.position = { lat: esc.lat, lng: esc.lon }
-        marker.zIndex = isSelected ? 1000 : 1
-        updateEscoltaMarkerContent(marker, esc, isSelected)
-      } else {
-        const position = { lat: esc.lat, lng: esc.lon }
-        const content = createEscoltaMarkerElement(esc, isSelected)
+      updateMarkerContent(marker, hw, isSelected)
 
-        marker = new (google.maps as any).marker.AdvancedMarkerElement({
-          position,
-          map: map.value,
-          title: esc.nombre,
-          content,
-          zIndex: isSelected ? 1000 : 1
-        })
+      marker.addListener('click', () => {
+        selectItem(hw)
+      })
 
-        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
-        if (canvas) {
-          marker.threeRenderer = new ThreeMarkerRenderer(canvas)
-        }
+      markersMap.set(hw.serial, marker)
+    }
+  })
 
-        marker.currentCourse = esc.course || 0
-        updateEscoltaMarkerContent(marker, esc, isSelected)
+  escoltasList.value.forEach(esc => {
+    const hasCoordinates = esc.lat !== 0 && esc.lon !== 0
+    if (!hasCoordinates) return
 
-        marker.addListener('click', () => {
-          selectItem(esc)
-        })
+    activeKeys.add(esc.id_escolta)
 
-        markersMap.set(esc.id_escolta, marker)
+    let marker = markersMap.get(esc.id_escolta)
+    const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+    const isBelonging = isItemBelongingToSelectedService(esc.id_servicio)
+
+    if (marker) {
+      marker.position = { lat: esc.lat, lng: esc.lon }
+      marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
+      updateEscoltaMarkerContent(marker, esc, isSelected)
+      if (marker.content) {
+        (marker.content as HTMLElement).style.opacity = isBelonging ? '1' : '0.25';
+        (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
       }
-    })
-  }
+    } else {
+      const position = { lat: esc.lat, lng: esc.lon }
+      const content = createEscoltaMarkerElement(esc, isSelected)
+      content.style.opacity = isBelonging ? '1' : '0.25'
+      content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+      content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
+
+      marker = new (google.maps as any).marker.AdvancedMarkerElement({
+        position,
+        map: map.value,
+        title: esc.nombre,
+        content,
+        zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
+      })
+
+      const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+      attachThreeRenderer(marker, canvas, () => {
+        const stillSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+        updateEscoltaMarkerContent(marker, esc, !!stillSelected)
+      })
+
+      marker.currentCourse = esc.course || 0
+      updateEscoltaMarkerContent(marker, esc, isSelected)
+
+      marker.addListener('click', () => {
+        selectItem(esc)
+      })
+
+      markersMap.set(esc.id_escolta, marker)
+    }
+  })
 
   markersMap.forEach((marker, key) => {
     if (!activeKeys.has(key)) {
@@ -681,17 +733,6 @@ const updateMarkersOnMap = () => {
   })
 }
 
-// Forzar renderizado inmediato al recibir o actualizar la lista de hardware
-watch(hardwareList, () => {
-  updateMarkersOnMap()
-}, { deep: true })
-
-// Forzar renderizado inmediato al recibir o actualizar la lista de escoltas
-watch(escoltasList, () => {
-  updateMarkersOnMap()
-}, { deep: true })
-
-// Adaptar inclinación del mapa de forma fluida y progresiva utilizando el soporte nativo de Google Maps
 const adjustMapTilt = (targetMap: any) => {
   if (!targetMap) return
   const zoom = targetMap.getZoom() || 13
@@ -712,34 +753,39 @@ const adjustMapTilt = (targetMap: any) => {
 
 watch(map, (newMap) => {
   if (newMap) {
+    // Primer pintado apenas el mapa esté listo (por si los datos del
+    // WebSocket llegaron antes de que se inicializara el mapa)
     updateMarkersOnMap()
     adjustMapTilt(newMap)
 
-    // El motor vectorial puede requerir que el mapa esté inactivo (idle) para aplicar setTilt la primera vez
     newMap.addListener('idle', () => {
       adjustMapTilt(newMap)
     })
 
     newMap.addListener('zoom_changed', () => {
+      // Solo ajustar el tilt: la escala de los marcadores es constante,
+      // por lo que no es necesario repintarlos en cada paso de zoom.
       adjustMapTilt(newMap)
     })
 
-    // Sincronizar los renderers Three.js cada vez que el tilt del mapa cambie
     newMap.addListener('tilt_changed', () => {
       const currentTilt = newMap.getTilt() || 0
+      // Índices O(1) para evitar un find() lineal por cada marcador
+      const hwBySerial = new Map(hardwareList.value.map((h: any) => [h.serial, h]))
+      const escById = new Map(escoltasList.value.map((e: any) => [e.id_escolta, e]))
       markersMap.forEach((marker, key) => {
         if (!marker.threeRenderer) return
-        if (activeTab.value === 'HARDWARE') {
-          const hw = hardwareList.value.find((h: any) => h.serial === key)
-          if (!hw) return
-          const isSelected = selectedItem.value && selectedItem.value.serial === key
+        const hw = hwBySerial.get(key)
+        if (hw) {
+          const isSelected = selectedItem.value && (selectedItem.value.serial === key || selectedItem.value.id_hardware === key)
           const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
           const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
           const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
           marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, true)
-        } else if (activeTab.value === 'ESCOLTAS') {
-          const esc = escoltasList.value.find((e: any) => e.id_escolta === key)
-          if (!esc) return
+          return
+        }
+        const esc = escById.get(key)
+        if (esc) {
           const isSelected = selectedItem.value && selectedItem.value.id_escolta === key
           const course = marker.currentCourse !== undefined ? marker.currentCourse : (esc.course || 0)
           const colorHex = isSelected ? 0x22d3ee : 0x0088ff
@@ -749,8 +795,6 @@ watch(map, (newMap) => {
     })
   }
 })
-
-
 
 const selectItem = (item: any) => {
   selectedItem.value = item
@@ -762,7 +806,63 @@ const selectItem = (item: any) => {
   }
 }
 
-watch(selectedItem, (newVal, oldVal) => {
+// Caché de paradas por ruta para que re-seleccionar un servicio dibuje
+// su polilínea al instante, sin esperar de nuevo a la red.
+const routeParadasCache = new Map<string, any[]>()
+// Secuencia para descartar respuestas de red que llegan tarde cuando el
+// usuario ya seleccionó otro ítem (evita dibujar rutas obsoletas).
+let routeRequestSeq = 0
+
+watch(selectedItem, async (newVal, oldVal) => {
+  updateMarkersOnMap()
+  clearRouteLines()
+
+  if (newVal) {
+    const routeId = newVal.id_ruta
+    const groupId = localStorage.getItem('auth-grupo-id') || ''
+    if (routeId && groupId) {
+      const requestId = ++routeRequestSeq
+
+      const drawParadas = (paradas: any[]) => {
+        if (requestId !== routeRequestSeq) return // la selección cambió mientras cargaba
+        drawFullRoute(paradas, '#38bdf8')
+
+        // Ajustar los límites del mapa para encuadrar la ruta
+        if (map.value && (window as any).google?.maps?.LatLngBounds) {
+          const bounds = new (window as any).google.maps.LatLngBounds()
+          paradas.forEach((p: any) => bounds.extend({ lat: p.lat, lng: p.lon }))
+          map.value.fitBounds(bounds)
+        }
+      }
+
+      const cacheKey = String(routeId)
+      const cached = routeParadasCache.get(cacheKey)
+      if (cached) {
+        drawParadas(cached)
+      } else {
+        try {
+          const rutaDetalle = await fetchRutaDetallesApi(groupId, routeId)
+          if (rutaDetalle && Array.isArray(rutaDetalle.paradas)) {
+            const paradasValidas = rutaDetalle.paradas
+              .map((p: any) => ({
+                ...p,
+                lat: parseFloat(p.lat),
+                lon: parseFloat(p.lon)
+              }))
+              .filter((p: any) => !isNaN(p.lat) && !isNaN(p.lon) && isFinite(p.lat) && isFinite(p.lon))
+
+            if (paradasValidas.length >= 2) {
+              routeParadasCache.set(cacheKey, paradasValidas)
+              drawParadas(paradasValidas)
+            }
+          }
+        } catch (err) {
+          console.error('Error al trazar polilínea de la ruta:', err)
+        }
+      }
+    }
+  }
+
   if (oldVal && oldVal.serial) {
     const m = markersMap.get(oldVal.serial)
     const hw = hardwareList.value.find(h => h.serial === oldVal.serial)
@@ -798,103 +898,30 @@ watch(selectedItem, (newVal, oldVal) => {
   }
 })
 
-// Filtrar la lista
-const filteredItems = computed(() => {
-  const query = searchQuery.value.toLowerCase()
-  if (activeTab.value === 'HARDWARE') {
-    if (!query) return hardwareList.value
-    return hardwareList.value.filter(h => 
-      h.nombre.toLowerCase().includes(query) || 
-      h.serial.toLowerCase().includes(query) ||
-      h.descripcion.toLowerCase().includes(query)
-    )
-  } else if (activeTab.value === 'SERVICIOS') {
-    if (!query) return serviciosList.value
-    return serviciosList.value.filter(s => 
-      (s.id_servicio && s.id_servicio.toLowerCase().includes(query)) ||
-      (s.estado && s.estado.toLowerCase().includes(query))
-    )
-  } else if (activeTab.value === 'ESCOLTAS') {
-    if (!query) return escoltasList.value
-    return escoltasList.value.filter(e => 
-      (e.nombre && e.nombre.toLowerCase().includes(query)) ||
-      (e.identificacion && e.identificacion.toLowerCase().includes(query))
-    )
-  } else if (activeTab.value === 'VEHICULOS') {
-    if (!query) return vehiculosList.value
-    return vehiculosList.value.filter(v => 
-      (v.placa && v.placa.toLowerCase().includes(query)) ||
-      (v.marca && v.marca.toLowerCase().includes(query)) ||
-      (v.modelo && v.modelo.toLowerCase().includes(query))
-    )
-  }
-  return []
-})
-
-// Helper para saber si un elemento está seleccionado
-const isItemSelected = (item: any) => {
-  if (!selectedItem.value) return false
-  if (item.serial && selectedItem.value.serial === item.serial) return true
-  if (item.id_servicio && selectedItem.value.id_servicio === item.id_servicio) return true
-  if (item.id_escolta && selectedItem.value.id_escolta === item.id_escolta) return true
-  if (item.placa && selectedItem.value.placa === item.placa) return true
-  return false
-}
-
-// Cambiar de pestaña
 const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS') => {
-  // 1. Limpiar marcadores del mapa físicamente ANTES de todo
   clearAllMarkers()
 
-  // 2. Limpiar la lista de la pestaña anterior
-  hardwareList.value = []
-  escoltasList.value = []
-  serviciosList.value = []
-  vehiculosList.value = []
-
-  // 3. Desconectar socket anterior (invalida sessionId → ningún callback tardío podrá dibujar)
-  disconnectWebSocket()
-
-  // 4. Actualizar estado
+  // Al asignar la pestaña, el watch(activeTab) del composable se encarga
+  // de la carga REST inmediata y de la (re)conexión del WebSocket.
   activeTab.value = tab
   selectedItem.value = null
   searchQuery.value = ''
-
-  // 5. Iniciar nueva conexión/carga
-  if (tab === 'HARDWARE' || tab === 'ESCOLTAS') {
-    connectWebSocket()
-  } else {
-    loadSecondaryData()
-  }
 }
 
-
 onMounted(() => {
+  // Los datos y las descargas ya se iniciaron en el setup; aquí solo
+  // queda instanciar el mapa (requiere el contenedor del DOM).
   initMap()
-  // La pestaña por defecto es HARDWARE, conectar inmediatamente
-  connectWebSocket()
-  loadAllReferenceData()
-
-  // Cargar plantilla del SVG de forma externa
-  fetch('/Market Mapa.svg?t=' + Date.now())
-    .then(res => res.text())
-    .then(text => {
-      svgTemplate.value = text
-    })
-    .catch(err => {
-      console.error('Error al cargar plantilla de Market Mapa.svg:', err)
-    })
 })
 
 onUnmounted(() => {
   disconnectWebSocket()
   clearAllMarkers()
 })
-// Formatear la fecha_inicio del servicio (ej. "2026-07-22 14:30:00" o "2026-07-22T14:30:00")
+
 const formatServiceDateTime = (fechaStr: string | undefined) => {
   if (!fechaStr) return { fecha: null, hora: null }
   try {
-    // Si viene en formato "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
     const cleaned = fechaStr.replace(' ', 'T')
     const d = new Date(cleaned)
     if (!isNaN(d.getTime())) {
@@ -902,7 +929,6 @@ const formatServiceDateTime = (fechaStr: string | undefined) => {
       const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true })
       return { fecha, hora }
     }
-    // Fallback split si Date no parsea
     const parts = fechaStr.split(' ')
     return { fecha: parts[0] || fechaStr, hora: parts[1] || null }
   } catch {
@@ -910,7 +936,6 @@ const formatServiceDateTime = (fechaStr: string | undefined) => {
   }
 }
 
-// Mapear los estados del servicio a nombres y clases CSS (Paleta idéntica a ServiciosDashboardView)
 const getServicioEstadoInfo = (estadoVal: any) => {
   const num = Number(estadoVal)
   switch (num) {
@@ -955,7 +980,6 @@ const getServicioEstadoInfo = (estadoVal: any) => {
   }
 }
 
-// Helper computed para fecha y hora del servicio hover de hardware
 const hoveredServiceDateTime = computed(() => {
   const service = hoveredService.value
   if (!service) return { fecha: null, hora: null }
@@ -963,7 +987,6 @@ const hoveredServiceDateTime = computed(() => {
   return formatServiceDateTime(fechaRaw)
 })
 
-// Helper computed para fecha y hora del servicio hover de escolta
 const hoveredEscoltaServiceDateTime = computed(() => {
   const service = hoveredEscoltaService.value
   if (!service) return { fecha: null, hora: null }
@@ -971,14 +994,12 @@ const hoveredEscoltaServiceDateTime = computed(() => {
   return formatServiceDateTime(fechaRaw)
 })
 
-// Helper computed para información del estado del servicio hover de hardware
 const hoveredServiceEstadoInfo = computed(() => {
   const service = hoveredService.value
   if (!service || service.estado === undefined || service.estado === null) return null
   return getServicioEstadoInfo(service.estado)
 })
 
-// Helper computed para información del estado del servicio hover de escolta
 const hoveredEscoltaServiceEstadoInfo = computed(() => {
   const service = hoveredEscoltaService.value
   if (!service || service.estado === undefined || service.estado === null) return null
@@ -993,16 +1014,14 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div id="google-map-container" class="w-full h-full bg-[#0d1116]"></div>
 
-      <!-- Popover de información de Hardware (con diseño consistente al Sidebar/Sistema) -->
+      <!-- Popover de información de Hardware -->
       <Transition name="hover-card-pop">
         <div 
           v-if="hoveredItem" 
           :style="{ top: hoveredPosition.top + 'px', left: hoveredPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <!-- Contenido de la Tarjeta Estilo Sistema/Sidebar -->
           <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
-            <!-- Header: Nombre del Dispositivo y Serial -->
             <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
@@ -1016,7 +1035,6 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               <span class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredItem.serial }}</span>
             </div>
 
-            <!-- Bloque de Servicio -->
             <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
@@ -1041,7 +1059,6 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </template>
             </div>
 
-            <!-- Bloque de Escolta -->
             <div class="flex items-center justify-between text-[10px] px-1">
               <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
                 <HugeiconsIcon :icon="UserGroupIcon" :size="13" class="text-slate-400" />
@@ -1053,21 +1070,18 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </div>
             </div>
           </div>
-          <!-- Triángulo indicador -->
           <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
 
-      <!-- Popover de información de Escolta (con diseño consistente al Sidebar/Sistema) -->
+      <!-- Popover de información de Escolta -->
       <Transition name="hover-card-pop">
         <div 
           v-if="hoveredEscoltaItem" 
           :style="{ top: hoveredEscoltaPosition.top + 'px', left: hoveredEscoltaPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <!-- Contenido de la Tarjeta Estilo Sistema/Sidebar -->
           <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
-            <!-- Header: Nombre del Escolta e Identificación -->
             <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
@@ -1081,7 +1095,6 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               <span v-if="hoveredEscoltaItem.identificacion" class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
             </div>
 
-            <!-- Bloque de Servicio -->
             <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
@@ -1106,21 +1119,19 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </template>
             </div>
 
-            <!-- Contacto -->
             <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between text-[10px] px-1">
               <span class="text-slate-500 dark:text-slate-400 font-medium">Celular</span>
               <span class="text-slate-800 dark:text-white font-mono font-medium">{{ hoveredEscoltaItem.celular }}</span>
             </div>
           </div>
-          <!-- Triángulo indicador -->
           <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
     </div>
 
+    <!-- Pestañas Superiores -->
     <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[600px] z-20">
       <div class="flex bg-[#15171C]/80 backdrop-blur-xl border-x border-b border-white/5 rounded-b-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative">
-        <!-- Conectores de esquina redondeada invertida (Estilo Notch integrado con blur) -->
         <div class="absolute top-0 -left-4 w-4 h-4 bg-[#15171C]/80 backdrop-blur-xl pointer-events-none" style="clip-path: path('M 0 0 A 16 16 0 0 1 16 16 L 16 0 Z');"></div>
         <div class="absolute top-0 -right-4 w-4 h-4 bg-[#15171C]/80 backdrop-blur-xl pointer-events-none" style="clip-path: path('M 16 0 A 16 16 0 0 0 0 16 L 0 0 Z');"></div>
         <button
@@ -1187,7 +1198,6 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 </style>
 
 <style>
-/* Estilos globales para personalizar el InfoWindow de Google Maps a modo oscuro */
 .gm-style-iw-c {
   background-color: #13161c !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -1207,10 +1217,9 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 }
 
 .gm-ui-hover-effect {
-  display: none !important; /* Ocultar botón de cierre nativo al ser hover */
+  display: none !important;
 }
 
-/* Animación de entrada para el contenido del InfoWindow */
 @keyframes infowindowFadeIn {
   from {
     opacity: 0;
@@ -1227,7 +1236,6 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
   transform-origin: bottom center;
 }
 
-/* Hover Card Transitions */
 .hover-card-pop-enter-active {
   transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
 }

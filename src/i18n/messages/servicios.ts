@@ -17,7 +17,7 @@ export const serviciosMessages = {
     thScope: 'Alcance',
     thRiskLevel: 'Nivel Riesgo',
     thStatus: 'Estado',
-    noResults: 'No se encontraron servicios.',
+    noResults: 'No se encontraron servicios',
     noResultsHint: 'Intenta ajustar los filtros de busqueda.',
     stateAll: 'Todos',
     statePreload: 'Prercarga',

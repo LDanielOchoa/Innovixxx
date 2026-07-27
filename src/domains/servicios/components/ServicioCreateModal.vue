@@ -166,7 +166,7 @@ watch(() => props.isOpen, async (isOpen) => {
     panelActivo.value = null
     searchQuery.value = ''
     searchRutasQuery.value = ''
-    fechaHoraInicio.value = null
+    fechaHoraInicio.value = new Date()
     formData.id_ruta = ''
     formData.fecha_hora_inicio = ''
     formData.modo_fin = '1'

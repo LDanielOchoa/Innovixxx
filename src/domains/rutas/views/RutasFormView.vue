@@ -380,7 +380,8 @@
     <AppModal
       v-model:isOpen="isEditParadaModalOpen"
       :title="$t('rutas.modalEditStopTitle')"
-      @cancel="isEditParadaModalOpen = false; editingTipoParada = null"
+      :show-footer="false"
+      :show-close-button="false"
     >
       <template #icon>
         <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
@@ -396,7 +397,7 @@
             <button
               v-for="tipo in tiposParada"
               :key="tipo.id_tipo"
-              @click="editingTipoParada = tipo.id_tipo"
+              @click="selectAndSaveTipoParada(tipo.id_tipo)"
               class="flex items-center gap-3.5 p-3.5 rounded-xl border transition-all duration-300 group/btn active:scale-[0.97] relative"
               :class="editingTipoParada === tipo.id_tipo
                 ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6] dark:border-[#5da6fc] shadow-[inset_0_1px_2px_rgba(59,130,246,0.1),0_4px_12px_rgba(59,130,246,0.1)]'
@@ -436,27 +437,6 @@
           </div>
         </div>
       </div>
-      <template #footer>
-        <div class="flex flex-col gap-3.5 w-full">
-          <button type="button" @click="deleteEditingParada" class="w-full flex items-center justify-center gap-2.5 px-6 py-3 bg-red-500/5 hover:bg-red-500 hover:text-white border border-red-500/20 hover:border-red-600 rounded-xl text-[13px] font-bold text-red-500 hover:shadow-[0_4px_12px_rgba(239,68,68,0.2)] dark:hover:shadow-[0_4px_12px_rgba(239,68,68,0.1)] transition-all duration-300 uppercase tracking-tight active:scale-[0.98]">
-            <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-            {{ $t('rutas.btnDelete') }}
-          </button>
-          <div class="flex gap-3 w-full">
-            <button type="button" @click="isEditParadaModalOpen = false; editingTipoParada = null" class="flex-1 px-6 py-3 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all active:scale-[0.98] uppercase tracking-tight shadow-sm">
-              {{ $t('rutas.btnCancel') }}
-            </button>
-            <button 
-              type="button" 
-              @click="saveEditingParada" 
-              :disabled="!editingTipoParada" 
-              class="flex-1 px-6 py-3 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] border border-[#2563eb] rounded-xl text-[13px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-tight shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] disabled:shadow-none"
-            >
-              {{ $t('rutas.btnSaveChanges') }}
-            </button>
-          </div>
-        </div>
-      </template>
     </AppModal>
 
     <!-- Modal Registrar por GPS -->
@@ -852,9 +832,18 @@ const handleMapInit = (googleMapsApi: any) => {
       : calculateInsertionIndex(lat, lng)
 
     selectedParadaIndex.value = null
-    currentParadaCoords.value = { lat, lon: lng, insertionIndex }
-    selectedTipoParada.value  = null
-    isTipoModalOpen.value     = true
+
+    // Obtener tipo "Normal" o por defecto (evitando modal continuo)
+    const tipoNormal = tiposParada.value.find(t => {
+      const n = t.nombre.toLowerCase()
+      return n.includes('normal') || n.includes('apoyo') || n.includes('paso') || n.includes('punto')
+    })?.id_tipo ?? tiposParada.value.find(t => {
+      const n = t.nombre.toLowerCase()
+      return !n.includes('inicio') && !n.includes('fin')
+    })?.id_tipo ?? 8
+
+    insertParada(lat, lng, tipoNormal, insertionIndex)
+    recalculateFromIndex(insertionIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value)
   })
 
   initPlacesSearch(googleMapsApi, 'map-search-input')
@@ -1062,6 +1051,16 @@ const clearParadasTemporales = () => {
   clearMarkers()
   clearAllRoutes()
   selectedParadaIndex.value = null
+}
+
+const selectAndSaveTipoParada = (idTipo: number) => {
+  if (editingParadaIndex.value === null) return
+  editingTipoParada.value = idTipo
+  updateParadaTipo(editingParadaIndex.value, idTipo)
+  recalculateFromIndex(editingParadaIndex.value, paradasTemporales.value, routeColor.value, isGpsRoute.value)
+  isEditParadaModalOpen.value = false
+  editingParadaIndex.value    = null
+  editingTipoParada.value     = null
 }
 
 const saveEditingParada = () => {

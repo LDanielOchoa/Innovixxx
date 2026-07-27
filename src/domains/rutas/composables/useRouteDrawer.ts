@@ -145,13 +145,17 @@ export function useRouteDrawer(
    */
   const drawFullRoute = (paradas: ParadaPayload[], color: string, usePolyline: boolean = true) => {
     _clearRenderers(0)
-    if (paradas.length < 2) return
+    if (!Array.isArray(paradas)) return
+
+    // Filtrar paradas con coordenadas válidas y numéricas finitas
+    const validParadas = paradas.filter(p => p && typeof p.lat === 'number' && typeof p.lon === 'number' && isFinite(p.lat) && isFinite(p.lon))
+    if (validParadas.length < 2) return
 
     const forcePolyline = true
 
     if (forcePolyline) {
       const polyline = new (window as any).google.maps.Polyline({
-        path: paradas.map(p => ({ lat: p.lat, lng: p.lon })),
+        path: validParadas.map(p => ({ lat: Number(p.lat), lng: Number(p.lon) })),
         strokeColor: color,
         strokeOpacity: 0.9,
         strokeWeight: 4,

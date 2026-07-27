@@ -23,7 +23,7 @@
                   <slot name="icon"></slot>
                   {{ title }}
                 </h3>
-                <button @click="close" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-xl transition-all duration-200 active:scale-95 relative z-30">
+                <button v-if="showCloseButton" @click="close" class="text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 p-2 rounded-xl transition-all duration-200 active:scale-95 relative z-30">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </div>
@@ -65,11 +65,13 @@ const props = withDefaults(defineProps<{
   confirmButtonClass?: string
   closeOnClickOutside?: boolean
   showFooter?: boolean
+  showCloseButton?: boolean
   size?: 'md' | 'lg' | 'xl'
 }>(), {
   confirmButtonClass: 'inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8]',
   closeOnClickOutside: true,
   showFooter: true,
+  showCloseButton: true,
   size: 'md'
 })
 

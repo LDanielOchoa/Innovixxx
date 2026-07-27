@@ -693,7 +693,7 @@ onUnmounted(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('servicios.noResults')"
+        :empty-message="`${t('servicios.noResults', 'no se encontraron resultados')} en estado ${getEstadoLabel()}`"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
