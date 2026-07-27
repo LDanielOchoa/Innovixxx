@@ -20,10 +20,11 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   const wsStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
   const wsError = ref<string | null>(null)
 
+
   let socket: WebSocket | null = null
   let reconnectTimeoutId: any = null
   let reconnectAttempts = 0
-  const maxReconnectAttempts = 5
+  const maxReconnectAttempts = 3
   let isManualDisconnect = false
   let wsSessionId = 0
 
