@@ -203,12 +203,12 @@ router.beforeEach((to, _from, next) => {
   if (isAuthRequired && token) {
     const authStore = useAuthStore()
 
-    if (to.meta.adminOnly && !authStore.isSuperAdmin) {
+    if (to.meta.adminOnly && !authStore.isLoading && !authStore.isSuperAdmin) {
       next({ name: 'dashboard' })
       return
     }
 
-    if (to.meta.permission && !authStore.isSuperAdmin && !authStore.hasPermission(to.meta.permission as number)) {
+    if (to.meta.permission && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(to.meta.permission as number)) {
       next({ name: 'dashboard' })
       return
     }

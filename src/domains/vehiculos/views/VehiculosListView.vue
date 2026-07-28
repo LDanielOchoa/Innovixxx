@@ -10,13 +10,16 @@ import {
   TruckIcon,
   FingerPrintIcon,
   MoreHorizontalIcon,
-  CheckmarkCircle01Icon
+  CheckmarkCircle01Icon,
+  FilterIcon,
+  ArrowDown01Icon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
+import AppBadge from '../../../components/ui/AppBadge.vue'
 import Column from 'primevue/column'
 import {
   fetchVehiculosApi,
@@ -40,8 +43,36 @@ const { selectedGroup } = storeToRefs(groupStore)
 const vehicles = ref<Vehiculo[]>([])
 const isLoading = ref(true)
 const searchQuery = ref('')
+const estadoFiltro = ref<string>('ALL')
+const isEstadoDropdownOpen = ref(false)
+const estadoDropdownRef = ref<HTMLElement | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
+
+const toggleEstadoDropdown = () => {
+  isEstadoDropdownOpen.value = !isEstadoDropdownOpen.value
+}
+
+const selectEstadoFiltro = (estado: string) => {
+  estadoFiltro.value = estado
+  isEstadoDropdownOpen.value = false
+  currentPage.value = 1
+}
+
+const estadosUnicos = computed(() => {
+  const set = new Set<string>()
+  vehicles.value.forEach(v => {
+    if (v.estado) {
+      set.add(String(v.estado).trim())
+    }
+  })
+  return Array.from(set)
+})
+
+const getEstadoFiltroLabel = computed(() => {
+  if (estadoFiltro.value === 'ALL') return 'TODOS LOS ESTADOS'
+  return estadoFiltro.value
+})
 
 // Mapeo de servicios asignados
 const servicios = ref<any[]>([])
@@ -109,8 +140,11 @@ const closeMenu = () => {
   openMenuId.value = null
 }
 
-const handleDocumentClick = () => {
+const handleDocumentClick = (event: MouseEvent) => {
   closeMenu()
+  if (estadoDropdownRef.value && !estadoDropdownRef.value.contains(event.target as Node)) {
+    isEstadoDropdownOpen.value = false
+  }
 }
 
 
@@ -169,7 +203,7 @@ const exportToExcel = () => {
     Placa: v.placa,
     Serial: v.serial,
     Tipo: v.tipo,
-    Estado: v.estado === 1 ? 'Activo' : 'Inactivo',
+    Estado: v.estado,
     ID: v.id_vehiculo
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
@@ -188,14 +222,24 @@ onUnmounted(() => {
 })
 
 const filteredVehicles = computed(() => {
-  if (!searchQuery.value) return vehicles.value
-  const query = searchQuery.value.toLowerCase()
-  return vehicles.value.filter(v => 
-    (v.nombre?.toLowerCase().includes(query)) ||
-    (v.placa?.toLowerCase().includes(query)) ||
-    (v.serial?.toLowerCase().includes(query)) ||
-    (v.tipo?.toString().toLowerCase().includes(query))
-  )
+  let list = vehicles.value
+
+  if (estadoFiltro.value !== 'ALL') {
+    list = list.filter(v => String(v.estado).trim() === estadoFiltro.value)
+  }
+
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    list = list.filter(v => 
+      (v.nombre?.toLowerCase().includes(query)) ||
+      (v.placa?.toLowerCase().includes(query)) ||
+      (v.serial?.toLowerCase().includes(query)) ||
+      (v.tipo?.toString().toLowerCase().includes(query)) ||
+      (v.estado?.toString().toLowerCase().includes(query))
+    )
+  }
+
+  return list
 })
 
 watch(() => selectedGroup.value.id, () => {
@@ -215,7 +259,7 @@ watch(() => selectedGroup.value.id, () => {
 
     <!-- Toolbar: Buscador (izquierda) + Botones (derecha) -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-      <!-- Izquierda: Buscador -->
+      <!-- Izquierda: Buscador y Filtro por Estado -->
       <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
         <div class="relative w-full sm:w-80">
           <input 
@@ -229,6 +273,59 @@ watch(() => selectedGroup.value.id, () => {
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
+        </div>
+
+        <!-- Filtro por Estado -->
+        <div class="relative w-full sm:w-auto" ref="estadoDropdownRef">
+          <button 
+            @click="toggleEstadoDropdown"
+            class="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-2.5 px-4 py-2.5 bg-white dark:bg-[#13161C]/70 border rounded-xl text-xs font-semibold transition-all h-[38px]"
+            :class="estadoFiltro !== 'ALL' 
+              ? 'border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+              : 'border-slate-200/70 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'"
+          >
+            <div class="flex items-center gap-2">
+              <HugeiconsIcon :icon="FilterIcon" :size="14" class="opacity-70" />
+              <span class="uppercase tracking-wider text-[11px] font-bold">{{ getEstadoFiltroLabel }}</span>
+            </div>
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" class="opacity-60 transition-transform duration-200" :class="{ 'rotate-180': isEstadoDropdownOpen }" />
+          </button>
+
+          <!-- Dropdown Menu Estado -->
+          <Transition name="fade-fast">
+            <div 
+              v-if="isEstadoDropdownOpen" 
+              class="absolute left-0 top-full mt-2 w-52 bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl z-50 py-1.5 backdrop-blur-xl"
+            >
+              <!-- Opción TODOS LOS ESTADOS -->
+              <button 
+                @click="selectEstadoFiltro('ALL')"
+                class="w-full px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider flex items-center justify-between transition-colors"
+                :class="estadoFiltro === 'ALL' 
+                  ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              >
+                <span>TODOS LOS ESTADOS</span>
+                <span v-if="estadoFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
+              </button>
+
+              <div class="h-px bg-slate-100 dark:bg-white/5 my-1"></div>
+
+              <!-- Estados dinámicos -->
+              <button 
+                v-for="estado in estadosUnicos"
+                :key="estado"
+                @click="selectEstadoFiltro(estado)"
+                class="w-full px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider flex items-center justify-between transition-colors"
+                :class="estadoFiltro === estado 
+                  ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              >
+                <span>{{ estado }}</span>
+                <span v-if="estadoFiltro === estado" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
+              </button>
+            </div>
+          </Transition>
         </div>
       </div>
 
@@ -264,7 +361,7 @@ watch(() => selectedGroup.value.id, () => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('vehiculos.noResults', 'No se encontraron vehículos')"
+        :empty-message="estadoFiltro !== 'ALL' ? `No se encontraron vehículos en estado ${estadoFiltro}` : t('vehiculos.noResults', 'No se encontraron vehículos')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
@@ -297,6 +394,18 @@ watch(() => selectedGroup.value.id, () => {
               :label="data.tipo || 'General'"
               :icon="TruckIcon"
             />
+          </template>
+        </Column>
+
+        <Column field="estado" :header="t('vehiculos.thStatus', 'Estado')" sortable>
+          <template #body="{ data }">
+            <AppBadge 
+              :variant="String(data.estado).toUpperCase() === 'DISPONIBLE' ? 'success' : 'warning'"
+            >
+              <span class="text-[10px] font-semibold uppercase tracking-wider">
+                {{ data.estado || 'SIN ESTADO' }}
+              </span>
+            </AppBadge>
           </template>
         </Column>
 

@@ -149,6 +149,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     }
   }
 
+  const showWsModal = ref(false)
+
   const connectWebSocket = () => {
     if (reconnectTimeoutId) {
       clearTimeout(reconnectTimeoutId)
@@ -180,6 +182,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     if (!tokenWs || !groupId) {
       wsStatus.value = 'disconnected'
       wsError.value = 'No hay sesión activa. Inicia sesión primero.'
+      showWsModal.value = true
       return
     }
 
@@ -199,6 +202,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         wsStatus.value = 'connected'
         wsError.value = null
         reconnectAttempts = 0
+        showWsModal.value = false
       }
 
       socket.onmessage = (event) => {
@@ -396,16 +400,23 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         if (!isManualDisconnect) {
           if (reconnectAttempts < maxReconnectAttempts) {
             reconnectAttempts++
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 10000)
-            reconnectTimeoutId = setTimeout(() => connectWebSocket(), delay)
+            // Reintentar exactamente a los 5 segundos (5000 ms)
+            reconnectTimeoutId = setTimeout(() => connectWebSocket(), 5000)
           } else {
-            wsError.value = 'No se pudo reconectar después de varios intentos'
+            wsError.value = 'El Websocket no funciona por favor comuniquese con el administrador'
+            showWsModal.value = true
           }
         }
       }
     } catch (err) {
       wsStatus.value = 'disconnected'
       wsError.value = 'No se pudo establecer la conexión'
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++
+        reconnectTimeoutId = setTimeout(() => connectWebSocket(), 5000)
+      } else {
+        showWsModal.value = true
+      }
     }
   }
 
@@ -449,6 +460,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     isLoadingSecondary,
     wsStatus,
     wsError,
+    showWsModal,
     loadAllReferenceData,
     loadSecondaryData,
     connectWebSocket,

@@ -145,7 +145,7 @@ const openTrackingWindow = async () => {
   const tokenWs = localStorage.getItem('auth-token-ws') || ''
   const groupId = groupStore.selectedGroup?.id || localStorage.getItem('auth-grupo-id') || ''
   const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
-  const windowName = 'TrackingWindow'
+  const windowName = `TrackingWindow_${Date.now()}_${Math.floor(Math.random() * 1000)}`
   
   try {
     // Intenta usar la API moderna de Window Management

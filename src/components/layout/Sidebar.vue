@@ -207,8 +207,9 @@ const cerrarSesion = () => {
   >
     <!-- Header / Logo -->
     <div class="w-full px-5 mb-6 h-[40px] shrink-0 flex items-center justify-between">
-      <div 
-        class="h-full bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)] flex-1"
+      <RouterLink 
+        to="/dashboard"
+        class="h-full bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)] flex-1 cursor-pointer"
         :style="{
           WebkitMaskImage: `url(${logoImg})`,
           maskImage: `url(${logoImg})`,
@@ -219,7 +220,7 @@ const cerrarSesion = () => {
           WebkitMaskPosition: 'left center',
           maskPosition: 'left center'
         }"
-      ></div>
+      ></RouterLink>
       
       <!-- Botón Toggle Sidebar -->
       <button

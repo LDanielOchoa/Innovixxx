@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ChipIcon, UserGroupIcon } from '@hugeicons/core-free-icons'
+import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
 import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
@@ -39,7 +39,7 @@ threeModulePromise
   .catch(err => console.error('Error cargando el motor 3D de marcadores:', err))
 
 // Estado
-const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>('SERVICIOS')
+const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'>('SERVICIOS')
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
 
@@ -83,6 +83,7 @@ const {
   isLoadingSecondary,
   wsStatus,
   wsError,
+  showWsModal,
   loadAllReferenceData,
   connectWebSocket,
   disconnectWebSocket
@@ -898,7 +899,7 @@ watch(selectedItem, async (newVal, oldVal) => {
   }
 })
 
-const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS') => {
+const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS') => {
   clearAllMarkers()
 
   // Al asignar la pestaña, el watch(activeTab) del composable se encarga
@@ -1130,20 +1131,62 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     </div>
 
     <!-- Pestañas Superiores -->
-    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[600px] z-20">
-      <div class="flex bg-[#15171C]/80 backdrop-blur-xl border-x border-b border-white/5 rounded-b-2xl p-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative">
-        <div class="absolute top-0 -left-4 w-4 h-4 bg-[#15171C]/80 backdrop-blur-xl pointer-events-none" style="clip-path: path('M 0 0 A 16 16 0 0 1 16 16 L 16 0 Z');"></div>
-        <div class="absolute top-0 -right-4 w-4 h-4 bg-[#15171C]/80 backdrop-blur-xl pointer-events-none" style="clip-path: path('M 16 0 A 16 16 0 0 0 0 16 L 0 0 Z');"></div>
+    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[580px] z-20">
+      <div class="flex items-center gap-1.5 bg-[#0F1117]/90 backdrop-blur-2xl border-x border-b border-white/10 rounded-b-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] relative">
+        <div class="absolute top-0 -left-4 w-4 h-4 bg-[#0F1117]/90 backdrop-blur-2xl pointer-events-none" style="clip-path: path('M 0 0 A 16 16 0 0 1 16 16 L 16 0 Z');"></div>
+        <div class="absolute top-0 -right-4 w-4 h-4 bg-[#0F1117]/90 backdrop-blur-2xl pointer-events-none" style="clip-path: path('M 16 0 A 16 16 0 0 0 0 16 L 0 0 Z');"></div>
+        
+        <!-- Tab: SERVICIOS (Azul Eléctrico Intensivo) -->
         <button
-          v-for="tab in (['SERVICIOS', 'HARDWARE', 'ESCOLTAS', 'VEHICULOS'] as const)"
-          :key="tab"
-          @click="changeTab(tab)"
-          class="flex-1 py-2 text-[11px] font-extrabold tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none"
-          :class="activeTab === tab 
-            ? 'bg-[#5da6fc]/15 text-[#5da6fc] border border-[#5da6fc]/20 shadow-[0_2px_12px_rgba(93,166,252,0.15)]'
-            : 'text-white/60 hover:text-white hover:bg-white/5 border border-transparent'"
+          @click="changeTab('SERVICIOS')"
+          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          :class="activeTab === 'SERVICIOS' 
+            ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.6)] scale-[1.02] border border-blue-400/50'
+            : 'text-blue-400/70 hover:text-blue-300 hover:bg-blue-500/10 border border-transparent'"
         >
-          {{ tab }}
+          <span class="w-2 h-2 rounded-full bg-blue-300 animate-pulse" v-if="activeTab === 'SERVICIOS'"></span>
+          SERVICIOS
+        </button>
+
+        <!-- Tab: HARDWARE (Verde Neón Vibrant) -->
+        <button
+          @click="changeTab('HARDWARE')"
+          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          :class="activeTab === 'HARDWARE' 
+            ? 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-[1.02] border border-emerald-300/50'
+            : 'text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'"
+        >
+          <span class="w-2 h-2 rounded-full bg-slate-950 animate-pulse" v-if="activeTab === 'HARDWARE'"></span>
+          HARDWARE
+        </button>
+
+        <!-- Tab: ESCOLTAS (Púrpura Magenta Neón) -->
+        <button
+          @click="changeTab('ESCOLTAS')"
+          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          :class="activeTab === 'ESCOLTAS' 
+            ? 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.6)] scale-[1.02] border border-purple-400/50'
+            : 'text-purple-400/70 hover:text-purple-300 hover:bg-purple-500/10 border border-transparent'"
+        >
+          <span class="w-2 h-2 rounded-full bg-purple-200 animate-pulse" v-if="activeTab === 'ESCOLTAS'"></span>
+          ESCOLTAS
+        </button>
+
+        <!-- Separador sutil -->
+        <div class="h-5 w-px bg-white/15 shrink-0 mx-0.5"></div>
+
+        <!-- Botón de Geocercas (Naranja Neón / Amber) -->
+        <button
+          @click="toggleGeocercas"
+          :title="showGeocercas ? 'Ocultar Geocercas' : 'Mostrar Geocercas'"
+          class="flex items-center gap-1.5 px-3 py-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none shrink-0 border"
+          :class="showGeocercas 
+            ? 'bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-[1.02] border-amber-300/50' 
+            : 'text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/10 border-transparent'"
+        >
+          <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="15" class="animate-spin text-slate-950" />
+          <HugeiconsIcon v-else :icon="MapsIcon" :size="15" />
+          <span>Geocercas</span>
         </button>
       </div>
     </div>
@@ -1166,6 +1209,50 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
       @select="selectItem"
       @toggleGeocercas="toggleGeocercas"
     />
+
+    <!-- MODAL ERROR WEBSOCKET -->
+    <Transition name="fade-scale">
+      <div 
+        v-if="showWsModal" 
+        class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+      >
+        <div class="w-full max-w-md bg-[#13161C] border border-rose-500/30 rounded-2xl p-6 shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col items-center text-center space-y-4 relative overflow-hidden">
+          <!-- Background Glow Effect -->
+          <div class="absolute -top-12 -left-12 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+          <!-- Icono de Alerta -->
+          <div class="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+
+          <!-- Textos -->
+          <div class="space-y-1.5">
+            <h3 class="text-lg font-black text-white tracking-tight">Fallo de Conexión</h3>
+            <p class="text-xs font-medium text-slate-300 leading-relaxed max-w-xs mx-auto">
+              El Websocket no funciona por favor comuniquese con el administrador
+            </p>
+          </div>
+
+          <!-- Botón Entendido / Reintentar -->
+          <div class="pt-2 w-full flex items-center gap-3">
+            <button 
+              @click="showWsModal = false"
+              class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all active:scale-95"
+            >
+              Cerrar
+            </button>
+            <button 
+              @click="connectWebSocket"
+              class="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 

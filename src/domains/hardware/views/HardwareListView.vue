@@ -54,6 +54,11 @@ const searchQuery = ref('')
 const estadoFiltro = ref<string>('ALL')
 const isEstadoDropdownOpen = ref(false)
 const estadoDropdownRef = ref<HTMLElement | null>(null)
+
+const familiaFiltro = ref<string>('ALL')
+const isFamiliaDropdownOpen = ref(false)
+const familiaDropdownRef = ref<HTMLElement | null>(null)
+
 const currentPage = ref(1)
 const itemsPerPage = 10
 const openMenuId = ref<string | null>(null)
@@ -61,11 +66,23 @@ const menuPosition = ref({ top: '0px', right: '0px' })
 
 const toggleEstadoDropdown = () => {
   isEstadoDropdownOpen.value = !isEstadoDropdownOpen.value
+  isFamiliaDropdownOpen.value = false
 }
 
 const selectEstadoFiltro = (estado: string) => {
   estadoFiltro.value = estado
   isEstadoDropdownOpen.value = false
+  currentPage.value = 1
+}
+
+const toggleFamiliaDropdown = () => {
+  isFamiliaDropdownOpen.value = !isFamiliaDropdownOpen.value
+  isEstadoDropdownOpen.value = false
+}
+
+const selectFamiliaFiltro = (familia: string) => {
+  familiaFiltro.value = familia
+  isFamiliaDropdownOpen.value = false
   currentPage.value = 1
 }
 
@@ -77,9 +94,22 @@ const estadosUnicos = computed(() => {
   return Array.from(set)
 })
 
+const familiasUnicas = computed(() => {
+  const set = new Set<string>()
+  items.value.forEach(item => {
+    if (item.familia) set.add(item.familia)
+  })
+  return Array.from(set)
+})
+
 const getEstadoFiltroLabel = computed(() => {
-  if (estadoFiltro.value === 'ALL') return 'VER TODOS'
+  if (estadoFiltro.value === 'ALL') return 'TODOS LOS ESTADOS'
   return estadoFiltro.value
+})
+
+const getFamiliaFiltroLabel = computed(() => {
+  if (familiaFiltro.value === 'ALL') return 'TODAS LAS FAMILIAS'
+  return familiaFiltro.value
 })
 
 // Mapeo de servicios asignados
@@ -122,6 +152,9 @@ const handleDocumentClick = (event: MouseEvent) => {
   closeMenu()
   if (estadoDropdownRef.value && !estadoDropdownRef.value.contains(event.target as Node)) {
     isEstadoDropdownOpen.value = false
+  }
+  if (familiaDropdownRef.value && !familiaDropdownRef.value.contains(event.target as Node)) {
+    isFamiliaDropdownOpen.value = false
   }
 }
 
@@ -265,6 +298,10 @@ const filteredItems = computed(() => {
     list = list.filter(item => item.estado === estadoFiltro.value)
   }
 
+  if (familiaFiltro.value !== 'ALL') {
+    list = list.filter(item => item.familia === familiaFiltro.value)
+  }
+
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     list = list.filter(item =>
@@ -307,6 +344,59 @@ const filteredItems = computed(() => {
           </div>
         </div>
 
+        <!-- Filtro por Familia -->
+        <div class="relative w-full sm:w-auto" ref="familiaDropdownRef">
+          <button 
+            @click="toggleFamiliaDropdown"
+            class="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-2.5 px-4 py-2.5 bg-white dark:bg-[#13161C]/70 border rounded-xl text-xs font-semibold transition-all h-[38px]"
+            :class="familiaFiltro !== 'ALL' 
+              ? 'border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+              : 'border-slate-200/70 dark:border-white/[0.08] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.04]'"
+          >
+            <div class="flex items-center gap-2">
+              <HugeiconsIcon :icon="FilterIcon" :size="14" class="opacity-70" />
+              <span class="uppercase tracking-wider text-[11px] font-bold">{{ getFamiliaFiltroLabel }}</span>
+            </div>
+            <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" class="opacity-60 transition-transform duration-200" :class="{ 'rotate-180': isFamiliaDropdownOpen }" />
+          </button>
+
+          <!-- Dropdown Menu Familia -->
+          <Transition name="fade-fast">
+            <div 
+              v-if="isFamiliaDropdownOpen" 
+              class="absolute left-0 top-full mt-2 w-56 bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl z-50 py-1.5 backdrop-blur-xl"
+            >
+              <!-- Opción TODAS LAS FAMILIAS -->
+              <button 
+                @click="selectFamiliaFiltro('ALL')"
+                class="w-full px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider flex items-center justify-between transition-colors"
+                :class="familiaFiltro === 'ALL' 
+                  ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              >
+                <span>TODAS LAS FAMILIAS</span>
+                <span v-if="familiaFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
+              </button>
+
+              <div class="h-px bg-slate-100 dark:bg-white/5 my-1"></div>
+
+              <!-- Familias dinámicas -->
+              <button 
+                v-for="familia in familiasUnicas"
+                :key="familia"
+                @click="selectFamiliaFiltro(familia)"
+                class="w-full px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider flex items-center justify-between transition-colors"
+                :class="familiaFiltro === familia 
+                  ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
+                  : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
+              >
+                <span>{{ familia }}</span>
+                <span v-if="familiaFiltro === familia" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
+              </button>
+            </div>
+          </Transition>
+        </div>
+
         <!-- Filtro por Estado -->
         <div class="relative w-full sm:w-auto" ref="estadoDropdownRef">
           <button 
@@ -323,13 +413,13 @@ const filteredItems = computed(() => {
             <HugeiconsIcon :icon="ArrowDown01Icon" :size="14" class="opacity-60 transition-transform duration-200" :class="{ 'rotate-180': isEstadoDropdownOpen }" />
           </button>
 
-          <!-- Dropdown Menu -->
+          <!-- Dropdown Menu Estado -->
           <Transition name="fade-fast">
             <div 
               v-if="isEstadoDropdownOpen" 
               class="absolute left-0 top-full mt-2 w-52 bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-xl z-50 py-1.5 backdrop-blur-xl"
             >
-              <!-- Opción VER TODOS -->
+              <!-- Opción TODOS LOS ESTADOS -->
               <button 
                 @click="selectEstadoFiltro('ALL')"
                 class="w-full px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-wider flex items-center justify-between transition-colors"
@@ -337,7 +427,7 @@ const filteredItems = computed(() => {
                   ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
               >
-                <span>VER TODOS</span>
+                <span>TODOS LOS ESTADOS</span>
                 <span v-if="estadoFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
               </button>
 
@@ -413,8 +503,6 @@ const filteredItems = computed(() => {
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <span class="text-[12px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wider font-mono">{{ data.serial || '---' }}</span>
-              <span class="text-[11px] text-slate-500 font-mono" v-if="data.imei">IMEI: {{ data.imei }}</span>
-              <span class="text-[11px] text-slate-500 font-mono" v-if="data.mac">MAC: {{ data.mac }}</span>
             </div>
           </template>
         </Column>
@@ -423,7 +511,7 @@ const filteredItems = computed(() => {
           <template #body="{ data }">
             <AppBadge variant="primary">
               <span class="text-[10px] font-semibold uppercase tracking-wider">
-                {{ data.familia || 'Genérico' }}
+                {{ data.familia }}
               </span>
             </AppBadge>
           </template>

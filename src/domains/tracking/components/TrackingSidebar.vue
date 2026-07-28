@@ -17,7 +17,7 @@ import {
 import type { HardwareWs } from '../types/tracking'
 
 interface Props {
-  activeTab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'
+  activeTab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'
   searchQuery: string
   hardwareList: HardwareWs[]
   serviciosList: any[]
@@ -69,13 +69,6 @@ const filteredItems = computed(() => {
       (e.nombre && e.nombre.toLowerCase().includes(query)) ||
       (e.identificacion && e.identificacion.toLowerCase().includes(query))
     )
-  } else if (props.activeTab === 'VEHICULOS') {
-    if (!query) return props.vehiculosList
-    return props.vehiculosList.filter(v => 
-      (v.placa && v.placa.toLowerCase().includes(query)) ||
-      (v.marca && v.marca.toLowerCase().includes(query)) ||
-      (v.modelo && v.modelo.toLowerCase().includes(query))
-    )
   }
   return []
 })
@@ -88,8 +81,6 @@ const isItemSelected = (item: any) => {
     return props.selectedItem.id_servicio === item.id_servicio
   } else if (props.activeTab === 'ESCOLTAS') {
     return props.selectedItem.id_escolta === item.id_escolta
-  } else if (props.activeTab === 'VEHICULOS') {
-    return props.selectedItem.placa === item.placa
   }
   return false
 }
@@ -102,14 +93,20 @@ const isItemSelected = (item: any) => {
     <div class="p-5 border-b border-slate-200/70 dark:border-white/5 shrink-0">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shadow-inner">
+          <div 
+            class="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 shadow-lg"
+            :class="[
+              activeTab === 'SERVICIOS' ? 'bg-blue-600 text-white shadow-blue-600/30' :
+              activeTab === 'HARDWARE' ? 'bg-emerald-500 text-slate-950 font-black shadow-emerald-500/30' :
+              'bg-purple-600 text-white shadow-purple-600/30'
+            ]"
+          >
             <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="17" />
             <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="17" />
-            <HugeiconsIcon v-else-if="activeTab === 'ESCOLTAS'" :icon="UserGroupIcon" :size="17" />
-            <HugeiconsIcon v-else :icon="Car02Icon" :size="17" />
+            <HugeiconsIcon v-else :icon="UserGroupIcon" :size="17" />
           </div>
           <div>
-            <h2 class="text-[14px] font-bold text-slate-800 dark:text-white tracking-tight capitalize">{{ activeTab.toLowerCase() }}</h2>
+            <h2 class="text-[14px] font-black text-slate-800 dark:text-white tracking-tight capitalize">{{ activeTab.toLowerCase() }}</h2>
             <span class="text-[9px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest block mt-0.5">
               {{ filteredItems.length }} {{ filteredItems.length === 1 ? 'elemento' : 'elementos' }}
             </span>
@@ -119,18 +116,6 @@ const isItemSelected = (item: any) => {
 
       <!-- Buscador y Acciones -->
       <div class="relative flex items-center gap-2">
-        <button
-          @click="emit('toggleGeocercas')"
-          :title="showGeocercas ? 'Ocultar Geocercas en el mapa' : 'Mostrar Geocercas en el mapa'"
-          class="w-10 h-10 rounded-[10px] flex items-center justify-center border transition-all duration-200 shrink-0 relative overflow-hidden"
-          :class="showGeocercas 
-            ? 'bg-[#3b82f6]/15 dark:bg-[#5da6fc]/20 border-[#3b82f6]/30 dark:border-[#5da6fc]/30 text-[#3b82f6] dark:text-[#5da6fc] shadow-[0_2px_10px_rgba(59,130,246,0.2)]'
-            : 'bg-slate-50 dark:bg-white/5 border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10'"
-        >
-          <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="16" class="animate-spin text-[#3b82f6] dark:text-[#5da6fc]" />
-          <HugeiconsIcon v-else :icon="MapsIcon" :size="16" />
-        </button>
-
         <AppInput 
           v-model="localSearchQuery"
           placeholder="Buscar..."
@@ -141,7 +126,7 @@ const isItemSelected = (item: any) => {
           v-if="activeTab === 'HARDWARE'"
           @click="emit('reconnect')"
           title="Reconectar"
-          class="w-10 h-10 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
+          class="w-10 h-10 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
         >
           <HugeiconsIcon :icon="RefreshIcon" :size="14" :class="{ 'animate-spin': wsStatus === 'connecting' }" />
         </button>
@@ -153,7 +138,7 @@ const isItemSelected = (item: any) => {
       <!-- Error de sesión / credenciales -->
       <div v-if="wsError && activeTab === 'HARDWARE'" class="mx-1 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-2">
         <p class="text-[10px] font-bold text-rose-400">{{ wsError }}</p>
-        <button @click="emit('reconnect')" class="text-[9px] font-black uppercase tracking-wider text-[#5da6fc] hover:underline self-start">
+        <button @click="emit('reconnect')" class="text-[9px] font-black uppercase tracking-wider text-emerald-400 hover:underline self-start">
           Reintentar
         </button>
       </div>
@@ -190,43 +175,47 @@ const isItemSelected = (item: any) => {
           v-for="item in filteredItems"
           :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
           @click="emit('select', item)"
-          class="group w-full text-left p-2.5 px-3 rounded-[14px] transition-all duration-500 border border-transparent outline-none flex items-center justify-between gap-3 relative overflow-hidden active:scale-[0.97]"
+          class="group w-full text-left p-2.5 px-3 rounded-[14px] transition-all duration-500 border outline-none flex items-center justify-between gap-3 relative overflow-hidden active:scale-[0.97]"
           :class="[
             isItemSelected(item)
-              ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)] z-10'
+              ? (activeTab === 'SERVICIOS' 
+                  ? 'bg-blue-600/15 border-blue-500/60 shadow-[0_4px_20px_rgba(37,99,235,0.2)] z-10'
+                  : activeTab === 'HARDWARE'
+                    ? 'bg-emerald-500/15 border-emerald-500/60 shadow-[0_4px_20px_rgba(16,185,129,0.2)] z-10'
+                    : 'bg-purple-600/15 border-purple-500/60 shadow-[0_4px_20px_rgba(147,51,234,0.2)] z-10')
               : (item.sos 
                   ? 'bg-rose-500/5 hover:bg-rose-500/10 border-red-500/15'
-                  : 'hover:bg-gradient-to-r hover:from-slate-100/50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)]')
+                  : 'hover:bg-white/5 border-transparent hover:border-white/10')
           ]"
         >
-          <!-- Glow Effect background -->
-          <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
-
           <!-- Left: Icono interactivo -->
           <div 
             class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg relative z-10"
             :class="[
               isItemSelected(item) 
-                ? 'bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 text-[#3b82f6] dark:text-[#5da6fc]' 
+                ? (activeTab === 'SERVICIOS' ? 'bg-blue-600 text-white' :
+                   activeTab === 'HARDWARE' ? 'bg-emerald-500 text-slate-950' :
+                   'bg-purple-600 text-white')
                 : (item.sos 
                     ? 'bg-rose-500/10 text-rose-500 dark:text-rose-450'
-                    : 'text-slate-500 dark:text-slate-500 bg-slate-100 dark:bg-white/5 group-hover:bg-[#3b82f6]/10 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]')
+                    : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 group-hover:bg-white/10')
             ]"
           >
             <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="16" />
             <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="16" />
-            <HugeiconsIcon v-else-if="activeTab === 'ESCOLTAS'" :icon="UserGroupIcon" :size="16" />
-            <HugeiconsIcon v-else :icon="Car02Icon" :size="16" />
+            <HugeiconsIcon v-else :icon="UserGroupIcon" :size="16" />
           </div>
 
           <!-- Center: Textos -->
           <div class="min-w-0 flex-1 relative z-10">
             <h3
-              class="text-[12px] font-bold uppercase tracking-tight truncate transition-colors duration-200"
+              class="text-[12px] font-black uppercase tracking-tight truncate transition-colors duration-200"
               :class="[
                 isItemSelected(item)
-                  ? 'text-[#3b82f6] dark:text-[#5da6fc]'
-                  : (item.sos ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]')
+                  ? (activeTab === 'SERVICIOS' ? 'text-blue-400' :
+                     activeTab === 'HARDWARE' ? 'text-emerald-400' :
+                     'text-purple-400')
+                  : (item.sos ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200')
               ]"
             >
               {{ item.id_servicio ? `Servicio ${item.id_servicio}` : (item.nombre || item.placa) }}
