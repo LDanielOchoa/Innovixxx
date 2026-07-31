@@ -140,7 +140,7 @@ const {
 } = useMapSetup('google-map-container', {
   defaultZoom: 13,
   gestureHandling: 'greedy',
-  forceDark: true,
+  forceDark: false,
   mapId: '688c00fbadb30bbb930f73e2'
 })
 
@@ -432,7 +432,8 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
   if (marker.threeRenderer) {
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
     const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
-    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex)
+    const showBatteryRing = activeTab.value !== 'SERVICIOS'
+    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex, showBatteryRing)
   }
 
   const scale = getZoomScaleFactor()
@@ -572,7 +573,8 @@ const animateMarker = (
     if (marker.threeRenderer) {
       const mapTilt = map.value ? map.value.getTilt() || 0 : 0
       const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
-      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery, arrowColorHex)
+      const showBatteryRing = activeTab.value !== 'SERVICIOS'
+      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery, arrowColorHex, showBatteryRing)
     }
 
     if (progress < 1) {
@@ -613,7 +615,9 @@ const updateMarkersOnMap = () => {
   const activeKeys = new Set<string>()
 
   hardwareList.value.forEach(hw => {
-    const hasCoordinates = hw.lat !== 0 && hw.lon !== 0
+    const latNum = Number(hw.lat)
+    const lonNum = Number(hw.lon)
+    const hasCoordinates = !isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0
     if (!hasCoordinates) return
 
     activeKeys.add(hw.serial)
@@ -625,14 +629,14 @@ const updateMarkersOnMap = () => {
     if (marker) {
       // animateMarker ya actualiza el contenido del marcador en cada frame
       // y al finalizar; no es necesario un updateMarkerContent extra aquí.
-      animateMarker(marker, hw.lat, hw.lon, hw.course || 0, hw)
+      animateMarker(marker, latNum, lonNum, hw.course || 0, hw)
       marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
       if (marker.content) {
         (marker.content as HTMLElement).style.opacity = isBelonging ? '1' : '0.25';
         (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
       }
     } else {
-      const position = { lat: hw.lat, lng: hw.lon }
+      const position = { lat: latNum, lng: lonNum }
       const content = createHardwareMarkerElement(hw, isSelected)
       content.style.opacity = isBelonging ? '1' : '0.25'
       content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
@@ -668,7 +672,9 @@ const updateMarkersOnMap = () => {
   })
 
   escoltasList.value.forEach(esc => {
-    const hasCoordinates = esc.lat !== 0 && esc.lon !== 0
+    const latNum = Number(esc.lat)
+    const lonNum = Number(esc.lon)
+    const hasCoordinates = !isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0
     if (!hasCoordinates) return
 
     activeKeys.add(esc.id_escolta)
@@ -678,7 +684,7 @@ const updateMarkersOnMap = () => {
     const isBelonging = isItemBelongingToSelectedService(esc.id_servicio)
 
     if (marker) {
-      marker.position = { lat: esc.lat, lng: esc.lon }
+      marker.position = { lat: latNum, lng: lonNum }
       marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
       updateEscoltaMarkerContent(marker, esc, isSelected)
       if (marker.content) {
@@ -686,7 +692,7 @@ const updateMarkersOnMap = () => {
         (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
       }
     } else {
-      const position = { lat: esc.lat, lng: esc.lon }
+      const position = { lat: latNum, lng: lonNum }
       const content = createEscoltaMarkerElement(esc, isSelected)
       content.style.opacity = isBelonging ? '1' : '0.25'
       content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
@@ -782,7 +788,8 @@ watch(map, (newMap) => {
           const course = marker.currentCourse !== undefined ? marker.currentCourse : (hw.course || 0)
           const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
           const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
-          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, true)
+          const showBatteryRing = activeTab.value !== 'SERVICIOS'
+          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, showBatteryRing)
           return
         }
         const esc = escById.get(key)
@@ -819,8 +826,21 @@ watch(selectedItem, async (newVal, oldVal) => {
   clearRouteLines()
 
   if (newVal) {
-    const routeId = newVal.id_ruta
+    // Intentar resolver id_ruta: puede que venga en el ítem directamente,
+    // o que haya que buscarlo en refServicios a partir de id_servicio
+    let routeId = String(newVal.id_ruta || '').trim()
+
+    if (!routeId && newVal.id_servicio) {
+      const servRef = refServicios.value.find(
+        s => String(s.id_servicio || '').trim().toLowerCase() === String(newVal.id_servicio).trim().toLowerCase()
+      )
+      routeId = String(servRef?.id_ruta || '').trim()
+    }
+
     const groupId = localStorage.getItem('auth-grupo-id') || ''
+
+    console.log('[TrackingView] Ítem seleccionado:', newVal.id_servicio, '| id_ruta resuelto:', routeId || '(vacío)')
+
     if (routeId && groupId) {
       const requestId = ++routeRequestSeq
 
@@ -836,13 +856,14 @@ watch(selectedItem, async (newVal, oldVal) => {
         }
       }
 
-      const cacheKey = String(routeId)
+      const cacheKey = routeId
       const cached = routeParadasCache.get(cacheKey)
       if (cached) {
         drawParadas(cached)
       } else {
         try {
           const rutaDetalle = await fetchRutaDetallesApi(groupId, routeId)
+          console.log('[TrackingView] fetchRutaDetallesApi respuesta:', rutaDetalle)
           if (rutaDetalle && Array.isArray(rutaDetalle.paradas)) {
             const paradasValidas = rutaDetalle.paradas
               .map((p: any) => ({
@@ -852,15 +873,23 @@ watch(selectedItem, async (newVal, oldVal) => {
               }))
               .filter((p: any) => !isNaN(p.lat) && !isNaN(p.lon) && isFinite(p.lat) && isFinite(p.lon))
 
+            console.log('[TrackingView] Paradas válidas:', paradasValidas.length)
+
             if (paradasValidas.length >= 2) {
               routeParadasCache.set(cacheKey, paradasValidas)
               drawParadas(paradasValidas)
+            } else {
+              console.warn('[TrackingView] Menos de 2 paradas válidas, no se dibuja polilínea')
             }
+          } else {
+            console.warn('[TrackingView] No se encontraron paradas en la respuesta:', rutaDetalle)
           }
         } catch (err) {
           console.error('Error al trazar polilínea de la ruta:', err)
         }
       }
+    } else {
+      console.log('[TrackingView] Sin id_ruta válido para dibujar ruta. routeId:', routeId, '| groupId:', groupId ? '✓' : '✗')
     }
   }
 
@@ -1022,21 +1051,21 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
           :style="{ top: hoveredPosition.top + 'px', left: hoveredPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
-            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
+          <div class="w-[240px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/60 dark:border-white/5">
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
                   <HugeiconsIcon :icon="ChipIcon" :size="15" />
                 </div>
                 <div class="min-w-0">
                   <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredItem.nombre }}</h4>
-                  <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 block truncate">Dispositivo GPS</span>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Dispositivo GPS</span>
                 </div>
               </div>
-              <span class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredItem.serial }}</span>
+              <span class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredItem.serial }}</span>
             </div>
 
-            <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
+            <div class="bg-slate-50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
                 <span 
@@ -1050,7 +1079,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </div>
 
               <template v-if="hoveredServiceDateTime.fecha || hoveredServiceDateTime.hora">
-                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/40 dark:border-white/5">
+                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/60 dark:border-white/5">
                   <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
                   <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredServiceDateTime.fecha }}</span>
@@ -1067,11 +1096,11 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </div>
               <div class="flex flex-col items-end">
                 <span class="text-slate-800 dark:text-white font-semibold truncate max-w-[120px]">{{ hoveredEscolta?.nombre || 'Sin asignar' }}</span>
-                <span v-if="hoveredEscolta?.celular" class="text-[9px] font-mono text-slate-400 dark:text-slate-400">{{ hoveredEscolta.celular }}</span>
+                <span v-if="hoveredEscolta?.celular" class="text-[9px] font-mono text-slate-500 dark:text-slate-400">{{ hoveredEscolta.celular }}</span>
               </div>
             </div>
           </div>
-          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
 
@@ -1082,21 +1111,21 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
           :style="{ top: hoveredEscoltaPosition.top + 'px', left: hoveredEscoltaPosition.left + 'px' }"
           class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
         >
-          <div class="w-[240px] bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/10 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
-            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/10 dark:border-white/5">
+          <div class="w-[240px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/60 dark:border-white/5">
               <div class="flex items-center gap-2 min-w-0">
                 <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
                   <HugeiconsIcon :icon="UserGroupIcon" :size="15" />
                 </div>
                 <div class="min-w-0">
                   <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredEscoltaItem.nombre }}</h4>
-                  <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 block truncate">Escolta Oficial</span>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Escolta Oficial</span>
                 </div>
               </div>
-              <span v-if="hoveredEscoltaItem.identificacion" class="text-[9px] font-mono font-medium text-slate-400 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/50 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
+              <span v-if="hoveredEscoltaItem.identificacion" class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
             </div>
 
-            <div class="bg-slate-50/50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
+            <div class="bg-slate-50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
                 <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
                 <span 
@@ -1110,7 +1139,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </div>
 
               <template v-if="hoveredEscoltaServiceDateTime.fecha || hoveredEscoltaServiceDateTime.hora">
-                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/40 dark:border-white/5">
+                <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/60 dark:border-white/5">
                   <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
                   <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredEscoltaServiceDateTime.fecha }}</span>
@@ -1122,70 +1151,68 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 
             <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between text-[10px] px-1">
               <span class="text-slate-500 dark:text-slate-400 font-medium">Celular</span>
-              <span class="text-slate-800 dark:text-white font-mono font-medium">{{ hoveredEscoltaItem.celular }}</span>
+              <span class="text-slate-800 dark:text-white font-mono font-semibold">{{ hoveredEscoltaItem.celular }}</span>
             </div>
           </div>
-          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-[#13161C] -mt-[1px]"></div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
     </div>
 
     <!-- Pestañas Superiores -->
-    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[580px] z-20">
-      <div class="flex items-center gap-1.5 bg-[#0F1117]/90 backdrop-blur-2xl border-x border-b border-white/10 rounded-b-2xl p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.8)] relative">
-        <div class="absolute top-0 -left-4 w-4 h-4 bg-[#0F1117]/90 backdrop-blur-2xl pointer-events-none" style="clip-path: path('M 0 0 A 16 16 0 0 1 16 16 L 16 0 Z');"></div>
-        <div class="absolute top-0 -right-4 w-4 h-4 bg-[#0F1117]/90 backdrop-blur-2xl pointer-events-none" style="clip-path: path('M 16 0 A 16 16 0 0 0 0 16 L 0 0 Z');"></div>
+    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[540px] z-20">
+      <div class="flex items-center gap-1.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl border-x border-b border-slate-200 dark:border-slate-800 rounded-b-xl p-1.5 shadow-md transition-all duration-300">
         
-        <!-- Tab: SERVICIOS (Azul Eléctrico Intensivo) -->
+        <!-- Tab: SERVICIOS -->
         <button
           @click="changeTab('SERVICIOS')"
-          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-colors focus:outline-none flex items-center justify-center gap-1.5"
           :class="activeTab === 'SERVICIOS' 
-            ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.6)] scale-[1.02] border border-blue-400/50'
-            : 'text-blue-400/70 hover:text-blue-300 hover:bg-blue-500/10 border border-transparent'"
+            ? 'bg-[#3b82f6]/90 text-white border border-[#3b82f6]/80'
+            : 'text-blue-500/80 dark:text-blue-400/80 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent'"
         >
-          <span class="w-2 h-2 rounded-full bg-blue-300 animate-pulse" v-if="activeTab === 'SERVICIOS'"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'SERVICIOS'"></span>
           SERVICIOS
         </button>
 
-        <!-- Tab: HARDWARE (Verde Neón Vibrant) -->
+        <!-- Tab: HARDWARE -->
         <button
           @click="changeTab('HARDWARE')"
-          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-colors focus:outline-none flex items-center justify-center gap-1.5"
           :class="activeTab === 'HARDWARE' 
-            ? 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_20px_rgba(16,185,129,0.6)] scale-[1.02] border border-emerald-300/50'
-            : 'text-emerald-400/70 hover:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'"
+            ? 'bg-emerald-600/90 text-white border border-emerald-500/80'
+            : 'text-emerald-600/80 dark:text-emerald-400/80 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-transparent'"
         >
-          <span class="w-2 h-2 rounded-full bg-slate-950 animate-pulse" v-if="activeTab === 'HARDWARE'"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'HARDWARE'"></span>
           HARDWARE
         </button>
 
-        <!-- Tab: ESCOLTAS (Púrpura Magenta Neón) -->
+        <!-- Tab: ESCOLTAS -->
         <button
           @click="changeTab('ESCOLTAS')"
-          class="flex-1 py-2 px-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none flex items-center justify-center gap-1.5"
+          class="flex-1 py-1.5 px-2 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-colors focus:outline-none flex items-center justify-center gap-1.5"
           :class="activeTab === 'ESCOLTAS' 
-            ? 'bg-purple-600 text-white shadow-[0_0_20px_rgba(147,51,234,0.6)] scale-[1.02] border border-purple-400/50'
-            : 'text-purple-400/70 hover:text-purple-300 hover:bg-purple-500/10 border border-transparent'"
+            ? 'bg-purple-600/90 text-white border border-purple-500/80'
+            : 'text-purple-600/80 dark:text-purple-400/80 hover:bg-purple-50 dark:hover:bg-purple-500/10 border border-transparent'"
         >
-          <span class="w-2 h-2 rounded-full bg-purple-200 animate-pulse" v-if="activeTab === 'ESCOLTAS'"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'ESCOLTAS'"></span>
           ESCOLTAS
         </button>
 
         <!-- Separador sutil -->
-        <div class="h-5 w-px bg-white/15 shrink-0 mx-0.5"></div>
+        <div class="h-4 w-px bg-slate-200 dark:bg-slate-800 shrink-0 mx-0.5"></div>
 
-        <!-- Botón de Geocercas (Naranja Neón / Amber) -->
+        <!-- Botón de Geocercas -->
         <button
           @click="toggleGeocercas"
           :title="showGeocercas ? 'Ocultar Geocercas' : 'Mostrar Geocercas'"
-          class="flex items-center gap-1.5 px-3 py-2 text-[11px] font-black tracking-wider uppercase rounded-xl transition-all duration-300 focus:outline-none shrink-0 border"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-colors focus:outline-none shrink-0 border"
           :class="showGeocercas 
-            ? 'bg-amber-500 text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.6)] scale-[1.02] border-amber-300/50' 
-            : 'text-amber-400/70 hover:text-amber-300 hover:bg-amber-500/10 border-transparent'"
+            ? 'bg-amber-500/90 text-white border-amber-500/80' 
+            : 'text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-transparent'"
         >
-          <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="15" class="animate-spin text-slate-950" />
-          <HugeiconsIcon v-else :icon="MapsIcon" :size="15" />
+          <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="14" class="animate-spin" />
+          <HugeiconsIcon v-else :icon="MapsIcon" :size="14" />
           <span>Geocercas</span>
         </button>
       </div>
@@ -1199,6 +1226,8 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
       :serviciosList="serviciosList"
       :escoltasList="escoltasList"
       :vehiculosList="vehiculosList"
+      :refEscoltas="refEscoltas"
+      :refVehiculos="refVehiculos"
       :isLoadingSecondary="isLoadingSecondary"
       :wsStatus="wsStatus"
       :wsError="wsError"

@@ -583,7 +583,7 @@ const handleClose = () => {
               <HugeiconsIcon :icon="panelActivo === 'rutas' ? Route01Icon : Car01Icon" :size="17" />
             </div>
             <div>
-              <h4 class="text-[12px] font-black text-white tracking-tight">
+              <h4 class="text-[12px] font-black text-slate-800 dark:text-white tracking-tight">
                 {{ panelActivo === 'rutas' ? 'Rutas disponibles' : 'Vehículos disponibles' }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
@@ -635,8 +635,8 @@ const handleClose = () => {
           </div>
         </div>
 
-        <!-- ========== BARRA CONTROL (solo vehiculos) ========== -->
-        <div v-if="panelActivo === 'vehiculos'" class="px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
+        <!-- ========== BARRA CONTROL ========== -->
+        <div class="px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-slate-100 dark:border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-500 dark:text-blue-400">
             {{ selectedVehiculosIds.length }} seleccionados
           </span>
@@ -648,7 +648,7 @@ const handleClose = () => {
             >
               Todos
             </button>
-            <span class="w-px h-3 bg-white/10"></span>
+            <span class="w-px h-3 bg-slate-200 dark:bg-white/10"></span>
             <button
               type="button"
               @click.stop="clearVehiculos()"
@@ -783,14 +783,14 @@ const handleClose = () => {
    ===================================================== */
 .panel-flotante-recursos {
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(26,29,36,0.95) 0%, rgba(15,17,21,0.98) 100%);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.04) inset,
-    0 32px 64px -12px rgba(0,0,0,0.5),
-    0 8px 24px -4px rgba(0,0,0,0.3);
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
+    0 24px 48px -12px rgba(15, 23, 42, 0.15),
+    0 8px 24px -4px rgba(15, 23, 42, 0.08);
 }
 :global(.dark) .panel-flotante-recursos {
   background: linear-gradient(180deg, rgba(26,29,36,0.95) 0%, rgba(15,17,21,0.98) 100%);
@@ -811,7 +811,10 @@ const handleClose = () => {
 
 /* Cabecera */
 .panel-head {
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+:global(.dark) .panel-head {
+  border-bottom-color: rgba(255,255,255,0.06);
 }
 
 .panel-head-icon {
@@ -839,6 +842,10 @@ const handleClose = () => {
   flex-shrink: 0;
 }
 .panel-close-btn:hover {
+  background: rgba(0,0,0,0.04);
+  color: #475569;
+}
+:global(.dark) .panel-close-btn:hover {
   background: rgba(255,255,255,0.06);
   color: #e2e8f0;
 }
@@ -848,14 +855,22 @@ const handleClose = () => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #0f1115;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 10px 14px;
   transition: all 0.3s ease;
+}
+:global(.dark) .panel-search-wrap {
+  background: #0f1115;
+  border-color: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
 }
 .panel-search-wrap:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59,130,246,0.2);
+}
+:global(.dark) .panel-search-wrap:focus-within {
   border-color: #5da6fc;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2);
 }
@@ -866,12 +881,16 @@ const handleClose = () => {
   border: none;
   font-size: 12px;
   font-weight: 500;
-  color: #e2e8f0;
+  color: #1e293b;
   outline: none;
   box-shadow: none;
   padding: 0;
 }
-.panel-search-input::placeholder { color: #475569; }
+:global(.dark) .panel-search-input {
+  color: #e2e8f0;
+}
+.panel-search-input::placeholder { color: #94a3b8; }
+:global(.dark) .panel-search-input::placeholder { color: #475569; }
 
 /* Filas del listado */
 .panel-row {
@@ -890,10 +909,21 @@ const handleClose = () => {
 }
 
 .panel-row--off {
+  background: rgba(241, 245, 249, 0.6);
+  border-color: rgba(226, 232, 240, 0.8);
+  color: #334155;
+}
+:global(.dark) .panel-row--off {
   background: rgba(255, 255, 255, 0.01);
   border-color: rgba(255, 255, 255, 0.02);
+  color: #cbd5e1;
 }
 .panel-row--off:hover {
+  background: rgba(226, 232, 240, 0.8);
+  border-color: rgba(203, 213, 225, 0.8);
+  transform: translateY(-1px);
+}
+:global(.dark) .panel-row--off:hover {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.06);
   transform: translateY(-1px);
@@ -901,12 +931,13 @@ const handleClose = () => {
 
 .panel-row--on {
   background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-.panel-row--on:hover {
-  background: rgba(59, 130, 246, 0.12);
   border-color: rgba(59, 130, 246, 0.25);
-  transform: translateY(-1px);
+  color: #1e40af;
+}
+:global(.dark) .panel-row--on {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+  color: #cbd5e1;
 }
 
 /* Indicador circular de selección */
@@ -1080,32 +1111,32 @@ const handleClose = () => {
   z-index: 10;
 }
 
-/* Overrides para inputs dentro del modal - estilo glassmorphism dark */
-:deep(.modal-card .bg-slate-50) {
+/* Overrides para inputs dentro del modal - solo en modo dark */
+:global(.dark) :deep(.modal-card .bg-slate-50) {
   background: linear-gradient(180deg, rgba(32,36,45,0.9) 0%, rgba(19,22,28,0.95) 100%) !important;
 }
 
-:deep(.modal-card .border-slate-200) {
+:global(.dark) :deep(.modal-card .border-slate-200) {
   border-color: rgba(255,255,255,0.08) !important;
 }
 
-:deep(.modal-card .text-slate-800) {
+:global(.dark) :deep(.modal-card .text-slate-800) {
   color: #e2e8f0 !important;
 }
 
-:deep(.modal-card .placeholder-slate-400) {
+:global(.dark) :deep(.modal-card .placeholder-slate-400) {
   color: #475569 !important;
 }
 
-:deep(.modal-card .placeholder-slate-600) {
+:global(.dark) :deep(.modal-card .placeholder-slate-600) {
   color: #475569 !important;
 }
 
-:deep(.modal-card .text-slate-700) {
+:global(.dark) :deep(.modal-card .text-slate-700) {
   color: #e2e8f0 !important;
 }
 
-:deep(.modal-card .bg-white) {
+:global(.dark) :deep(.modal-card .bg-white) {
   background: linear-gradient(180deg, rgba(26,29,36,0.98) 0%, rgba(15,17,21,0.99) 100%) !important;
 }
 </style>

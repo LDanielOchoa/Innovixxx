@@ -44,6 +44,7 @@ export interface HardwareSimple {
   id_hardware: string
   nombre: string
   familia: string
+  id_servicio: string
   estado: string
 }
 

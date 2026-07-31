@@ -34,7 +34,7 @@ export const servicioAsignarRecursosSchema = z.object({
   vehiculos: z.record(z.array(z.string())).refine(val => Object.keys(val).length > 0, {
     message: 'Debe asignar al menos un vehículo'
   }),
-  escoltas_id: z.array(z.string()).min(1, 'Debe asignar al menos un escolta')
+  escoltas_id: z.array(z.string())
 })
 
 export const servicioActualizarVehiculosSchema = z.object({

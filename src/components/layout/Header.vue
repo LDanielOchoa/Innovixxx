@@ -190,15 +190,15 @@ const refreshPage = async () => {
 </script>
 
 <template>
-  <header class="h-[68px] flex items-center justify-between relative z-[110] shrink-0 px-4 md:px-6 transition-all duration-500 bg-[#13161C]/80 dark:bg-[#13161C]/90 backdrop-blur-xl border-b border-white/5 dark:border-white/5">
+  <header class="h-[68px] flex items-center justify-between relative z-[110] shrink-0 px-4 md:px-6 transition-all duration-500 bg-white/90 dark:bg-[#13161C]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-white/5">
     <!-- Subtle top gradient for readability -->
-    <div class="absolute inset-0 bg-gradient-to-b from-[#13161C]/40 dark:from-[#13161C]/50 via-transparent to-transparent pointer-events-none"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-slate-100/60 dark:from-[#13161C]/50 via-transparent to-transparent pointer-events-none"></div>
     
     <!-- Left: Greeting -->
     <div class="flex items-center animate-fade-in">
       <div>
-        <p class="text-sm font-black text-white/90 dark:text-white/80 tracking-tight leading-none mb-0.5">Hola, {{ authStore.userData.nombre }}</p>
-        <p class="text-[11px] font-medium text-white/50 dark:text-white/40 tracking-tight leading-none">{{ t('header.workToday') || '¿En qué deseas trabajar hoy?' }}</p>
+        <p class="text-sm font-black text-slate-800 dark:text-white/80 tracking-tight leading-none mb-0.5">Hola, {{ authStore.userData.nombre }}</p>
+        <p class="text-[11px] font-medium text-slate-500 dark:text-white/40 tracking-tight leading-none">{{ t('header.workToday') || '¿En qué deseas trabajar hoy?' }}</p>
       </div>
     </div>
     
@@ -209,18 +209,18 @@ const refreshPage = async () => {
         <div class="relative">
           <button 
             @click="toggleMenu"
-            class="flex items-center gap-2 transition-all duration-300 outline-none px-2 py-1 rounded-xl group/btn relative overflow-hidden active:scale-[0.98] hover:bg-white/5 dark:hover:bg-white/5"
-            :class="isMenuOpen ? 'bg-white/5 dark:bg-white/5' : ''"
+            class="flex items-center gap-2 transition-all duration-300 outline-none px-2 py-1 rounded-xl group/btn relative overflow-hidden active:scale-[0.98] hover:bg-slate-100 dark:hover:bg-white/5"
+            :class="isMenuOpen ? 'bg-slate-100 dark:bg-white/5' : ''"
           >
             <div class="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover/btn:animate-[shimmer_1.5s_ease-in-out]"></div>
 
-            <div class="w-7 h-7 shrink-0 rounded-lg flex items-center justify-center text-white/60 dark:text-white/60 group-hover/btn:text-[#5da6fc] transition-all duration-500 overflow-hidden relative z-10">
+            <div class="w-7 h-7 shrink-0 rounded-lg flex items-center justify-center text-slate-500 dark:text-white/60 group-hover/btn:text-[#3b82f6] transition-all duration-500 overflow-hidden relative z-10">
               <img v-if="groupStore.selectedGroup.logo" :src="groupStore.selectedGroup.logo" class="w-full h-full object-cover shrink-0 relative z-10" />
               <HugeiconsIcon v-else :icon="UserGroupIcon" :size="14" :stroke-width="1.8" class="relative z-10" />
             </div>
 
             <div class="flex items-center gap-1.5 relative z-10">
-              <span class="text-[13px] font-semibold text-white/80 dark:text-white/70 tracking-tight leading-none group-hover/btn:text-[#5da6fc] dark:group-hover/btn:text-[#5da6fc] transition-colors duration-300">
+              <span class="text-[13px] font-semibold text-slate-700 dark:text-white/70 tracking-tight leading-none group-hover/btn:text-[#3b82f6] dark:group-hover/btn:text-[#5da6fc] transition-colors duration-300">
                 {{ groupStore.selectedGroup.nombre }}
               </span>
               <HugeiconsIcon 
@@ -228,7 +228,7 @@ const refreshPage = async () => {
                 :icon="ArrowDown01Icon" 
                 :size="12" 
                 :stroke-width="3"
-                class="text-white/40 dark:text-white/40 transition-all duration-500 group-hover/btn:text-[#5da6fc] dark:group-hover/btn:text-[#5da6fc]"
+                class="text-slate-400 dark:text-white/40 transition-all duration-500 group-hover/btn:text-[#3b82f6] dark:group-hover/btn:text-[#5da6fc]"
                 :class="{ 'rotate-180': isMenuOpen }"
               />
             </div>
@@ -245,27 +245,27 @@ const refreshPage = async () => {
           >
             <div 
               v-if="isMenuOpen" 
-              class="absolute top-[calc(100%+8px)] right-0 w-[280px] bg-[#13161C]/95 backdrop-blur-2xl border border-white/5 dark:border-white/5 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[120]"
+              class="absolute top-[calc(100%+8px)] right-0 w-[280px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-2xl border border-slate-200/80 dark:border-white/5 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden z-[120]"
             >
               <!-- Header del Dropdown -->
-              <div class="relative px-4 pt-4 pb-3 border-b border-white/5 overflow-hidden">
+              <div class="relative px-4 pt-4 pb-3 border-b border-slate-100 dark:border-white/5 overflow-hidden">
                 <div class="flex items-center justify-between mb-3">
-                  <span class="text-[10px] font-semibold text-white/40 uppercase tracking-[0.15em]">{{ t('header.availableGroups') }}</span>
-                  <span class="text-[10px] font-semibold text-white/30">
+                  <span class="text-[10px] font-semibold text-slate-400 dark:text-white/40 uppercase tracking-[0.15em]">{{ t('header.availableGroups') }}</span>
+                  <span class="text-[10px] font-semibold text-slate-400 dark:text-white/30">
                     {{ groups.length }}
                   </span>
                 </div>
                 
                 <!-- Buscador -->
                 <div v-if="groups.length > 5" class="relative group/search">
-                  <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 group-focus-within/search:text-[#5da6fc] transition-colors z-10">
+                  <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-white/30 group-focus-within/search:text-[#3b82f6] dark:group-focus-within/search:text-[#5da6fc] transition-colors z-10">
                     <HugeiconsIcon :icon="Search01Icon" :size="14" />
                   </div>
                   <input 
                     v-model="searchQuery"
                     type="text"
                     :placeholder="t('header.searchPlaceholder')"
-                    class="w-full bg-white/5 border border-white/5 rounded-lg pl-9 pr-3 py-2 text-[11px] font-medium text-white/80 outline-none placeholder:text-white/30 focus:border-[#5da6fc]/30 focus:ring-1 focus:ring-[#5da6fc]/10 transition-all duration-300"
+                    class="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-lg pl-9 pr-3 py-2 text-[11px] font-medium text-slate-700 dark:text-white/80 outline-none placeholder:text-slate-400 dark:placeholder:text-white/30 focus:border-[#3b82f6]/30 dark:focus:border-[#5da6fc]/30 focus:ring-1 focus:ring-[#3b82f6]/10 dark:focus:ring-[#5da6fc]/10 transition-all duration-300"
                   />
                 </div>
               </div>
@@ -275,18 +275,18 @@ const refreshPage = async () => {
                 <template v-if="isRefreshing">
                   <div v-for="n in 3" :key="'skel-' + n" class="w-full px-3 py-2.5 animate-pulse">
                     <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 rounded-lg bg-white/5"></div>
-                      <div class="h-3 bg-white/5 rounded-full w-2/3"></div>
+                      <div class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-white/5"></div>
+                      <div class="h-3 bg-slate-100 dark:bg-white/5 rounded-full w-2/3"></div>
                     </div>
                   </div>
                 </template>
                 
                 <template v-else-if="filteredGroups.length === 0">
                   <div class="py-8 text-center flex flex-col items-center gap-2">
-                    <div class="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/20">
+                    <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 dark:text-white/20">
                       <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="1.5" />
                     </div>
-                    <p class="text-[11px] font-medium text-white/30">{{ t('header.noResults') || 'Sin resultados' }}</p>
+                    <p class="text-[11px] font-medium text-slate-400 dark:text-white/30">{{ t('header.noResults') || 'Sin resultados' }}</p>
                   </div>
                 </template>
 
@@ -298,16 +298,16 @@ const refreshPage = async () => {
                     class="w-full flex items-center justify-between px-3 py-2 transition-all duration-200 rounded-lg outline-none group/item relative select-none"
                     :class="[
                       groupStore.selectedGroup.id === group.id 
-                        ? 'bg-[#5da6fc]/10 text-[#5da6fc]' 
-                        : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                        ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:bg-[#5da6fc]/10 dark:text-[#5da6fc]' 
+                        : 'text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white/80'
                     ]"
                   >
                     <div class="flex items-center gap-2.5">
                       <div
                         class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
                         :class="groupStore.selectedGroup.id === group.id
-                          ? 'bg-[#5da6fc]/20'
-                          : 'bg-white/5'"
+                          ? 'bg-[#3b82f6]/15 dark:bg-[#5da6fc]/20'
+                          : 'bg-slate-100 dark:bg-white/5'"
                       >
                         <img v-if="group.logo" :src="group.logo" class="w-full h-full object-cover shrink-0" />
                         <HugeiconsIcon v-else :icon="UserGroupIcon" :size="14" :stroke-width="1.8" />
@@ -317,7 +317,7 @@ const refreshPage = async () => {
                       >{{ group.nombre }}</span>
                     </div>
                     
-                    <div v-if="groupStore.selectedGroup.id === group.id" class="w-5 h-5 rounded bg-[#5da6fc] flex items-center justify-center text-white shrink-0">
+                    <div v-if="groupStore.selectedGroup.id === group.id" class="w-5 h-5 rounded bg-[#3b82f6] dark:bg-[#5da6fc] flex items-center justify-center text-white shrink-0">
                       <HugeiconsIcon :icon="Tick01Icon" :size="10" :stroke-width="3.5" />
                     </div>
                   </button>
@@ -325,9 +325,9 @@ const refreshPage = async () => {
               </div>
               
               <!-- Footer con Sync -->
-              <div class="px-2 pt-1 pb-3 border-t border-white/5">
+              <div class="px-2 pt-1 pb-3 border-t border-slate-100 dark:border-white/5">
                 <button 
-                  class="flex items-center justify-center gap-2 px-3 py-2.5 bg-[#5da6fc]/10 hover:bg-[#5da6fc]/20 border border-[#5da6fc]/20 hover:border-[#5da6fc]/30 transition-all duration-200 w-full rounded-lg text-[#5da6fc] active:scale-[0.98]" 
+                  class="flex items-center justify-center gap-2 px-3 py-2.5 bg-[#3b82f6]/10 hover:bg-[#3b82f6]/15 dark:bg-[#5da6fc]/10 dark:hover:bg-[#5da6fc]/20 border border-[#3b82f6]/20 dark:border-[#5da6fc]/20 hover:border-[#3b82f6]/30 dark:hover:border-[#5da6fc]/30 transition-all duration-200 w-full rounded-lg text-[#3b82f6] dark:text-[#5da6fc] active:scale-[0.98]" 
                   @click="refreshPage" 
                   :disabled="isRefreshing"
                 >
@@ -341,45 +341,45 @@ const refreshPage = async () => {
       </div>
 
       <!-- Divider -->
-      <div class="h-6 w-px bg-white/10 dark:bg-white/10"></div>
+      <div class="h-6 w-px bg-slate-200 dark:bg-white/10"></div>
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-1.5">
         <button 
           @click="openTrackingWindow"
           :title="t('header.tracking')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
+          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Location01Icon" :size="17" :stroke-width="2" class="text-white/60 dark:text-white/60 group-hover:text-[#5da6fc] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Location01Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.playback')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
+          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="PlayIcon" :size="17" :stroke-width="2" class="text-white/60 dark:text-white/60 group-hover:text-[#5da6fc] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="PlayIcon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.alarms')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none relative shrink-0"
+          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none relative shrink-0"
         >
-          <HugeiconsIcon :icon="Notification03Icon" :size="17" :stroke-width="2" class="text-white/60 dark:text-white/60 group-hover:text-[#5da6fc] dark:group-hover:text-[#5da6fc] transition-colors" />
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-[#13161C] dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
+          <HugeiconsIcon :icon="Notification03Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
         </button>
 
         <button 
           :title="t('header.services')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
+          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Settings02Icon" :size="17" :stroke-width="2" class="text-white/60 dark:text-white/60 group-hover:text-[#5da6fc] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Settings02Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
 
         <button 
           :title="t('header.reports')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-white/5 dark:bg-white/5 border border-white/10 dark:border-white/10 hover:bg-white/10 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
+          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Note01Icon" :size="17" :stroke-width="2" class="text-white/60 dark:text-white/60 group-hover:text-[#5da6fc] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="Note01Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
       </div>
     </div>

@@ -241,100 +241,122 @@ const handleClose = () => {
       </div>
 
       <Transition name="fade-slide" mode="out-in">
-        <div v-if="!isLoading" class="animate-fade-in flex flex-col gap-4">
-          <div class="tablero-trabajo grid grid-cols-1 lg:grid-cols-2 border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-[#0c0d12]/40 backdrop-blur-md">
+        <div v-if="!isLoading" class="flex flex-col gap-3">
+
+          <!-- Grid principal de cuadrantes plano y minimalista -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#0f1117]">
             
-            <!-- COLUMNA IZQUIERDA: ESCOLTAS ASIGNADOS -->
-            <div class="flex flex-col border-r border-slate-200/80 dark:border-white/10">
-              <div class="flex flex-col p-5 h-[360px] bg-slate-900/5 dark:bg-[#12141c]/30">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
-                    Escoltas Asignados
-                  </span>
-                  <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-white/5 px-2.5 py-0.5 rounded-full">
-                    Activos: {{ escoltasActualesIds.filter(id => !escoltasSalenIds.includes(id)).length }}
-                  </span>
-                </div>
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <div v-if="escoltasActualesIds.length > 0" class="flex flex-wrap gap-2.5 items-start">
-                    <div
-                      v-for="eId in escoltasActualesIds"
-                      :key="eId"
-                      @click="alternarSalidaEscolta(eId)"
-                      class="card-recurso relative flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all cursor-pointer select-none"
-                      :class="[
-                        escoltasSalenIds.includes(eId)
-                          ? 'opacity-40 border border-dashed border-[#3b82f6]/30 bg-blue-950/10 text-blue-400 line-through'
-                          : 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border border-blue-200/50 dark:border-blue-500/20'
-                      ]"
+            <!-- COLUMNA IZQUIERDA: ESCOLTAS ASIGNADOS Y PENDIENTES -->
+            <div class="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 p-4 h-[320px] bg-slate-50/50 dark:bg-slate-900/30">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-[#3b82f6]"></span>
+                  Escoltas Asignados
+                </span>
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                  Activos: {{ escoltasActualesIds.filter(id => !escoltasSalenIds.includes(id)).length }}
+                </span>
+              </div>
+              
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <div v-if="escoltasActualesIds.length > 0 || escoltasEntranIds.length > 0" class="flex flex-wrap gap-2 items-start">
+                  <!-- Escoltas actuales -->
+                  <div
+                    v-for="eId in escoltasActualesIds"
+                    :key="eId"
+                    @click="alternarSalidaEscolta(eId)"
+                    class="relative flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                    :class="[
+                      escoltasSalenIds.includes(eId)
+                        ? 'opacity-50 border-dashed border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-600 line-through'
+                        : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/40'
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <HugeiconsIcon :icon="User02Icon" :size="13" class="shrink-0" />
+                      <span class="truncate max-w-[120px]">{{ getEscoltaLabel(eId) }}</span>
+                    </div>
+                    
+                    <!-- Botón Marcar Salida / Deshacer -->
+                    <button
+                      type="button"
+                      @click.stop="alternarSalidaEscolta(eId)"
+                      class="w-4 h-4 ml-1 flex items-center justify-center rounded transition-colors text-[10px]"
+                      :class="escoltasSalenIds.includes(eId) ? 'text-[#3b82f6] dark:text-[#60a5fa] hover:bg-[#3b82f6]/10' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800'"
+                      :title="escoltasSalenIds.includes(eId) ? 'Deshacer eliminación' : 'Marcar para salir'"
                     >
-                      <HugeiconsIcon :icon="User02Icon" :size="14" class="shrink-0" />
-                      <span class="text-xs truncate max-w-[150px] font-semibold">{{ getEscoltaLabel(eId) }}</span>
-                      
-                      <!-- Botón Eliminar Flotante -->
+                      <HugeiconsIcon v-if="escoltasSalenIds.includes(eId)" :icon="Tick01Icon" :size="10" />
+                      <span v-else>✕</span>
+                    </button>
+                  </div>
+
+                  <!-- Escoltas entrantes (pendientes de asignar) -->
+                  <div
+                    v-for="eId in escoltasEntranIds"
+                    :key="'entrante-' + eId"
+                    @click="alternarEntradaEscolta(eId)"
+                    class="relative flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border-dashed border-[#3b82f6]/30 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/10"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <HugeiconsIcon :icon="User02Icon" :size="13" class="shrink-0" />
+                      <span class="truncate max-w-[90px]">{{ getEscoltaLabel(eId) }}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">Nuevo</span>
                       <button
                         type="button"
-                        @click.stop="alternarSalidaEscolta(eId)"
-                        class="abs-close-btn flex items-center justify-center rounded-full transition-all"
-                        :class="escoltasSalenIds.includes(eId) ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500'"
-                        :title="escoltasSalenIds.includes(eId) ? 'Deshacer eliminación' : 'Marcar para salir'"
-                      >
-                        <HugeiconsIcon v-if="escoltasSalenIds.includes(eId)" :icon="Tick01Icon" :size="8" :stroke-width="3" />
-                        <span v-else class="text-[8px] font-black leading-none">✕</span>
-                      </button>
+                        @click.stop="alternarEntradaEscolta(eId)"
+                        class="w-4 h-4 flex items-center justify-center rounded transition-colors text-[10px] text-[#3b82f6]/60 hover:text-red-500 dark:hover:text-red-400"
+                        title="Quitar escolta"
+                      >✕</button>
                     </div>
                   </div>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-10" v-else>
-                    <HugeiconsIcon :icon="User02Icon" :size="24" class="opacity-20 mb-1" />
-                    <span>Sin escoltas en servicio.</span>
-                  </div>
+                </div>
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
+                  <span>Sin escoltas en servicio.</span>
                 </div>
               </div>
             </div>
 
-            <!-- COLUMNA DERECHA: ESCOLTAS DISPONIBLES (FLOTA) -->
-            <div class="flex flex-col">
-              <div class="flex flex-col p-5 h-[360px]">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    Escoltas Disponibles (Flota)
-                  </span>
-                  <div class="relative w-44 shrink-0">
-                    <input
-                      v-model="searchEscoltasQuery"
-                      type="text"
-                      placeholder="Buscar escolta..."
-                      class="w-full text-[11px] bg-slate-100 dark:bg-slate-950/35 border border-slate-200/50 dark:border-white/5 rounded-lg pl-7 pr-2 py-1 outline-none text-slate-800 dark:text-white placeholder-slate-500 focus:border-[#3b82f6]/50 transition-all"
-                    />
-                    <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2 top-2 text-slate-500" />
+            <!-- COLUMNA DERECHA: ESCOLTAS DISPONIBLES -->
+            <div class="flex flex-col p-4 h-[320px]">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Escoltas Disponibles
+                </span>
+                <div class="relative w-40 shrink-0">
+                  <input
+                    v-model="searchEscoltasQuery"
+                    type="text"
+                    placeholder="Buscar..."
+                    class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-[#3b82f6] transition-colors"
+                  />
+                  <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
+                </div>
+              </div>
+              
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <div v-if="filteredEscoltas.length > 0" class="flex flex-wrap gap-2 items-start">
+                  <div
+                    v-for="e in filteredEscoltas"
+                    :key="e.id_escolta"
+                    @click="alternarEntradaEscolta(e.id_escolta)"
+                    class="flex flex-col gap-0.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                    :class="[
+                      escoltasEntranIds.includes(e.id_escolta)
+                        ? 'bg-[#3b82f6]/90 text-white font-medium border-[#3b82f6]/80'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/40'
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <HugeiconsIcon :icon="User02Icon" :size="13" class="shrink-0" />
+                      <span class="font-medium truncate max-w-[120px]">{{ e.nombre }}</span>
+                    </div>
+                    <span class="text-[10px] opacity-70 ml-4.5 font-normal">{{ e.celular }}</span>
                   </div>
                 </div>
-                
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <div v-if="filteredEscoltas.length > 0" class="flex flex-wrap gap-2.5 items-start">
-                    <div
-                      v-for="e in filteredEscoltas"
-                      :key="e.id_escolta"
-                      @click="alternarEntradaEscolta(e.id_escolta)"
-                      class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none"
-                      :class="[
-                        escoltasEntranIds.includes(e.id_escolta)
-                          ? 'bg-[#3b82f6] text-white border-blue-500 font-bold shadow-[0_4px_12px_rgba(59,130,246,0.3)]'
-                          : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]'
-                      ]"
-                    >
-                      <div class="flex items-center gap-1.5">
-                        <HugeiconsIcon :icon="User02Icon" :size="13" class="shrink-0" />
-                        <span class="text-xs font-semibold truncate max-w-[120px]">{{ e.nombre }}</span>
-                      </div>
-                      <span class="text-[9px] font-mono opacity-60 ml-4.5">{{ e.celular }}</span>
-                    </div>
-                  </div>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-12" v-else>
-                    <HugeiconsIcon :icon="User02Icon" :size="24" class="opacity-20 mb-1" />
-                    <span>{{ searchEscoltasQuery ? 'Sin coincidencias.' : 'Sin escoltas disponibles en la flota.' }}</span>
-                  </div>
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
+                  <span>{{ searchEscoltasQuery ? 'Sin coincidencias.' : 'Sin escoltas disponibles.' }}</span>
                 </div>
               </div>
             </div>
@@ -342,13 +364,13 @@ const handleClose = () => {
           </div>
 
           <!-- Resumen de Cambios -->
-          <div class="mt-2 flex items-center justify-between px-4 py-3 bg-slate-100/50 dark:bg-[#0c0d12]/50 border border-slate-200/50 dark:border-white/5 rounded-2xl text-xs text-slate-500 dark:text-slate-400">
+          <div class="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
             <div class="flex gap-4 items-center">
-              <span class="flex items-center gap-1.5 font-semibold">Salen: <strong class="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{{ escoltasSalenIds.length }}</strong></span>
-              <span class="w-px h-3.5 bg-slate-200 dark:bg-white/10"></span>
-              <span class="flex items-center gap-1.5 font-semibold">Entran: <strong class="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{{ escoltasEntranIds.length }}</strong></span>
+              <span>Salen: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ escoltasSalenIds.length }}</strong></span>
+              <span class="w-px h-3 bg-slate-200 dark:bg-slate-800"></span>
+              <span>Entran: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ escoltasEntranIds.length }}</strong></span>
             </div>
-            <span class="text-[10px] text-slate-400 italic">Presiona el botón de confirmar para guardar la nueva configuración de escoltas</span>
+            <span class="text-[11px] text-slate-400">Presiona confirmar para guardar los cambios</span>
           </div>
 
         </div>
@@ -358,29 +380,6 @@ const handleClose = () => {
 </template>
 
 <style scoped>
-.tablero-trabajo {
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-.card-recurso {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 140px;
-}
-.card-recurso:hover {
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.abs-close-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 15px;
-  height: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  z-index: 10;
-}
-
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -388,35 +387,7 @@ const handleClose = () => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.15);
+  background: rgba(148, 163, 184, 0.2);
   border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3b82f6;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.2, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.fade-enter-active, .fade-leave-active {
-  transition: all 0.3s ease;
-}
-.fade-enter-from, .fade-leave-to {
-  opacity: 0;
-  backdrop-filter: blur(0px);
-}
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-.fade-slide-enter-from, .fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 </style>

@@ -101,10 +101,11 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
           const ref = refServicios.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
           const rutaId = String(wsServ.id_ruta || ref?.id_ruta || '').trim()
           const rutaRef = refRutas.value.find(r => String(r.id_ruta || '').trim() === rutaId)
-          const nombreRuta = rutaRef?.nombre || ref?.nombre_ruta || ref?.ruta || wsServ.id_ruta || 'Sin Ruta'
+          const nombreRuta = rutaRef?.nombre || ref?.nombre_ruta || ref?.ruta || rutaId || 'Sin Ruta'
           return {
             ...(ref || {}),
             ...wsServ,
+            id_ruta: rutaId || ref?.id_ruta || wsServ.id_ruta || '',
             nombre_ruta: nombreRuta,
             descripcion: nombreRuta
           }
@@ -126,13 +127,48 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
           method: 'POST',
           body: JSON.stringify(getServiceListPayload(groupId))
         })
-        if (res.done) serviciosList.value = res.data
+        if (res.done && Array.isArray(res.data)) {
+          // Si ya teníamos servicios poblados por el WebSocket, no reemplazamos brutalmente
+          // sino que enriquecemos los datos preservando id_ruta y los datos en vivo.
+          const existingMap = new Map(serviciosList.value.map(s => [String(s.id_servicio || '').trim().toLowerCase(), s]))
+
+          const merged = res.data.map(serv => {
+            const wsId = String(serv.id_servicio || '').trim().toLowerCase()
+            const existing = existingMap.get(wsId)
+            const ref = refServicios.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
+            
+            const rutaId = String(existing?.id_ruta || serv.id_ruta || ref?.id_ruta || '').trim()
+            const rutaRef = refRutas.value.find(r => String(r.id_ruta || '').trim() === rutaId)
+            const nombreRuta = rutaRef?.nombre || existing?.nombre_ruta || ref?.nombre_ruta || ref?.ruta || serv.nombre_ruta || (rutaId ? `Ruta ${rutaId}` : 'Sin Ruta')
+
+            return {
+              ...(ref || {}),
+              ...serv,
+              ...(existing || {}), // los datos de WS tienen mayor prioridad para id_ruta y estado en vivo
+              id_ruta: rutaId,
+              nombre_ruta: nombreRuta,
+              descripcion: nombreRuta
+            }
+          })
+
+          // Si el WS tenía servicios que no estaban en la tabla REST, mantenerlos también
+          existingMap.forEach((existing, key) => {
+            if (!merged.some(m => String(m.id_servicio || '').trim().toLowerCase() === key)) {
+              merged.push(existing)
+            }
+          })
+
+          serviciosList.value = merged
+        }
       } else if (activeTab.value === 'ESCOLTAS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
           method: 'POST',
           body: JSON.stringify({ id_grupo: groupId, estado: 1 })
         })
-        if (res.done) escoltasList.value = res.data
+        if (res.done && Array.isArray(res.data)) {
+          escoltasList.value = res.data
+          refEscoltas.value = res.data
+        }
       } else if (activeTab.value === 'VEHICULOS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
           method: 'POST',
@@ -216,13 +252,16 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
               
               const mergeServicioInfo = (wsServ: any) => {
                 const wsId = String(wsServ.id_servicio || '').trim().toLowerCase()
+                const existing = serviciosList.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
                 const ref = refServicios.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
-                const rutaId = String(wsServ.id_ruta || ref?.id_ruta || '').trim()
+                const rutaId = String(wsServ.id_ruta || existing?.id_ruta || ref?.id_ruta || '').trim()
                 const rutaRef = refRutas.value.find(r => String(r.id_ruta || '').trim() === rutaId)
-                const nombreRuta = rutaRef?.nombre || ref?.nombre_ruta || ref?.ruta || wsServ.id_ruta || 'Sin Ruta'
+                const nombreRuta = rutaRef?.nombre || existing?.nombre_ruta || ref?.nombre_ruta || ref?.ruta || (rutaId ? `Ruta ${rutaId}` : 'Sin Ruta')
                 return {
                   ...(ref || {}),
+                  ...(existing || {}),
                   ...wsServ,
+                  id_ruta: rutaId,
                   nombre_ruta: nombreRuta,
                   descripcion: nombreRuta
                 }
@@ -237,12 +276,24 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                   const upId = String(updatedServicio.id_servicio || '').trim().toLowerCase()
                   const index = serviciosList.value.findIndex(s => String(s.id_servicio || '').trim().toLowerCase() === upId)
                   if (index !== -1) {
-                    serviciosList.value[index] = { ...serviciosList.value[index], ...updatedServicio }
+                    const prevIdRuta = serviciosList.value[index].id_ruta
+                    const newIdRuta = updatedServicio.id_ruta || prevIdRuta || ''
+                    serviciosList.value[index] = { 
+                      ...serviciosList.value[index], 
+                      ...updatedServicio,
+                      id_ruta: newIdRuta
+                    }
                   } else {
                     serviciosList.value.push(updatedServicio)
                   }
                   if (selectedItem.value && String(selectedItem.value.id_servicio || '').trim().toLowerCase() === upId) {
-                    selectedItem.value = { ...selectedItem.value, ...updatedServicio }
+                    const prevIdRuta = selectedItem.value.id_ruta
+                    const newIdRuta = updatedServicio.id_ruta || prevIdRuta || ''
+                    selectedItem.value = { 
+                      ...selectedItem.value, 
+                      ...updatedServicio,
+                      id_ruta: newIdRuta
+                    }
                   }
                 })
               }
@@ -326,11 +377,14 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
 
                 if (Array.isArray(serv.escoltas)) {
                   serv.escoltas.forEach((e: any) => {
+                    const escId = e.id_escolta || e.identificacion || ''
+                    const foundRef = refEscoltas.value.find(r => r.id_escolta === escId || r.identificacion === escId)
                     allEscoltas.push({
                       ...e,
                       id_servicio: serv.id_servicio,
-                      nombre: e.nombre || e.id_escolta,
-                      identificacion: e.identificacion || e.id_escolta
+                      nombre: foundRef?.nombre || foundRef?.nombres || e.nombre || escId,
+                      identificacion: foundRef?.identificacion || e.identificacion || escId,
+                      celular: foundRef?.celular || foundRef?.telefono || e.celular || ''
                     })
                   })
                 }

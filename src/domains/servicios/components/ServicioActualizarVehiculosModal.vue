@@ -113,7 +113,13 @@ const vehiculosDisponiblesFiltrados = computed(() => {
   })
 })
 
-// Filtrado de todos los hardware de la flota
+// Verificar si un hardware está ocupado en OTRO servicio (no en el actual)
+const esHardwareOcupadoEnOtroServicio = (h: HardwareSimple): boolean => {
+  if (!h.id_servicio) return false
+  return h.id_servicio !== props.servicio?.id_servicio
+}
+
+// Filtrado de todos los hardware del catálogo (incluye ocupados para mostrarlos en gris)
 const hardwareDisponiblesFiltrados = computed(() => {
   const query = filtroHardwareDisponibleQuery.value.toLowerCase().trim()
   return hardwareDisponibles.value.filter(h => {
@@ -159,6 +165,7 @@ const getHardwareLabel = (id: string) => {
 // Acciones sobre vehículos actuales
 const seleccionarVehiculoActual = (id: string) => {
   if (vehiculosSalenIds.value.includes(id)) return // No se puede seleccionar si está marcado para salir
+  vehiculoNuevoSeleccionadoId.value = null // Deseleccionar vehículo nuevo
   vehiculoActualSeleccionadoId.value = id
 }
 
@@ -167,7 +174,7 @@ const alternarEliminarVehiculoActual = (id: string) => {
   if (index > -1) {
     // Cancelar la eliminación
     vehiculosSalenIds.value.splice(index, 1)
-    if (!vehiculoActualSeleccionadoId.value) {
+    if (!vehiculoActualSeleccionadoId.value && !vehiculoNuevoSeleccionadoId.value) {
       vehiculoActualSeleccionadoId.value = id
     }
   } else {
@@ -206,19 +213,48 @@ const alternarVehiculoNuevo = (id: string) => {
     vehiculosEntranIds.value.push(id)
     vehiculosEntranHardware.value[id] = []
     vehiculoNuevoSeleccionadoId.value = id
+    vehiculoActualSeleccionadoId.value = null // Deseleccionar vehículo actual
   }
 }
 
-// Asignar/desasignar hardware a un vehículo nuevo
-const alternarHardwareVehiculoNuevo = (hardwareId: string) => {
-  if (!vehiculoNuevoSeleccionadoId.value) return
-  const vId = vehiculoNuevoSeleccionadoId.value
-  const lista = vehiculosEntranHardware.value[vId] || []
-  const index = lista.indexOf(hardwareId)
-  if (index > -1) {
-    lista.splice(index, 1)
-  } else {
-    lista.push(hardwareId)
+const seleccionarVehiculoNuevo = (id: string) => {
+  vehiculoActualSeleccionadoId.value = null
+  vehiculoNuevoSeleccionadoId.value = id
+}
+
+// Determinar si un hardware está asignado al vehículo actualmente enfocado/seleccionado
+const esHardwareAsignadoAVehiculoSeleccionado = (hardwareId: string): boolean => {
+  if (vehiculoActualSeleccionadoId.value) {
+    const hwList = vehiculosActualesHardwareModificado.value[vehiculoActualSeleccionadoId.value] || []
+    return hwList.includes(hardwareId)
+  }
+  if (vehiculoNuevoSeleccionadoId.value) {
+    const hwList = vehiculosEntranHardware.value[vehiculoNuevoSeleccionadoId.value] || []
+    return hwList.includes(hardwareId)
+  }
+  return false
+}
+
+// Asignar/desasignar hardware al vehículo seleccionado (sea actual o nuevo)
+const alternarHardwareVehiculo = (hardwareId: string) => {
+  if (vehiculoActualSeleccionadoId.value) {
+    const vId = vehiculoActualSeleccionadoId.value
+    const lista = vehiculosActualesHardwareModificado.value[vId] || []
+    const index = lista.indexOf(hardwareId)
+    if (index > -1) {
+      lista.splice(index, 1)
+    } else {
+      lista.push(hardwareId)
+    }
+  } else if (vehiculoNuevoSeleccionadoId.value) {
+    const vId = vehiculoNuevoSeleccionadoId.value
+    const lista = vehiculosEntranHardware.value[vId] || []
+    const index = lista.indexOf(hardwareId)
+    if (index > -1) {
+      lista.splice(index, 1)
+    } else {
+      lista.push(hardwareId)
+    }
   }
 }
 
@@ -454,283 +490,277 @@ const handleClose = () => {
         </div>
       </div>
 
-      <Transition name="fade-slide" mode="out-in">
-        <!-- Panel de 4 Cuadrantes -->
-        <div v-if="!isLoading" class="animate-fade-in flex flex-col gap-4">
+      <!-- Panel de 4 Cuadrantes -->
+      <div v-if="!isLoading" class="flex flex-col gap-3">
 
-          <!-- Grid principal de 4 cuadrantes estilo tablero de trabajo -->
-          <div class="tablero-trabajo grid grid-cols-1 lg:grid-cols-2 border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-slate-900/10 dark:bg-[#0c0d12]/40 backdrop-blur-md">
-            
-            <!-- COLUMNA IZQUIERDA: VEHÍCULOS -->
-            <div class="flex flex-col border-r border-slate-200/80 dark:border-white/10">
-              <!-- Cuadrante 1: Vehículos ya Asignados (Arriba Izquierda) -->
-              <div class="flex flex-col p-5 h-[260px] border-b border-slate-200/80 dark:border-white/10 bg-slate-900/5 dark:bg-[#12141c]/30">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
-                    Vehículos Asignados
-                  </span>
-                  <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-white/5 px-2.5 py-0.5 rounded-full">
-                    Activos: {{ vehiculosActualesIds.filter(id => !vehiculosSalenIds.includes(id)).length }}
-                  </span>
-                </div>
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <div v-if="vehiculosActualesIds.length > 0" class="flex flex-wrap gap-2.5 items-start">
-                    <div
-                      v-for="vId in vehiculosActualesIds"
-                      :key="vId"
-                      @click="seleccionarVehiculoActual(vId)"
-                      class="card-recurso relative flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all cursor-pointer select-none"
-                      :class="[
-                        vehiculosSalenIds.includes(vId)
-                          ? 'opacity-40 border border-dashed border-[#3b82f6]/30 bg-blue-950/10 text-blue-400 line-through'
-                          : vehiculoActualSeleccionadoId === vId
-                            ? 'bg-[#3b82f6] text-white font-bold border border-[#2563eb] dark:border-[#60a5fa] shadow-[0_4px_12px_rgba(59,130,246,0.3)]'
-                            : 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border border-blue-200/50 dark:border-blue-500/20',
-                        vehiculoEstaOpacado(vId) ? 'opacity-25 scale-95' : '',
-                        vehiculoEstaResaltado(vId) ? 'ring-2 ring-[#3b82f6] scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-10' : ''
-                      ]"
+        <!-- Grid principal de 4 cuadrantes plano y minimalista -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-[#0f1117]">
+          
+          <!-- COLUMNA IZQUIERDA: VEHÍCULOS -->
+          <div class="flex flex-col border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800">
+            <!-- Cuadrante 1: Vehículos ya Asignados (Arriba Izquierda) -->
+            <div class="flex flex-col p-4 h-[230px] border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                  Vehículos Asignados
+                </span>
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                  Activos: {{ vehiculosActualesIds.filter(id => !vehiculosSalenIds.includes(id)).length }}
+                </span>
+              </div>
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <div v-if="vehiculosActualesIds.length > 0 || vehiculosEntranIds.length > 0" class="flex flex-wrap gap-2 items-start">
+                  <!-- Vehículos actuales del servicio -->
+                  <div
+                    v-for="vId in vehiculosActualesIds"
+                    :key="vId"
+                    @click="seleccionarVehiculoActual(vId)"
+                    class="relative flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                    :class="[
+                      vehiculosSalenIds.includes(vId)
+                        ? 'opacity-50 border-dashed border-red-300 dark:border-red-900 bg-red-50 dark:bg-red-950/30 text-red-600 line-through'
+                        : vehiculoActualSeleccionadoId === vId
+                          ? 'bg-[#3b82f6]/90 text-white font-medium border-[#3b82f6]/80'
+                          : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/40',
+                      vehiculoEstaOpacado(vId) ? 'opacity-30' : '',
+                      vehiculoEstaResaltado(vId) ? 'ring-1 ring-[#3b82f6]' : ''
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                      <span class="truncate max-w-[110px]">{{ getVehiculoLabel(vId) }}</span>
+                    </div>
+                    
+                    <!-- Botón Marcar Salida/Deshacer -->
+                    <button
+                      type="button"
+                      @click.stop="alternarEliminarVehiculoActual(vId)"
+                      class="w-4 h-4 ml-1 flex items-center justify-center rounded transition-colors text-[10px]"
+                      :class="vehiculosSalenIds.includes(vId) ? 'text-[#3b82f6] dark:text-[#60a5fa] hover:bg-[#3b82f6]/10' : vehiculoActualSeleccionadoId === vId ? 'text-white/80 hover:text-white hover:bg-white/20' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800'"
+                      :title="vehiculosSalenIds.includes(vId) ? 'Deshacer eliminación' : 'Marcar para salir'"
                     >
-                      <HugeiconsIcon :icon="Car01Icon" :size="14" class="shrink-0" />
-                      <span class="text-xs truncate max-w-[120px] font-semibold">{{ getVehiculoLabel(vId) }}</span>
-                      
-                      <!-- Botón Eliminar Flotante -->
+                      <HugeiconsIcon v-if="vehiculosSalenIds.includes(vId)" :icon="Tick01Icon" :size="10" />
+                      <span v-else>✕</span>
+                    </button>
+                  </div>
+
+                  <!-- Vehículos entrantes (pendientes de asignar) -->
+                  <div
+                    v-for="vId in vehiculosEntranIds"
+                    :key="'entrante-' + vId"
+                    @click="seleccionarVehiculoNuevo(vId)"
+                    class="relative flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                    :class="[
+                      vehiculoNuevoSeleccionadoId === vId
+                        ? 'bg-[#3b82f6]/90 text-white font-medium border-[#3b82f6]/80'
+                        : 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border-dashed border-[#3b82f6]/30 dark:border-[#3b82f6]/30 hover:bg-[#3b82f6]/10'
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                      <span class="truncate max-w-[80px]">{{ getVehiculoLabel(vId) }}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">Nuevo</span>
+                      <!-- Botón quitar vehículo entrante -->
                       <button
                         type="button"
-                        @click.stop="alternarEliminarVehiculoActual(vId)"
-                        class="abs-close-btn flex items-center justify-center rounded-full transition-all"
-                        :class="vehiculosSalenIds.includes(vId) ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500'"
-                        :title="vehiculosSalenIds.includes(vId) ? 'Deshacer eliminación' : 'Marcar para salir'"
-                      >
-                        <HugeiconsIcon v-if="vehiculosSalenIds.includes(vId)" :icon="Tick01Icon" :size="8" :stroke-width="3" />
-                        <span v-else class="text-[8px] font-black leading-none">✕</span>
-                      </button>
+                        @click.stop="alternarVehiculoNuevo(vId)"
+                        class="w-4 h-4 flex items-center justify-center rounded transition-colors text-[10px]"
+                        :class="vehiculoNuevoSeleccionadoId === vId ? 'text-white/80 hover:text-white hover:bg-white/20' : 'text-[#3b82f6]/60 hover:text-red-500 dark:hover:text-red-400'"
+                        title="Quitar vehículo"
+                      >✕</button>
                     </div>
                   </div>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-10" v-else>
-                    <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-20 mb-1" />
-                    <span>Sin vehículos en servicio.</span>
-                  </div>
+                </div>
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-8" v-else>
+                  <span>Sin vehículos en servicio.</span>
                 </div>
               </div>
+            </div>
 
-              <!-- Cuadrante 3: Vehículos Disponibles (Abajo Izquierda) -->
-              <div class="flex flex-col p-5 h-[300px]">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    Vehículos Disponibles (Flota)
-                  </span>
-                  <div class="relative w-44 shrink-0">
-                    <input
-                      v-model="filtroVehiculosDisponiblesQuery"
-                      type="text"
-                      placeholder="Buscar vehículo..."
-                      class="w-full text-[11px] bg-slate-100 dark:bg-slate-950/35 border border-slate-200/50 dark:border-white/5 rounded-lg pl-7 pr-2 py-1 outline-none text-slate-800 dark:text-white placeholder-slate-500 focus:border-[#3b82f6]/50 transition-all"
-                    />
-                    <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2 top-2 text-slate-500" />
+            <!-- Cuadrante 3: Vehículos Disponibles (Abajo Izquierda) -->
+            <div class="flex flex-col p-4 h-[250px]">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Vehículos Disponibles
+                </span>
+                <div class="relative w-40 shrink-0">
+                  <input
+                    v-model="filtroVehiculosDisponiblesQuery"
+                    type="text"
+                    placeholder="Buscar..."
+                    class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-blue-500 transition-colors"
+                  />
+                  <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
+                </div>
+              </div>
+              
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <div v-if="vehiculosDisponiblesFiltrados.length > 0" class="flex flex-wrap gap-2 items-start">
+                  <div
+                    v-for="v in vehiculosDisponiblesFiltrados"
+                    :key="v.id_vehiculo"
+                    @click="alternarVehiculoNuevo(v.id_vehiculo)"
+                    class="flex flex-col gap-0.5 px-3 py-1.5 rounded-lg border text-xs cursor-pointer select-none transition-colors"
+                    :class="[
+                      vehiculosEntranIds.includes(v.id_vehiculo)
+                        ? vehiculoNuevoSeleccionadoId === v.id_vehiculo
+                          ? 'bg-[#3b82f6]/90 text-white font-medium border-[#3b82f6]/80'
+                          : 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border-[#3b82f6]/20 dark:border-[#3b82f6]/20'
+                        : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/40',
+                      vehiculoEstaOpacado(v.id_vehiculo) ? 'opacity-30' : '',
+                      vehiculoEstaResaltado(v.id_vehiculo) ? 'ring-1 ring-[#3b82f6]' : ''
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                      <span class="font-medium truncate max-w-[120px]">{{ v.placa }}</span>
+                    </div>
+                    <span class="text-[10px] opacity-70 ml-4.5 font-normal">{{ v.tipo }}</span>
                   </div>
                 </div>
-                
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <div v-if="vehiculosDisponiblesFiltrados.length > 0" class="flex flex-wrap gap-2.5 items-start">
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
+                  <span>{{ filtroVehiculosDisponiblesQuery ? 'Sin coincidencias.' : 'Sin vehículos disponibles.' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMNA DERECHA: HARDWARE -->
+          <div class="flex flex-col">
+            <!-- Cuadrante 2: Hardware Asignado al Vehículo (Arriba Derecha) -->
+            <div class="flex flex-col p-4 h-[230px] border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Hardware de los Vehículos
+                </span>
+                <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
+                  Total: {{ todosLosHardwareAsignados.length }}
+                </span>
+              </div>
+              
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <div v-if="todosLosHardwareAsignados.length > 0" class="flex flex-wrap gap-2 items-start">
+                  <div
+                    v-for="hwItem in todosLosHardwareAsignados"
+                    :key="hwItem.id_hardware"
+                    @mouseenter="hardwareHoveredId = hwItem.id_hardware"
+                    @mouseleave="hardwareHoveredId = null"
+                    class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border text-xs bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 select-none transition-colors"
+                    :class="[
+                      (vehiculoActualSeleccionadoId && hwItem.id_vehiculo !== vehiculoActualSeleccionadoId) ||
+                      (vehiculoNuevoSeleccionadoId && hwItem.id_vehiculo !== vehiculoNuevoSeleccionadoId)
+                        ? 'opacity-30'
+                        : ''
+                    ]"
+                  >
+                    <div class="flex items-center gap-1.5 truncate">
+                      <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0 text-blue-500" />
+                      <span class="truncate max-w-[120px]">{{ getHardwareLabel(hwItem.id_hardware) }}</span>
+                    </div>
+                    
+                    <!-- Botón Quitar Hardware -->
+                    <button
+                      type="button"
+                      @click.stop="removerHardwareVehiculoActual(hwItem.id_hardware)"
+                      class="w-4 h-4 ml-1 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[10px]"
+                      title="Remover dispositivo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-8" v-else>
+                  <span>Sin hardware asignado.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Cuadrante 4: Catálogo Completo de Hardware (Abajo Derecha) -->
+            <div class="flex flex-col p-4 h-[250px]">
+              <div class="flex justify-between items-center mb-3 shrink-0">
+                <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                  Hardware Disponible
+                </span>
+                <div class="relative w-40 shrink-0">
+                  <input
+                    v-model="filtroHardwareDisponibleQuery"
+                    type="text"
+                    placeholder="Buscar..."
+                    class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-blue-500 transition-colors"
+                  />
+                  <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
+                </div>
+              </div>
+              
+              <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                <template v-if="vehiculoActualSeleccionadoId || vehiculoNuevoSeleccionadoId">
+                  <div class="text-xs text-[#3b82f6] dark:text-[#3b82f6] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/25 dark:border-[#3b82f6]/25 px-3 py-1 rounded-md mb-2 flex items-center justify-between gap-2 select-none shrink-0">
+                    <span class="truncate">Asignando a: <strong>{{ getVehiculoLabel(vehiculoActualSeleccionadoId || vehiculoNuevoSeleccionadoId || '') }}</strong></span>
+                    <span class="text-[10px] uppercase font-semibold text-[#3b82f6] dark:text-[#3b82f6] shrink-0">
+                      {{ vehiculoActualSeleccionadoId ? 'Actual' : 'Nuevo' }}
+                    </span>
+                  </div>
+                  <div v-if="hardwareDisponiblesFiltrados.length > 0" class="flex flex-wrap gap-2 items-start">
                     <div
-                      v-for="v in vehiculosDisponiblesFiltrados"
-                      :key="v.id_vehiculo"
-                      @click="alternarVehiculoNuevo(v.id_vehiculo)"
-                      class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none"
+                      v-for="h in hardwareDisponiblesFiltrados"
+                      :key="h.id_hardware"
+                      @click="!esHardwareOcupadoEnOtroServicio(h) && alternarHardwareVehiculo(h.id_hardware)"
+                      @mouseenter="!esHardwareOcupadoEnOtroServicio(h) && (hardwareHoveredId = h.id_hardware)"
+                      @mouseleave="hardwareHoveredId = null"
+                      class="flex flex-col gap-0.5 px-3 py-1.5 rounded-lg border text-xs select-none transition-colors"
                       :class="[
-                        vehiculosEntranIds.includes(v.id_vehiculo)
-                          ? vehiculoNuevoSeleccionadoId === v.id_vehiculo
-                            ? 'bg-[#3b82f6] text-white border-blue-500 font-bold shadow-[0_4px_12px_rgba(59,130,246,0.3)]'
-                            : 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border border-blue-200/50 dark:border-blue-500/20'
-                          : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]',
-                        vehiculoEstaOpacado(v.id_vehiculo) ? 'opacity-25 scale-95' : '',
-                        vehiculoEstaResaltado(v.id_vehiculo) ? 'ring-2 ring-[#3b82f6] scale-105 shadow-[0_0_15px_rgba(59,130,246,0.5)] z-10' : ''
+                        esHardwareOcupadoEnOtroServicio(h)
+                          ? 'cursor-not-allowed opacity-40 bg-slate-100 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+                          : esHardwareAsignadoAVehiculoSeleccionado(h.id_hardware)
+                            ? 'cursor-pointer bg-[#3b82f6]/90 text-white font-medium border-[#3b82f6]/80'
+                            : obtenerVehiculoAsociado(h.id_hardware) && !esHardwareAsignadoAVehiculoSeleccionado(h.id_hardware)
+                              ? 'cursor-pointer opacity-40 border-dashed bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+                              : 'cursor-pointer bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-[#3b82f6]/50 dark:hover:border-[#3b82f6]/40'
                       ]"
                     >
                       <div class="flex items-center gap-1.5">
-                        <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
-                        <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.placa }}</span>
+                        <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
+                        <span class="font-medium truncate max-w-[120px]">{{ h.nombre }}</span>
                       </div>
-                      <span class="text-[9px] font-mono opacity-60 ml-4.5">{{ v.tipo }}</span>
-
-                      <!-- Badge Configurar en caso de estar activo -->
-                      <button
-                        v-if="vehiculosEntranIds.includes(v.id_vehiculo)"
-                        type="button"
-                        @click.stop="vehiculoNuevoSeleccionadoId = v.id_vehiculo"
-                        class="absolute -bottom-1 -right-1 px-1.5 py-0.5 rounded text-[8px] font-black bg-slate-900 text-white hover:bg-[#3b82f6] border border-white/10 transition-colors shadow-sm uppercase tracking-wide"
-                      >
-                        HW
-                      </button>
-                    </div>
-                  </div>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-12" v-else>
-                    <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-20 mb-1" />
-                    <span>{{ filtroVehiculosDisponiblesQuery ? 'Sin coincidencias.' : 'Sin vehículos en la flota.' }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- COLUMNA DERECHA: HARDWARE -->
-            <div class="flex flex-col">
-              <!-- Cuadrante 2: Hardware Asignado al Vehículo (Arriba Derecha) -->
-              <div class="flex flex-col p-5 h-[260px] border-b border-slate-200/80 dark:border-white/10 bg-slate-900/5 dark:bg-[#12141c]/30">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
-                    Hardware de los Vehículos
-                  </span>
-                  <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-200/50 dark:bg-white/5 px-2.5 py-0.5 rounded-full">
-                    Total: {{ todosLosHardwareAsignados.length }}
-                  </span>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <div v-if="todosLosHardwareAsignados.length > 0" class="flex flex-wrap gap-2.5 items-start">
-                    <div
-                      v-for="hwItem in todosLosHardwareAsignados"
-                      :key="hwItem.id_hardware"
-                      @mouseenter="hardwareHoveredId = hwItem.id_hardware"
-                      @mouseleave="hardwareHoveredId = null"
-                      class="card-recurso relative flex items-center gap-2 px-3 py-2.5 rounded-xl bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#60a5fa] border border-blue-200/50 dark:border-blue-500/20 font-semibold select-none shadow-sm transition-all duration-300 hover:bg-[#3b82f6]/20"
-                      :class="[
-                        (vehiculoActualSeleccionadoId && hwItem.id_vehiculo !== vehiculoActualSeleccionadoId) ||
-                        (vehiculoNuevoSeleccionadoId && hwItem.id_vehiculo !== vehiculoNuevoSeleccionadoId)
-                          ? 'opacity-20'
-                          : ''
-                      ]"
-                    >
-                      <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
-                      <span class="text-xs truncate max-w-[120px]">{{ getHardwareLabel(hwItem.id_hardware) }}</span>
-                      
-                      <!-- Botón Quitar Hardware -->
-                      <button
-                        type="button"
-                        @click.stop="removerHardwareVehiculoActual(hwItem.id_hardware)"
-                        class="abs-close-btn flex items-center justify-center rounded-full bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500 transition-all"
-                        title="Remover dispositivo"
-                      >
-                        <span class="text-[8px] font-black leading-none">✕</span>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-10" v-else>
-                    <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-20 mb-1" />
-                    <span>No hay hardware asignado en este servicio.</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Cuadrante 4: Catálogo Completo de Hardware (Abajo Derecha) -->
-              <div class="flex flex-col p-5 h-[300px]">
-                <div class="flex justify-between items-center mb-4 shrink-0">
-                  <span class="text-[10px] font-black uppercase tracking-[0.2em] text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5">
-                    Hardware Disponible
-                  </span>
-                  <div class="relative w-44 shrink-0">
-                    <input
-                      v-model="filtroHardwareDisponibleQuery"
-                      type="text"
-                      placeholder="Buscar hardware..."
-                      class="w-full text-[11px] bg-slate-100 dark:bg-slate-950/35 border border-slate-200/50 dark:border-white/5 rounded-lg pl-7 pr-2 py-1 outline-none text-slate-800 dark:text-white placeholder-slate-500 focus:border-[#3b82f6]/50 transition-all"
-                    />
-                    <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2 top-2 text-slate-500" />
-                  </div>
-                </div>
-                
-                <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                  <template v-if="vehiculoNuevoSeleccionadoId">
-                    <div class="text-[9px] font-black text-[#3b82f6] dark:text-[#60a5fa] bg-[#3b82f6]/10 border border-blue-500/20 px-3 py-1.5 rounded-lg mb-3 truncate flex items-center justify-center gap-1.5 select-none shrink-0">
-                      <HugeiconsIcon :icon="Car01Icon" :size="12" />
-                      ASIGNANDO A: {{ getVehiculoLabel(vehiculoNuevoSeleccionadoId) }}
-                    </div>
-                    <div v-if="hardwareDisponiblesFiltrados.length > 0" class="flex flex-wrap gap-2.5 items-start">
-                      <div
-                        v-for="h in hardwareDisponiblesFiltrados"
-                        :key="h.id_hardware"
-                        @click="alternarHardwareVehiculoNuevo(h.id_hardware)"
-                        @mouseenter="hardwareHoveredId = h.id_hardware"
-                        @mouseleave="hardwareHoveredId = null"
-                        class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none"
-                        :class="[
-                          (vehiculosEntranHardware[vehiculoNuevoSeleccionadoId] || []).includes(h.id_hardware)
-                            ? 'bg-[#3b82f6] text-white border-blue-500 font-bold shadow-[0_4px_12px_rgba(59,130,246,0.3)]'
-                            : 'bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]',
-                          obtenerVehiculoAsociado(h.id_hardware) && !(vehiculosEntranHardware[vehiculoNuevoSeleccionadoId] || []).includes(h.id_hardware)
-                            ? 'opacity-60 border-dashed border-[#3b82f6]/40 bg-blue-950/5 text-slate-400 dark:text-slate-400'
-                            : ''
-                        ]"
-                      >
-                        <div class="flex items-center gap-1.5">
-                          <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
-                          <span class="text-xs font-semibold truncate max-w-[120px]">{{ h.nombre }}</span>
-                        </div>
-                        <div class="flex justify-between items-center mt-0.5">
-                          <span class="text-[9px] opacity-60">{{ h.familia || 'Sin familia' }}</span>
-                          <span v-if="obtenerVehiculoAsociado(h.id_hardware)" class="text-[8px] font-bold text-[#3b82f6] dark:text-[#60a5fa] ml-2">
-                            Asociado
-                          </span>
-                        </div>
+                      <div class="flex items-center gap-1 ml-[18px]">
+                        <span class="text-[10px] opacity-70 font-normal">{{ h.familia || 'Sin familia' }}</span>
+                        <span v-if="esHardwareOcupadoEnOtroServicio(h)" class="text-[9px] font-semibold uppercase tracking-wide opacity-60">· Ocupado</span>
                       </div>
                     </div>
-                    <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 py-10" v-else>
-                      <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-20 mb-1" />
-                      <span>No hay dispositivos de hardware libres.</span>
-                    </div>
-                  </template>
-                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-500 text-center px-6 py-10" v-else>
-                    <HugeiconsIcon :icon="CpuIcon" :size="28" class="opacity-20 mb-2 animate-bounce" />
-                    <span>Selecciona un vehículo nuevo a la izquierda para poder asignarle dispositivos.</span>
                   </div>
+                  <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
+                    <span>No hay dispositivos disponibles.</span>
+                  </div>
+                </template>
+                <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 text-center px-6 py-10" v-else>
+                  <span>Selecciona un vehículo a la izquierda para administrar sus dispositivos.</span>
                 </div>
               </div>
             </div>
-
-          </div>
-
-          <!-- Resumen de Cambios en la transacción -->
-          <div class="mt-2 flex items-center justify-between px-4 py-3 bg-slate-100/50 dark:bg-[#0c0d12]/50 border border-slate-200/50 dark:border-white/5 rounded-2xl text-xs text-slate-500 dark:text-slate-400">
-            <div class="flex gap-4 items-center">
-              <span class="flex items-center gap-1.5 font-semibold">Salen: <strong class="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{{ vehiculosSalenIds.length }}</strong></span>
-              <span class="w-px h-3.5 bg-slate-200 dark:bg-white/10"></span>
-              <span class="flex items-center gap-1.5 font-semibold">Entran: <strong class="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded">{{ vehiculosEntranIds.length }}</strong></span>
-            </div>
-            <span class="text-[10px] text-slate-400 italic">Presiona el botón de confirmar para guardar la nueva configuración de flota</span>
           </div>
 
         </div>
-      </Transition>
+
+        <!-- Resumen de Cambios en la transacción -->
+        <div class="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
+          <div class="flex gap-4 items-center">
+            <span>Salen: <strong class="text-blue-600 dark:text-blue-400 font-semibold">{{ vehiculosSalenIds.length }}</strong></span>
+            <span class="w-px h-3 bg-slate-200 dark:bg-slate-800"></span>
+            <span>Entran: <strong class="text-blue-600 dark:text-blue-400 font-semibold">{{ vehiculosEntranIds.length }}</strong></span>
+          </div>
+          <span class="text-[11px] text-slate-400">Presiona confirmar para guardar los cambios</span>
+        </div>
+
+      </div>
     </div>
   </AppModal>
 </template>
 
 <style scoped>
-.tablero-trabajo {
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-}
-
-/* Estilos específicos de las cards del modal */
-.card-recurso {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 140px;
-}
-.card-recurso:hover {
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.abs-close-btn {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 15px;
-  height: 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  z-index: 10;
-}
-
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
@@ -738,44 +768,17 @@ const handleClose = () => {
   background: transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.15);
-  border-radius: 10px;
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #3b82f6;
-}
-
-/* Animaciones */
-.animate-fade-in {
-  animation: fadeIn 0.4s cubic-bezier(0.2, 1, 0.3, 1) forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  background: rgba(148, 163, 184, 0.4);
 }
 
 .fade-enter-active, .fade-leave-active {
-  transition: all 0.3s ease;
+  transition: opacity 0.2s ease;
 }
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
-  backdrop-filter: blur(0px);
-}
-
-.message-fade-enter-from, .message-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-.message-fade-enter-active, .message-fade-leave-active {
-  transition: all 0.25s ease;
-}
-
-.fade-slide-enter-active, .fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-.fade-slide-enter-from, .fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
 }
 </style>
