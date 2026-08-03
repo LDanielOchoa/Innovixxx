@@ -1,4 +1,4 @@
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, shallowRef, markRaw, toRaw, watch, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useGroupStore } from '../../../stores/group.store'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi } from '../../geocercas/services/geocercas.api'
@@ -12,10 +12,11 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
   const loadingGeocercas = ref(false)
   const geocercas = ref<Geocerca[]>([])
   
-  // Lista de overlays/polígonos/círculos dibujados en el mapa
-  const geocercaDrawings = ref<any[]>([])
+  // Lista de overlays/polígonos/círculos dibujados en el mapa (shallowRef para evitar proxificación de Vue)
+  const geocercaDrawings = shallowRef<any[]>([])
 
   let CustomLabelOverlayClass: any = null
+  let renderSequence = 0
 
   // Inicializar o crear la clase de etiqueta flotante para Google Maps en modo oscuro
   const getCustomLabelClass = () => {
@@ -103,10 +104,14 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
 
   // Limpiar todos los elementos dibujados
   const clearGeocercaDrawings = () => {
+    renderSequence++
     geocercaDrawings.value.forEach(d => {
       if (d) {
-        if (typeof d.setMap === 'function') {
-          d.setMap(null)
+        const raw = toRaw(d)
+        if (typeof raw.setMap === 'function') {
+          try {
+            raw.setMap(null)
+          } catch (_) {}
         }
       }
     })
@@ -118,10 +123,17 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
     clearGeocercaDrawings()
     if (!showGeocercas.value || !selectedGroup.value?.id || !mapRef.value) return
 
+    const currentRenderId = renderSequence
     loadingGeocercas.value = true
+
     try {
       if (geocercas.value.length === 0) {
         geocercas.value = await fetchGeocercasApi(selectedGroup.value.id)
+      }
+
+      if (currentRenderId !== renderSequence || !showGeocercas.value) {
+        clearGeocercaDrawings()
+        return
       }
 
       if (geocercas.value.length === 0) return
@@ -132,13 +144,14 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
 
       const detalles = await Promise.all(promises)
 
-      // Si el usuario desactivó las geocercas mientras se cargaban los datos de la API, cancelar
-      if (!showGeocercas.value) {
+      // Si el usuario desactivó o volvió a gatillar renderGeocercasOnMap mientras cargaba, abortar
+      if (currentRenderId !== renderSequence || !showGeocercas.value) {
         clearGeocercaDrawings()
         return
       }
 
       const LabelClass = getCustomLabelClass()
+      const newDrawings: any[] = []
 
       detalles.forEach(detalle => {
         if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
@@ -149,7 +162,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
           const p = detalle.puntos[0]
           const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
           const radius = parseFloat(p.radio || '0')
-          const circle = new (window as any).google.maps.Circle({
+          const circle = markRaw(new (window as any).google.maps.Circle({
             strokeColor: color,
             strokeOpacity: 0.7,
             strokeWeight: 1.5,
@@ -159,12 +172,12 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
             center,
             radius,
             clickable: false
-          })
-          geocercaDrawings.value.push(circle)
+          }))
+          newDrawings.push(circle)
           centerLatLng = center
         } else {
           const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
-          const polygon = new (window as any).google.maps.Polygon({
+          const polygon = markRaw(new (window as any).google.maps.Polygon({
             paths,
             strokeColor: color,
             strokeOpacity: 0.7,
@@ -173,8 +186,8 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
             fillOpacity: 0.2,
             map: mapRef.value,
             clickable: false
-          })
-          geocercaDrawings.value.push(polygon)
+          }))
+          newDrawings.push(polygon)
 
           const polyBounds = new (window as any).google.maps.LatLngBounds()
           paths.forEach(p => polyBounds.extend(p))
@@ -186,15 +199,19 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
             typeof centerLatLng.lat === 'function' ? centerLatLng.lat() : centerLatLng.lat,
             typeof centerLatLng.lng === 'function' ? centerLatLng.lng() : centerLatLng.lng
           )
-          const labelOverlay = new LabelClass(position, detalle.nombre, color)
+          const labelOverlay = markRaw(new LabelClass(position, detalle.nombre, color))
           labelOverlay.setMap(mapRef.value)
-          geocercaDrawings.value.push(labelOverlay)
+          newDrawings.push(labelOverlay)
         }
       })
+
+      geocercaDrawings.value = newDrawings
     } catch (err) {
       console.error('Error al renderizar geocercas en el mapa:', err)
     } finally {
-      loadingGeocercas.value = false
+      if (currentRenderId === renderSequence) {
+        loadingGeocercas.value = false
+      }
     }
   }
 
@@ -215,6 +232,8 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
     geocercas.value = []
     if (showGeocercas.value) {
       renderGeocercasOnMap()
+    } else {
+      clearGeocercaDrawings()
     }
   })
 
@@ -230,3 +249,4 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
     clearGeocercaDrawings
   }
 }
+

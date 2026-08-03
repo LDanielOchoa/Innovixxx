@@ -137,6 +137,30 @@ export interface ServicioCambiarEstadoPayload {
   descripcion: string
 }
 
+export interface ServicioAlertaItem {
+  token: string
+  fecha_hora: string
+  hardware: string
+  tipo_alerta: string
+  atendida: boolean
+  solventada: boolean
+  solventada_por: string
+  latitud: string
+  longitud: string
+}
+
+export interface ServicioAlertasPayload {
+  id_grupo: string
+  id_servicio: string
+}
+
+export interface ServicioAlertasResponse {
+  message: string
+  done: boolean
+  data: ServicioAlertaItem[]
+}
+
+
 export const SERVICIO_ESTADOS = {
   TODOS: 0,
   PRERCARGA: 1,

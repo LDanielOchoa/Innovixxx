@@ -83,8 +83,10 @@ const alcanceNacional = ref('1')
 const selectedVehiculosIds = ref<string[]>([])
 const inicialesVehiculosIds = ref<string[]>([])
 const vehiculosHardware = ref<Record<string, string[]>>({})
+const inicialesHardwareIds = ref<string[]>([])
 const vehiculoAsignandoHardware = ref<string | null>(null)
 const selectedEscoltasIds = ref<string[]>([])
+const inicialesEscoltasIds = ref<string[]>([])
 
 // Panel activo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null
 const panelActivo = ref<'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null>(null)
@@ -285,14 +287,19 @@ watch(() => props.isOpen, async (isOpen) => {
         selectedVehiculosIds.value = Object.keys(props.servicio.vehiculos).map(String)
         inicialesVehiculosIds.value = [...selectedVehiculosIds.value]
         vehiculosHardware.value = JSON.parse(JSON.stringify(props.servicio.vehiculos))
+        inicialesHardwareIds.value = Object.values(props.servicio.vehiculos).flat().map(String)
         if (selectedVehiculosIds.value.length > 0) {
           vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
         }
       } else {
         inicialesVehiculosIds.value = []
+        inicialesHardwareIds.value = []
       }
       if (props.servicio.escoltas && props.servicio.escoltas.length > 0) {
         selectedEscoltasIds.value = [...props.servicio.escoltas].map(String)
+        inicialesEscoltasIds.value = [...selectedEscoltasIds.value]
+      } else {
+        inicialesEscoltasIds.value = []
       }
       if (props.servicio.modo_fin !== undefined && props.servicio.modo_fin !== null) {
         modoFin.value = String(props.servicio.modo_fin)
@@ -316,8 +323,8 @@ watch(() => props.isOpen, async (isOpen) => {
         const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
-          fetchHardwareSimplesApi(groupStore.selectedGroup.id, 1),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 1)
+          fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
+          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
         ])
         rutas.value = rutasData
         vehiculos.value = vehiculosData
@@ -355,25 +362,17 @@ const selectRuta = (id: string) => {
 
 const selectVehiculo = (id: string) => {
   const v = vehiculos.value.find(item => item.id_vehiculo === id)
-  if (v && v.estado) {
-    if (inicialesVehiculosIds.value.includes(id)) {
-      toast.add({
-        severity: 'warn',
-        summary: 'Vehículo Bloqueado',
-        detail: 'Este vehículo ya está asignado y en servicio para este viaje, no se puede remover.',
-        life: 4000
-      })
-      return
-    }
-    if (!selectedVehiculosIds.value.includes(id)) {
-      toast.add({
-        severity: 'warn',
-        summary: 'Vehículo Ocupado',
-        detail: `Este vehículo está ${v.estado} y no puede ser seleccionado.`,
-        life: 4000
-      })
-      return
-    }
+  const isDisponible = !v?.estado || v.estado.toUpperCase() === 'DISPONIBLE'
+  const eraInicial = inicialesVehiculosIds.value.includes(id)
+
+  if (v && !isDisponible && !eraInicial && !selectedVehiculosIds.value.includes(id)) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Vehículo Ocupado',
+      detail: `Este vehículo está ${v.estado} y no puede ser seleccionado.`,
+      life: 4000
+    })
+    return
   }
 
   const index = selectedVehiculosIds.value.indexOf(id)
@@ -420,6 +419,20 @@ const selectHardware = (id: string) => {
     return
   }
 
+  const hwObj = hardware.value.find(h => h.id_hardware === id)
+  const eraInicial = inicialesHardwareIds.value.includes(id)
+  const isOcupado = hwObj?.estado && hwObj.estado.toUpperCase() !== 'DISPONIBLE'
+
+  if (hwObj && isOcupado && !eraInicial && !currentHardwareIds.value.includes(id)) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Hardware ocupado',
+      detail: `Este dispositivo está en uso y no puede ser asignado.`,
+      life: 4000
+    })
+    return
+  }
+
   if (!vehiculosHardware.value[vehiculoId]) {
     vehiculosHardware.value[vehiculoId] = []
   }
@@ -436,6 +449,20 @@ const copiedEscoltaId = ref<string | null>(null)
 let copyTimeout: ReturnType<typeof setTimeout> | null = null
 
 const selectEscolta = (id: string) => {
+  const escolta = escoltas.value.find(e => e.id_escolta === id)
+  const isDisponible = !escolta?.estado || escolta.estado.toUpperCase() === 'DISPONIBLE'
+  const eraInicial = inicialesEscoltasIds.value.includes(id)
+
+  if (escolta && !isDisponible && !eraInicial && !selectedEscoltasIds.value.includes(id)) {
+    toast.add({
+      severity: 'warn',
+      summary: 'Escolta Ocupado',
+      detail: `Este escolta está ${escolta.estado} y no puede ser seleccionado.`,
+      life: 4000
+    })
+    return
+  }
+
   const index = selectedEscoltasIds.value.indexOf(id)
   if (index > -1) {
     selectedEscoltasIds.value.splice(index, 1)
@@ -443,7 +470,6 @@ const selectEscolta = (id: string) => {
     selectedEscoltasIds.value.push(id)
   }
 
-  const escolta = escoltas.value.find(e => e.id_escolta === id)
   if (escolta && escolta.celular) {
     navigator.clipboard.writeText(escolta.celular).then(() => {
       copiedEscoltaId.value = id
@@ -545,7 +571,8 @@ const clearHardware = () => {
 
 const selectAllEscoltas = () => {
   filteredEscoltas.value.forEach(e => {
-    if (!selectedEscoltasIds.value.includes(e.id_escolta)) {
+    const isDisponible = !e.estado || e.estado.toUpperCase() === 'DISPONIBLE'
+    if (isDisponible && !selectedEscoltasIds.value.includes(e.id_escolta)) {
       selectedEscoltasIds.value.push(e.id_escolta)
     }
   })
@@ -705,7 +732,7 @@ const formatFechaHora = (date: Date | null): string => {
     :show-footer="!isInitializing"
   >
     <template #icon>
-      <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
+      <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#5da6fc] border border-blue-500/20">
         <HugeiconsIcon :icon="CpuIcon" :size="20" :stroke-width="2" />
       </div>
     </template>
@@ -850,7 +877,7 @@ const formatFechaHora = (date: Date | null): string => {
             <!-- SECCIÓN: SELECTORES DE RECURSOS -->
             <div class="pt-6 border-t border-white/5 space-y-5">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/5 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
                   <HugeiconsIcon :icon="CpuIcon" :size="20" class="drop-shadow-sm" />
                 </div>
                 <div>
@@ -1068,12 +1095,12 @@ const formatFechaHora = (date: Date | null): string => {
       </div>
     </AppModal>
 
-  <!-- PANEL FLOTANTE DE SELECCIÃ“N â€” Teleport fuera del modal -->
+  <!-- PANEL FLOTANTE DE SELECCIÓN — Teleport fuera del modal -->
   <Teleport to="body">
     <Transition name="panel-flotante">
       <div
         v-if="panelActivo && isOpen && !isInitializing"
-        class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden"
+        class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-2xl border border-slate-200/80 dark:border-white/10 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.15)] dark:shadow-[0_32px_64px_-12px_rgba(0,0,0,0.6)]"
         :style="{
           top: panelStyle.top,
           left: panelStyle.left,
@@ -1085,7 +1112,7 @@ const formatFechaHora = (date: Date | null): string => {
         <div class="panel-acento shrink-0" />
 
         <!-- ========== CABECERA ========== -->
-        <div class="panel-head px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
+        <div class="panel-head px-5 pt-4 pb-3 flex items-center justify-between shrink-0 border-b border-slate-200/80 dark:border-white/5">
           <div class="flex items-center gap-3">
             <div class="panel-head-icon">
               <HugeiconsIcon
@@ -1097,7 +1124,7 @@ const formatFechaHora = (date: Date | null): string => {
               <h4 class="text-[12px] font-black text-slate-800 dark:text-white tracking-tight">
                 {{ panelActivo === 'rutas' ? 'Rutas disponibles' : panelActivo === 'vehiculos' ? 'Vehículos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Escoltas disponibles' }}
               </h4>
-              <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mt-0.5">
                 {{
                   panelActivo === 'rutas' ? `${filteredRutas.length} rutas` :
                   panelActivo === 'vehiculos' ? `${filteredVehiculos.length} en flota` :
@@ -1120,7 +1147,7 @@ const formatFechaHora = (date: Date | null): string => {
         <div class="px-4 pb-3 shrink-0">
           <!-- Selector de vehículo (solo para panel de hardware) -->
           <div v-if="panelActivo === 'hardware'" class="mb-3 space-y-2">
-            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 ml-1">Asignar hardware a:</span>
+            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 ml-1">Asignar hardware a:</span>
             <div class="flex flex-wrap gap-1.5">
               <button
                 v-for="vehiculoId in selectedVehiculosIds"
@@ -1139,7 +1166,7 @@ const formatFechaHora = (date: Date | null): string => {
             </div>
           </div>
           <div class="panel-search-wrap">
-            <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
+            <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 dark:text-slate-500 shrink-0" />
             <input
               v-if="panelActivo === 'rutas'"
               v-model="searchRutasQuery"
@@ -1258,7 +1285,7 @@ const formatFechaHora = (date: Date | null): string => {
             </div>
           </template>
 
-          <!-- VehÃ­culos -->
+          <!-- Vehículos -->
           <template v-if="panelActivo === 'vehiculos'">
             <button
               v-for="v in filteredVehiculos"
@@ -1268,26 +1295,26 @@ const formatFechaHora = (date: Date | null): string => {
               class="panel-row group/row"
               :class="[
                 selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row--on' : 'panel-row--off',
-                v.estado ? 'opacity-50 cursor-not-allowed' : ''
+                v.estado && v.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesVehiculosIds.includes(v.id_vehiculo) && !selectedVehiculosIds.includes(v.id_vehiculo) ? 'opacity-50 cursor-not-allowed' : ''
               ]"
             >
               <div
                 class="panel-row-dot shrink-0"
                 :class="[
                   selectedVehiculosIds.includes(v.id_vehiculo) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  v.estado ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                  v.estado && v.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesVehiculosIds.includes(v.id_vehiculo) && !selectedVehiculosIds.includes(v.id_vehiculo) ? '!bg-amber-500/20 !border-amber-500/30' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="selectedVehiculosIds.includes(v.id_vehiculo)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
-                <HugeiconsIcon v-else-if="v.estado" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+                <HugeiconsIcon v-else-if="v.estado && v.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesVehiculosIds.includes(v.id_vehiculo)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">
                   {{ v.placa }}
                 </span>
                 <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
-                  <span class="text-slate-400">{{ v.tipo }}</span>
-                  <span v-if="v.estado" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                  <span class="text-slate-400 dark:text-slate-500">{{ v.tipo }}</span>
+                  <span v-if="v.estado && v.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesVehiculosIds.includes(v.id_vehiculo)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
                     {{ v.estado }}
                   </span>
                 </span>
@@ -1309,25 +1336,28 @@ const formatFechaHora = (date: Date | null): string => {
               class="panel-row group/row"
               :class="[
                 currentHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off',
-                obtenerVehiculoAsociadoAHardware(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
               ]"
             >
               <div
                 class="panel-row-dot shrink-0"
                 :class="[
                   currentHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  obtenerVehiculoAsociadoAHardware(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                  (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="currentHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
-                <HugeiconsIcon v-else-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+                <HugeiconsIcon v-else-if="obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
                 <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
-                  <span class="text-slate-400">{{ h.familia || 'Sin familia' }}</span>
+                  <span class="text-slate-400 dark:text-slate-500">{{ h.familia || 'Sin familia' }}</span>
                   <span v-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
                     Ocupado: {{ getVehiculoLabel(obtenerVehiculoAsociadoAHardware(h.id_hardware)!) }}
+                  </span>
+                  <span v-else-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                    {{ h.estado }}
                   </span>
                 </span>
               </div>
@@ -1346,22 +1376,34 @@ const formatFechaHora = (date: Date | null): string => {
               type="button"
               @click="selectEscolta(e.id_escolta)"
               class="panel-row group/row"
-              :class="selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row--on' : 'panel-row--off'"
+              :class="[
+                selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row--on' : 'panel-row--off',
+                e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? 'opacity-50 cursor-not-allowed' : ''
+              ]"
             >
               <div
                 class="panel-row-dot shrink-0"
-                :class="selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row-dot--on' : 'panel-row-dot--off'"
+                :class="[
+                  selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row-dot--on' : 'panel-row-dot--off',
+                  e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                ]"
               >
                 <HugeiconsIcon v-if="selectedEscoltasIds.includes(e.id_escolta)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-else-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ e.nombre }}</span>
-                <span
-                  class="text-[10px] font-mono truncate leading-none mt-0.5 transition-colors duration-200"
-                  :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-400 font-bold' : 'text-slate-400'"
-                >
-                  <template v-if="copiedEscoltaId === e.id_escolta">Copiado ✓</template>
-                  <template v-else>{{ e.celular || 'Sin contacto' }}</template>
+                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
+                  <span
+                    class="font-mono transition-colors duration-200"
+                    :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-400 font-bold' : 'text-slate-400 dark:text-slate-500'"
+                  >
+                    <template v-if="copiedEscoltaId === e.id_escolta">Copiado ✓</template>
+                    <template v-else>{{ e.celular || 'Sin contacto' }}</template>
+                  </span>
+                  <span v-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE'" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                    {{ e.estado }}
+                  </span>
                 </span>
               </div>
             </button>
@@ -1374,7 +1416,7 @@ const formatFechaHora = (date: Date | null): string => {
         </div>
 
         <!-- ========== FOOTER ========== -->
-        <div class="px-4 py-3.5 shrink-0 panel-footer">
+        <div class="px-4 py-3.5 shrink-0 border-t border-slate-200/80 dark:border-white/5">
           <button
             type="button"
             @click="cerrarPanel"
@@ -1427,36 +1469,27 @@ const formatFechaHora = (date: Date | null): string => {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: rgba(59,130,246,0.15);
-  color: #5da6fc;
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(59,130,246,0.25);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+:global(.dark) .badge-recurso {
+  background: rgba(59, 130, 246, 0.15);
+  color: #5da6fc;
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
 /* =====================================================
-   PANEL FLOTANTE â€” Estructura
+   PANEL FLOTANTE — Estructura
 ===================================================== */
 .panel-flotante-recursos {
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.6) inset,
-    0 24px 48px -12px rgba(15, 23, 42, 0.15),
-    0 8px 24px -4px rgba(15, 23, 42, 0.08);
-}
-:global(.dark) .panel-flotante-recursos {
-  background: linear-gradient(180deg, rgba(26,29,36,0.95) 0%, rgba(15,17,21,0.98) 100%);
-  border-color: rgba(255,255,255,0.07);
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.04) inset,
-    0 32px 64px -12px rgba(0,0,0,0.55),
-    0 8px 24px -4px rgba(0,0,0,0.3);
 }
 
 /* Franja de acento superior */
@@ -1465,14 +1498,6 @@ const formatFechaHora = (date: Date | null): string => {
   width: 100%;
   border-radius: 18px 18px 0 0;
   background: linear-gradient(90deg, #3b82f6, #5da6fc);
-}
-
-/* Cabecera */
-.panel-head {
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-}
-:global(.dark) .panel-head {
-  border-bottom-color: rgba(255,255,255,0.06);
 }
 
 .panel-head-icon {
@@ -1513,22 +1538,14 @@ const formatFechaHora = (date: Date | null): string => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: #0f1115;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 10px 14px;
   transition: all 0.3s ease;
-}
-:global(.dark) .panel-search-wrap {
-  background: #0f1115;
-  border-color: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
 }
 .panel-search-wrap:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 1px rgba(59,130,246,0.2);
-}
-:global(.dark) .panel-search-wrap:focus-within {
   border-color: #5da6fc;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(93,166,252,0.2);
 }
@@ -1539,16 +1556,12 @@ const formatFechaHora = (date: Date | null): string => {
   border: none;
   font-size: 12px;
   font-weight: 500;
-  color: #1e293b;
+  color: #e2e8f0;
   outline: none;
   box-shadow: none;
   padding: 0;
 }
-:global(.dark) .panel-search-input {
-  color: #e2e8f0;
-}
-.panel-search-input::placeholder { color: #94a3b8; }
-:global(.dark) .panel-search-input::placeholder { color: #475569; }
+.panel-search-input::placeholder { color: #64748b; }
 
 /* Filas del listado */
 .panel-row {
@@ -1567,35 +1580,20 @@ const formatFechaHora = (date: Date | null): string => {
 }
 
 .panel-row--off {
-  background: rgba(241, 245, 249, 0.6);
-  border-color: rgba(226, 232, 240, 0.8);
-  color: #334155;
-}
-:global(.dark) .panel-row--off {
-  background: rgba(255, 255, 255, 0.01);
-  border-color: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
   color: #cbd5e1;
 }
 .panel-row--off:hover {
-  background: rgba(226, 232, 240, 0.8);
-  border-color: rgba(203, 213, 225, 0.8);
-  transform: translateY(-1px);
-}
-:global(.dark) .panel-row--off:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.12);
   transform: translateY(-1px);
 }
 
 .panel-row--on {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.25);
-  color: #1e40af;
-}
-:global(.dark) .panel-row--on {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
-  color: #cbd5e1;
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #ffffff;
 }
 
 /* Indicador circular de selección */
@@ -1790,26 +1788,14 @@ const formatFechaHora = (date: Date | null): string => {
 }
 
 .vehiculo-tab--inactive {
-  background: rgba(241, 245, 249, 0.8);
-  color: #64748b;
-  border-color: rgba(226, 232, 240, 0.8);
-}
-
-:global(.dark) .vehiculo-tab--inactive {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   color: #94a3b8;
-  border-color: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
 }
 
 .vehiculo-tab--inactive:hover {
-  background: rgba(226, 232, 240, 0.9);
-  border-color: rgba(203, 213, 225, 1);
-  color: #334155;
-}
-
-:global(.dark) .vehiculo-tab--inactive:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
   color: #cbd5e1;
 }
 

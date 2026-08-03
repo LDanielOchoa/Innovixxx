@@ -298,7 +298,7 @@ const saveHardware = async () => {
             </div>
 
             <!-- Fila 3: Configuración Técnica -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-6 border-t border-slate-100 dark:border-white/5">
+            <div class="grid grid-cols-1 gap-5 pt-6 border-t border-slate-100 dark:border-white/5" :class="isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3'">
               <AppFormInput
                 v-model="formData.numero_sms"
                 label="Número SMS"
@@ -307,6 +307,7 @@ const saveHardware = async () => {
               />
 
               <AppFormInput
+                v-if="!isEditMode"
                 v-model="formData.id_binario"
                 label="ID Binario"
                 placeholder="Ej: 2512001917"

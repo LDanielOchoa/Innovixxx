@@ -27,7 +27,7 @@ export const useAuthStore = defineStore('auth', () => {
     foto: '',
     isAdmin: false
   })
-  
+
   const isAdmin = ref(false)
   const isLoading = ref(true)
   const userPermissions = ref<number[]>([])
@@ -48,7 +48,48 @@ export const useAuthStore = defineStore('auth', () => {
     })
   }
 
-  const logout = (routerInstance: Router) => {
+  const authChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('innovix_auth_channel')
+    : null
+
+  const handleGlobalLogoutRedirect = () => {
+    limpiarCookiesExceptoIdioma()
+    CookieAuth.removeToken()
+    localStorage.removeItem('auth-token-ws')
+    localStorage.removeItem('auth-grupo-id')
+    userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false }
+    isAdmin.value = false
+    isSuperAdmin.value = false
+    userPermissions.value = []
+
+    try {
+      if (window.opener || window.name?.startsWith('TrackingWindow_') || window.location.pathname.includes('/tracking')) {
+        window.close()
+      }
+    } catch {}
+
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login'
+    }
+  }
+
+  if (authChannel) {
+    authChannel.onmessage = (event) => {
+      if (event.data && event.data.type === 'LOGOUT') {
+        handleGlobalLogoutRedirect()
+      }
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'auth-logout-event') {
+        handleGlobalLogoutRedirect()
+      }
+    })
+  }
+
+  const logout = (routerInstance?: Router) => {
     limpiarCookiesExceptoIdioma()
     CookieAuth.removeToken()
 
@@ -62,6 +103,11 @@ export const useAuthStore = defineStore('auth', () => {
     if (theme) localStorage.setItem('theme-store', theme)
     if (locale) localStorage.setItem('app-locale', locale)
     if (sidebar) localStorage.setItem('sidebarExpanded', sidebar)
+    localStorage.setItem('auth-logout-event', Date.now().toString())
+
+    try {
+      authChannel?.postMessage({ type: 'LOGOUT' })
+    } catch {}
 
     userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false }
     isAdmin.value = false
@@ -71,7 +117,16 @@ export const useAuthStore = defineStore('auth', () => {
     const groupStore = useGroupStore()
     groupStore.setGroup({ id: '', nombre: '' })
 
-    routerInstance.push('/login')
+    try {
+      if (window.opener || window.name?.startsWith('TrackingWindow_') || window.location.pathname.includes('/tracking')) {
+        window.close()
+      }
+    } catch {}
+
+    if (routerInstance) {
+      routerInstance.push('/login')
+    }
+    window.location.href = '/login'
   }
 
   const hasPermission = (permissionId: number): boolean => {
@@ -167,7 +222,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-const fetchUserProfile = async (
+  const fetchUserProfile = async (
     routerInstance: Router,
     setLocaleCallback?: (lang: string) => void
   ) => {

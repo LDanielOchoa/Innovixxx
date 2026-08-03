@@ -32,6 +32,10 @@ html, body {
   height: 100%;
   width: 100%;
 }
+
+.grecaptcha-badge {
+  display: none !important;
+}
 </style>
 
 

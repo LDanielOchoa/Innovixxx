@@ -14,7 +14,9 @@ import type {
   ServicioActualizarVehiculosPayload,
   ServicioHistorialPayload,
   ServicioHistorialResponse,
-  ServicioCambiarEstadoPayload
+  ServicioCambiarEstadoPayload,
+  ServicioAlertasPayload,
+  ServicioAlertasResponse
 } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
@@ -40,7 +42,7 @@ export const fetchRutasSimplesApi = async (id_grupo: string): Promise<RutaSimple
   return data.done && Array.isArray(data.data) ? data.data : []
 }
 
-export const fetchVehiculosSimplesApi = async (id_grupo: string, estado: number = 1): Promise<VehiculoSimple[]> => {
+export const fetchVehiculosSimplesApi = async (id_grupo: string, estado: number = 0): Promise<VehiculoSimple[]> => {
   const data = await apiClient<{ done: boolean; data: VehiculoSimple[] }>('/api/v1/vehiculo/listar_simple/', {
     method: 'POST',
     body: JSON.stringify({ id_grupo, estado })
@@ -49,7 +51,7 @@ export const fetchVehiculosSimplesApi = async (id_grupo: string, estado: number 
 }
 
 // Obtener dispositivos de hardware disponibles para el grupo
-export const fetchHardwareSimplesApi = async (id_grupo: string, estado: number = 1): Promise<HardwareSimple[]> => {
+export const fetchHardwareSimplesApi = async (id_grupo: string, estado: number = 0): Promise<HardwareSimple[]> => {
   const data = await apiClient<{ done: boolean; data: HardwareSimple[] }>('/api/v1/hardware/listar_simple/', {
     method: 'POST',
     body: JSON.stringify({ id_grupo, estado })
@@ -58,7 +60,7 @@ export const fetchHardwareSimplesApi = async (id_grupo: string, estado: number =
 }
 
 // Obtener escoltas disponibles para el grupo
-export const fetchEscoltasSimplesApi = async (id_grupo: string, estado: number = 1): Promise<EscoltaSimple[]> => {
+export const fetchEscoltasSimplesApi = async (id_grupo: string, estado: number = 0): Promise<EscoltaSimple[]> => {
   const data = await apiClient<{ done: boolean; data: EscoltaSimple[] }>('/api/v1/escolta/listar_simple/', {
     method: 'POST',
     body: JSON.stringify({ id_grupo, estado })
@@ -138,4 +140,19 @@ export const cambiarEstadoServicioApi = async (payload: ServicioCambiarEstadoPay
     body: JSON.stringify(payload)
   })
 }
+
+export const solventarAlertaApi = async (token: string): Promise<any> => {
+  return apiClient('/api/v1/servicio/solventar_alerta/', {
+    method: 'POST',
+    body: JSON.stringify({ token })
+  })
+}
+
+export const fetchServicioAlertasApi = async (payload: ServicioAlertasPayload): Promise<ServicioAlertasResponse> => {
+  return apiClient<ServicioAlertasResponse>('/api/v1/servicio/ver_alertas/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
 

@@ -74,10 +74,13 @@ const obtenerTokenRecaptcha = async () => {
   })
 }
 
+let recaptchaTimer: any = null
+
 const mostrarBadgeRecaptcha = (visible: boolean) => {
   const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null
   if (badge) {
-    badge.style.visibility = visible ? 'visible' : 'hidden'
+    badge.style.setProperty('display', visible ? 'block' : 'none', 'important')
+    badge.style.setProperty('visibility', visible ? 'visible' : 'hidden', 'important')
     badge.style.setProperty('right', '0', 'important')
     badge.style.setProperty('left', 'auto', 'important')
   }
@@ -158,10 +161,12 @@ const handleMouseLeave = () => {
 onMounted(() => {
   cargarRecaptcha()
   if (window.grecaptcha && typeof window.grecaptcha.execute === 'function') recaptchaReady.value = true
-  setTimeout(() => mostrarBadgeRecaptcha(true), 500)
+  mostrarBadgeRecaptcha(true)
+  recaptchaTimer = setTimeout(() => mostrarBadgeRecaptcha(true), 500)
 })
 
 onUnmounted(() => {
+  if (recaptchaTimer) clearTimeout(recaptchaTimer)
   mostrarBadgeRecaptcha(false)
 })
 </script>

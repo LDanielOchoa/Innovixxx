@@ -94,7 +94,7 @@ const displayedMenuItems = computed(() => {
     { separator: true },
 
     { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos' },
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.serviceVehicles') || 'Veh. Servicio', route: '/vehiculos-servicio' },
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio' },
 
     { separator: true },
 
@@ -108,8 +108,7 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' },
-    { icon: markRaw(Layout01Icon), text: 'Servicios Dashboard', route: '/servicios/dashboard' }
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' }
   ]
 
   // Si es superadmin, mostrar todos los items (excepto adminOnly que requiere isAdmin)

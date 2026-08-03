@@ -492,7 +492,7 @@ const handleClose = () => {
         </div>
 
         <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 gap-4" :class="isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3'">
             <AppInput
               v-model="formData.numero_sms"
               label="Número SMS"
@@ -501,6 +501,7 @@ const handleClose = () => {
               :disabled="saving"
             />
             <AppInput
+              v-if="!isEditMode"
               v-model="formData.id_binario"
               label="ID Binario"
               placeholder="Ej: 2512001917"

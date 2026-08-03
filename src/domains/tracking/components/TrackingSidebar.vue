@@ -8,7 +8,6 @@ import {
   UserGroupIcon,
   Car02Icon,
   Location01Icon,
-  RefreshIcon,
   Search01Icon,
   BatteryCharging01Icon,
   MapsIcon,
@@ -25,6 +24,7 @@ interface Props {
   vehiculosList: any[]
   refEscoltas?: any[]
   refVehiculos?: any[]
+  refHardware?: any[]
   isLoadingSecondary: boolean
   wsStatus: 'disconnected' | 'connecting' | 'connected'
   wsError: string | null
@@ -43,6 +43,8 @@ const emit = defineEmits<{
   (e: 'reconnect'): void
   (e: 'select', item: any): void
   (e: 'toggleGeocercas'): void
+  (e: 'focusAlert', alerta: any): void
+  (e: 'solveAlert', token: string): void
 }>()
 
 const localSearchQuery = computed({
@@ -78,13 +80,90 @@ const filteredItems = computed(() => {
 import { ref } from 'vue'
 import {
   Cancel01Icon,
-  ArrowRight01Icon
+  Alert02Icon,
+  ArrowRight01Icon,
+  Tick01Icon,
+  Loading03Icon
 } from '@hugeicons/core-free-icons'
+import { solventarAlertaApi } from '../../servicios/services/servicios.api'
+import { useToast } from 'primevue/usetoast'
+
+const toast = useToast()
+const solvingToken = ref<string | null>(null)
+
+const handleSolventarAlerta = async (alerta: any) => {
+  if (!alerta?.token || solvingToken.value === alerta.token) return
+
+  solvingToken.value = alerta.token
+  try {
+    const res = await solventarAlertaApi(alerta.token)
+    if (res?.done !== false) {
+      toast.add({
+        severity: 'success',
+        summary: 'Alerta solventada',
+        detail: 'La alerta ha sido solventada exitosamente',
+        life: 3000
+      })
+      // Remover la alerta localmente y notificar globalmente a todas las pestañas
+      if (activeAlertasItem.value && Array.isArray(activeAlertasItem.value.alertas)) {
+        activeAlertasItem.value.alertas = activeAlertasItem.value.alertas.filter(
+          (a: any) => a.token !== alerta.token
+        )
+      }
+      emit('solveAlert', alerta.token)
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: 'Error',
+        detail: res?.msg || res?.message || 'No se pudo solventar la alerta',
+        life: 4000
+      })
+    }
+  } catch (err: any) {
+    console.error('Error al solventar alerta:', err)
+    toast.add({
+      severity: 'error',
+      summary: 'Error',
+      detail: err?.message || 'Error de conexión al solventar la alerta',
+      life: 4000
+    })
+  } finally {
+    solvingToken.value = null
+  }
+}
 
 const showRecursosDrawer = ref(false)
 
 const hoveredRecursosItem = ref<any | null>(null)
 const recursosModalTop = ref<number>(80)
+
+const getAlertInfo = (tipo: number) => {
+  switch (tipo) {
+    case 1:
+      return { label: 'Exceso de velocidad', colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
+    case 2:
+      return { label: 'SOS / Emergencia', colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20' }
+    case 3:
+      return { label: 'Salida de ruta', colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
+    case 4:
+      return { label: 'Candado abierto', colorClass: 'text-orange-500 bg-orange-500/10 border-orange-500/20' }
+    case 5:
+      return { label: 'Alerta de Dispositivo', colorClass: 'text-purple-400 bg-purple-500/10 border-purple-500/20' }
+    default:
+      return { label: `Alerta tipo ${tipo}`, colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
+  }
+}
+
+const activeAlertasItem = computed(() => hoveredAlertasItem.value || props.selectedItem)
+
+const alertasDelServicio = computed(() => {
+  const activeItem = activeAlertasItem.value
+  if (!activeItem || props.activeTab !== 'SERVICIOS') return []
+  if (Array.isArray(activeItem.alertas)) {
+    return activeItem.alertas
+  }
+  return []
+})
 
 const hardwareDelServicio = computed(() => {
   const activeItem = hoveredRecursosItem.value || props.selectedItem
@@ -94,38 +173,128 @@ const hardwareDelServicio = computed(() => {
 
   const mapHw = new Map<string, any>()
 
+  // Helper para obtener una clave única canonical del hardware
+  const getCanonicalKey = (idOrSerial: string) => {
+    if (!idOrSerial) return ''
+    const foundRef = props.refHardware?.find(r => r.id_hardware === idOrSerial || r.serial === idOrSerial)
+    const foundWs = props.hardwareList.find(h => h.id_hardware === idOrSerial || h.serial === idOrSerial)
+    return foundRef?.id_hardware || foundWs?.id_hardware || foundRef?.serial || foundWs?.serial || idOrSerial
+  }
+
   // 1. Hardware proveniente de la lista en vivo de tracking (WebSocket / HardwareWs)
   props.hardwareList.forEach(h => {
     if (String(h.id_servicio || '').trim().toLowerCase() === servId) {
-      const key = h.id_hardware || h.serial
-      mapHw.set(key, { ...h })
+      const canonicalKey = getCanonicalKey(h.id_hardware || h.serial)
+      const foundRefHw = props.refHardware?.find(r => r.id_hardware === canonicalKey || r.serial === canonicalKey)
+      const nombreFinal = (h.nombre && h.nombre !== canonicalKey) ? h.nombre : (foundRefHw?.nombre || h.nombre || canonicalKey)
+      mapHw.set(canonicalKey, { ...h, id_hardware: canonicalKey, nombre: nombreFinal })
     }
   })
 
-  // 2. Si el servicio seleccionado trae un arreglo de vehículos o hardware asignados
+  // 2. Si el servicio trae un arreglo de vehículos o hardware asignados
   const vehiculosItem = activeItem.vehiculos || activeItem.hardware || activeItem.vehiculos_id || []
   if (Array.isArray(vehiculosItem)) {
     vehiculosItem.forEach((v: any) => {
-      const hwId = typeof v === 'string' ? v : (v.id_hardware || v.serial || v.id_vehiculo)
-      if (hwId) {
-        const foundWs = props.hardwareList.find(h => h.id_hardware === hwId || h.serial === hwId)
-        const foundRef = props.refVehiculos?.find(r => r.id_hardware === hwId || r.serial === hwId || r.id_vehiculo === hwId)
-        if (!mapHw.has(hwId)) {
-          mapHw.set(hwId, {
-            serial: hwId,
-            id_hardware: hwId,
-            nombre: foundWs?.nombre || foundRef?.nombre || foundRef?.placa || (typeof v === 'object' ? (v.nombre || v.id_vehiculo) : hwId),
-            descripcion: foundWs?.descripcion || foundRef?.descripcion || (typeof v === 'object' ? v.descripcion : `Dispositivo ${hwId}`),
+      const rawId = typeof v === 'string' ? v : (v.id_hardware || v.serial)
+      if (rawId) {
+        const canonicalKey = getCanonicalKey(rawId)
+        const foundWs = props.hardwareList.find(h => h.id_hardware === canonicalKey || h.serial === canonicalKey)
+        const foundRefHw = props.refHardware?.find(r => r.id_hardware === canonicalKey || r.serial === canonicalKey)
+        const foundRefVeh = props.refVehiculos?.find(r => r.id_hardware === canonicalKey || r.serial === canonicalKey || r.id_vehiculo === canonicalKey)
+
+        const nombreFinal = (foundWs?.nombre && foundWs.nombre !== canonicalKey)
+          ? foundWs.nombre
+          : (foundRefHw?.nombre || foundRefVeh?.nombre || foundRefVeh?.placa || (typeof v === 'object' && v.nombre && v.nombre !== canonicalKey ? v.nombre : canonicalKey))
+
+        if (!mapHw.has(canonicalKey)) {
+          mapHw.set(canonicalKey, {
+            serial: canonicalKey,
+            id_hardware: canonicalKey,
+            nombre: nombreFinal,
+            descripcion: foundWs?.descripcion || foundRefHw?.descripcion || foundRefVeh?.descripcion || (typeof v === 'object' ? v.descripcion : `ID: ${canonicalKey}`),
             battery: foundWs?.battery ?? (typeof v === 'object' ? v.battery : undefined),
             speed: foundWs?.speed ?? (typeof v === 'object' ? v.speed : 0),
             status_lock: foundWs?.status_lock || (typeof v === 'object' ? v.status_lock : '')
           })
+        } else {
+          const existing = mapHw.get(canonicalKey)
+          if (existing && (!existing.nombre || existing.nombre === canonicalKey) && nombreFinal !== canonicalKey) {
+            existing.nombre = nombreFinal
+          }
         }
       }
     })
   }
 
   return Array.from(mapHw.values())
+})
+
+const getNombreHardware = (hw: any) => {
+  if (!hw) return 'Hardware'
+  if (hw.nombre && hw.nombre !== hw.id_hardware) return hw.nombre
+  const foundWs = props.hardwareList.find(h => h.id_hardware === hw.id_hardware || h.serial === hw.serial)
+  const foundRefHw = props.refHardware?.find(r => r.id_hardware === hw.id_hardware || r.serial === hw.serial)
+  const foundRefVeh = props.refVehiculos?.find(r => r.id_hardware === hw.id_hardware || r.serial === hw.serial)
+  const resolved = foundWs?.nombre || foundRefHw?.nombre || foundRefVeh?.nombre || foundRefVeh?.placa
+  return (resolved && resolved !== hw.id_hardware) ? resolved : (hw.nombre || hw.id_hardware || 'Hardware')
+}
+
+const vehiculosDelServicio = computed(() => {
+  const activeItem = hoveredRecursosItem.value || props.selectedItem
+  if (!activeItem || props.activeTab !== 'SERVICIOS') return []
+  const servId = String(activeItem.id_servicio || '').trim().toLowerCase()
+  if (!servId) return []
+
+  const mapVeh = new Map<string, any>()
+
+  // 1. Buscar en vehiculosList y refVehiculos por id_servicio
+  props.refVehiculos?.forEach(v => {
+    if (String(v.id_servicio || '').trim().toLowerCase() === servId) {
+      const key = v.id_vehiculo || v.placa || v.id_hardware
+      mapVeh.set(key, { ...v })
+    }
+  })
+  props.vehiculosList?.forEach(v => {
+    if (String(v.id_servicio || '').trim().toLowerCase() === servId) {
+      const key = v.id_vehiculo || v.placa || v.id_hardware
+      mapVeh.set(key, { ...mapVeh.get(key), ...v })
+    }
+  })
+
+  // 2. Resolver desde la propiedad `vehiculos` o `vehiculo` o `vehiculos_id` del objeto servicio
+  const vehiculosItem = activeItem.vehiculos || activeItem.vehiculo || activeItem.vehiculos_id || []
+  const arrayVeh = Array.isArray(vehiculosItem) ? vehiculosItem : [vehiculosItem]
+
+  arrayVeh.forEach((item: any) => {
+    if (!item) return
+    const vId = typeof item === 'string' ? item : (item.id_vehiculo || item.placa || item.id_hardware)
+    if (vId) {
+      const foundRef = props.refVehiculos?.find(r => r.id_vehiculo === vId || r.placa === vId || r.id_hardware === vId)
+      const foundList = props.vehiculosList?.find(vl => vl.id_vehiculo === vId || vl.placa === vId || vl.id_hardware === vId)
+
+      const placaReal = (typeof item === 'object' && item.placa) ? item.placa : (foundRef?.placa || foundList?.placa || vId)
+      const tipoReal = (typeof item === 'object' && item.tipo) ? item.tipo : (foundRef?.tipo || foundRef?.tipo_vehiculo || foundList?.tipo || '')
+      const marcaReal = (typeof item === 'object' && item.marca) ? item.marca : (foundRef?.marca || foundList?.marca || '')
+      const colorReal = (typeof item === 'object' && item.color) ? item.color : (foundRef?.color || foundList?.color || '')
+
+      if (!mapVeh.has(vId)) {
+        mapVeh.set(vId, {
+          id_vehiculo: vId,
+          placa: placaReal,
+          tipo: tipoReal,
+          marca: marcaReal,
+          color: colorReal,
+          descripcion: [tipoReal, marcaReal, colorReal].filter(Boolean).join(' - ') || `Placa / ID: ${placaReal}`
+        })
+      } else {
+        const existing = mapVeh.get(vId)
+        if (existing.placa === vId && placaReal !== vId) existing.placa = placaReal
+        if (!existing.tipo && tipoReal) existing.tipo = tipoReal
+      }
+    }
+  })
+
+  return Array.from(mapVeh.values())
 })
 
 const escoltasDelServicio = computed(() => {
@@ -145,85 +314,114 @@ const escoltasDelServicio = computed(() => {
   })
 
   // 2. Resolver desde la lista de referencia refEscoltas o escoltas del item
-  const escoltasItem = activeItem.escoltas || activeItem.escoltas_id || []
-  if (Array.isArray(escoltasItem)) {
-    escoltasItem.forEach((item: any) => {
-      const escId = typeof item === 'string' ? item : (item.id_escolta || item.identificacion)
-      if (escId) {
-        const foundWs = props.escoltasList.find(e => e.id_escolta === escId || e.identificacion === escId)
-        const foundRef = props.refEscoltas?.find(r => r.id_escolta === escId || r.identificacion === escId)
-        const key = escId
-        
-        const nombreReal = foundWs?.nombre !== escId ? foundWs?.nombre : (foundRef?.nombre || foundRef?.nombres || (typeof item === 'object' && item.nombre !== escId ? item.nombre : escId))
-        const celularReal = foundWs?.celular || foundRef?.celular || foundRef?.telefono || (typeof item === 'object' ? item.celular : '')
+  const escoltasItem = activeItem.escoltas || activeItem.escolta || activeItem.escoltas_id || []
+  const arrayEsc = Array.isArray(escoltasItem) ? escoltasItem : [escoltasItem]
 
-        if (!mapEsc.has(key)) {
-          mapEsc.set(key, {
-            id_escolta: escId,
-            nombre: nombreReal,
-            identificacion: foundRef?.identificacion || foundWs?.identificacion || (typeof item === 'object' ? item.identificacion : escId),
-            celular: celularReal
-          })
-        } else {
-          // Si ya existe pero tenía solo el código simple (ej: "JOal7vmK"), enriquecerlo con el nombre real
-          const existing = mapEsc.get(key)
-          if (existing.nombre === escId && nombreReal !== escId) {
-            existing.nombre = nombreReal
-          }
-          if (!existing.celular && celularReal) {
-            existing.celular = celularReal
-          }
+  arrayEsc.forEach((item: any) => {
+    if (!item) return
+    const escId = typeof item === 'string' ? item : (item.id_escolta || item.identificacion)
+    if (escId) {
+      const foundWs = props.escoltasList.find(e => e.id_escolta === escId || e.identificacion === escId)
+      const foundRef = props.refEscoltas?.find(r => r.id_escolta === escId || r.identificacion === escId || r.nombres === escId || r.nombre === escId)
+      const key = escId
+
+      const nombreReal = (foundRef?.nombre || foundRef?.nombres)
+        ? (foundRef.nombre || foundRef.nombres)
+        : (foundWs?.nombre && foundWs.nombre !== escId ? foundWs.nombre : (typeof item === 'object' && item.nombre && item.nombre !== escId ? item.nombre : escId))
+
+      const celularReal = foundWs?.celular || foundRef?.celular || foundRef?.telefono || (typeof item === 'object' ? item.celular : '')
+
+      if (!mapEsc.has(key)) {
+        mapEsc.set(key, {
+          id_escolta: escId,
+          nombre: nombreReal,
+          identificacion: foundRef?.identificacion || foundWs?.identificacion || (typeof item === 'object' ? item.identificacion : escId),
+          celular: celularReal
+        })
+      } else {
+        const existing = mapEsc.get(key)
+        if (existing.nombre === escId && nombreReal !== escId) {
+          existing.nombre = nombreReal
+        }
+        if (!existing.celular && celularReal) {
+          existing.celular = celularReal
         }
       }
-    })
-  }
+    }
+  })
 
   return Array.from(mapEsc.values())
 })
 
 const activeRecursosItem = computed(() => hoveredRecursosItem.value || props.selectedItem)
 
-const onServiceHover = (event: MouseEvent, item: any) => {
+const showAlertasDrawer = ref(false)
+const hoveredAlertasItem = ref<any | null>(null)
+const alertasModalTop = ref<number>(80)
+
+let leaveTimeout: any = null
+
+// Controladores para el botón "Ver Recursos"
+const onRecursosButtonHover = (event: MouseEvent, item: any) => {
   if (props.activeTab !== 'SERVICIOS') return
+  if (leaveTimeout) clearTimeout(leaveTimeout)
+  showAlertasDrawer.value = false
   hoveredRecursosItem.value = item
-  const target = event.currentTarget as HTMLElement
-  if (target) {
-    recursosModalTop.value = target.offsetTop
+  showRecursosDrawer.value = true
+  const card = (event.currentTarget as HTMLElement).closest('.group') as HTMLElement
+  if (card) {
+    recursosModalTop.value = card.offsetTop
   }
 }
 
-const onServiceLeave = () => {
-  hoveredRecursosItem.value = null
+const onRecursosButtonLeave = () => {
+  leaveTimeout = setTimeout(() => {
+    showRecursosDrawer.value = false
+    hoveredRecursosItem.value = null
+  }, 150)
 }
 
-const openRecursosForItem = (event: MouseEvent, item: any) => {
-  const target = (event.currentTarget as HTMLElement).closest('.group') as HTMLElement
-  if (target) {
-    recursosModalTop.value = target.offsetTop
-  }
-  if (isItemSelected(item)) {
-    showRecursosDrawer.value = !showRecursosDrawer.value
-  } else {
-    emit('select', item)
-    showRecursosDrawer.value = true
+const onModalMouseEnter = () => {
+  if (leaveTimeout) clearTimeout(leaveTimeout)
+}
+
+const onModalMouseLeave = () => {
+  onRecursosButtonLeave()
+}
+
+// Controladores para el botón "Alertas"
+const onAlertasBadgeHover = (event: MouseEvent, item: any) => {
+  if (props.activeTab !== 'SERVICIOS') return
+  if (leaveTimeout) clearTimeout(leaveTimeout)
+  showRecursosDrawer.value = false
+  hoveredAlertasItem.value = item
+  showAlertasDrawer.value = true
+  const card = (event.currentTarget as HTMLElement).closest('.group') as HTMLElement
+  if (card) {
+    alertasModalTop.value = card.offsetTop
   }
 }
 
-const getNombreHardware = (hw: any) => {
-  if (hw.nombre && hw.nombre !== hw.id_hardware && hw.nombre !== hw.serial) return hw.nombre
-  const foundWs = props.hardwareList.find(h => h.id_hardware === hw.id_hardware || h.serial === hw.serial)
-  if (foundWs?.nombre && foundWs.nombre !== hw.id_hardware) return foundWs.nombre
-  if (props.refVehiculos) {
-    const v = props.refVehiculos.find(veh => veh.id_hardware === hw.id_hardware || veh.serial === hw.serial)
-    if (v?.nombre || v?.placa) return v.nombre || v.placa
-  }
-  return hw.nombre || hw.serial || hw.id_hardware || 'Hardware'
+const onAlertasBadgeLeave = () => {
+  leaveTimeout = setTimeout(() => {
+    showAlertasDrawer.value = false
+    hoveredAlertasItem.value = null
+  }, 150)
+}
+
+const onAlertasModalMouseEnter = () => {
+  if (leaveTimeout) clearTimeout(leaveTimeout)
+}
+
+const onAlertasModalMouseLeave = () => {
+  onAlertasBadgeLeave()
 }
 
 const isItemSelected = (item: any) => {
   if (!props.selectedItem) return false
   if (props.activeTab === 'HARDWARE') {
-    return props.selectedItem.serial === item.serial
+    return (item.serial && props.selectedItem.serial === item.serial) ||
+           (item.id_hardware && props.selectedItem.id_hardware === item.id_hardware)
   } else if (props.activeTab === 'SERVICIOS') {
     return props.selectedItem.id_servicio === item.id_servicio
   } else if (props.activeTab === 'ESCOLTAS') {
@@ -261,22 +459,14 @@ const isItemSelected = (item: any) => {
         </div>
       </div>
 
-      <!-- Buscador y Acciones -->
+      <!-- Buscador -->
       <div class="relative flex items-center gap-2">
         <AppInput 
           v-model="localSearchQuery"
           placeholder="Buscar..."
           :icon="Search01Icon"
-          class="flex-1"
+          class="w-full"
         />
-        <button 
-          v-if="activeTab === 'HARDWARE'"
-          @click="emit('reconnect')"
-          title="Reconectar"
-          class="w-10 h-10 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
-        >
-          <HugeiconsIcon :icon="RefreshIcon" :size="14" :class="{ 'animate-spin': wsStatus === 'connecting' }" />
-        </button>
       </div>
     </div>
 
@@ -322,8 +512,6 @@ const isItemSelected = (item: any) => {
           v-for="item in filteredItems"
           :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
           @click="emit('select', item)"
-          @mouseenter="onServiceHover($event, item)"
-          @mouseleave="onServiceLeave"
           class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-3 relative select-none"
           :class="[
             isItemSelected(item)
@@ -367,7 +555,7 @@ const isItemSelected = (item: any) => {
                   : (item.sos ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200')
               ]"
             >
-              {{ item.id_servicio ? `Servicio ${item.id_servicio}` : (item.nombre || item.placa) }}
+              {{ activeTab === 'SERVICIOS' ? (item.id_servicio ? `Servicio ${item.id_servicio}` : item.nombre) : (item.nombre || item.serial || item.id_hardware || item.placa) }}
             </h3>
             
             <!-- Detalles de Servicio -->
@@ -386,20 +574,6 @@ const isItemSelected = (item: any) => {
                   {{ item.modo_fin === 1 ? 'Al llegar' : 'Al descargar' }}
                 </span>
               </div>
-
-              <!-- Botón Ver Recursos (Disponible siempre) -->
-              <div class="mt-2.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/80 flex justify-end">
-                <button
-                  @click.stop="openRecursosForItem($event, item)"
-                  class="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold rounded-lg transition-colors shadow-sm"
-                  :class="isItemSelected(item) && showRecursosDrawer
-                    ? 'bg-[#3b82f6] text-white'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6]'"
-                >
-                  <span>Ver recursos</span>
-                  <HugeiconsIcon :icon="ArrowRight01Icon" :size="12" />
-                </button>
-              </div>
             </template>
 
             <!-- Otros ítems -->
@@ -410,7 +584,7 @@ const isItemSelected = (item: any) => {
             </template>
           </div>
 
-          <!-- Right: Badges e Indicador GPS -->
+          <!-- Right: Badges, Botón Alertas y Botón Ver Recursos -->
           <div class="flex flex-col items-end gap-1.5 shrink-0 relative z-10">
             <div class="flex items-center gap-1.5">
               <span v-if="item.sos" class="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 leading-none select-none tracking-wide animate-pulse">
@@ -420,8 +594,31 @@ const isItemSelected = (item: any) => {
                 <HugeiconsIcon :icon="BatteryCharging01Icon" :size="10.5" class="opacity-80" />
                 {{ item.battery }}%
               </span>
+              <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="GPS Activo"></span>
             </div>
-            <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="GPS Activo"></span>
+
+            <template v-if="activeTab === 'SERVICIOS'">
+              <!-- Botón Alertas (Hover abre modal de alertas) -->
+              <span 
+                v-if="item.alertas && item.alertas.length > 0" 
+                @mouseenter.stop="onAlertasBadgeHover($event, item)"
+                @mouseleave.stop="onAlertasBadgeLeave"
+                class="px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-500 border border-rose-500/30 flex items-center gap-1 animate-pulse cursor-pointer hover:bg-rose-500/25 transition-colors text-[9.5px] font-bold shadow-sm"
+              >
+                <HugeiconsIcon :icon="Alert02Icon" :size="11" />
+                {{ item.alertas.length }} {{ item.alertas.length === 1 ? 'Alerta' : 'Alertas' }}
+              </span>
+
+              <!-- Botón Ver Recursos (Abajo de las alertas, Hover abre modal de recursos) -->
+              <button
+                @mouseenter.stop="onRecursosButtonHover($event, item)"
+                @mouseleave.stop="onRecursosButtonLeave"
+                class="flex items-center gap-1 px-2 py-0.5 text-[9.5px] font-bold rounded-lg transition-colors shadow-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] cursor-pointer"
+              >
+                <span>Ver recursos</span>
+                <HugeiconsIcon :icon="ArrowRight01Icon" :size="10" />
+              </button>
+            </template>
           </div>
         </button>
       </template>
@@ -438,10 +635,12 @@ const isItemSelected = (item: any) => {
     >
       <div 
         v-if="showRecursosDrawer && activeRecursosItem && activeTab === 'SERVICIOS'"
+        @mouseenter="onModalMouseEnter"
+        @mouseleave="onModalMouseLeave"
         :style="{ top: recursosModalTop + 'px' }"
         class="absolute left-[100%] ml-2 w-[270px] bg-white dark:bg-[#13161C] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden flex flex-col"
       >
-        <!-- Header Mini Modal -->
+        <!-- Header Mini Modal Recursos -->
         <div class="p-3 px-3.5 border-b border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/60 dark:bg-white/[0.02]">
           <div class="flex items-center gap-2">
             <div class="w-6 h-6 rounded-md bg-[#3b82f6]/10 text-[#3b82f6] flex items-center justify-center">
@@ -460,7 +659,7 @@ const isItemSelected = (item: any) => {
           </button>
         </div>
 
-        <!-- Contenido Compacto -->
+        <!-- Contenido Compacto Recursos -->
         <div class="max-h-[320px] overflow-y-auto custom-scrollbar p-3 space-y-3">
           <!-- Hardware -->
           <div>
@@ -482,20 +681,39 @@ const isItemSelected = (item: any) => {
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-1">
                     <span class="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate">
-                      {{ getNombreHardware(hw) }}
+                      {{ (props.refHardware?.find(r => r.id_hardware === hw.id_hardware)?.nombre) || hw.nombre || hw.id_hardware }}
                     </span>
                     <span v-if="hw.status_lock" class="text-[8px] font-bold px-1 py-0.2 rounded" :class="hw.status_lock === 'CERRADA' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'">
                       {{ hw.status_lock }}
                     </span>
                   </div>
-                  <p class="text-[9px] text-slate-400 truncate mt-0.5">{{ hw.descripcion || hw.serial || hw.id_hardware }}</p>
                 </div>
-                <div class="text-right shrink-0">
-                  <span v-if="hw.battery !== undefined" class="text-[8.5px] font-bold text-emerald-500 flex items-center gap-0.5 justify-end">
-                    <HugeiconsIcon :icon="BatteryCharging01Icon" :size="9" />
-                    {{ hw.battery }}%
-                  </span>
-                  <span class="text-[8px] font-medium text-slate-400 block mt-0.5">{{ hw.speed || 0 }} km/h</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vehículos -->
+          <div>
+            <div class="flex items-center gap-1 mb-1.5 text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
+              <HugeiconsIcon :icon="Car02Icon" :size="11" class="text-blue-500" />
+              <span>Vehículos ({{ vehiculosDelServicio.length }})</span>
+            </div>
+
+            <div v-if="vehiculosDelServicio.length === 0" class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-center">
+              <span class="text-[9.5px] text-slate-400">Sin vehículos asignados</span>
+            </div>
+
+            <div v-else class="space-y-1">
+              <div 
+                v-for="veh in vehiculosDelServicio" 
+                :key="veh.id_vehiculo || veh.placa"
+                class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800 flex items-center gap-2"
+              >
+                <div class="w-6 h-6 rounded-md bg-blue-500/10 text-blue-500 flex items-center justify-center text-[9px] font-bold shrink-0">
+                  <HugeiconsIcon :icon="Car02Icon" :size="12" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <span class="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">{{ veh.placa || veh.id_vehiculo }}</span>
                 </div>
               </div>
             </div>
@@ -526,6 +744,90 @@ const isItemSelected = (item: any) => {
                   <span class="text-[9px] text-slate-400 truncate block mt-0.5">{{ esc.celular || esc.identificacion || 'Sin contacto' }}</span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- MINI MODAL COMPACTO EXCLUSIVO DE ALERTAS -->
+    <Transition
+      enter-active-class="transition-all duration-200 ease-out"
+      enter-from-class="scale-95 opacity-0 -translate-x-2"
+      enter-to-class="scale-100 opacity-100 translate-x-0"
+      leave-active-class="transition-all duration-150 ease-in"
+      leave-from-class="scale-100 opacity-100 translate-x-0"
+      leave-to-class="scale-95 opacity-0 -translate-x-2"
+    >
+      <div 
+        v-if="showAlertasDrawer && activeAlertasItem && activeTab === 'SERVICIOS'"
+        @mouseenter="onAlertasModalMouseEnter"
+        @mouseleave="onAlertasModalMouseLeave"
+        :style="{ top: alertasModalTop + 'px' }"
+        class="absolute left-[100%] ml-2 w-[270px] bg-white dark:bg-[#13161C] border border-rose-500/30 dark:border-rose-500/30 rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col"
+      >
+        <!-- Header Mini Modal Alertas -->
+        <div class="p-3 px-3.5 border-b border-rose-500/20 dark:border-rose-500/20 flex items-center justify-between bg-rose-500/5">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-md bg-rose-500/15 text-rose-500 flex items-center justify-center">
+              <HugeiconsIcon :icon="Alert02Icon" :size="13" />
+            </div>
+            <div>
+              <h3 class="text-[11px] font-bold text-slate-800 dark:text-white leading-none">Alertas del Servicio</h3>
+              <p class="text-[9px] text-slate-400 font-mono mt-0.5">{{ activeAlertasItem?.id_servicio }}</p>
+            </div>
+          </div>
+          <button 
+            @click="showAlertasDrawer = false"
+            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="12" />
+          </button>
+        </div>
+
+        <!-- Lista de Alertas -->
+        <div class="max-h-[340px] overflow-y-auto custom-scrollbar p-3 space-y-2">
+          <div v-if="alertasDelServicio.length === 0" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center">
+            <span class="text-[9.5px] text-slate-400">Sin alertas activas</span>
+          </div>
+
+          <div 
+            v-for="(alerta, idx) in alertasDelServicio" 
+            :key="alerta.token || idx"
+            class="p-2.5 rounded-xl bg-slate-50 dark:bg-[#16181F] border border-slate-200/70 dark:border-white/[0.06] hover:border-slate-300 dark:hover:border-white/10 transition-all flex flex-col gap-2 shadow-sm"
+          >
+            <!-- Top: Badge + Timestamp -->
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[9px] font-extrabold px-2 py-0.5 rounded-md border tracking-wider uppercase" :class="getAlertInfo(alerta.tipo).colorClass">
+                {{ getAlertInfo(alerta.tipo).label }}
+              </span>
+              <span v-if="alerta.fecha_hora" class="text-[8.5px] font-mono text-slate-400 dark:text-slate-500">
+                {{ alerta.fecha_hora.split(' ')[1] || alerta.fecha_hora }}
+              </span>
+            </div>
+
+            <!-- Acciones parte inferior: Ver en mapa & Solventar -->
+            <div class="flex items-center justify-between gap-1.5 pt-1.5 border-t border-slate-200/50 dark:border-white/[0.05]">
+              <button
+                v-if="alerta.lat && alerta.lon"
+                type="button"
+                @click.stop="emit('focusAlert', alerta)"
+                class="inline-flex items-center gap-1 text-[9.5px] font-bold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors"
+              >
+                <HugeiconsIcon :icon="Location01Icon" :size="10" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+                <span>Ver mapa</span>
+              </button>
+
+              <button
+                type="button"
+                @click.stop="handleSolventarAlerta(alerta)"
+                :disabled="solvingToken === alerta.token"
+                class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white border border-emerald-500/25 text-[9.5px] font-bold transition-all disabled:opacity-50"
+              >
+                <HugeiconsIcon v-if="solvingToken === alerta.token" :icon="Loading03Icon" :size="9" class="animate-spin" />
+                <HugeiconsIcon v-else :icon="Tick01Icon" :size="9" />
+                <span>Solventar</span>
+              </button>
             </div>
           </div>
         </div>

@@ -16,11 +16,42 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   const refEscoltas = ref<any[]>([])
   const refVehiculos = ref<any[]>([])
   const refRutas = ref<any[]>([])
+  const refHardware = ref<any[]>([])
 
   const isLoadingSecondary = ref(false)
   const wsStatus = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
   const wsError = ref<string | null>(null)
 
+  const alertBroadcastChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window
+    ? new BroadcastChannel('innovix_alert_channel')
+    : null
+
+  const removeAlertFromList = (token: string) => {
+    if (!token) return
+    // 1. Eliminar de serviciosList
+    serviciosList.value.forEach(serv => {
+      if (Array.isArray(serv.alertas)) {
+        serv.alertas = serv.alertas.filter((a: any) => a.token !== token)
+      }
+    })
+    // 2. Eliminar de selectedItem
+    if (selectedItem.value && Array.isArray(selectedItem.value.alertas)) {
+      selectedItem.value.alertas = selectedItem.value.alertas.filter((a: any) => a.token !== token)
+    }
+  }
+
+  if (alertBroadcastChannel) {
+    alertBroadcastChannel.onmessage = (event) => {
+      if (event.data && event.data.type === 'ALERT_SOLVED' && event.data.token) {
+        removeAlertFromList(event.data.token)
+      }
+    }
+  }
+
+  const solveAlertByToken = (token: string) => {
+    removeAlertFromList(token)
+    alertBroadcastChannel?.postMessage({ type: 'ALERT_SOLVED', token })
+  }
 
   let socket: WebSocket | null = null
   let reconnectTimeoutId: any = null
@@ -53,8 +84,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     const showLoading = activeTab.value === 'SERVICIOS' && serviciosList.value.length === 0
     if (showLoading) isLoadingSecondary.value = true
     try {
-      // Cargar Rutas y Servicios en paralelo esperando que ambas promesas finalicen
-      const [rutasRes, serviciosRes, escoltasRes, vehiculosRes] = await Promise.all([
+      // Cargar Rutas, Servicios, Escoltas, Vehículos y Hardware en paralelo
+      const [rutasRes, serviciosRes, escoltasRes, vehiculosRes, hardwareRes] = await Promise.all([
         apiClient<{ done: boolean; data: any[] }>('/api/v1/ruta/listar/', {
           method: 'POST',
           body: JSON.stringify({ id_grupo: groupId })
@@ -65,11 +96,15 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         }),
         apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
           method: 'POST',
-          body: JSON.stringify({ id_grupo: groupId, estado: 1 })
+          body: JSON.stringify({ id_grupo: groupId, estado: 0 })
         }),
         apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
           method: 'POST',
-          body: JSON.stringify({ id_grupo: groupId, estado: 1 })
+          body: JSON.stringify({ id_grupo: groupId, estado: 0 })
+        }),
+        apiClient<{ done: boolean; data: any[] }>('/api/v1/hardware/listar_simple/', {
+          method: 'POST',
+          body: JSON.stringify({ id_grupo: groupId, estado: 0 })
         })
       ])
 
@@ -78,20 +113,15 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
       }
       if (serviciosRes.done && Array.isArray(serviciosRes.data)) {
         refServicios.value = serviciosRes.data
-        // Sembrar la lista de la pestaña SERVICIOS SOLO si sigue vacía en este
-        // momento: el WebSocket pudo entregar la carga inicial mientras esta
-        // petición estaba en vuelo, y esos datos NO deben pisarse (traen el
-        // id_ruta y el estado en vivo que listar_tabla no trae igual).
-        if (activeTab.value === 'SERVICIOS' && serviciosList.value.length === 0) {
-          serviciosList.value = serviciosRes.data
-          onDataUpdated()
-        }
       }
       if (escoltasRes.done && Array.isArray(escoltasRes.data)) {
         refEscoltas.value = escoltasRes.data
       }
       if (vehiculosRes.done && Array.isArray(vehiculosRes.data)) {
         refVehiculos.value = vehiculosRes.data
+      }
+      if (hardwareRes.done && Array.isArray(hardwareRes.data)) {
+        refHardware.value = hardwareRes.data
       }
 
       // Consolidar la lista de servicios actual con las referencias resueltas
@@ -128,37 +158,23 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
           body: JSON.stringify(getServiceListPayload(groupId))
         })
         if (res.done && Array.isArray(res.data)) {
-          // Si ya teníamos servicios poblados por el WebSocket, no reemplazamos brutalmente
-          // sino que enriquecemos los datos preservando id_ruta y los datos en vivo.
-          const existingMap = new Map(serviciosList.value.map(s => [String(s.id_servicio || '').trim().toLowerCase(), s]))
-
-          const merged = res.data.map(serv => {
-            const wsId = String(serv.id_servicio || '').trim().toLowerCase()
-            const existing = existingMap.get(wsId)
-            const ref = refServicios.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
-            
-            const rutaId = String(existing?.id_ruta || serv.id_ruta || ref?.id_ruta || '').trim()
-            const rutaRef = refRutas.value.find(r => String(r.id_ruta || '').trim() === rutaId)
-            const nombreRuta = rutaRef?.nombre || existing?.nombre_ruta || ref?.nombre_ruta || ref?.ruta || serv.nombre_ruta || (rutaId ? `Ruta ${rutaId}` : 'Sin Ruta')
-
-            return {
-              ...(ref || {}),
-              ...serv,
-              ...(existing || {}), // los datos de WS tienen mayor prioridad para id_ruta y estado en vivo
-              id_ruta: rutaId,
-              nombre_ruta: nombreRuta,
-              descripcion: nombreRuta
-            }
-          })
-
-          // Si el WS tenía servicios que no estaban en la tabla REST, mantenerlos también
-          existingMap.forEach((existing, key) => {
-            if (!merged.some(m => String(m.id_servicio || '').trim().toLowerCase() === key)) {
-              merged.push(existing)
-            }
-          })
-
-          serviciosList.value = merged
+          refServicios.value = res.data
+          if (serviciosList.value.length > 0) {
+            serviciosList.value = serviciosList.value.map(wsServ => {
+              const wsId = String(wsServ.id_servicio || '').trim().toLowerCase()
+              const ref = refServicios.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
+              const rutaId = String(wsServ.id_ruta || ref?.id_ruta || '').trim()
+              const rutaRef = refRutas.value.find(r => String(r.id_ruta || '').trim() === rutaId)
+              const nombreRuta = rutaRef?.nombre || ref?.nombre_ruta || ref?.ruta || wsServ.nombre_ruta || (rutaId ? `Ruta ${rutaId}` : 'Sin Ruta')
+              return {
+                ...(ref || {}),
+                ...wsServ,
+                id_ruta: rutaId,
+                nombre_ruta: nombreRuta,
+                descripcion: nombreRuta
+              }
+            })
+          }
         }
       } else if (activeTab.value === 'ESCOLTAS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
@@ -166,8 +182,16 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
           body: JSON.stringify({ id_grupo: groupId, estado: 1 })
         })
         if (res.done && Array.isArray(res.data)) {
-          escoltasList.value = res.data
           refEscoltas.value = res.data
+          const existingMap = new Map<string, any>(escoltasList.value.map(e => [e.id_escolta || e.identificacion, e]))
+          res.data.forEach((newItem: any) => {
+            const key = newItem.id_escolta || newItem.identificacion
+            if (key) {
+              const existing = existingMap.get(key)
+              existingMap.set(key, { ...existing, ...newItem })
+            }
+          })
+          escoltasList.value = Array.from(existingMap.values())
         }
       } else if (activeTab.value === 'VEHICULOS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/vehiculo/listar_simple/', {
@@ -187,20 +211,17 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
 
   const showWsModal = ref(false)
 
-  const connectWebSocket = () => {
-    if (reconnectTimeoutId) {
-      clearTimeout(reconnectTimeoutId)
-      reconnectTimeoutId = null
+  const connectWebSocket = (isManualReset = false) => {
+    if (isManualReset) {
+      reconnectAttempts = 0
     }
+    // Desconectar inmediatamente la conexión previa y anular sus handlers
+    disconnectWebSocket()
 
-    if (socket) {
-      socket.onopen = null
-      socket.onmessage = null
-      socket.onerror = null
-      socket.onclose = null
-      socket.close()
-      socket = null
-    }
+    // Limpiar listas en vivo para asegurar que solo se muestren los datos que entregue el WebSocket actual
+    if (activeTab.value === 'SERVICIOS') serviciosList.value = []
+    else if (activeTab.value === 'HARDWARE') hardwareList.value = []
+    // Para ESCOLTAS no vaciamos la lista, para conservar escoltas obtenidos en SERVICIOS hasta recibir la data del WS o REST
 
     isManualDisconnect = false
     wsStatus.value = 'connecting'
@@ -237,19 +258,21 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         if (wsSessionId !== mySessionId) return
         wsStatus.value = 'connected'
         wsError.value = null
-        reconnectAttempts = 0
         showWsModal.value = false
+        console.log(`%c[WebSocket CONECTADO] Pestaña: ${myTab} (Modo ${modo})`, 'color: #10b981; font-weight: bold;')
       }
 
       socket.onmessage = (event) => {
         if (wsSessionId !== mySessionId) return
+        reconnectAttempts = 0
         try {
           const payload = JSON.parse(event.data)
+          console.log(`%c[WebSocket DATA][Pestaña: ${myTab}][Modo ${modo}]`, 'color: #3b82f6; font-weight: bold;', payload)
           if (payload && payload.ev === 50) {
             // 1. Procesar si el payload contiene "servicios" (Modo 1)
             if (Array.isArray(payload.servicios)) {
               const serviciosData = payload.servicios
-              
+
               const mergeServicioInfo = (wsServ: any) => {
                 const wsId = String(wsServ.id_servicio || '').trim().toLowerCase()
                 const existing = serviciosList.value.find(s => String(s.id_servicio || '').trim().toLowerCase() === wsId)
@@ -278,8 +301,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                   if (index !== -1) {
                     const prevIdRuta = serviciosList.value[index].id_ruta
                     const newIdRuta = updatedServicio.id_ruta || prevIdRuta || ''
-                    serviciosList.value[index] = { 
-                      ...serviciosList.value[index], 
+                    serviciosList.value[index] = {
+                      ...serviciosList.value[index],
                       ...updatedServicio,
                       id_ruta: newIdRuta
                     }
@@ -289,8 +312,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                   if (selectedItem.value && String(selectedItem.value.id_servicio || '').trim().toLowerCase() === upId) {
                     const prevIdRuta = selectedItem.value.id_ruta
                     const newIdRuta = updatedServicio.id_ruta || prevIdRuta || ''
-                    selectedItem.value = { 
-                      ...selectedItem.value, 
+                    selectedItem.value = {
+                      ...selectedItem.value,
                       ...updatedServicio,
                       id_ruta: newIdRuta
                     }
@@ -367,7 +390,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                           time_fx: a.fecha_hora || Date.now(),
                           speed: 0,
                           course: 0,
-                          battery: 100,
+                          battery: 0,
                           status_lock: ''
                         })
                       }
@@ -396,7 +419,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
 
               onDataUpdated()
             }
-            
+
             // 2. Procesar si el payload contiene "flota" (Modo 2)
             if (Array.isArray(payload.flota)) {
               if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
@@ -442,13 +465,15 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         }
       }
 
-      socket.onerror = () => {
+      socket.onerror = (err) => {
         if (wsSessionId !== mySessionId) return
         wsError.value = 'Error en la conexión del servidor'
+        console.error(`[WebSocket ERROR][Pestaña: ${myTab}]`, err)
       }
 
       socket.onclose = (event) => {
         if (wsSessionId !== mySessionId) return
+        console.log(`%c[WebSocket DESCONECTADO][Pestaña: ${myTab}]`, 'color: #f59e0b; font-weight: bold;', event)
         wsStatus.value = 'disconnected'
         socket = null
         if (!isManualDisconnect) {
@@ -457,24 +482,27 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
             // Reintentar exactamente a los 5 segundos (5000 ms)
             reconnectTimeoutId = setTimeout(() => connectWebSocket(), 5000)
           } else {
-            wsError.value = 'El Websocket no funciona por favor comuniquese con el administrador'
+            wsError.value = 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.'
             showWsModal.value = true
           }
         }
       }
     } catch (err) {
       wsStatus.value = 'disconnected'
-      wsError.value = 'No se pudo establecer la conexión'
       if (reconnectAttempts < maxReconnectAttempts) {
         reconnectAttempts++
         reconnectTimeoutId = setTimeout(() => connectWebSocket(), 5000)
       } else {
+        wsError.value = 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.'
         showWsModal.value = true
       }
     }
   }
 
   const disconnectWebSocket = () => {
+    if (socket) {
+      console.log(`%c[WebSocket CERRANDO CONEXIÓN PREVIA] Pestaña: ${activeTab.value}`, 'color: #ef4444;')
+    }
     isManualDisconnect = true
     wsSessionId++
     if (reconnectTimeoutId) {
@@ -497,10 +525,15 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   watch(activeTab, () => {
     loadSecondaryData()
     if (activeTab.value === 'SERVICIOS' || activeTab.value === 'HARDWARE' || activeTab.value === 'ESCOLTAS') {
-      connectWebSocket()
+      connectWebSocket(true)
     } else {
       disconnectWebSocket()
     }
+  })
+
+  onUnmounted(() => {
+    disconnectWebSocket()
+    alertBroadcastChannel?.close()
   })
 
   return {
@@ -511,6 +544,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     refServicios,
     refEscoltas,
     refVehiculos,
+    refHardware,
     isLoadingSecondary,
     wsStatus,
     wsError,
@@ -518,6 +552,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     loadAllReferenceData,
     loadSecondaryData,
     connectWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+    solveAlertByToken
   }
 }

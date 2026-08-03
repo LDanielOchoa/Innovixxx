@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '../../../stores/auth.store'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -11,6 +13,11 @@ import TrackingSidebar from '../components/TrackingSidebar.vue'
 
 import { useRouteDrawer } from '../../rutas/composables/useRouteDrawer'
 import { fetchRutaDetallesApi } from '../../rutas/services/rutas.api'
+import rutaInicio from '../../../assets/ruta_inicio.png'
+import rutaFin from '../../../assets/ruta_fin.png'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 const { loadGoogleMaps } = useGoogleMaps()
 
@@ -59,6 +66,9 @@ const hoveredPosition = ref({ top: 0, left: 0 })
 const hoveredEscoltaItem = ref<any | null>(null)
 const hoveredEscoltaPosition = ref({ top: 0, left: 0 })
 
+const hoveredCluster = ref<any | null>(null)
+const hoveredClusterPosition = ref({ top: 0, left: 0 })
+
 // Agrupa múltiples solicitudes de repintado en un solo frame (rAF).
 // El WebSocket puede entregar varios mensajes por segundo; sin esto
 // cada mensaje dispararía un repintado completo de todos los marcadores.
@@ -80,19 +90,31 @@ const {
   refServicios,
   refEscoltas,
   refVehiculos,
+  refHardware,
   isLoadingSecondary,
   wsStatus,
   wsError,
   showWsModal,
   loadAllReferenceData,
   connectWebSocket,
-  disconnectWebSocket
+  disconnectWebSocket,
+  solveAlertByToken
 } = useTrackingWebSocket(activeTab, selectedItem, scheduleMarkersUpdate)
 
 // Conectar el WebSocket y cargar las referencias de inmediato (no necesitan
 // el DOM): gana el tiempo que antes se perdía esperando al onMounted.
 connectWebSocket()
 loadAllReferenceData()
+
+const handleLogoutFromWsModal = () => {
+  showWsModal.value = false
+  authStore.logout(router)
+  try {
+    window.close()
+  } catch (e) {
+    // Si la pestaña no fue abierta por script, el logout ya redirigió a /login
+  }
+}
 
 // Computeds para encontrar información relacionada en hover
 const hoveredService = computed(() => {
@@ -133,6 +155,156 @@ const hoveredEscoltaService = computed(() => {
 
 // Estado del mapa y marcadores
 let markersMap = new Map<string, any>()
+let clustersMap = new Map<string, any>()
+const TRACKING_RENDER_SIZE = 112
+const TRACKING_RENDER_ANCHOR_TOP = `-${TRACKING_RENDER_SIZE / 2}px`
+
+interface ClusterItem {
+  type: 'hardware' | 'escolta'
+  id: string
+  lat: number
+  lon: number
+  data: any
+}
+
+interface Cluster {
+  id: string
+  centerLat: number
+  centerLng: number
+  items: ClusterItem[]
+}
+
+const CLUSTER_RADIUS_PX = 75
+
+const groupItemsIntoClusters = (items: ClusterItem[], zoom: number): { clusters: Cluster[]; singleItems: ClusterItem[] } => {
+  const points = items.map(item => {
+    const lat = item.lat
+    const lng = item.lon
+    const sinLat = Math.sin((lat * Math.PI) / 180)
+    const clampedSin = Math.max(-0.9999, Math.min(0.9999, sinLat))
+    const scale = 256 * Math.pow(2, zoom)
+    const x = ((lng + 180) / 360) * scale
+    const y = (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * scale
+    return { item, lat, lng, x, y, visited: false }
+  })
+
+  const clusters: Cluster[] = []
+  const singleItems: ClusterItem[] = []
+
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].visited) continue
+    points[i].visited = true
+
+    const currentCluster: typeof points = [points[i]]
+
+    for (let j = i + 1; j < points.length; j++) {
+      if (points[j].visited) continue
+      const dx = points[i].x - points[j].x
+      const dy = points[i].y - points[j].y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      if (dist <= CLUSTER_RADIUS_PX) {
+        points[j].visited = true
+        currentCluster.push(points[j])
+      }
+    }
+
+    if (currentCluster.length > 1) {
+      let sumLat = 0
+      let sumLng = 0
+      currentCluster.forEach(p => {
+        sumLat += p.lat
+        sumLng += p.lng
+      })
+      const centerLat = sumLat / currentCluster.length
+      const centerLng = sumLng / currentCluster.length
+
+      clusters.push({
+        id: `cluster_${centerLat.toFixed(5)}_${centerLng.toFixed(5)}_${currentCluster.length}`,
+        centerLat,
+        centerLng,
+        items: currentCluster.map(p => p.item)
+      })
+    } else {
+      singleItems.push(currentCluster[0].item)
+    }
+  }
+
+  return { clusters, singleItems }
+}
+
+const createClusterMarkerElement = (cluster: Cluster) => {
+  const container = document.createElement('div')
+  container.className = 'custom-cluster-marker'
+  container.style.cssText = 'position: relative; width: 0; height: 0; cursor: pointer; user-select: none; pointer-events: auto;'
+
+  const count = cluster.items.length
+  const currentTab = activeTab.value
+
+  let borderStyle = 'border-[#3b82f6]/50'
+  let textStyle = 'text-[#3b82f6]'
+  let iconBg = 'bg-[#3b82f6]/10'
+  let needleBorder = 'border-t-[#3b82f6]'
+  let labelText = count === 1 ? 'Servicio' : 'Servicios'
+
+  if (currentTab === 'HARDWARE') {
+    borderStyle = 'border-emerald-500/50'
+    textStyle = 'text-emerald-400'
+    iconBg = 'bg-emerald-500/10'
+    needleBorder = 'border-t-emerald-500'
+    labelText = count === 1 ? 'Dispositivo' : 'Dispositivos'
+  } else if (currentTab === 'ESCOLTAS') {
+    borderStyle = 'border-purple-500/50'
+    textStyle = 'text-purple-400'
+    iconBg = 'bg-purple-500/10'
+    needleBorder = 'border-t-purple-500'
+    labelText = count === 1 ? 'Escolta' : 'Escoltas'
+  }
+
+  const iconSvg = currentTab === 'HARDWARE'
+    ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M15 2v2M9 2v2M15 20v2M9 20v2M2 15h2M2 9h2M20 15h2M20 9h2"/></svg>`
+    : (currentTab === 'ESCOLTAS'
+      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`)
+
+  container.innerHTML = `
+    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
+      <!-- Insignia sobria y profesional -->
+      <div class="px-2.5 py-1 rounded-lg bg-[#0f121a]/95 border ${borderStyle} shadow-md backdrop-blur-md flex items-center gap-2 text-white">
+        <div class="w-5 h-5 rounded ${iconBg} ${textStyle} flex items-center justify-center shrink-0">
+          ${iconSvg}
+        </div>
+        <div class="flex items-center gap-1 font-sans">
+          <span class="text-[12px] font-bold ${textStyle} font-mono leading-none">${count}</span>
+          <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300 leading-none">
+            ${labelText}
+          </span>
+        </div>
+      </div>
+      <!-- Puntero sutil al mapa -->
+      <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] ${needleBorder} -mt-[0.5px]"></div>
+    </div>
+  `
+
+  container.addEventListener('mouseenter', () => {
+    const mapDiv = map.value?.getDiv()
+    if (!mapDiv) return
+    const mapRect = mapDiv.getBoundingClientRect()
+    const markerRect = container.getBoundingClientRect()
+
+    hoveredClusterPosition.value = {
+      top: markerRect.top - mapRect.top - 10,
+      left: markerRect.left - mapRect.left + (markerRect.width / 2)
+    }
+    hoveredCluster.value = cluster
+  })
+
+  container.addEventListener('mouseleave', () => {
+    hoveredCluster.value = null
+  })
+
+  return container
+}
+
 const {
   map,
   initMap: initMapInstance,
@@ -174,6 +346,21 @@ const initMap = async () => {
 
 const clearAllMarkers = () => {
   clearRouteLines()
+  clearRouteEndpointMarkers()
+  if (alertMarkerRef.value) {
+    try {
+      if (typeof alertMarkerRef.value.setMap === 'function') alertMarkerRef.value.setMap(null)
+      else alertMarkerRef.value.map = null
+    } catch (_) {}
+    alertMarkerRef.value = null
+  }
+  clustersMap.forEach(m => {
+    try {
+      if (typeof m.setMap === 'function') m.setMap(null)
+      else m.map = null
+    } catch (_) {}
+  })
+  clustersMap.clear()
   markersMap.forEach(m => {
     const frameId = m.animationFrameId
     if (frameId) cancelAnimationFrame(frameId)
@@ -407,8 +594,9 @@ const updateEscoltaMarkerContent = (marker: any, esc: any, isSelected: boolean) 
 
   if (marker.threeRenderer) {
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    const mapHeading = map.value ? map.value.getHeading() || 0 : 0
     const colorHex = isSelected ? 0x22d3ee : 0x0088ff
-    marker.threeRenderer.update(course, isSelected, mapTilt, 100, colorHex, false)
+    marker.threeRenderer.update(course, isSelected, mapTilt, 100, colorHex, false, mapHeading)
   }
 
   const scale = getZoomScaleFactor()
@@ -431,9 +619,10 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
 
   if (marker.threeRenderer) {
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    const mapHeading = map.value ? map.value.getHeading() || 0 : 0
     const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
     const showBatteryRing = activeTab.value !== 'SERVICIOS'
-    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex, showBatteryRing)
+    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex, showBatteryRing, mapHeading)
   }
 
   const scale = getZoomScaleFactor()
@@ -472,9 +661,17 @@ const animateMarker = (
   const targetSpeed = hw.speed || 0
   const targetBattery = hw.battery !== undefined ? hw.battery : 100
 
-  const startPosition = marker.position
-  if (!startPosition || !startPosition.lat) {
-    marker.position = { lat: targetLat, lng: targetLng }
+  // Mantener la posición interpolada fuera de Google Maps. La API puede
+  // convertir el literal en un LatLng entre frames y perder precisión al
+  // iniciar la siguiente animación.
+  const startPosition = marker.currentPosition || marker.position
+  const getCoordinate = (value: number | (() => number)) =>
+    typeof value === 'function' ? value() : value
+
+  if (!startPosition || startPosition.lat === undefined || startPosition.lng === undefined) {
+    const position = { lat: targetLat, lng: targetLng }
+    marker.currentPosition = position
+    marker.position = position
     marker.currentCourse = targetCourse
     marker.currentSpeed = targetSpeed
     marker.currentBattery = targetBattery
@@ -483,13 +680,15 @@ const animateMarker = (
     return
   }
 
-  const startLat = typeof startPosition.lat === 'function' ? startPosition.lat() : startPosition.lat
-  const startLng = typeof startPosition.lng === 'function' ? startPosition.lng() : startPosition.lng
+  const startLat = getCoordinate(startPosition.lat)
+  const startLng = getCoordinate(startPosition.lng)
 
   const latDiff = Math.abs(targetLat - startLat)
   const lngDiff = Math.abs(targetLng - startLng)
   if (latDiff < 0.00001 && lngDiff < 0.00001) {
-    marker.position = { lat: targetLat, lng: targetLng }
+    const position = { lat: targetLat, lng: targetLng }
+    marker.currentPosition = position
+    marker.position = position
     marker.currentCourse = targetCourse
     marker.currentSpeed = targetSpeed
     marker.currentBattery = targetBattery
@@ -542,7 +741,9 @@ const animateMarker = (
 
     const currentLat = startLat + (targetLat - startLat) * easeProgress
     const currentLng = startLng + (targetLng - startLng) * easeProgress
-    marker.position = { lat: currentLat, lng: currentLng }
+    const position = { lat: currentLat, lng: currentLng }
+    marker.currentPosition = position
+    marker.position = position
 
     const currentCourse = startCourse + (adjustedTargetCourse - startCourse) * easeProgress
     const currentSpeed = startSpeed + (targetSpeed - startSpeed) * easeProgress
@@ -572,16 +773,19 @@ const animateMarker = (
 
     if (marker.threeRenderer) {
       const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+      const mapHeading = map.value ? map.value.getHeading() || 0 : 0
       const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
       const showBatteryRing = activeTab.value !== 'SERVICIOS'
-      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery, arrowColorHex, showBatteryRing)
+      marker.threeRenderer.update(currentCourse, isSelected, mapTilt, currentBattery, arrowColorHex, showBatteryRing, mapHeading)
     }
 
     if (progress < 1) {
       marker.animationFrameId = requestAnimationFrame(animateStep)
     } else {
       marker.animationFrameId = null
-      marker.position = { lat: targetLat, lng: targetLng }
+      const position = { lat: targetLat, lng: targetLng }
+      marker.currentPosition = position
+      marker.position = position
       marker.currentCourse = targetCourse % 360
       marker.currentSpeed = targetSpeed
       marker.currentBattery = targetBattery
@@ -612,130 +816,243 @@ const attachThreeRenderer = (marker: any, canvas: HTMLCanvasElement | null, refr
 
 const updateMarkersOnMap = () => {
   if (!map.value) return
-  const activeKeys = new Set<string>()
 
-  hardwareList.value.forEach(hw => {
-    const latNum = Number(hw.lat)
-    const lonNum = Number(hw.lon)
-    const hasCoordinates = !isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0
-    if (!hasCoordinates) return
+  const currentZoom = map.value.getZoom() || 13
 
-    activeKeys.add(hw.serial)
+  // 1. Recopilar los elementos con coordenadas válidas según la pestaña activa
+  const allActiveItems: ClusterItem[] = []
 
-    let marker = markersMap.get(hw.serial)
-    const isSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
-    const isBelonging = isItemBelongingToSelectedService(hw.id_servicio)
-
-    if (marker) {
-      // animateMarker ya actualiza el contenido del marcador en cada frame
-      // y al finalizar; no es necesario un updateMarkerContent extra aquí.
-      animateMarker(marker, latNum, lonNum, hw.course || 0, hw)
-      marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
-      if (marker.content) {
-        (marker.content as HTMLElement).style.opacity = isBelonging ? '1' : '0.25';
-        (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+  if (activeTab.value === 'SERVICIOS' || activeTab.value === 'HARDWARE') {
+    hardwareList.value.forEach(hw => {
+      const latNum = Number(hw.lat)
+      const lonNum = Number(hw.lon)
+      if (!isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0) {
+        allActiveItems.push({ type: 'hardware', id: hw.serial, lat: latNum, lon: lonNum, data: hw })
       }
-    } else {
-      const position = { lat: latNum, lng: lonNum }
-      const content = createHardwareMarkerElement(hw, isSelected)
-      content.style.opacity = isBelonging ? '1' : '0.25'
-      content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
-      content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
-      
-      marker = new (google.maps as any).marker.AdvancedMarkerElement({
-        position,
-        map: map.value,
-        title: hw.nombre,
-        content,
-        zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
-      })
+    })
+  }
 
-      const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
-      attachThreeRenderer(marker, canvas, () => {
-        const stillSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
-        updateMarkerContent(marker, hw, !!stillSelected)
-      })
+  if (activeTab.value === 'SERVICIOS' || activeTab.value === 'ESCOLTAS') {
+    escoltasList.value.forEach(esc => {
+      const latNum = Number(esc.lat)
+      const lonNum = Number(esc.lon)
+      if (!isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0) {
+        allActiveItems.push({ type: 'escolta', id: esc.id_escolta, lat: latNum, lon: lonNum, data: esc })
+      }
+    })
+  }
 
-      marker.currentCourse = hw.course || 0
-      marker.currentSpeed = hw.speed || 0
-      marker.currentBattery = hw.battery !== undefined ? hw.battery : 100
-      marker.currentLockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
+  // Agrupar solo en vistas lejanas (zoom inferior a 15)
+  const shouldCluster = currentZoom < 15
 
-      updateMarkerContent(marker, hw, isSelected)
+  let singleItems: ClusterItem[] = []
+  let clusters: Cluster[] = []
 
-      marker.addListener('click', () => {
-        selectItem(hw)
-      })
+  if (shouldCluster && allActiveItems.length > 1) {
+    const grouped = groupItemsIntoClusters(allActiveItems, currentZoom)
+    clusters = grouped.clusters
+    singleItems = grouped.singleItems
+  } else {
+    singleItems = allActiveItems
+  }
 
-      markersMap.set(hw.serial, marker)
+  const activeSingleKeys = new Set<string>()
+  singleItems.forEach(item => activeSingleKeys.add(item.id))
+
+  const activeClusterKeys = new Set<string>()
+  clusters.forEach(c => activeClusterKeys.add(c.id))
+
+  // Contar superposiciones de coordenadas para aplicar abanico en micro-círculo
+  const coordCounts = new Map<string, number>()
+  const coordIndices = new Map<string, number>()
+  singleItems.forEach(item => {
+    const key = `${item.lat.toFixed(5)}_${item.lon.toFixed(5)}`
+    coordCounts.set(key, (coordCounts.get(key) || 0) + 1)
+  })
+
+  // 2. Renderizar / actualizar marcadores individuales activos
+  singleItems.forEach((item, itemIdx) => {
+    const key = `${item.lat.toFixed(5)}_${item.lon.toFixed(5)}`
+    const totalSame = coordCounts.get(key) || 1
+    let itemLat = item.lat
+    let itemLon = item.lon
+
+    if (totalSame > 1) {
+      const idx = coordIndices.get(key) || 0
+      coordIndices.set(key, idx + 1)
+      const angle = (2 * Math.PI * idx) / totalSame
+      const radius = 0.00012
+      itemLat += Math.sin(angle) * radius
+      itemLon += Math.cos(angle) * radius
+    }
+
+    if (item.type === 'hardware') {
+      const hw = item.data
+      let marker = markersMap.get(hw.serial)
+      const isSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
+      const isBelonging = isItemBelongingToSelectedService(hw.id_servicio)
+
+      if (marker) {
+        const wasHidden = !marker.map
+        marker.map = map.value
+        animateMarker(marker, itemLat, itemLon, hw.course || 0, hw)
+        marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
+        if (marker.content) {
+          const el = marker.content as HTMLElement
+          el.style.opacity = isBelonging ? '1' : '0.25'
+          el.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+          if (wasHidden) {
+            el.style.animationDelay = `${(itemIdx % 6) * 35}ms`
+            el.classList.remove('animate-marker-pop')
+            void el.offsetWidth
+            el.classList.add('animate-marker-pop')
+          }
+        }
+      } else {
+        const position = { lat: itemLat, lng: itemLon }
+        const content = createHardwareMarkerElement(hw, isSelected)
+        content.style.opacity = isBelonging ? '1' : '0.25'
+        content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+        content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
+        content.style.animationDelay = `${(itemIdx % 6) * 35}ms`
+        content.classList.add('animate-marker-pop')
+
+        marker = new (google.maps as any).marker.AdvancedMarkerElement({
+          position,
+          map: map.value,
+          title: hw.nombre,
+          content,
+          anchorLeft: '-50%',
+          anchorTop: TRACKING_RENDER_ANCHOR_TOP,
+          zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
+        })
+
+        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+        attachThreeRenderer(marker, canvas, () => {
+          const stillSelected = selectedItem.value && (selectedItem.value.serial === hw.serial || selectedItem.value.id_hardware === hw.serial)
+          updateMarkerContent(marker, hw, !!stillSelected)
+        })
+
+        marker.currentCourse = hw.course || 0
+        marker.currentPosition = position
+        marker.currentSpeed = hw.speed || 0
+        marker.currentBattery = hw.battery !== undefined ? hw.battery : 100
+        marker.currentLockProgress = formatLockStatus(hw.status_lock) === 'CERRADO' ? 1 : 0
+
+        updateMarkerContent(marker, hw, isSelected)
+
+        marker.addListener('click', () => {
+          selectItem(hw)
+        })
+
+        markersMap.set(hw.serial, marker)
+      }
+    } else if (item.type === 'escolta') {
+      const esc = item.data
+      let marker = markersMap.get(esc.id_escolta)
+      const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+      const isBelonging = isItemBelongingToSelectedService(esc.id_servicio)
+
+      if (marker) {
+        const wasHidden = !marker.map
+        marker.map = map.value
+        marker.position = { lat: itemLat, lng: itemLon }
+        marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
+        updateEscoltaMarkerContent(marker, esc, isSelected)
+        if (marker.content) {
+          const el = marker.content as HTMLElement
+          el.style.opacity = isBelonging ? '1' : '0.25'
+          el.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+          if (wasHidden) {
+            el.style.animationDelay = `${(itemIdx % 6) * 35}ms`
+            el.classList.remove('animate-marker-pop')
+            void el.offsetWidth
+            el.classList.add('animate-marker-pop')
+          }
+        }
+      } else {
+        const position = { lat: itemLat, lng: itemLon }
+        const content = createEscoltaMarkerElement(esc, isSelected)
+        content.style.opacity = isBelonging ? '1' : '0.25'
+        content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
+        content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
+        content.style.animationDelay = `${(itemIdx % 6) * 35}ms`
+        content.classList.add('animate-marker-pop')
+
+        marker = new (google.maps as any).marker.AdvancedMarkerElement({
+          position,
+          map: map.value,
+          title: esc.nombre,
+          content,
+          anchorLeft: '-50%',
+          anchorTop: TRACKING_RENDER_ANCHOR_TOP,
+          zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
+        })
+
+        const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
+        attachThreeRenderer(marker, canvas, () => {
+          const stillSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
+          updateEscoltaMarkerContent(marker, esc, !!stillSelected)
+        })
+
+        marker.currentCourse = esc.course || 0
+        marker.currentPosition = position
+        updateEscoltaMarkerContent(marker, esc, isSelected)
+
+        marker.addListener('click', () => {
+          selectItem(esc)
+        })
+
+        markersMap.set(esc.id_escolta, marker)
+      }
     }
   })
 
-  escoltasList.value.forEach(esc => {
-    const latNum = Number(esc.lat)
-    const lonNum = Number(esc.lon)
-    const hasCoordinates = !isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0
-    if (!hasCoordinates) return
-
-    activeKeys.add(esc.id_escolta)
-
-    let marker = markersMap.get(esc.id_escolta)
-    const isSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
-    const isBelonging = isItemBelongingToSelectedService(esc.id_servicio)
-
-    if (marker) {
-      marker.position = { lat: latNum, lng: lonNum }
-      marker.zIndex = isSelected ? 1000 : (isBelonging ? 10 : 1)
-      updateEscoltaMarkerContent(marker, esc, isSelected)
-      if (marker.content) {
-        (marker.content as HTMLElement).style.opacity = isBelonging ? '1' : '0.25';
-        (marker.content as HTMLElement).style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
-      }
-    } else {
-      const position = { lat: latNum, lng: lonNum }
-      const content = createEscoltaMarkerElement(esc, isSelected)
-      content.style.opacity = isBelonging ? '1' : '0.25'
-      content.style.filter = isBelonging ? 'none' : 'grayscale(60%) brightness(0.6)'
-      content.style.transition = 'opacity 0.3s ease, filter 0.3s ease'
-
-      marker = new (google.maps as any).marker.AdvancedMarkerElement({
-        position,
-        map: map.value,
-        title: esc.nombre,
-        content,
-        zIndex: isSelected ? 1000 : (isBelonging ? 10 : 1)
-      })
-
-      const canvas = content.querySelector('.marker-3d-canvas') as HTMLCanvasElement | null
-      attachThreeRenderer(marker, canvas, () => {
-        const stillSelected = selectedItem.value && selectedItem.value.id_escolta === esc.id_escolta
-        updateEscoltaMarkerContent(marker, esc, !!stillSelected)
-      })
-
-      marker.currentCourse = esc.course || 0
-      updateEscoltaMarkerContent(marker, esc, isSelected)
-
-      marker.addListener('click', () => {
-        selectItem(esc)
-      })
-
-      markersMap.set(esc.id_escolta, marker)
-    }
-  })
-
+  // Ocultar marcadores individuales agrupados (manteniendo viva la caché)
   markersMap.forEach((marker, key) => {
-    if (!activeKeys.has(key)) {
+    if (!activeSingleKeys.has(key)) {
       const oldFrameId = marker.animationFrameId
       if (oldFrameId) {
         cancelAnimationFrame(oldFrameId)
         marker.animationFrameId = null
       }
-      if (marker.threeRenderer) {
-        marker.threeRenderer.destroy()
-        marker.threeRenderer = null
-      }
       marker.map = null
-      markersMap.delete(key)
+    }
+  })
+
+  // 3. Renderizar / actualizar marcadores de grupos (clusters)
+  clusters.forEach(cluster => {
+    let cMarker = clustersMap.get(cluster.id)
+    if (cMarker) {
+      cMarker.map = map.value
+      cMarker.position = { lat: cluster.centerLat, lng: cluster.centerLng }
+    } else {
+      const content = createClusterMarkerElement(cluster)
+      cMarker = new (google.maps as any).marker.AdvancedMarkerElement({
+        position: { lat: cluster.centerLat, lng: cluster.centerLng },
+        map: map.value,
+        title: `${cluster.items.length} equipos agrupados`,
+        content,
+        zIndex: 500
+      })
+
+      cMarker.addListener('click', () => {
+        if (map.value) {
+          map.value.panTo({ lat: cluster.centerLat, lng: cluster.centerLng })
+          map.value.setZoom(16)
+          updateMarkersOnMap()
+        }
+      })
+
+      clustersMap.set(cluster.id, cMarker)
+    }
+  })
+
+  // Limpiar agrupaciones que ya no existen
+  clustersMap.forEach((cMarker, key) => {
+    if (!activeClusterKeys.has(key)) {
+      cMarker.map = null
+      clustersMap.delete(key)
     }
   })
 }
@@ -767,16 +1084,17 @@ watch(map, (newMap) => {
 
     newMap.addListener('idle', () => {
       adjustMapTilt(newMap)
+      updateMarkersOnMap()
     })
 
     newMap.addListener('zoom_changed', () => {
-      // Solo ajustar el tilt: la escala de los marcadores es constante,
-      // por lo que no es necesario repintarlos en cada paso de zoom.
       adjustMapTilt(newMap)
+      updateMarkersOnMap()
     })
 
-    newMap.addListener('tilt_changed', () => {
+    const repaintRenderers = () => {
       const currentTilt = newMap.getTilt() || 0
+      const currentHeading = newMap.getHeading() || 0
       // Índices O(1) para evitar un find() lineal por cada marcador
       const hwBySerial = new Map(hardwareList.value.map((h: any) => [h.serial, h]))
       const escById = new Map(escoltasList.value.map((e: any) => [e.id_escolta, e]))
@@ -789,7 +1107,7 @@ watch(map, (newMap) => {
           const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
           const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
           const showBatteryRing = activeTab.value !== 'SERVICIOS'
-          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, showBatteryRing)
+          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, showBatteryRing, currentHeading)
           return
         }
         const esc = escById.get(key)
@@ -797,21 +1115,121 @@ watch(map, (newMap) => {
           const isSelected = selectedItem.value && selectedItem.value.id_escolta === key
           const course = marker.currentCourse !== undefined ? marker.currentCourse : (esc.course || 0)
           const colorHex = isSelected ? 0x22d3ee : 0x0088ff
-          marker.threeRenderer.update(course, isSelected, currentTilt, 100, colorHex, false)
+          marker.threeRenderer.update(course, isSelected, currentTilt, 100, colorHex, false, currentHeading)
         }
       })
-    })
+    }
+
+    newMap.addListener('tilt_changed', repaintRenderers)
+    newMap.addListener('heading_changed', repaintRenderers)
   }
 })
 
-const selectItem = (item: any) => {
-  selectedItem.value = item
 
-  if (item.lat && item.lon && map.value) {
-    map.value.panTo({ lat: item.lat, lng: item.lon })
-    map.value.setZoom(17)
-    adjustMapTilt(map.value)
+const alertMarkerRef = ref<any>(null)
+
+const getAlertLabel = (tipo: number) => {
+  switch (tipo) {
+    case 1: return 'Exceso de velocidad'
+    case 2: return 'SOS / Emergencia'
+    case 3: return 'Salida de ruta'
+    case 4: return 'Candado abierto'
+    default: return `Alerta tipo ${tipo}`
   }
+}
+
+const focusAlertOnMap = (alerta: any) => {
+  const latNum = Number(alerta.lat)
+  const lonNum = Number(alerta.lon)
+  if (!map.value || isNaN(latNum) || isNaN(lonNum) || (latNum === 0 && lonNum === 0)) return
+
+  // Limpiar marcador de alerta anterior si existe
+  if (alertMarkerRef.value) {
+    try {
+      if (typeof alertMarkerRef.value.setMap === 'function') alertMarkerRef.value.setMap(null)
+      else alertMarkerRef.value.map = null
+    } catch (_) {}
+    alertMarkerRef.value = null
+  }
+
+  const label = getAlertLabel(alerta.tipo)
+  const horaStr = alerta.fecha_hora ? (alerta.fecha_hora.split(' ')[1] || alerta.fecha_hora) : ''
+
+  // Contenedor principal sin transforms CSS en la raíz para evitar conflictos con Google Maps
+  const alertEl = document.createElement('div')
+  alertEl.className = 'custom-alert-marker'
+  alertEl.style.cssText = 'position: relative; width: 0; height: 0; cursor: pointer; user-select: none; pointer-events: auto;'
+
+  alertEl.innerHTML = `
+    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
+      <!-- Label flotante simple y limpio -->
+      <div class="mb-1.5 px-2.5 py-1 bg-[#0b0f19]/95 text-white text-[10px] font-bold tracking-wide rounded-lg border border-rose-500/40 shadow-[0_4px_16px_rgba(0,0,0,0.6)] backdrop-blur-md flex items-center gap-1.5 whitespace-nowrap">
+        <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+        <span class="text-rose-400 font-sans uppercase text-[9.5px]">${label}</span>
+        ${horaStr ? `<span class="text-slate-400 font-mono text-[9px] border-l border-slate-700/80 pl-1.5">${horaStr}</span>` : ''}
+      </div>
+
+      <!-- Icono/Punto moderno de la alerta -->
+      <div class="relative flex items-center justify-center">
+        <!-- Aura pulsante exterior sutil -->
+        <div class="absolute w-7 h-7 rounded-full bg-rose-500/25 animate-ping pointer-events-none"></div>
+        
+        <!-- Badge circular principal con icono de advertencia -->
+        <div class="relative w-7 h-7 rounded-full bg-gradient-to-b from-rose-500 to-rose-600 border-2 border-white/90 shadow-[0_4px_12px_rgba(225,29,72,0.4)] flex items-center justify-center text-white">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 9v4m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 17c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Puntero en aguja inferior (apunta exacto a las coordenadas lat/lon) -->
+      <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] border-t-rose-600 -mt-[0.5px]"></div>
+    </div>
+  `
+
+  if ((google.maps as any).marker?.AdvancedMarkerElement) {
+    alertMarkerRef.value = new (google.maps as any).marker.AdvancedMarkerElement({
+      position: { lat: latNum, lng: lonNum },
+      map: map.value,
+      title: `${label} (${alerta.fecha_hora || ''})`,
+      content: alertEl,
+      zIndex: 2500
+    })
+  } else {
+    alertMarkerRef.value = new (google.maps as any).Marker({
+      position: { lat: latNum, lng: lonNum },
+      map: map.value,
+      title: `${label} (${alerta.fecha_hora || ''})`,
+      zIndex: 2500
+    })
+  }
+
+  map.value.panTo({ lat: latNum, lng: lonNum })
+  map.value.setZoom(17)
+  adjustMapTilt(map.value)
+}
+
+const routeEndpointMarkers = ref<any[]>([])
+
+const clearRouteEndpointMarkers = () => {
+  routeEndpointMarkers.value.forEach(m => {
+    try {
+      if (typeof m.setMap === 'function') m.setMap(null)
+      m.map = null
+    } catch (_) {}
+  })
+  routeEndpointMarkers.value = []
+}
+
+const createEndpointMarkerElement = (imgUrl: string, titleText: string) => {
+  const container = document.createElement('div')
+  container.style.cssText = 'position: relative; width: 0; height: 0; pointer-events: auto; user-select: none;'
+  container.innerHTML = `
+    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 50%); display: flex; flex-direction: column; align-items: center;" title="${titleText}">
+      <img src="${imgUrl}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));" />
+    </div>
+  `
+  return container
 }
 
 // Caché de paradas por ruta para que re-seleccionar un servicio dibuje
@@ -821,9 +1239,49 @@ const routeParadasCache = new Map<string, any[]>()
 // usuario ya seleccionó otro ítem (evita dibujar rutas obsoletas).
 let routeRequestSeq = 0
 
-watch(selectedItem, async (newVal, oldVal) => {
-  updateMarkersOnMap()
+const selectItem = (item: any) => {
+  // Si el usuario hace clic sobre el mismo ítem seleccionado, deseleccionar
+  if (
+    selectedItem.value &&
+    (
+      (item.id_servicio && selectedItem.value.id_servicio === item.id_servicio) ||
+      (item.serial && selectedItem.value.serial === item.serial) ||
+      (item.id_escolta && selectedItem.value.id_escolta === item.id_escolta)
+    )
+  ) {
+    selectedItem.value = null
+  } else {
+    selectedItem.value = item
+  }
+
+  routeRequestSeq++
   clearRouteLines()
+  clearRouteEndpointMarkers()
+
+  if (selectedItem.value && selectedItem.value.lat && selectedItem.value.lon && map.value) {
+    map.value.panTo({ lat: selectedItem.value.lat, lng: selectedItem.value.lon })
+    map.value.setZoom(17)
+    adjustMapTilt(map.value)
+  }
+}
+
+// Al cambiar de pestaña (SERVICIOS -> HARDWARE -> ESCOLTAS), limpiar la selección, hovers y todas las rutas
+watch(activeTab, () => {
+  selectedItem.value = null
+  hoveredItem.value = null
+  hoveredEscoltaItem.value = null
+  hoveredCluster.value = null
+  routeRequestSeq++
+  clearRouteLines()
+  clearRouteEndpointMarkers()
+  updateMarkersOnMap()
+})
+
+watch(selectedItem, async (newVal, oldVal) => {
+  const requestId = ++routeRequestSeq
+  clearRouteLines()
+  clearRouteEndpointMarkers()
+  updateMarkersOnMap()
 
   if (newVal) {
     // Intentar resolver id_ruta: puede que venga en el ítem directamente,
@@ -842,11 +1300,52 @@ watch(selectedItem, async (newVal, oldVal) => {
     console.log('[TrackingView] Ítem seleccionado:', newVal.id_servicio, '| id_ruta resuelto:', routeId || '(vacío)')
 
     if (routeId && groupId) {
-      const requestId = ++routeRequestSeq
-
       const drawParadas = (paradas: any[]) => {
-        if (requestId !== routeRequestSeq) return // la selección cambió mientras cargaba
+        if (requestId !== routeRequestSeq || selectedItem.value !== newVal) return // la selección cambió mientras cargaba
+        clearRouteLines()
+        clearRouteEndpointMarkers()
         drawFullRoute(paradas, '#38bdf8')
+
+        if (paradas.length >= 2 && map.value && (window as any).google?.maps) {
+          const firstP = paradas[0]
+          const lastP = paradas[paradas.length - 1]
+
+          const createMarker = (p: any, imgUrl: string, defaultTitle: string) => {
+            const lat = Number(p.lat)
+            const lon = Number(p.lon)
+            if (isNaN(lat) || isNaN(lon)) return
+
+            const title = p.nombre || p.descripcion || defaultTitle
+            let marker: any
+
+            if ((google.maps as any).marker?.AdvancedMarkerElement) {
+              marker = new (google.maps as any).marker.AdvancedMarkerElement({
+                position: { lat, lng: lon },
+                map: map.value,
+                title,
+                content: createEndpointMarkerElement(imgUrl, title),
+                zIndex: 1600
+              })
+            } else {
+              marker = new (window as any).google.maps.Marker({
+                position: { lat, lng: lon },
+                map: map.value,
+                title,
+                icon: {
+                  url: imgUrl,
+                  scaledSize: new (window as any).google.maps.Size(48, 48),
+                  anchor: new (window as any).google.maps.Point(24, 24)
+                },
+                zIndex: 1600
+              })
+            }
+
+            routeEndpointMarkers.value.push(marker)
+          }
+
+          createMarker(firstP, rutaInicio, 'Inicio de Ruta')
+          createMarker(lastP, rutaFin, 'Fin de Ruta')
+        }
 
         // Ajustar los límites del mapa para encuadrar la ruta
         if (map.value && (window as any).google?.maps?.LatLngBounds) {
@@ -863,7 +1362,7 @@ watch(selectedItem, async (newVal, oldVal) => {
       } else {
         try {
           const rutaDetalle = await fetchRutaDetallesApi(groupId, routeId)
-          console.log('[TrackingView] fetchRutaDetallesApi respuesta:', rutaDetalle)
+          if (requestId !== routeRequestSeq || selectedItem.value !== newVal) return
           if (rutaDetalle && Array.isArray(rutaDetalle.paradas)) {
             const paradasValidas = rutaDetalle.paradas
               .map((p: any) => ({
@@ -873,16 +1372,10 @@ watch(selectedItem, async (newVal, oldVal) => {
               }))
               .filter((p: any) => !isNaN(p.lat) && !isNaN(p.lon) && isFinite(p.lat) && isFinite(p.lon))
 
-            console.log('[TrackingView] Paradas válidas:', paradasValidas.length)
-
             if (paradasValidas.length >= 2) {
               routeParadasCache.set(cacheKey, paradasValidas)
               drawParadas(paradasValidas)
-            } else {
-              console.warn('[TrackingView] Menos de 2 paradas válidas, no se dibuja polilínea')
             }
-          } else {
-            console.warn('[TrackingView] No se encontraron paradas en la respuesta:', rutaDetalle)
           }
         } catch (err) {
           console.error('Error al trazar polilínea de la ruta:', err)
@@ -1157,6 +1650,65 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
           <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
         </div>
       </Transition>
+
+      <!-- Popover de información de Agrupación (Cluster) -->
+      <Transition name="hover-card-pop">
+        <div 
+          v-if="hoveredCluster" 
+          :style="{ top: hoveredClusterPosition.top + 'px', left: hoveredClusterPosition.left + 'px' }"
+          class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
+        >
+          <div class="w-[245px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/60 dark:border-white/5">
+              <div class="flex items-center gap-2 min-w-0">
+                <div 
+                  class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+                  :class="[
+                    activeTab === 'SERVICIOS' ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc]' :
+                    activeTab === 'HARDWARE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                    'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                  ]"
+                >
+                  <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="15" />
+                  <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="15" />
+                  <HugeiconsIcon v-else :icon="UserGroupIcon" :size="15" />
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">Grupo de {{ activeTab.toLowerCase() }}</h4>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Haz clic para acercar</span>
+                </div>
+              </div>
+              <span class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">
+                {{ hoveredCluster.items.length }}
+              </span>
+            </div>
+
+            <div class="max-h-[140px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 pr-0.5">
+              <div 
+                v-for="(item, idx) in hoveredCluster.items" 
+                :key="idx"
+                class="flex items-center justify-between p-2 rounded-[12px] bg-slate-50 dark:bg-[#181C24]/80 border border-slate-200/60 dark:border-white/5 text-[10px]"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <span 
+                    class="w-1.5 h-1.5 rounded-full shrink-0"
+                    :class="[
+                      activeTab === 'SERVICIOS' ? 'bg-blue-500' :
+                      activeTab === 'HARDWARE' ? 'bg-emerald-500' :
+                      'bg-purple-500'
+                    ]"
+                  ></span>
+                  <span class="text-slate-800 dark:text-slate-200 font-bold truncate">{{ item.data?.nombre || item.data?.placa || item.id }}</span>
+                </div>
+                <span v-if="item.data?.speed !== undefined" class="text-[9px] font-mono font-semibold text-slate-500 dark:text-slate-400 shrink-0">
+                  {{ Math.round(item.data.speed) }} km/h
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
+        </div>
+      </Transition>
     </div>
 
     <!-- Pestañas Superiores -->
@@ -1228,6 +1780,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
       :vehiculosList="vehiculosList"
       :refEscoltas="refEscoltas"
       :refVehiculos="refVehiculos"
+      :refHardware="refHardware"
       :isLoadingSecondary="isLoadingSecondary"
       :wsStatus="wsStatus"
       :wsError="wsError"
@@ -1237,9 +1790,11 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
       @reconnect="connectWebSocket"
       @select="selectItem"
       @toggleGeocercas="toggleGeocercas"
+      @focusAlert="focusAlertOnMap"
+      @solveAlert="solveAlertByToken"
     />
 
-    <!-- MODAL ERROR WEBSOCKET -->
+    <!-- MODAL ERROR WEBSOCKET / SESIÓN EXPIRADA -->
     <Transition name="fade-scale">
       <div 
         v-if="showWsModal" 
@@ -1258,26 +1813,20 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 
           <!-- Textos -->
           <div class="space-y-1.5">
-            <h3 class="text-lg font-black text-white tracking-tight">Fallo de Conexión</h3>
+            <h3 class="text-lg font-black text-white tracking-tight">Sesión Expirada</h3>
             <p class="text-xs font-medium text-slate-300 leading-relaxed max-w-xs mx-auto">
-              El Websocket no funciona por favor comuniquese con el administrador
+              {{ wsError || 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.' }}
             </p>
           </div>
 
-          <!-- Botón Entendido / Reintentar -->
-          <div class="pt-2 w-full flex items-center gap-3">
+          <!-- Acción: Cerrar Sesión -->
+          <div class="pt-2 w-full flex items-center">
             <button 
-              @click="showWsModal = false"
-              class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold transition-all active:scale-95"
+              @click="handleLogoutFromWsModal"
+              class="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95 cursor-pointer"
             >
-              Cerrar
-            </button>
-            <button 
-              @click="connectWebSocket"
-              class="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95"
-            >
-              Reintentar
-            </button>
+              Cerrar Sesión
+button            </button>
           </div>
         </div>
       </div>
@@ -1365,5 +1914,28 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 .hover-card-pop-leave-to {
   opacity: 0;
   transform: translate(-50%, -96%) scale(0.95);
+}
+
+@keyframes markerUnclusterPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(18px);
+    filter: blur(3px);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-2px);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0px);
+  }
+}
+
+.animate-marker-pop {
+  animation: markerUnclusterPop 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: bottom center;
 }
 </style>

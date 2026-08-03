@@ -4,7 +4,7 @@ import { ref, watch } from 'vue'
 const getInitialDark = (): boolean => {
   const saved = localStorage.getItem('app-theme')
   if (saved !== null) return saved === 'dark'
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
+  return true
 }
 
 export const useThemeStore = defineStore('theme', () => {

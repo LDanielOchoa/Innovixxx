@@ -15,7 +15,8 @@ import {
   Car01Icon,
   Edit01Icon,
   FilterIcon,
-  Clock01Icon
+  Clock01Icon,
+  Alert01Icon
 } from '@hugeicons/core-free-icons'
 import {
   fetchServicioDashboardApi,
@@ -41,6 +42,7 @@ import ServicioCambiarRutaModal from '../components/ServicioCambiarRutaModal.vue
 import ServicioActualizarEscoltaModal from '../components/ServicioActualizarEscoltaModal.vue'
 import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVehiculosModal.vue'
 import ServicioVerHistorialModal from '../components/ServicioVerHistorialModal.vue'
+import ServicioVerAlarmasModal from '../components/ServicioVerAlarmasModal.vue'
 import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal.vue'
 import Column from 'primevue/column'
 
@@ -116,7 +118,7 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 
 // Modales consolidados
-const activeModal = ref<'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'status' | null>(null)
+const activeModal = ref<'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | null>(null)
 const selectedServicio = ref<ServicioDashboard | null>(null)
 
 const isCreateModalOpen = computed({
@@ -143,12 +145,16 @@ const isVerHistorialModalOpen = computed({
   get: () => activeModal.value === 'history',
   set: (val) => { if (!val) activeModal.value = null }
 })
+const isVerAlarmasModalOpen = computed({
+  get: () => activeModal.value === 'alarms',
+  set: (val) => { if (!val) activeModal.value = null }
+})
 const isCambiarEstadoModalOpen = computed({
   get: () => activeModal.value === 'status',
   set: (val) => { if (!val) activeModal.value = null }
 })
 
-const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'status', servicio: ServicioDashboard | null = null) => {
+const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status', servicio: ServicioDashboard | null = null) => {
   closeMenu()
   selectedServicio.value = servicio
   activeModal.value = tipo
@@ -219,10 +225,12 @@ const getEscoltaLabel = (): string => {
 }
 
 const getEstadoLabel = (): string => {
-  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || '---'
+  if (!filtros.value.estado) return 'Selecciona un estado'
+  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || 'Selecciona un estado'
 }
 
 const estadoOptions = [
+  { value: 0, label: 'Selecciona un estado' },
   { value: 1, label: 'PRERCARGA' },
   { value: 2, label: 'EN ESPERA' },
   { value: 3, label: 'EJECUCION OK' },
@@ -293,7 +301,7 @@ const getLastWeekDates = () => {
 const defaultDates = getLastWeekDates()
 
 const filtros = ref({
-  estado: 1,
+  estado: 0,
   fecha_registro_inicial: defaultDates.start,
   fecha_registro_final: defaultDates.end,
   id_ruta: 'all',
@@ -314,7 +322,7 @@ const tieneFiltrosActivos = computed(() => {
   return (
     filtros.value.id_ruta !== 'all' ||
     filtros.value.id_escolta !== 'all' ||
-    filtros.value.estado !== 1 ||
+    filtros.value.estado !== 0 ||
     fechaRango.value.start !== defaultDates.start ||
     fechaRango.value.end !== defaultDates.end
   )
@@ -341,6 +349,12 @@ const riesgoColors: Record<string, string> = {
 
 const fetchServicios = async () => {
   if (!selectedGroup.value?.id) {
+    servicios.value = []
+    isLoading.value = false
+    return
+  }
+
+  if (!filtros.value.estado) {
     servicios.value = []
     isLoading.value = false
     return
@@ -388,7 +402,7 @@ const limpiarFiltros = () => {
   const dates = getLastWeekDates()
   fechaRango.value = { start: dates.start, end: dates.end }
   filtros.value = {
-    estado: 1,
+    estado: 0,
     fecha_registro_inicial: dates.start,
     fecha_registro_final: dates.end,
     id_ruta: 'all',
@@ -619,11 +633,11 @@ onUnmounted(() => {
           <button
             @click.stop="toggleDropdown('estado')"
             class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
-            :class="filtros.estado !== 1 ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+            :class="filtros.estado !== 0 ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
             <HugeiconsIcon :icon="Edit01Icon" :size="14" class="opacity-70" />
             <span class="truncate flex-1 text-left">{{ getEstadoLabel() }}</span>
-            <span v-if="filtros.estado !== 1" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <span v-if="filtros.estado !== 0" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
             <svg class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200" :class="activeDropdown === 'estado' ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
@@ -693,7 +707,7 @@ onUnmounted(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="`${t('servicios.noResults', 'no se encontraron resultados')} en estado ${getEstadoLabel()}`"
+        :empty-message="filtros.estado !== 0 ? `${t('servicios.noResults', 'No se encontraron servicios')} en estado ${getEstadoLabel()}` : 'Selecciona un estado'"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
@@ -930,6 +944,13 @@ onUnmounted(() => {
               <span>Ver Historial</span>
             </button>
             <button
+              @click="openModal('alarms', activeMenuServicio)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Alert01Icon" :size="16" class="text-rose-500 dark:text-rose-400" />
+              <span>Historial de alarmas</span>
+            </button>
+            <button
               @click="openModal('status', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -983,6 +1004,11 @@ onUnmounted(() => {
 
     <ServicioVerHistorialModal
       v-model:is-open="isVerHistorialModalOpen"
+      :servicio="selectedServicio"
+    />
+
+    <ServicioVerAlarmasModal
+      v-model:is-open="isVerAlarmasModalOpen"
       :servicio="selectedServicio"
     />
 

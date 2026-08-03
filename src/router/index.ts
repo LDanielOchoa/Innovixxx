@@ -217,4 +217,13 @@ router.beforeEach((to, _from, next) => {
   next()
 })
 
+router.afterEach((to) => {
+  const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null
+  if (badge) {
+    const isAuthPage = to.name === 'login' || to.name === 'recuperar-clave'
+    badge.style.setProperty('display', isAuthPage ? 'block' : 'none', 'important')
+    badge.style.setProperty('visibility', isAuthPage ? 'visible' : 'hidden', 'important')
+  }
+})
+
 export default router

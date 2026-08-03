@@ -144,6 +144,18 @@ const toggleMenu = (id: string, event: MouseEvent) => {
   openMenuId.value = id
 }
 
+const openMenuItem = computed(() => {
+  if (!openMenuId.value) return null
+  return items.value.find(i => i.id_hardware === openMenuId.value) || null
+})
+
+const isCandadoSupported = (item?: Hardware | null) => {
+  if (!item) return false
+  const fam = String(item.familia || '').toUpperCase().trim()
+  const name = String(item.nombre || '').toUpperCase().trim()
+  return fam.includes('GL800') || fam.includes('GL 800') || fam.includes('GL-800') || name.includes('GL800')
+}
+
 const closeMenu = () => {
   openMenuId.value = null
 }
@@ -587,14 +599,7 @@ const filteredItems = computed(() => {
             :style="{ top: menuPosition.top, right: menuPosition.right }"
           >
             <button
-              @click="handleMenuAction('posicion')"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-            >
-              <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Posición</span>
-            </button>
-            <button
-              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS)"
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS) && isCandadoSupported(openMenuItem)"
               @click="handleMenuAction('abrir-candado')"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >

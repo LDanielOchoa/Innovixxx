@@ -611,12 +611,6 @@ const clearParadas = () => {
                 </p>
               </div>
             </div>
-
-            <div class="relative mt-4">
-              <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full !rounded-[12px]">
-                <span>{{ $t('geocercas.btnSave', 'Guardar Geocerca') }}</span>
-              </AppButton>
-            </div>
           </div>
 
           <!-- Formulario de configuración -->
@@ -656,6 +650,7 @@ const clearParadas = () => {
                   label="Descripción"
                   placeholder="Describe el propósito de esta geocerca..."
                   :rows="3"
+                  required
                 />
                 <span v-if="getError('descripcion')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('descripcion') }}</span>
               </div>
@@ -747,8 +742,11 @@ const clearParadas = () => {
           </div>
 
           <!-- Pie de página informativo -->
-          <div class="shrink-0 px-5 py-3 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between">
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+          <div class="shrink-0 px-5 py-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col gap-3">
+            <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full !rounded-[12px]">
+              <span>{{ $t('geocercas.btnSave', 'Guardar Geocerca') }}</span>
+            </AppButton>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
               Haz clic en el mapa para empezar a trazar
             </p>
           </div>

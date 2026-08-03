@@ -12,12 +12,8 @@ import {
   UserGroupIcon,
   Tick01Icon,
   RefreshIcon,
-  PlayIcon,
-  Notification03Icon,
-  Settings02Icon,
-  Note01Icon,
   Search01Icon,
-  Location01Icon
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 
 interface Group {
@@ -347,39 +343,10 @@ const refreshPage = async () => {
       <div class="flex items-center gap-1.5">
         <button 
           @click="openTrackingWindow"
-          :title="t('header.tracking')"
+          title="Mapa"
           class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
-          <HugeiconsIcon :icon="Location01Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-        </button>
-
-        <button 
-          :title="t('header.playback')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
-        >
-          <HugeiconsIcon :icon="PlayIcon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-        </button>
-
-        <button 
-          :title="t('header.alarms')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none relative shrink-0"
-        >
-          <HugeiconsIcon :icon="Notification03Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-          <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-[#13161C] shadow-[0_0_10px_rgba(239,68,68,0.8)]"></span>
-        </button>
-
-        <button 
-          :title="t('header.services')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
-        >
-          <HugeiconsIcon :icon="Settings02Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
-        </button>
-
-        <button 
-          :title="t('header.reports')"
-          class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
-        >
-          <HugeiconsIcon :icon="Note01Icon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
+          <HugeiconsIcon :icon="MapsIcon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />
         </button>
       </div>
     </div>

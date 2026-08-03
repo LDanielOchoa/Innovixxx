@@ -91,6 +91,7 @@ export class ThreeMarkerRenderer {
   private lastSelected = false
   private lastCourse = 0
   private lastTilt = 0
+  private lastHeading = 0
   private lastCustomColorHex?: number
   private lastShowBatteryRing = true
 
@@ -151,39 +152,26 @@ export class ThreeMarkerRenderer {
 
     // 3. Anillo dinámico de batería integrado en la misma franja
     const clampedBattery = Math.max(0, Math.min(100, battery))
-    const startAngle = -Math.PI / 2
-    const endAngle = startAngle + (clampedBattery / 100) * 2 * Math.PI
-
-    ctx.beginPath()
-    ctx.arc(128, 128, radius, startAngle, endAngle)
-    ctx.lineWidth = 14
-    ctx.lineCap = 'round'
-
     let strokeColor = '#10B981' // Verde (>50%)
     if (clampedBattery <= 20) {
       strokeColor = '#EF4444' // Rojo (<20%)
     } else if (clampedBattery <= 50) {
       strokeColor = '#F59E0B' // Naranja (20% - 50%)
     }
-    ctx.strokeStyle = strokeColor
-    ctx.stroke()
 
-    // 4. Marcador de origen de batería (Muesca de precisión UI refinada)
-    // Línea radial de inicio (corte pulido a 12 en punto)
-    ctx.save()
-    ctx.beginPath()
-    ctx.moveTo(128, 128 - (radius - 12))
-    ctx.lineTo(128, 128 - (radius + 12))
-    ctx.lineWidth = 3
-    ctx.strokeStyle = '#ffffff'
-    ctx.stroke()
+    // Un arco de 0 grados con lineCap=round se convierte en un punto grande
+    // en las 12 en punto. Omitirlo evita que el aro parezca descentrado.
+    if (clampedBattery > 0) {
+      const startAngle = -Math.PI / 2
+      const endAngle = startAngle + (clampedBattery / 100) * 2 * Math.PI
 
-    // Micro-nodo central incrustado perfectamente en el canal del anillo
-    ctx.beginPath()
-    ctx.arc(128, 128 - radius, 4, 0, 2 * Math.PI)
-    ctx.fillStyle = '#ffffff'
-    ctx.fill()
-    ctx.restore()
+      ctx.beginPath()
+      ctx.arc(128, 128, radius, startAngle, endAngle)
+      ctx.lineWidth = 14
+      ctx.lineCap = clampedBattery <= 5 ? 'butt' : 'round'
+      ctx.strokeStyle = strokeColor
+      ctx.stroke()
+    }
 
     if (this.baseTexture) {
       this.baseTexture.needsUpdate = true
@@ -219,7 +207,11 @@ export class ThreeMarkerRenderer {
       this.model = assets.model.clone()
       this.model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
+          child.geometry = child.geometry.clone()
+          child.geometry.computeBoundingBox()
           child.geometry.center()
+          child.position.set(0, 0, 0)
+          child.rotation.set(0, 0, 0)
           child.material = new THREE.MeshPhongMaterial({
             color: 0x0088ff,
             normalMap: assets.normalMap,
@@ -230,10 +222,18 @@ export class ThreeMarkerRenderer {
         }
       })
 
-      // Calcular escala de la flecha
+      // Re-centrar el offset del grupo completo para asegurar 100% de alineación en (0, 0, 0)
       const box = new THREE.Box3().setFromObject(this.model)
+      const center = new THREE.Vector3()
+      box.getCenter(center)
+
+      this.model.children.forEach(child => {
+        child.position.sub(center)
+      })
+
+      const finalBox = new THREE.Box3().setFromObject(this.model)
       const size3d = new THREE.Vector3()
-      box.getSize(size3d)
+      finalBox.getSize(size3d)
       const maxDim = Math.max(size3d.x, size3d.y, size3d.z)
       this.baseScale = 1.4 / maxDim
 
@@ -249,7 +249,8 @@ export class ThreeMarkerRenderer {
         this.lastTilt,
         this.lastBattery !== -1 ? this.lastBattery : 100,
         this.lastCustomColorHex,
-        this.lastShowBatteryRing
+        this.lastShowBatteryRing,
+        this.lastHeading
       )
     } catch (err) {
       console.error('Error al inicializar ThreeMarkerRenderer:', err)
@@ -257,9 +258,10 @@ export class ThreeMarkerRenderer {
   }
 
   // Actualiza rumbo, selección, batería e inclinación 3D del mapa
-  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100, customColorHex?: number, showBatteryRing = true) {
+  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100, customColorHex?: number, showBatteryRing = true, mapHeading = 0) {
     this.lastCourse = course
     this.lastTilt = mapTilt
+    this.lastHeading = mapHeading
     this.lastCustomColorHex = customColorHex
     this.lastShowBatteryRing = showBatteryRing
 
@@ -269,9 +271,10 @@ export class ThreeMarkerRenderer {
       this.baseMesh.visible = showBatteryRing
     }
 
-    // 2. Rotar la flecha según el rumbo
+    // 2. Rotar la flecha según el rumbo, compensando la orientación actual
+    // de la cámara para que apunte al rumbo geográfico y no al eje del canvas.
     if (this.model) {
-      this.model.rotation.z = -THREE.MathUtils.degToRad(course)
+      this.model.rotation.z = -THREE.MathUtils.degToRad(course - mapHeading)
 
       const arrowColor = customColorHex !== undefined
         ? customColorHex
@@ -292,12 +295,86 @@ export class ThreeMarkerRenderer {
       )
     }
 
-    // 3. Inclinar el grupo completo en X para acostarlo sobre la calle en perspectiva
+    // 3. Acostar el grupo sobre la calle y sincronizarlo con la rotación del
+    // mapa. Sin el heading, el círculo se proyecta desplazado cuando el mapa
+    // gira aunque el centro del modelo siga siendo el correcto.
     if (this.markerGroup) {
       this.markerGroup.rotation.x = -THREE.MathUtils.degToRad(mapTilt)
+      this.markerGroup.rotation.z = -THREE.MathUtils.degToRad(mapHeading)
     }
 
+    // El modelo 3D de la flecha no es simétrico: su masa visual se concentra
+    // en la parte trasera. Centrarlo por vértices proyectados evita que se
+    // separe del aro cuando cambia el rumbo durante el movimiento.
+    this.centerModelInCanvas()
     this.render()
+  }
+
+  private centerModelInCanvas() {
+    if (!this.model || !this.markerGroup) return
+
+    try {
+      const engine = getSharedEngine()
+
+      // El desplazamiento calculado siempre parte del mismo pivote para no
+      // acumular correcciones entre actualizaciones consecutivas.
+      this.model.position.x = 0
+      this.model.position.y = 0
+      this.markerGroup.updateMatrixWorld(true)
+      engine.camera.updateMatrixWorld(true)
+
+      let sumX = 0
+      let sumY = 0
+      let vertexCount = 0
+      const projected = new THREE.Vector3()
+
+      this.model.traverse((child) => {
+        if (!(child instanceof THREE.Mesh)) return
+        const positions = child.geometry.getAttribute('position')
+        if (!positions) return
+
+        for (let index = 0; index < positions.count; index++) {
+          projected.fromBufferAttribute(positions, index)
+          projected.applyMatrix4(child.matrixWorld).project(engine.camera)
+          sumX += projected.x
+          sumY += projected.y
+          vertexCount++
+        }
+      })
+
+      if (vertexCount === 0) return
+
+      const visualCenterX = sumX / vertexCount
+      const visualCenterY = sumY / vertexCount
+      const projectGroupPoint = (x: number, y: number) =>
+        new THREE.Vector3(x, y, 0)
+          .applyMatrix4(this.markerGroup!.matrixWorld)
+          .project(engine.camera)
+
+      const origin = projectGroupPoint(0, 0)
+      const target = this.baseMesh?.visible
+        ? new THREE.Vector3()
+            .copy(this.baseMesh.position)
+            .applyMatrix4(this.markerGroup.matrixWorld)
+            .project(engine.camera)
+        : origin
+      const xAxis = projectGroupPoint(1, 0).sub(origin)
+      const yAxis = projectGroupPoint(0, 1).sub(origin)
+      const determinant = xAxis.x * yAxis.y - yAxis.x * xAxis.y
+
+      if (Math.abs(determinant) < 1e-8) return
+
+      const desiredX = target.x - visualCenterX
+      const desiredY = target.y - visualCenterY
+      const offsetX = (desiredX * yAxis.y - yAxis.x * desiredY) / determinant
+      const offsetY = (xAxis.x * desiredY - desiredX * xAxis.y) / determinant
+
+      this.model.position.x = offsetX
+      this.model.position.y = offsetY
+    } catch (_) {
+      // Si WebGL no está disponible, render() conserva su comportamiento de
+      // dejar el canvas vacío sin interrumpir el resto del tracking.
+    }
   }
 
   private render() {
