@@ -2,8 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useThemeStore } from '../stores/theme.store'
-import { storeToRefs } from 'pinia'
 import { CookieAuth } from '../utils/cookie-auth'
 import { useFormValidator } from '../composables/useFormValidator'
 import { loginSchema } from '../schemas/auth.schema'
@@ -12,8 +10,6 @@ import Button from 'primevue/button'
 import logoImg from '../assets/logo.png'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
-  Sun01Icon,
-  Moon01Icon,
   Mail01Icon,
   LockPasswordIcon,
   ViewIcon,
@@ -43,10 +39,6 @@ const exitoMensaje = ref('')
 const cargando = ref(false)
 const { t, locale } = useI18n()
 const lang = computed(() => locale.value)
-
-const themeStore = useThemeStore()
-const { isDark } = storeToRefs(themeStore)
-const { toggle } = themeStore
 
 const recaptchaSiteKey = '6LcHvXMsAAAAAOeJeKmkj1zjpiWsOu__Po8Pu2lK'
 const recaptchaReady = ref(false)
@@ -390,21 +382,6 @@ onUnmounted(() => {
                 <span>English</span>
               </button>
             </div>
-
-            <!-- Theme Selector -->
-            <div class="flex items-center gap-1 bg-slate-100/50 dark:bg-[#0F1115] p-1 rounded-full border border-slate-200/50 dark:border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]">
-              <button
-                @click="toggle"
-                type="button"
-                class="flex items-center justify-center gap-2 px-6 py-2 rounded-full text-[12px] font-bold transition-all duration-500 ease-in-out text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent hover:bg-slate-200/30 dark:hover:bg-white/5 active:scale-95"
-              >
-                <Transition name="theme-icon" mode="out-in">
-                  <HugeiconsIcon v-if="isDark" :key="'sun'" :icon="Sun01Icon" class="text-[16px]" />
-                  <HugeiconsIcon v-else :key="'moon'" :icon="Moon01Icon" class="text-[16px]" />
-                </Transition>
-                <span>{{ isDark ? 'Modo Claro' : 'Modo Oscuro' }}</span>
-              </button>
-            </div>
           </div>
 
         </div>
@@ -474,13 +451,6 @@ onUnmounted(() => {
   width: 256px !important;
 }
 
-/* Theme icon swap animation */
-.theme-icon-enter-active,
-.theme-icon-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.theme-icon-enter-from { opacity: 0; transform: rotate(-45deg) scale(0.6); }
-.theme-icon-leave-to  { opacity: 0; transform: rotate(45deg) scale(0.6); }
 
 /* HUD alert animation */
 .hud-alert-enter-active {

@@ -9,6 +9,40 @@ declare global {
   }
 }
 
+interface AlertaDetalle {
+  id_grupo: number;
+  id_servicio: number;
+  id_hardware: number;
+  tipo: number;
+  lat: string;
+  lon: string;
+  fecha_hora: string;
+  token: string;
+  in_main_db: boolean;
+  ws_sync: boolean;
+}
+
+const props = withDefaults(defineProps<{
+  alertasDetalle?: AlertaDetalle[]
+}>(), {
+  alertasDetalle: () => []
+})
+
+const getNombreTipoAlerta = (tipo: number): string => {
+  switch (tipo) {
+    case 1:
+      return t('dashboard.tacticalMap.overspeed') || 'Exceso de velocidad'
+    case 2:
+      return t('dashboard.tacticalMap.sos') || 'SOS'
+    case 3:
+      return t('dashboard.tacticalMap.routeDeviation') || 'Alejamiento de ruta'
+    case 4:
+      return t('dashboard.tacticalMap.lockOpen') || 'Candado abierto'
+    default:
+      return 'Alerta activa'
+  }
+}
+
 const containerRef = ref<HTMLElement | null>(null)
 const mapContainerRef = ref<HTMLElement | null>(null)
 const bgMapContainerRef = ref<HTMLElement | null>(null)
@@ -16,23 +50,41 @@ const intervalId = ref<ReturnType<typeof setInterval> | null>(null)
 const mapInstance = ref<any>(null)
 const bgMapInstance = ref<any>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
+const markers = ref<any[]>([])
 const { t, locale } = useI18n()
 
-// Ubicaciones de alarmas en Colombia
-const alarmLocations = computed(() => [
-  { name: 'Bogotá', lat: 4.7110, lng: -74.0721, alarm: t('dashboard.tacticalMap.overspeed') },
-  { name: 'Medellín', lat: 6.2442, lng: -75.5812, alarm: t('dashboard.tacticalMap.hardBraking') },
-  { name: 'Cali', lat: 3.4516, lng: -76.5320, alarm: t('dashboard.tacticalMap.routeDeviation') },
-  { name: 'Barranquilla', lat: 10.9685, lng: -74.7813, alarm: t('dashboard.tacticalMap.engineOff') },
-  { name: 'Cartagena', lat: 10.3910, lng: -75.4794, alarm: t('dashboard.tacticalMap.lowBattery') },
-  { name: 'Bucaramanga', lat: 7.1193, lng: -73.1227, alarm: t('dashboard.tacticalMap.sos') },
-  { name: 'Pereira', lat: 4.8133, lng: -75.6961, alarm: t('dashboard.tacticalMap.doorOpen') },
-  { name: 'Manizales', lat: 5.0689, lng: -75.5174, alarm: t('dashboard.tacticalMap.overspeed') },
-])
+// Toma exclusivamente la última alerta recibida según su fecha_hora para mantener 1 solo marcador enfocado
+const alarmLocations = computed(() => {
+  if (!props.alertasDetalle || props.alertasDetalle.length === 0) {
+    return []
+  }
 
-const markers = ref<any[]>([])
-const currentLocationIndex = ref(0)
-let alarmInterval: ReturnType<typeof setInterval> | null = null
+  // Ordenar de más antigua a más reciente para tomar la última cronológica
+  const ordenadas = [...props.alertasDetalle].sort((a, b) => {
+    const fechaA = new Date(a.fecha_hora).getTime()
+    const fechaB = new Date(b.fecha_hora).getTime()
+    if (!isNaN(fechaA) && !isNaN(fechaB)) {
+      return fechaA - fechaB
+    }
+    return 0
+  })
+
+  const ultimaAlerta = ordenadas[ordenadas.length - 1]
+  if (!ultimaAlerta) return []
+
+  const lat = parseFloat(ultimaAlerta.lat)
+  const lng = parseFloat(ultimaAlerta.lon)
+
+  if (isNaN(lat) || isNaN(lng)) return []
+
+  return [{
+    name: `Serv. #${ultimaAlerta.id_servicio}`,
+    lat: lat,
+    lng: lng,
+    alarm: getNombreTipoAlerta(ultimaAlerta.tipo),
+    fecha_hora: ultimaAlerta.fecha_hora || ''
+  }]
+})
 
 // Tactical theme for the dashboard map
 const getTacticalMapStyle = (isDark: boolean) => {
@@ -138,10 +190,15 @@ const initializeMap = () => {
 
   const isDark = document.documentElement.classList.contains('dark')
   const mapStyle = getTacticalMapStyle(isDark)
+  const google = (window as any).google
+
+  const initialCenter = alarmLocations.value.length > 0 && alarmLocations.value[0]
+    ? { lat: alarmLocations.value[0].lat, lng: alarmLocations.value[0].lng }
+    : { lat: 4.7110, lng: -74.0721 }
 
   const mapOptions = {
-    center: { lat: 4.7110, lng: -74.0721 }, // Bogotá, Colombia
-    zoom: 12,
+    center: initialCenter,
+    zoom: 13,
     disableDefaultUI: true,
     zoomControl: false,
     mapTypeControl: false,
@@ -151,20 +208,23 @@ const initializeMap = () => {
     backgroundColor: isDark ? '#0f172a' : '#e2e8f0',
   }
 
-  mapInstance.value = new (window as any).google.maps.Map(mapContainerRef.value, mapOptions)
+  mapInstance.value = new google.maps.Map(mapContainerRef.value, mapOptions)
 
-  // Crear marcadores de alarmas
+  // Crear marcadores de alarmas y ajustar vista
   createAlarmMarkers()
 
-  // Iniciar rotación de alarmas
-  startAlarmRotation()
+  if (alarmLocations.value.length > 1) {
+    const bounds = new google.maps.LatLngBounds()
+    alarmLocations.value.forEach(loc => bounds.extend({ lat: loc.lat, lng: loc.lng }))
+    mapInstance.value.fitBounds(bounds)
+  }
 }
 
 const createAlarmMarkers = () => {
   if (!mapInstance.value || !(window as any).google) return
 
   alarmLocations.value.forEach((location) => {
-    // Overlay personalizado para label minimalista
+    // Overlay personalizado anclado perfectamente al mapa sin desfasarse
     const AlarmOverlay = class extends (window as any).google.maps.OverlayView {
       div: HTMLDivElement | null = null
       latLng: any
@@ -182,17 +242,22 @@ const createAlarmMarkers = () => {
           <div class="alarm-label__text">
             <span class="alarm-label__alarm">${location.alarm}</span>
             <span class="alarm-label__city">${location.name}</span>
+            ${location.fecha_hora ? `<span class="alarm-label__time">${location.fecha_hora}</span>` : ''}
           </div>
         `
         const panes = this.getPanes()
-        panes?.overlayMouseTarget.appendChild(this.div)
+        panes?.overlayLayer.appendChild(this.div)
       }
 
       draw() {
         const projection = this.getProjection()
-        const point = projection.fromLatLngToDivPixel(this.latLng)
-        if (point && this.div) {
-          this.div.style.transform = `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`
+        if (projection && this.latLng && this.div) {
+          const point = projection.fromLatLngToDivPixel(this.latLng)
+          if (point) {
+            this.div.style.left = '0px'
+            this.div.style.top = '0px'
+            this.div.style.transform = `translate3d(${Math.round(point.x)}px, ${Math.round(point.y)}px, 0px) translate(-5px, -17px)`
+          }
         }
       }
 
@@ -211,65 +276,11 @@ const createAlarmMarkers = () => {
       }
     }
 
-    const handleMapMouseMove = (e: MouseEvent) => {
-      const mapCard = e.currentTarget as HTMLElement
-      if (!mapCard) return
-      const rect = mapCard.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      const centerX = rect.width / 2
-      const centerY = rect.height / 2
-      
-      const rotX = 12 + -((y - centerY) / 25)
-      const rotY = (x - centerX) / 35
-      
-      mapCard.style.setProperty('--map-rot-x', `${rotX}deg`)
-      mapCard.style.setProperty('--map-rot-y', `${rotY}deg`)
-      mapCard.style.setProperty('--mouse-x', `${(x / rect.width) * 100}%`)
-      mapCard.style.setProperty('--mouse-y', `${(y / rect.height) * 100}%`)
-    }
-
-    const handleMapMouseLeave = (e: MouseEvent) => {
-      const mapCard = e.currentTarget as HTMLElement
-      if (!mapCard) return
-      mapCard.style.setProperty('--map-rot-x', '12deg')
-      mapCard.style.setProperty('--map-rot-y', '0deg')
-    }
-
     const google = (window as any).google
     const overlay = new AlarmOverlay(new google.maps.LatLng(location.lat, location.lng))
     overlay.setMap(mapInstance.value)
     markers.value.push(overlay)
   })
-}
-
-const moveToAlarmLocation = (index: number) => {
-  if (!mapInstance.value) return
-
-  const location = alarmLocations.value[index]
-  if (!location) return
-
-  currentLocationIndex.value = index
-
-  // Animar el movimiento de la cámara
-  mapInstance.value.panTo({ lat: location.lat, lng: location.lng })
-  mapInstance.value.setZoom(13)
-
-  // Resaltar el label correspondiente
-  setTimeout(() => {
-    const overlay = markers.value[index]
-    if (overlay && typeof overlay.highlight === 'function') {
-      overlay.highlight()
-    }
-  }, 500)
-}
-
-const startAlarmRotation = () => {
-  // Mover a una alarma aleatoria cada 8 segundos
-  alarmInterval = setInterval(() => {
-    const randomIndex = Math.floor(Math.random() * alarmLocations.value.length)
-    moveToAlarmLocation(randomIndex)
-  }, 8000)
 }
 
 // Watch for dark mode changes and update map style
@@ -281,6 +292,23 @@ watch(isDark, (dark) => {
     })
   }
 })
+
+// Watch for changes in alarmLocations to update markers dynamically
+watch(alarmLocations, (newLocs) => {
+  if (mapInstance.value && (window as any).google) {
+    // Limpiar marcadores
+    markers.value.forEach(m => m.setMap(null))
+    markers.value = []
+
+    // Recrear marcador de la última alerta
+    createAlarmMarkers()
+
+    if (newLocs.length > 0 && newLocs[0]) {
+      mapInstance.value.panTo({ lat: newLocs[0].lat, lng: newLocs[0].lng })
+      mapInstance.value.setZoom(13)
+    }
+  }
+}, { deep: true, immediate: true })
 
 // Watch for language changes and update map markers
 watch(locale, () => {
@@ -299,23 +327,28 @@ const ICONS = {
   pin: `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" fill="none"><path stroke="none" d="M0 0h24v24H0z"/><circle cx="12" cy="11" r="3"/><path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/></svg>`
 }
 
-const cardTemplates = computed(() => [
-  { icon: ICONS.alert, label: 'ABC-123', value: t('dashboard.tacticalMap.overspeed'), tag: t('dashboard.vortex.tags.critical') },
-  { icon: ICONS.alert, label: 'XYZ-987', value: t('dashboard.tacticalMap.hardBraking'), tag: t('dashboard.vortex.tags.alert') },
-  { icon: ICONS.pin,   label: 'JKL-456', value: t('dashboard.tacticalMap.routeDeviation'), tag: t('dashboard.vortex.tags.control') },
-  { icon: ICONS.car,   label: 'MNO-654', value: t('dashboard.tacticalMap.engineOff'), tag: t('dashboard.vortex.tags.status') },
-  { icon: ICONS.info,  label: 'PQR-321', value: t('dashboard.tacticalMap.lowBattery'), tag: t('dashboard.vortex.tags.system') },
-  { icon: ICONS.alert, label: 'STU-987', value: t('dashboard.widgets.alarms.alarmTypes.acceleration'), tag: t('dashboard.vortex.tags.alert') },
-  { icon: ICONS.alert, label: 'VWX-654', value: t('dashboard.tacticalMap.sos'), tag: t('dashboard.vortex.tags.sos') },
-  { icon: ICONS.info,  label: 'DEF-111', value: t('dashboard.tacticalMap.doorOpen'), tag: t('dashboard.vortex.tags.status') },
-])
+const cardTemplates = computed(() => {
+  if (!props.alertasDetalle || props.alertasDetalle.length === 0) {
+    return []
+  }
+  return props.alertasDetalle.map((alerta) => ({
+    icon: alerta.tipo === 2 ? ICONS.alert : (alerta.tipo === 4 ? ICONS.info : ICONS.pin),
+    label: `HW #${alerta.id_hardware}`,
+    value: getNombreTipoAlerta(alerta.tipo),
+    tag: alerta.tipo === 2 ? 'CRÍTICO' : 'ALERTA'
+  }))
+})
 
-let cardIndex = 0
-
-function spawnCard() {
+function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   if (!containerRef.value) return
 
-  const template = cardTemplates.value[cardIndex % cardTemplates.value.length]!
+  const template = {
+    icon: alerta.tipo === 2 ? ICONS.alert : (alerta.tipo === 4 ? ICONS.info : ICONS.pin),
+    label: `SERV. #${alerta.id_servicio}`,
+    value: getNombreTipoAlerta(alerta.tipo),
+    tag: alerta.tipo === 2 ? 'CRÍTICO' : 'ALERTA'
+  }
+
   const rect = containerRef.value.getBoundingClientRect()
   
   const w = rect.width
@@ -335,9 +368,7 @@ function spawnCard() {
     { x: -maxSpread - 20, y: 20 },
     { x:  minSpread + 20, y: 26 },
   ]
-  const baseSlot = baseSlots[cardIndex % baseSlots.length]!
-  
-  cardIndex++
+  const baseSlot = baseSlots[index % baseSlots.length]!
 
   const jitterX = (Math.random() - 0.5) * 24
   const jitterY = (Math.random() - 0.5) * 18
@@ -477,13 +508,52 @@ function spawnCard() {
     })
 }
 
+// Rastrea la cantidad anterior de alertas para brotar ÚNICAMENTE las nuevas que vayan llegando vía WebSocket
+let prevAlertCount = 0
+
+watch(
+  () => props.alertasDetalle,
+  (nuevasAlertas) => {
+    if (!nuevasAlertas || nuevasAlertas.length === 0) {
+      prevAlertCount = 0
+      return
+    }
+
+    // Ordenar cronológicamente por fecha_hora ascendente
+    const ordenadas = [...nuevasAlertas].sort((a, b) => {
+      const fechaA = new Date(a.fecha_hora).getTime()
+      const fechaB = new Date(b.fecha_hora).getTime()
+      if (!isNaN(fechaA) && !isNaN(fechaB)) {
+        return fechaA - fechaB
+      }
+      return 0
+    })
+
+    // Si llegaron nuevas alertas después del estado inicial, brotamos las más recientes
+    if (prevAlertCount > 0 && nuevasAlertas.length > prevAlertCount) {
+      const recienLlegadas = ordenadas.slice(prevAlertCount)
+      recienLlegadas.forEach((alerta, idx) => {
+        setTimeout(() => {
+          spawnCardForAlert(alerta, idx)
+        }, idx * 1000)
+      })
+    } else {
+      // Al montar, actualizar o conectar el WS, brotar 1 tarjeta con la última alerta cronológica (la de mayor fecha_hora)
+      const ultimaAlerta = ordenadas[ordenadas.length - 1]
+      if (ultimaAlerta) {
+        spawnCardForAlert(ultimaAlerta, 0)
+      }
+    }
+
+    prevAlertCount = nuevasAlertas.length
+  },
+  { deep: true, immediate: true }
+)
+
 let themeObserver: MutationObserver | null = null
 
 onMounted(() => {
   loadGoogleMapsScript()
-  setTimeout(() => spawnCard(), 500)
-  setTimeout(() => spawnCard(), 3500)
-  intervalId.value = setInterval(spawnCard, 5500)
 
   // Observar cambios en la clase del html para detectar cambio de tema
   themeObserver = new MutationObserver(() => {
@@ -494,7 +564,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (intervalId.value) clearInterval(intervalId.value)
-  if (alarmInterval) clearInterval(alarmInterval)
   if (themeObserver) themeObserver.disconnect()
 })
 </script>
@@ -530,7 +599,7 @@ onUnmounted(() => {
       "
     >
       <!-- Interior Map Container -->
-      <div ref="mapContainerRef" class="w-full h-full scale-[1.2] grayscale-[0.1] brightness-[1.1] contrast-[1.1] transition-transform duration-500"></div>
+      <div ref="mapContainerRef" class="w-full h-full"></div>
       
       <!-- Premium Glass Edge Glow -->
       <div class="absolute inset-0 pointer-events-none border-[1.5px] border-white/20 dark:border-white/10 rounded-[2.5rem]"></div>
@@ -693,7 +762,7 @@ onUnmounted(() => {
   gap: 0;
   pointer-events: none;
   z-index: 1000;
-  transition: all 0.3s ease;
+  will-change: transform;
 }
 
 :deep(.alarm-label__dot) {
@@ -803,6 +872,15 @@ onUnmounted(() => {
   letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1.2;
+}
+
+:deep(.alarm-label__time) {
+  font-size: 8px;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  line-height: 1.1;
+  margin-top: 1px;
 }
 
 /* Estado activo cuando la cámara se mueve a esta alarma */

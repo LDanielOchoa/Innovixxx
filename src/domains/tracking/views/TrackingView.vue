@@ -1795,42 +1795,44 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     />
 
     <!-- MODAL ERROR WEBSOCKET / SESIÓN EXPIRADA -->
-    <Transition name="fade-scale">
-      <div 
-        v-if="showWsModal" 
-        class="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
-      >
-        <div class="w-full max-w-md bg-[#13161C] border border-rose-500/30 rounded-2xl p-6 shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col items-center text-center space-y-4 relative overflow-hidden">
-          <!-- Background Glow Effect -->
-          <div class="absolute -top-12 -left-12 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    <Teleport to="body">
+      <Transition name="fade-scale">
+        <div 
+          v-if="showWsModal" 
+          class="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+        >
+          <div class="w-full max-w-md bg-[#13161C] border border-rose-500/30 rounded-2xl p-6 shadow-[0_25px_60px_rgba(0,0,0,0.8)] flex flex-col items-center text-center space-y-4 relative overflow-hidden">
+            <!-- Background Glow Effect -->
+            <div class="absolute -top-12 -left-12 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
-          <!-- Icono de Alerta -->
-          <div class="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
+            <!-- Icono de Alerta -->
+            <div class="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-500 shadow-inner">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
 
-          <!-- Textos -->
-          <div class="space-y-1.5">
-            <h3 class="text-lg font-black text-white tracking-tight">Sesión Expirada</h3>
-            <p class="text-xs font-medium text-slate-300 leading-relaxed max-w-xs mx-auto">
-              {{ wsError || 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.' }}
-            </p>
-          </div>
+            <!-- Textos -->
+            <div class="space-y-1.5">
+              <h3 class="text-lg font-black text-white tracking-tight">Sesión Expirada</h3>
+              <p class="text-xs font-medium text-slate-300 leading-relaxed max-w-xs mx-auto">
+                {{ wsError || 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.' }}
+              </p>
+            </div>
 
-          <!-- Acción: Cerrar Sesión -->
-          <div class="pt-2 w-full flex items-center">
-            <button 
-              @click="handleLogoutFromWsModal"
-              class="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95 cursor-pointer"
-            >
-              Cerrar Sesión
-button            </button>
+            <!-- Acción: Cerrar Sesión -->
+            <div class="pt-2 w-full flex items-center">
+              <button 
+                @click="handleLogoutFromWsModal"
+                class="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95 cursor-pointer"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

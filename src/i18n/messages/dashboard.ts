@@ -42,24 +42,17 @@ export const dashboard = {
         attentionRequired: 'Requieren atención',
         alarmTypes: {
           overspeed: 'Exceso Vel.',
-          hardBraking: 'Frenada Brus.',
-          routeDeviation: 'Desvío Ruta',
-          engineOff: 'Motor Apagado',
-          lowBattery: 'Batería Baja',
-          acceleration: 'Aceleración',
           sos: 'S.O.S Activo',
-          doorOpen: 'Puerta Abierta'
+          routeDeviation: 'Alejamiento Ruta',
+          lockOpen: 'Candado Abierto'
         }
       }
     },
     tacticalMap: {
       overspeed: 'Exceso de velocidad',
-      hardBraking: 'Frenada brusca',
-      routeDeviation: 'Desvío de ruta',
-      engineOff: 'Motor apagado',
-      lowBattery: 'Batería baja',
       sos: 'S.O.S Activo',
-      doorOpen: 'Puerta abierta'
+      routeDeviation: 'Alejamiento de ruta',
+      lockOpen: 'Candado abierto'
     },
     vortex: {
       tags: {
@@ -115,24 +108,17 @@ export const dashboard = {
         attentionRequired: 'Require attention',
         alarmTypes: {
           overspeed: 'Overspeed',
-          hardBraking: 'Hard Braking',
-          routeDeviation: 'Route Deviation',
-          engineOff: 'Engine Off',
-          lowBattery: 'Low Battery',
-          acceleration: 'Acceleration',
           sos: 'S.O.S Active',
-          doorOpen: 'Door Open'
+          routeDeviation: 'Route Out',
+          lockOpen: 'Lock Open'
         }
       }
     },
     tacticalMap: {
       overspeed: 'Speeding',
-      hardBraking: 'Hard Braking',
-      routeDeviation: 'Route Deviation',
-      engineOff: 'Engine Off',
-      lowBattery: 'Low Battery',
       sos: 'S.O.S Active',
-      doorOpen: 'Door Open'
+      routeDeviation: 'Route Out',
+      lockOpen: 'Lock Open'
     },
     vortex: {
       tags: {
