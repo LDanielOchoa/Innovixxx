@@ -4,7 +4,6 @@ import UserProfileModal from './UserProfileModal.vue'
 import { useRoute, useRouter } from 'vue-router'
 import logoImg from '../../assets/logo.png'
 import { useI18n } from 'vue-i18n'
-import { useThemeStore } from '../../stores/theme.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { useGroupStore } from '../../stores/group.store'
 import { isMobileSidebarOpen, closeMobileSidebar } from '../../composables/useSidebar'
@@ -21,8 +20,6 @@ import {
   Car01Icon,
   ServiceIcon,
   Shield02Icon,
-  Sun01Icon,
-  Moon01Icon,
   Settings02Icon,
   MapsIcon
 } from '@hugeicons/core-free-icons'
@@ -32,7 +29,6 @@ const router = useRouter()
 const route = useRoute()
 const i18n = useI18n()
 const { t } = i18n
-const themeStore = useThemeStore()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
 
@@ -318,16 +314,6 @@ const cerrarSesion = () => {
               <HugeiconsIcon :icon="User02Icon" :size="15" />
             </div>
             <span>{{ $t('sidebar.profile') || 'Mi Perfil' }}</span>
-          </button>
-
-          <button 
-            @click="themeStore.toggle(); isProfileMenuOpen = false"
-            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
-          >
-            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
-              <HugeiconsIcon :icon="themeStore.isDark ? Sun01Icon : Moon01Icon" :size="15" />
-            </div>
-            <span>{{ themeStore.isDark ? ($t('sidebar.switchToLight') || 'Modo Claro') : ($t('sidebar.switchToDark') || 'Modo Oscuro') }}</span>
           </button>
 
           <div class="h-px bg-slate-100 dark:bg-white/10 my-1.5"></div>

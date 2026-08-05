@@ -86,7 +86,7 @@ const alarmLocations = computed(() => {
   if (isNaN(lat) || isNaN(lng)) return []
 
   return [{
-    name: `Serv. #${ultimaAlerta.id_servicio}`,
+    name: getNombreTipoAlerta(ultimaAlerta.tipo),
     lat: lat,
     lng: lng,
     alarm: getNombreTipoAlerta(ultimaAlerta.tipo),
@@ -381,6 +381,7 @@ function animateCardAbsorption(entry: ActiveCardEntry) {
   if (!containerRef.value || !entry.el) return
 
   const card = entry.el
+  card.classList.remove('animate-card-float')
   const isLeft = entry.isLeft
   const rect = containerRef.value.getBoundingClientRect()
   const w = rect.width
@@ -416,7 +417,6 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
 
   const template = {
     icon: alerta.tipo === 2 ? ICONS.alert : (alerta.tipo === 4 ? ICONS.info : ICONS.pin),
-    label: `SERV. #${alerta.id_servicio}`,
     value: getNombreTipoAlerta(alerta.tipo),
     tag: alerta.tipo === 2 ? 'CRÍTICO' : 'ALERTA'
   }
@@ -473,7 +473,6 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   const borderCol   = isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(100, 116, 139, 0.15)'
   const accentColor = isDarkMode ? '#5da6fc'                  : '#3b82f6'
   const accentGlow  = isDarkMode ? 'rgba(93, 166, 252, 0.2)'  : 'rgba(59, 130, 246, 0.1)'
-  const labelColor  = isDarkMode ? 'rgba(255, 255, 255, 0.5)' : 'rgba(71, 85, 105, 0.8)'
   const valueColor  = isDarkMode ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.9)'
   const tagBg       = isDarkMode ? 'rgba(93, 166, 252, 0.1)'  : 'rgba(59, 130, 246, 0.05)'
   const tagColor    = isDarkMode ? '#5da6fc'                  : '#3b82f6'
@@ -487,8 +486,8 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
       background: ${bg};
       border-radius: 12px;
       box-shadow: ${boxShadow};
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -504,11 +503,10 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
       <!-- Shine Effect -->
       <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%); pointer-events:none;"></div>
 
-      <!-- Top row: icon + plate + tag -->
+      <!-- Top row: icon + tag -->
       <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; z-index:1;">
         <div style="display:flex; align-items:center; gap:4px; min-width:0;">
           <span style="color:${accentColor}; display:flex; filter:drop-shadow(0 0 8px ${accentGlow}); flex-shrink:0;">${template.icon}</span>
-          <span style="font-size:8.5px; font-weight:900; letter-spacing:0.08em; color:${labelColor}; font-family:Inter, sans-serif; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${template.label}</span>
         </div>
         <span style="
           font-size:7px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase;
@@ -539,6 +537,9 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
     cursor: pointer;
     transform-style: preserve-3d;
     will-change: transform, opacity;
+    --rx: ${restRotateX}deg;
+    --ry: ${restRotateY}deg;
+    --float-dur: ${3.2 + (index % 4) * 0.6}s;
   `
   
   card.addEventListener('click', (e: Event) => {
@@ -549,7 +550,7 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   containerRef.value.appendChild(card)
   cardMap.set(key, { el: card, isLeft, slotX })
 
-  // Animación de entrada y luego flotación continua sin desaparecer
+  // Animación de entrada y luego flotación continua por GPU
   createTimeline()
     // FASE 1 — materialización: emerge del portal inferior
     .add(card, {
@@ -558,26 +559,18 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
       rotateX: [72, restRotateX],
       rotateY: [isLeft ? -50 : 50, restRotateY + (isLeft ? 6 : -6)],
       top:     [startY, midY],
-      duration: 950,
+      duration: 850,
       ease: 'outExpo',
     })
-    // FASE 2 — asentamiento: reposo inicial
+    // FASE 2 — asentamiento e inicio de flotación GPU
     .add(card, {
       scale:   1,
       rotateX: restRotateX,
       rotateY: restRotateY,
-      duration: 350,
+      duration: 300,
       ease: 'outQuad',
       onComplete: () => {
-        // FASE 3 — Flotación orgánica perpetua (Loop continuo en el espacio de la card)
-        createTimeline({ loop: true, alternate: true })
-          .add(card, {
-            top:     midY - 14,
-            rotateX: restRotateX - 2.5,
-            rotateY: restRotateY + (isLeft ? 4 : -4),
-            duration: 3200 + (index % 4) * 600,
-            ease: 'inOutSine',
-          })
+        card.classList.add('animate-card-float')
       }
     })
 }
@@ -633,7 +626,7 @@ watch(
       ultimasAlertas.forEach((alerta, idx) => {
         setTimeout(() => {
           spawnCardForAlert(alerta, idx)
-        }, idx * 250)
+        }, idx * 100)
       })
     }
 
@@ -777,7 +770,22 @@ onUnmounted(() => {
 }
 
 :deep(.portal-data-card) {
-  will-change: transform, opacity, top, left;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+:deep(.portal-data-card.animate-card-float) {
+  animation: cardFloatGpu var(--float-dur, 3.5s) ease-in-out infinite alternate;
+}
+
+@keyframes cardFloatGpu {
+  0% {
+    transform: perspective(1600px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(0);
+  }
+  100% {
+    transform: perspective(1600px) rotateX(calc(var(--rx, 0deg) - 2.5deg)) rotateY(calc(var(--ry, 0deg) + 3deg)) translateY(-14px);
+  }
 }
 
 .animate-portal-pulse {

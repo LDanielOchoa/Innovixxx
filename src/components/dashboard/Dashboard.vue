@@ -13,7 +13,8 @@ import WidgetVehiculosTotal from './widgets/WidgetVehiculosTotal.vue'
 import WidgetRutasTotal from './widgets/WidgetRutasTotal.vue'
 import { useAuthStore } from '../../stores/auth.store'
 import AppModal from '../ui/AppModal.vue'
-import { solventarAlertaApi } from '../../domains/servicios/services/servicios.api'
+import { solventarAlertaApi, fetchHardwareSimplesApi } from '../../domains/servicios/services/servicios.api'
+import type { HardwareSimple } from '../../domains/servicios/types/servicio'
 import { useToast } from 'primevue/usetoast'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -42,6 +43,24 @@ const isSolventandoAlerta = ref(false)
 const modalActiveView = ref<'list' | 'map'>('list')
 const mapZoom = ref(16)
 const isMapImageLoading = ref(true)
+
+const hardwareList = ref<HardwareSimple[]>([])
+
+const cargarHardwareList = async () => {
+  if (!selectedGroup.value?.id) return
+  try {
+    hardwareList.value = await fetchHardwareSimplesApi(selectedGroup.value.id, 0)
+  } catch (err) {
+    console.error('[Dashboard] Error cargando lista de hardware:', err)
+  }
+}
+
+const getHardwareInfo = (id: string | number) => {
+  if (!id) return '---'
+  const idStr = String(id)
+  const h = hardwareList.value.find(item => item.id_hardware === idStr)
+  return h ? `${h.nombre}${h.familia ? ` (${h.familia})` : ''}` : idStr
+}
 
 const MAP_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
 
@@ -381,12 +400,14 @@ watch(
     if (newId) {
       console.log('[Dashboard WebSocket] Grupo cambiado en Pinia store a:', newId)
       connectWebSocket()
+      cargarHardwareList()
     }
   }
 )
 
 onMounted(() => {
   connectWebSocket()
+  cargarHardwareList()
 })
 
 onUnmounted(() => {
@@ -484,7 +505,7 @@ onUnmounted(() => {
               <div class="flex items-center gap-2 bg-slate-200/60 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-white/5">
                 <HugeiconsIcon :icon="HardDriveIcon" :size="14" class="text-slate-400" />
                 <span class="font-medium text-slate-400 dark:text-slate-500">Hardware:</span>
-                <span class="font-bold text-slate-800 dark:text-slate-100">HW #{{ selectedAlertaForSolve.id_hardware }}</span>
+                <span class="font-bold text-slate-800 dark:text-slate-100">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
               </div>
 
               <a
@@ -592,12 +613,7 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <HugeiconsIcon :icon="HardDriveIcon" :size="15" class="text-slate-400 shrink-0" />
                   <span class="font-medium text-slate-400 dark:text-slate-400">Hardware:</span>
-                  <span class="font-bold text-slate-800 dark:text-slate-200">HW #{{ selectedAlertaForSolve.id_hardware }}</span>
-                </div>
-
-                <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <span class="font-medium text-slate-400 dark:text-slate-400">Servicio:</span>
-                  <span class="font-bold text-slate-800 dark:text-slate-200">Servicio #{{ selectedAlertaForSolve.id_servicio }}</span>
+                  <span class="font-bold text-slate-800 dark:text-slate-200">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
                 </div>
               </div>
 
