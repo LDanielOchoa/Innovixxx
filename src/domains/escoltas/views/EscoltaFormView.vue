@@ -256,7 +256,7 @@ const saveEscolta = async () => {
               <AppFormInput
                 v-model="formData.email"
                 :label="t('escoltas.labelEmail') || 'Correo Electrónico'"
-                :placeholder="t('escoltas.placeholderEmail') || 'Ej: escolta@email.com'"
+                
                 :icon="Mail01Icon"
                 :error="getError('email') ?? undefined"
                 type="email"

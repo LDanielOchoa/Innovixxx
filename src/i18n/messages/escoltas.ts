@@ -22,7 +22,7 @@ export const escoltasMessages = {
     labelMobile: 'Celular',
     placeholderMobile: 'Ej: 3023014514',
     labelEmail: 'Correo Electrónico',
-    placeholderEmail: 'Ej: escolta@email.com',
+    placeholderEmail: "Ej: escolta{'@'}email.com",
     labelEscolta: 'Escolta',
     labelDestMobile: 'Número Destino SMS',
     labelSmsCode: 'Código de Verificación',
@@ -59,6 +59,7 @@ export const escoltasMessages = {
     labelPass: 'Número de Pase',
     placeholderPass: 'Ej: 79065744',
     labelPassExpiry: 'Vencimiento del Pase',
+    placeholderPassExpiry: 'Seleccione fecha',
     sectionAssignments: 'Asignaciones del Escolta'
   },
   en: {
@@ -84,7 +85,7 @@ export const escoltasMessages = {
     labelMobile: 'Mobile',
     placeholderMobile: 'e.g., 3023014514',
     labelEmail: 'Email Address',
-    placeholderEmail: 'e.g., escort@email.com',
+    placeholderEmail: "e.g., escort{'@'}email.com",
     labelEscolta: 'Escort',
     labelDestMobile: 'SMS Destination Number',
     labelSmsCode: 'Verification Code',
@@ -121,6 +122,7 @@ export const escoltasMessages = {
     labelPass: 'Pass Number',
     placeholderPass: 'e.g., 79065744',
     labelPassExpiry: 'Pass Expiration',
+    placeholderPassExpiry: 'Select date',
     sectionAssignments: 'Escort Assignments'
   }
 }

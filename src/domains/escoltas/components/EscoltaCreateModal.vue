@@ -380,23 +380,27 @@ const handleGuardar = async () => {
   saving.value = true
 
   const payload = {
-    nombre: formData.nombre,
-    cedula: formData.cedula,
-    email: formData.email || '',
-    celular: formData.celular || '',
+    nombre: formData.nombre ?? '',
+    cedula: formData.cedula ?? '',
+    email: formData.email ?? '',
+    celular: formData.celular ?? '',
     id_grupo: groupStore.selectedGroup.id,
-    id_servicio: formData.id_servicio || '',
-    id_vehiculo: formData.id_vehiculo || '',
-    id_hardware: formData.id_hardware || '',
-    tipo_pase: formData.tipo_pase || '',
-    pase: formData.pase || '',
+    id_servicio: formData.id_servicio ?? '',
+    id_vehiculo: formData.id_vehiculo ?? '',
+    id_hardware: formData.id_hardware ?? '',
+    tipo_pase: formData.tipo_pase ?? '',
+    pase: formData.pase ?? '',
     pase_vence: formatFecha(formData.pase_vence)
   }
 
+  console.log('[DEBUG EscoltaCreateModal] Validando payload:', payload)
+
   if (!validate(payload, formId.value)) {
     saving.value = false
+    const firstErr = getFirstError(formId.value)
+    console.warn('[DEBUG EscoltaCreateModal] Error de validación Zod:', firstErr)
     showMessage(
-      getFirstError(formId.value) || t('escoltas.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      firstErr || t('escoltas.alertValidation', 'Por favor complete todos los campos obligatorios.'),
       'error'
     )
     return
@@ -526,14 +530,43 @@ const formatFecha = (date: Date | null): string => {
 
       <!-- FORM CONTENT -->
       <div v-else class="animate-fade-in space-y-6">
-          <div class="space-y-5">
-            <AppInput
-              v-model="formData.nombre"
-              :label="t('escoltas.labelName', 'Nombre Completo')"
-              :placeholder="t('escoltas.placeholderName', 'Ej: Pepito Pérez')"
-              :icon="User02Icon"
-              :disabled="saving"
+        <!-- MENSAJE DE ALERTA O ERROR -->
+        <Transition name="fade">
+          <div
+            v-if="modalMessage"
+            class="flex items-center gap-3 p-3.5 rounded-xl border text-xs font-semibold shadow-sm transition-all"
+            :class="
+              modalMessage.type === 'error'
+                ? 'bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400'
+                : modalMessage.type === 'warning'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+            "
+          >
+            <HugeiconsIcon
+              :icon="modalMessage.type === 'error' ? Cancel01Icon : modalMessage.type === 'warning' ? Alert01Icon : Tick01Icon"
+              :size="18"
+              class="shrink-0"
             />
+            <span class="flex-1">{{ modalMessage.text }}</span>
+            <button
+              type="button"
+              @click="modalMessage = null"
+              class="opacity-60 hover:opacity-100 transition-opacity p-0.5 rounded-lg"
+            >
+              <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
+            </button>
+          </div>
+        </Transition>
+
+        <div class="space-y-5">
+          <AppInput
+            v-model="formData.nombre"
+            :label="t('escoltas.labelName', 'Nombre Completo')"
+            :placeholder="t('escoltas.placeholderName', 'Ej: Pepito Pérez')"
+            :icon="User02Icon"
+            :disabled="saving"
+          />
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <AppInput
@@ -555,7 +588,7 @@ const formatFecha = (date: Date | null): string => {
             <AppInput
               v-model="formData.email"
               :label="t('escoltas.labelEmail', 'Correo Electrónico')"
-              :placeholder="t('escoltas.placeholderEmail', 'Ej: escolta@email.com')"
+              :placeholder="t('escoltas.placeholderEmail')"
               :icon="Mail01Icon"
               type="email"
               :disabled="saving"
