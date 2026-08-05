@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://maps.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https://maps.gstatic.com https://maps.googleapis.com https://flagcdn.com https://i.pravatar.cc https://innovix.gfandino.xyz; connect-src 'self' data: http://localhost:* ws://localhost:* http://127.0.0.1:* ws://127.0.0.1:* ws://66.179.190.248:* http://66.179.190.248:* ws://66.179.190.248:8901 http://66.179.190.248:8900 https://maps.googleapis.com https://maps.gstatic.com https://mapsresources-pa.googleapis.com https://cdn.jsdelivr.net https://www.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/; worker-src 'self' blob:; frame-src 'self' https://www.google.com/recaptcha/ https://recaptcha.google.com/">
@@ -46,8 +46,9 @@
 
     .loader-stage {
       position: relative;
-      width: 400px;
-      height: 400px;
+      width: 100%;
+      max-width: 400px;
+      min-height: 200px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -56,7 +57,7 @@
     .loader-glow {
       position: absolute;
       width: 340px;
-      height: 340px;
+      height: 200px;
       border-radius: 999px;
       background: radial-gradient(circle, rgba(93, 166, 252, 0.35) 0%, rgba(93, 166, 252, 0.12) 35%, rgba(93, 166, 252, 0.04) 60%, transparent 80%);
       animation: glowPulse 2.2s ease-in-out infinite;
@@ -64,8 +65,9 @@
     }
 
     .loader-logo {
-      width: 320px;
-      height: 320px;
+      max-width: 320px;
+      width: 100%;
+      height: auto;
       object-fit: contain;
       position: relative;
       z-index: 2;
@@ -168,18 +170,20 @@
       }
 
       .loader-stage {
-        width: 280px;
-        height: 280px;
+        width: 100%;
+        max-width: 280px;
+        min-height: 140px;
       }
 
       .loader-glow {
         width: 260px;
-        height: 260px;
+        height: 140px;
       }
 
       .loader-logo {
-        width: 180px;
-        height: 180px;
+        max-width: 220px;
+        width: 100%;
+        height: auto;
       }
 
       .loader-text {

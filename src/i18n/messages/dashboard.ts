@@ -6,6 +6,13 @@ export const dashboard = {
         online: 'En Línea',
         linked: 'Vinculados'
       },
+      escoltas: {
+        title: 'Personal de Escoltas',
+        total: 'Total',
+        disponible: 'Disponibles',
+        enServicio: 'En Servicio',
+        noDisponible: 'No Disponibles'
+      },
       kilometers: {
         title: 'Kilómetros Recorridos',
         history: 'Histórico',
@@ -44,7 +51,9 @@ export const dashboard = {
           overspeed: 'Exceso Vel.',
           sos: 'S.O.S Activo',
           routeDeviation: 'Alejamiento Ruta',
-          lockOpen: 'Candado Abierto'
+          lockOpen: 'Candado Abierto',
+          lockClose: 'Candado Cerrado',
+          routeReturn: 'Ruta en su lugar'
         }
       }
     },
@@ -52,7 +61,9 @@ export const dashboard = {
       overspeed: 'Exceso de velocidad',
       sos: 'S.O.S Activo',
       routeDeviation: 'Alejamiento de ruta',
-      lockOpen: 'Candado abierto'
+      lockOpen: 'Candado abierto',
+      lockClose: 'Candado cerrado',
+      routeReturn: 'Ruta en su lugar'
     },
     vortex: {
       tags: {

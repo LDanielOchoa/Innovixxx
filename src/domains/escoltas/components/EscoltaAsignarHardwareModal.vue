@@ -39,11 +39,22 @@ const loadingHardware = ref(false)
 const selectedHardwareId = ref<string | null>(null)
 const hardwareSearchQuery = ref('')
 
-const esHardwareOcupado = (h: HardwareSimple) => {
-  if (selectedHardwareId.value === String(h.id_hardware)) return false
-  if (!h.estado) return false
-  const est = String(h.estado).trim().toUpperCase()
-  return est !== 'DISPONIBLE'
+const esHardwareDisponible = (h: any) => {
+  if (!h) return false
+  if (selectedHardwareId.value === String(h.id_hardware)) return true
+  if (h.id_servicio && String(h.id_servicio).trim() !== '') return false
+  if (h.estado) {
+    const est = String(h.estado).trim().toUpperCase()
+    if (est !== 'DISPONIBLE') return false
+  }
+  return true
+}
+
+const getHardwareEstadoTexto = (h: any) => {
+  if (!h) return ''
+  if (h.estado) return String(h.estado).trim().toUpperCase()
+  if (h.id_servicio && String(h.id_servicio).trim() !== '') return 'OCUPADO EN SERVICIO'
+  return 'DISPONIBLE'
 }
 
 const filteredHardware = computed(() => {
@@ -51,14 +62,15 @@ const filteredHardware = computed(() => {
   let list = [...hardwareList.value]
   if (q) {
     list = list.filter(h =>
-      h.nombre.toLowerCase().includes(q) ||
-      h.familia.toLowerCase().includes(q)
+      (h.nombre && h.nombre.toLowerCase().includes(q)) ||
+      (h.familia && h.familia.toLowerCase().includes(q)) ||
+      (h.estado && String(h.estado).toLowerCase().includes(q))
     )
   }
   return list.sort((a, b) => {
-    const aOcupado = esHardwareOcupado(a) ? 1 : 0
-    const bOcupado = esHardwareOcupado(b) ? 1 : 0
-    return aOcupado - bOcupado
+    const aDisp = esHardwareDisponible(a) ? 0 : 1
+    const bDisp = esHardwareDisponible(b) ? 0 : 1
+    return aDisp - bDisp
   })
 })
 
@@ -109,11 +121,12 @@ watch(() => props.isOpen, async (isOpen) => {
 const selectHardware = (id: string) => {
   if (asignando.value) return
   const h = hardwareList.value.find(item => item.id_hardware === id)
-  if (h && esHardwareOcupado(h)) {
+  if (h && !esHardwareDisponible(h)) {
+    const estadoTxt = getHardwareEstadoTexto(h)
     toast.add({
       severity: 'warn',
-      summary: 'Hardware Ocupado',
-      detail: `Este dispositivo de hardware está ocupado: ${h.estado}`,
+      summary: 'Hardware No Disponible',
+      detail: `Este dispositivo no está disponible (${estadoTxt}). Solo se pueden seleccionar dispositivos en estado DISPONIBLE.`,
       life: 4000
     })
     return
@@ -314,18 +327,23 @@ const handleClose = () => {
                   @click="selectHardware(h.id_hardware)"
                   class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]"
                   :class="[
-                    esHardwareOcupado(h) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                    !esHardwareDisponible(h) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
                   ]"
                 >
-                  <div class="flex items-center gap-1.5">
-                    <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
-                    <span class="text-xs font-semibold truncate max-w-[120px]">{{ h.nombre }}</span>
+                  <div class="flex items-center justify-between gap-1.5">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
+                      <span class="text-xs font-semibold truncate max-w-[120px]">{{ h.nombre }}</span>
+                    </div>
+                    <span
+                      class="text-[8px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0"
+                      :class="esHardwareDisponible(h) ? 'bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/20'"
+                    >
+                      {{ getHardwareEstadoTexto(h) }}
+                    </span>
                   </div>
                   <div class="flex justify-between items-center mt-0.5 w-full">
-                    <span class="text-[9px] font-mono opacity-60 mr-2">{{ h.familia || 'Sin familia' }}</span>
-                    <span v-if="esHardwareOcupado(h)" class="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wide">
-                      Ocupado: {{ h.estado }}
-                    </span>
+                    <span class="text-[9px] font-mono opacity-60 mr-2 truncate">{{ h.familia || 'Sin familia' }}</span>
                   </div>
                 </div>
               </div>

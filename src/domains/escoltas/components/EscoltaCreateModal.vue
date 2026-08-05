@@ -25,8 +25,9 @@ import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escol
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
-import { fetchVehiculosServicioSimpleApi, type VehiculoServicioSimple } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
+import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
+import type { Vehiculo } from '../../vehiculos/types/vehiculo'
 import type { Servicio } from '../../servicios/types/servicio'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import type { Escolta } from '../types/escolta'
@@ -71,7 +72,7 @@ const formData = reactive({
 })
 
 const servicios = ref<Servicio[]>([])
-const vehiculosList = ref<VehiculoServicioSimple[]>([])
+const vehiculosList = ref<any[]>([])
 const hardwareList = ref<HardwareSimple[]>([])
 
 const loadingServicios = ref(false)
@@ -123,27 +124,37 @@ const filteredServicios = computed(() => {
 const filteredVehiculos = computed(() => {
   const q = searchVehiculosQuery.value.toLowerCase().trim()
   let list = [...vehiculosList.value]
-
   if (q) {
     list = list.filter(v =>
-      v.placa.toLowerCase().includes(q) ||
-      v.tipo.toLowerCase().includes(q)
+      (v.placa && v.placa.toLowerCase().includes(q)) ||
+      (v.nombre && v.nombre.toLowerCase().includes(q)) ||
+      (v.tipo && String(v.tipo).toLowerCase().includes(q)) ||
+      (v.estado && String(v.estado).toLowerCase().includes(q))
     )
   }
 
   return list.sort((a, b) => {
-    const aOcupado = esVehiculoOcupado(a) ? 1 : 0
-    const bOcupado = esVehiculoOcupado(b) ? 1 : 0
-    return aOcupado - bOcupado
+    const aDisp = esVehiculoDisponible(a) ? 0 : 1
+    const bDisp = esVehiculoDisponible(b) ? 0 : 1
+    return aDisp - bDisp
   })
 })
 
 const filteredHardware = computed(() => {
   const q = searchHardwareQuery.value.toLowerCase().trim()
-  if (!q) return hardwareList.value
-  return hardwareList.value.filter(h =>
-    h.nombre.toLowerCase().includes(q)
-  )
+  let list = [...hardwareList.value]
+  if (q) {
+    list = list.filter(h =>
+      (h.nombre && h.nombre.toLowerCase().includes(q)) ||
+      (h.familia && h.familia.toLowerCase().includes(q)) ||
+      (h.estado && String(h.estado).toLowerCase().includes(q))
+    )
+  }
+  return list.sort((a, b) => {
+    const aDisp = esHardwareDisponible(a) ? 0 : 1
+    const bDisp = esHardwareDisponible(b) ? 0 : 1
+    return aDisp - bDisp
+  })
 })
 
 const filteredTipoPase = computed(() => {
@@ -192,19 +203,36 @@ const selectServicio = (id: string) => {
   formData.id_servicio = id
 }
 
-const esVehiculoOcupado = (v: any) => {
-  if (!v.escolta || v.escolta.trim() === '') return false
-  if (props.editItem && v.escolta === props.editItem.nombre) return false
+const esVehiculoDisponible = (v: any) => {
+  if (!v) return false
+  if (v.id_servicio && String(v.id_servicio).trim() !== '') return false
+  if (v.estado) {
+    const est = String(v.estado).trim().toUpperCase()
+    if (est !== 'DISPONIBLE') return false
+  }
+  if (v.escolta && String(v.escolta).trim() !== '') {
+    if (props.editItem && v.escolta === props.editItem.nombre) return true
+    return false
+  }
   return true
+}
+
+const getVehiculoEstadoTexto = (v: any) => {
+  if (!v) return ''
+  if (v.estado) return String(v.estado).trim().toUpperCase()
+  if (v.id_servicio && String(v.id_servicio).trim() !== '') return 'EN SERVICIO'
+  if (v.escolta && String(v.escolta).trim() !== '') return `OCUPADO: ${v.escolta}`
+  return 'DISPONIBLE'
 }
 
 const selectVehiculo = (id: string) => {
   const v = vehiculosList.value.find(item => item.id_vehiculo === id)
-  if (v && esVehiculoOcupado(v)) {
+  if (v && !esVehiculoDisponible(v)) {
+    const estadoTxt = getVehiculoEstadoTexto(v)
     toast.add({
       severity: 'warn',
-      summary: 'Vehículo Ocupado',
-      detail: `Este vehículo ya está asignado al escolta: ${v.escolta}`,
+      summary: 'Vehículo No Disponible',
+      detail: `Este vehículo no está disponible (${estadoTxt}). Solo se pueden seleccionar vehículos en estado DISPONIBLE.`,
       life: 4000
     })
     return
@@ -212,7 +240,35 @@ const selectVehiculo = (id: string) => {
   formData.id_vehiculo = id
 }
 
+const esHardwareDisponible = (h: any) => {
+  if (!h) return false
+  if (h.id_servicio && String(h.id_servicio).trim() !== '') return false
+  if (h.estado) {
+    const est = String(h.estado).trim().toUpperCase()
+    if (est !== 'DISPONIBLE') return false
+  }
+  return true
+}
+
+const getHardwareEstadoTexto = (h: any) => {
+  if (!h) return ''
+  if (h.estado) return String(h.estado).trim().toUpperCase()
+  if (h.id_servicio && String(h.id_servicio).trim() !== '') return 'OCUPADO EN SERVICIO'
+  return 'DISPONIBLE'
+}
+
 const selectHardware = (id: string) => {
+  const h = hardwareList.value.find(item => item.id_hardware === id)
+  if (h && !esHardwareDisponible(h)) {
+    const estadoTxt = getHardwareEstadoTexto(h)
+    toast.add({
+      severity: 'warn',
+      summary: 'Hardware No Disponible',
+      detail: `Este dispositivo no está disponible (${estadoTxt}). Solo se pueden seleccionar dispositivos en estado DISPONIBLE.`,
+      life: 4000
+    })
+    return
+  }
   formData.id_hardware = id
 }
 
@@ -331,7 +387,7 @@ watch(() => props.isOpen, async (isOpen) => {
       }
 
       try {
-        const vehiculosData = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
+        const vehiculosData = await fetchVehiculosListarSimpleApi(groupStore.selectedGroup.id, 0)
         vehiculosList.value = vehiculosData
       } catch (error) {
         console.error('Error al cargar vehiculos:', error)
@@ -629,7 +685,7 @@ const formatFecha = (date: Date | null): string => {
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
-                    {{ t('escoltas.labelVehicle', 'Vehículo de Servicio') }}
+                    {{ t('escoltas.labelVehicle', 'Vehículo') }}
                   </label>
                   <button
                     ref="btnVehiculos"
@@ -900,24 +956,29 @@ const formatFecha = (date: Date | null): string => {
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
               :class="[
                 formData.id_vehiculo === v.id_vehiculo ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5',
-                esVehiculoOcupado(v) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                !esVehiculoDisponible(v) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
               ]"
             >
               <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
                 :class="[
                   formData.id_vehiculo === v.id_vehiculo ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500',
-                  esVehiculoOcupado(v) ? '!border-amber-500/30' : ''
+                  !esVehiculoDisponible(v) ? '!border-amber-500/30' : ''
                 ]">
                 <HugeiconsIcon v-if="formData.id_vehiculo === v.id_vehiculo" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
-                <HugeiconsIcon v-else-if="esVehiculoOcupado(v)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+                <HugeiconsIcon v-else-if="!esVehiculoDisponible(v)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
               <div class="flex flex-col min-w-0 flex-1">
-                <span class="text-[12px] font-semibold truncate">{{ v.placa }}</span>
-                <span class="text-[10px] text-slate-400 truncate flex justify-between items-center pr-1">
-                  <span>{{ v.tipo }}</span>
-                  <span v-if="esVehiculoOcupado(v)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
-                    Ocupado: {{ v.escolta }}
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="text-[12px] font-semibold truncate">{{ v.placa }}</span>
+                  <span
+                    class="text-[8px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0"
+                    :class="esVehiculoDisponible(v) ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'"
+                  >
+                    {{ getVehiculoEstadoTexto(v) }}
                   </span>
+                </div>
+                <span class="text-[10px] text-slate-400 truncate mt-0.5">
+                  {{ v.nombre || v.tipo }}
                 </span>
               </div>
             </button>
@@ -935,13 +996,33 @@ const formatFecha = (date: Date | null): string => {
               type="button"
               @click="selectHardware(h.id_hardware)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-              :class="formData.id_hardware === h.id_hardware ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+              :class="[
+                formData.id_hardware === h.id_hardware ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5',
+                !esHardwareDisponible(h) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+              ]"
             >
               <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-                :class="formData.id_hardware === h.id_hardware ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                :class="[
+                  formData.id_hardware === h.id_hardware ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500',
+                  !esHardwareDisponible(h) ? '!border-amber-500/30' : ''
+                ]">
                 <HugeiconsIcon v-if="formData.id_hardware === h.id_hardware" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+                <HugeiconsIcon v-else-if="!esHardwareDisponible(h)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
               </div>
-              <span class="text-[12px] font-semibold truncate">{{ h.nombre }}</span>
+              <div class="flex flex-col min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="text-[12px] font-semibold truncate">{{ h.nombre }}</span>
+                  <span
+                    class="text-[8px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0"
+                    :class="esHardwareDisponible(h) ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'"
+                  >
+                    {{ getHardwareEstadoTexto(h) }}
+                  </span>
+                </div>
+                <span class="text-[10px] text-slate-400 truncate mt-0.5">
+                  {{ h.familia || 'Sin familia' }}
+                </span>
+              </div>
             </button>
             <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
               <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-30 mb-2" />

@@ -148,7 +148,9 @@ const getAlertInfo = (tipo: number) => {
     case 4:
       return { label: 'Candado abierto', colorClass: 'text-orange-500 bg-orange-500/10 border-orange-500/20' }
     case 5:
-      return { label: 'Alerta de Dispositivo', colorClass: 'text-purple-400 bg-purple-500/10 border-purple-500/20' }
+      return { label: 'Candado cerrado', colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' }
+    case 6:
+      return { label: 'Ruta en su lugar', colorClass: 'text-teal-400 bg-teal-500/10 border-teal-500/20' }
     default:
       return { label: `Alerta tipo ${tipo}`, colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
   }

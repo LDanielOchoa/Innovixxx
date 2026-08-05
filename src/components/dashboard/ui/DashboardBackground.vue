@@ -28,18 +28,26 @@ const props = withDefaults(defineProps<{
   alertasDetalle: () => []
 })
 
+const emit = defineEmits<{
+  (e: 'selectAlert', alerta: AlertaDetalle): void
+}>()
+
 const getNombreTipoAlerta = (tipo: number): string => {
   switch (tipo) {
     case 1:
       return t('dashboard.tacticalMap.overspeed') || 'Exceso de velocidad'
     case 2:
-      return t('dashboard.tacticalMap.sos') || 'SOS'
+      return t('dashboard.tacticalMap.sos') || 'SOS / Emergencia'
     case 3:
       return t('dashboard.tacticalMap.routeDeviation') || 'Alejamiento de ruta'
     case 4:
       return t('dashboard.tacticalMap.lockOpen') || 'Candado abierto'
+    case 5:
+      return t('dashboard.tacticalMap.lockClose') || 'Candado cerrado'
+    case 6:
+      return t('dashboard.tacticalMap.routeReturn') || 'Ruta en su lugar'
     default:
-      return 'Alerta activa'
+      return `Alerta activa (${tipo})`
   }
 }
 
@@ -82,7 +90,8 @@ const alarmLocations = computed(() => {
     lat: lat,
     lng: lng,
     alarm: getNombreTipoAlerta(ultimaAlerta.tipo),
-    fecha_hora: ultimaAlerta.fecha_hora || ''
+    fecha_hora: ultimaAlerta.fecha_hora || '',
+    alerta: ultimaAlerta
   }]
 })
 
@@ -237,6 +246,8 @@ const createAlarmMarkers = () => {
       onAdd() {
         this.div = document.createElement('div')
         this.div.className = 'alarm-label'
+        this.div.style.pointerEvents = 'auto'
+        this.div.style.cursor = 'pointer'
         this.div.innerHTML = `
           <div class="alarm-label__dot"></div>
           <div class="alarm-label__text">
@@ -245,6 +256,12 @@ const createAlarmMarkers = () => {
             ${location.fecha_hora ? `<span class="alarm-label__time">${location.fecha_hora}</span>` : ''}
           </div>
         `
+        this.div.addEventListener('click', (e: Event) => {
+          e.stopPropagation()
+          if (location.alerta) {
+            emit('selectAlert', location.alerta)
+          }
+        })
         const panes = this.getPanes()
         panes?.overlayLayer.appendChild(this.div)
       }
@@ -339,8 +356,63 @@ const cardTemplates = computed(() => {
   }))
 })
 
+interface ActiveCardEntry {
+  el: HTMLElement
+  isLeft: boolean
+  slotX: number
+}
+
+const cardMap = new Map<string, ActiveCardEntry>()
+
+const getAlertKey = (alerta: AlertaDetalle) => {
+  return alerta.token || `${alerta.id_hardware}-${alerta.id_servicio}-${alerta.fecha_hora}`
+}
+
+function clearActiveCards() {
+  cardMap.forEach(({ el }) => {
+    if (el && el.parentNode) {
+      el.parentNode.removeChild(el)
+    }
+  })
+  cardMap.clear()
+}
+
+function animateCardAbsorption(entry: ActiveCardEntry) {
+  if (!containerRef.value || !entry.el) return
+
+  const card = entry.el
+  const isLeft = entry.isLeft
+  const rect = containerRef.value.getBoundingClientRect()
+  const w = rect.width
+  const h = rect.height
+  const cx = w / 2
+
+  const endX = cx + (entry.slotX * 0.4)
+  const endY = h * 0.42
+
+  createTimeline()
+    // FASE 4 — absorción hacia portal superior (pantalla táctica)
+    .add(card, {
+      opacity:  [1, 0],
+      scale:    [1, 0.05],
+      rotateX:  [0, 68],
+      rotateY:  [isLeft ? 12 : -12, isLeft ? -45 : 45],
+      left:     endX,
+      top:      endY,
+      duration: 850,
+      ease: 'inQuart',
+      onComplete: () => {
+        if (card.parentNode) {
+          card.parentNode.removeChild(card)
+        }
+      }
+    })
+}
+
 function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   if (!containerRef.value) return
+
+  const key = getAlertKey(alerta)
 
   const template = {
     icon: alerta.tipo === 2 ? ICONS.alert : (alerta.tipo === 4 ? ICONS.info : ICONS.pin),
@@ -355,36 +427,42 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   const h = rect.height
   const cx = w / 2
 
-  const maxSpread = 170
-  const minSpread = 80
-
+  // Constelación orgánica 3D alrededor del vórtice (20 slots alternados en espiral sin columnas)
   const baseSlots = [
-    { x: -minSpread, y: -4 },
-    { x:  maxSpread, y: 18 },
-    { x: -maxSpread, y: 10 },
-    { x:  minSpread, y: -2 },
-    { x: -minSpread - 20, y: 22 },
-    { x:  maxSpread + 20, y: -8 },
-    { x: -maxSpread - 20, y: 20 },
-    { x:  minSpread + 20, y: 26 },
+    { x: -210, y:  50, rx: -3, ry:  16 }, // Slot 0: Izq Bajo-Medio
+    { x:  270, y:  80, rx:  2, ry: -14 }, // Slot 1: Der Bajo-Exterior
+    { x: -330, y: -20, rx: -4, ry:  20 }, // Slot 2: Izq Centro-Exterior
+    { x:  190, y: -45, rx:  3, ry: -12 }, // Slot 3: Der Alto-Interior
+    { x: -160, y: -90, rx: -2, ry:  10 }, // Slot 4: Izq Alto-Interior
+    { x:  350, y:  15, rx:  4, ry: -22 }, // Slot 5: Der Centro-Exterior
+    { x: -270, y:  95, rx: -3, ry:  18 }, // Slot 6: Izq Bajo-Exterior
+    { x:  220, y: -105,rx:  2, ry: -15 }, // Slot 7: Der Alto-Medio
+    { x: -380, y:  40, rx: -5, ry:  24 }, // Slot 8: Izq Exterior-Abajo
+    { x:  160, y:  30, rx:  1, ry: -10 }, // Slot 9: Der Interior-Abajo
+    { x: -230, y: -60, rx: -3, ry:  15 }, // Slot 10: Izq Alto-Medio
+    { x:  310, y: -60, rx:  3, ry: -18 }, // Slot 11: Der Alto-Exterior
+    { x: -170, y:  10, rx: -2, ry:  12 }, // Slot 12: Izq Interior-Centro
+    { x:  250, y: -20, rx:  2, ry: -14 }, // Slot 13: Der Centro-Medio
+    { x: -340, y: -100,rx: -4, ry:  22 }, // Slot 14: Izq Alto-Exterior
+    { x:  370, y: -80, rx:  5, ry: -24 }, // Slot 15: Der Superior-Exterior
+    { x: -290, y: -130,rx: -3, ry:  18 }, // Slot 16: Izq Superior-Cúpula
+    { x:  200, y:  100,rx:  2, ry: -12 }, // Slot 17: Der Cerca-Abajo
+    { x: -400, y: -45, rx: -5, ry:  25 }, // Slot 18: Izq Lejano-Centro
+    { x:  330, y: -125,rx:  4, ry: -20 }, // Slot 19: Der Superior-Alto
   ]
   const baseSlot = baseSlots[index % baseSlots.length]!
 
-  const jitterX = (Math.random() - 0.5) * 24
-  const jitterY = (Math.random() - 0.5) * 18
-  
-  const slotX = baseSlot.x + jitterX
-  const slotY = baseSlot.y + jitterY
+  const slotX = baseSlot.x
+  const slotY = baseSlot.y
 
   const isLeft = slotX < 0
 
   const startX = cx + slotX
   const startY = h * 0.78
   const midY   = h * 0.65 + slotY
-  const endX   = cx + (slotX * 0.5)
-  const endY   = h * 0.55
 
-  const restRotateY = isLeft ? 12 : -12
+  const restRotateY = baseSlot.ry
+  const restRotateX = baseSlot.rx
 
   const isDarkMode = document.documentElement.classList.contains('dark')
 
@@ -407,117 +485,125 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
     <div style="
       width:100%; height:100%;
       background: ${bg};
-      border-radius: 14px;
+      border-radius: 12px;
       box-shadow: ${boxShadow};
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 3px;
-      padding: 8px 12px;
+      gap: 2px;
+      padding: 6px 10px;
       position: relative;
       overflow: hidden;
       border: 1px solid ${borderCol};
     ">
+      <!-- Top Glow Line -->
+      <div style="position:absolute; top:0; left:0; right:0; height:1.5px; background:linear-gradient(90deg, transparent 0%, ${accentColor} 50%, transparent 100%); opacity:0.85;"></div>
+      
       <!-- Shine Effect -->
-      <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 50%); pointer-events:none;"></div>
+      <div style="position:absolute; inset:0; background:linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 60%); pointer-events:none;"></div>
 
       <!-- Top row: icon + plate + tag -->
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; z-index:1;">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span style="color:${accentColor}; display:flex; filter:drop-shadow(0 0 8px ${accentGlow});">${template.icon}</span>
-          <span style="font-size:9px; font-weight:900; letter-spacing:0.1em; color:${labelColor}; font-family:Inter, sans-serif; text-transform:uppercase;">${template.label}</span>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; z-index:1;">
+        <div style="display:flex; align-items:center; gap:4px; min-width:0;">
+          <span style="color:${accentColor}; display:flex; filter:drop-shadow(0 0 8px ${accentGlow}); flex-shrink:0;">${template.icon}</span>
+          <span style="font-size:8.5px; font-weight:900; letter-spacing:0.08em; color:${labelColor}; font-family:Inter, sans-serif; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${template.label}</span>
         </div>
         <span style="
-          font-size:7px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase;
-          color:${tagColor}; background:${tagBg}; padding:2px 8px; border-radius:6px;
-          border: 1px solid ${isDarkMode ? 'rgba(93,166,252,0.2)' : 'rgba(59,130,246,0.1)'}; font-family:Inter, sans-serif;
+          font-size:7px; font-weight:900; letter-spacing:0.08em; text-transform:uppercase;
+          color:${tagColor}; background:${tagBg}; padding:1px 5px; border-radius:5px;
+          border: 1px solid ${isDarkMode ? 'rgba(93,166,252,0.25)' : 'rgba(59,130,246,0.15)'}; font-family:Inter, sans-serif; flex-shrink:0;
         ">${template.tag}</span>
       </div>
 
       <!-- Value row -->
-      <div style="display:flex; align-items:center; z-index:1; margin-top:2px;">
-        <span style="font-size:12px; font-weight:900; letter-spacing:-0.01em; text-transform:uppercase; color:${valueColor}; font-family:Inter, sans-serif; line-height:1;">${template.value}</span>
+      <div style="display:flex; align-items:center; z-index:1; margin-top:1px;">
+        <span style="font-size:10px; font-weight:900; letter-spacing:0.01em; text-transform:uppercase; color:${valueColor}; font-family:Inter, sans-serif; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${template.value}</span>
       </div>
     </div>
   `
 
   card.style.cssText = `
-    width: 165px;
-    height: 52px;
-    margin-left: -82px;
-    margin-top: -26px;
+    width: 175px;
+    height: 48px;
+    margin-left: -87.5px;
+    margin-top: -24px;
     left: ${startX}px;
     top: ${startY}px;
     opacity: 0;
     transform: perspective(1600px) rotateX(72deg) rotateY(${isLeft ? -50 : 50}deg) scale(0.06);
     transform-origin: center center;
-    z-index: 20;
-    pointer-events: none;
+    z-index: ${50 + Math.round(slotY / 5)};
+    pointer-events: auto;
+    cursor: pointer;
     transform-style: preserve-3d;
-    will-change: transform, opacity, top, left;
+    will-change: transform, opacity;
   `
   
+  card.addEventListener('click', (e: Event) => {
+    e.stopPropagation()
+    emit('selectAlert', alerta)
+  })
+  
   containerRef.value.appendChild(card)
+  cardMap.set(key, { el: card, isLeft, slotX })
 
+  // Animación de entrada y luego flotación continua sin desaparecer
   createTimeline()
     // FASE 1 — materialización: emerge del portal inferior
     .add(card, {
       opacity: [0, 1],
       scale:   [0.06, 1.04],
-      rotateX: [72, -5],
+      rotateX: [72, restRotateX],
       rotateY: [isLeft ? -50 : 50, restRotateY + (isLeft ? 6 : -6)],
       top:     [startY, midY],
       duration: 950,
       ease: 'outExpo',
     })
-    // FASE 2 — asentamiento: rebote y reposo
+    // FASE 2 — asentamiento: reposo inicial
     .add(card, {
       scale:   1,
-      rotateX: 0,
+      rotateX: restRotateX,
       rotateY: restRotateY,
       duration: 350,
       ease: 'outQuad',
-    })
-    // FASE 3 — flotación orgánica: dos ciclos asimétricos
-    .add(card, {
-      top:     midY - 16,
-      rotateX: -2.5,
-      rotateY: restRotateY + (isLeft ? 4 : -4),
-      duration: 3000,
-      ease: 'inOutSine',
-    })
-    .add(card, {
-      top:     midY + 6,
-      rotateX: 1.5,
-      rotateY: restRotateY - (isLeft ? 2 : -2),
-      duration: 3500,
-      ease: 'inOutSine',
-    })
-    // FASE 4 — absorción hacia portal superior
-    .add(card, {
-      opacity:  0,
-      scale:    0.05,
-      rotateX:  68,
-      rotateY:  isLeft ? -45 : 45,
-      left:     endX,
-      top:      endY,
-      duration: 750,
-      ease: 'inQuart',
-      onComplete: () => card.remove(),
+      onComplete: () => {
+        // FASE 3 — Flotación orgánica perpetua (Loop continuo en el espacio de la card)
+        createTimeline({ loop: true, alternate: true })
+          .add(card, {
+            top:     midY - 14,
+            rotateX: restRotateX - 2.5,
+            rotateY: restRotateY + (isLeft ? 4 : -4),
+            duration: 3200 + (index % 4) * 600,
+            ease: 'inOutSine',
+          })
+      }
     })
 }
 
-// Rastrea la cantidad anterior de alertas para brotar ÚNICAMENTE las nuevas que vayan llegando vía WebSocket
+// Rastrea la cantidad anterior de alertas para brotar las tarjetas correspondientes
 let prevAlertCount = 0
 
 watch(
   () => props.alertasDetalle,
   (nuevasAlertas) => {
     if (!nuevasAlertas || nuevasAlertas.length === 0) {
+      cardMap.forEach((entry) => animateCardAbsorption(entry))
+      cardMap.clear()
       prevAlertCount = 0
       return
     }
+
+    const currentKeys = new Set(nuevasAlertas.map(getAlertKey))
+
+    // Detectar alertas que fueron solventadas o removidas
+    cardMap.forEach((entry, key) => {
+      if (!currentKeys.has(key)) {
+        cardMap.delete(key)
+        animateCardAbsorption(entry)
+      }
+    })
 
     // Ordenar cronológicamente por fecha_hora ascendente
     const ordenadas = [...nuevasAlertas].sort((a, b) => {
@@ -529,20 +615,26 @@ watch(
       return 0
     })
 
-    // Si llegaron nuevas alertas después del estado inicial, brotamos las más recientes
+    // Si llegaron nuevas alertas vía WebSocket, brotamos las adicionales
     if (prevAlertCount > 0 && nuevasAlertas.length > prevAlertCount) {
       const recienLlegadas = ordenadas.slice(prevAlertCount)
       recienLlegadas.forEach((alerta, idx) => {
+        const k = getAlertKey(alerta)
+        if (!cardMap.has(k)) {
+          setTimeout(() => {
+            spawnCardForAlert(alerta, cardMap.size + idx)
+          }, idx * 400)
+        }
+      })
+    } else if (cardMap.size === 0) {
+      // Al inicializar o cambiar las alertas, brotar tarjetas para las alertas disponibles (hasta 20 slots)
+      clearActiveCards()
+      const ultimasAlertas = ordenadas.slice(-20)
+      ultimasAlertas.forEach((alerta, idx) => {
         setTimeout(() => {
           spawnCardForAlert(alerta, idx)
-        }, idx * 1000)
+        }, idx * 250)
       })
-    } else {
-      // Al montar, actualizar o conectar el WS, brotar 1 tarjeta con la última alerta cronológica (la de mayor fecha_hora)
-      const ultimaAlerta = ordenadas[ordenadas.length - 1]
-      if (ultimaAlerta) {
-        spawnCardForAlert(ultimaAlerta, 0)
-      }
     }
 
     prevAlertCount = nuevasAlertas.length
@@ -565,6 +657,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (intervalId.value) clearInterval(intervalId.value)
   if (themeObserver) themeObserver.disconnect()
+  clearActiveCards()
 })
 </script>
 

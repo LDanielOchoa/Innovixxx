@@ -12,9 +12,9 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { asignarVehiculoEscoltaApi } from '../services/escoltas.api'
-import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
+import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
 import type { Escolta } from '../types/escolta'
-import type { VehiculoServicioSimple } from '../../vehiculos-servicio/types/vehiculo-servicio'
+import type { Vehiculo } from '../../vehiculos/types/vehiculo'
 import AppModal from '../../../components/ui/AppModal.vue'
 import { useToast } from 'primevue/usetoast'
 import { useI18n } from 'vue-i18n'
@@ -34,7 +34,7 @@ const isInitializing = ref(true)
 const asignando = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
 
-const vehiculosList = ref<VehiculoServicioSimple[]>([])
+const vehiculosList = ref<any[]>([])
 const loadingVehiculos = ref(false)
 const selectedVehiculoId = ref<string | null>(null)
 const vehiculoSearchQuery = ref('')
@@ -44,15 +44,17 @@ const filteredVehiculos = computed(() => {
   let list = [...vehiculosList.value]
   if (q) {
     list = list.filter(v =>
-      v.placa.toLowerCase().includes(q) ||
-      v.tipo.toLowerCase().includes(q) ||
+      (v.placa && v.placa.toLowerCase().includes(q)) ||
+      (v.nombre && v.nombre.toLowerCase().includes(q)) ||
+      (v.tipo && String(v.tipo).toLowerCase().includes(q)) ||
+      (v.estado && String(v.estado).toLowerCase().includes(q)) ||
       (v.escolta && v.escolta.toLowerCase().includes(q))
     )
   }
   return list.sort((a, b) => {
-    const aOcupado = (a.escolta && a.escolta.trim() !== '') ? 1 : 0
-    const bOcupado = (b.escolta && b.escolta.trim() !== '') ? 1 : 0
-    return aOcupado - bOcupado
+    const aDisp = esVehiculoDisponible(a) ? 0 : 1
+    const bDisp = esVehiculoDisponible(b) ? 0 : 1
+    return aDisp - bDisp
   })
 })
 
@@ -85,10 +87,10 @@ watch(() => props.isOpen, async (isOpen) => {
     if (groupStore.selectedGroup?.id) {
       loadingVehiculos.value = true
       try {
-        vehiculosList.value = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
+        vehiculosList.value = await fetchVehiculosListarSimpleApi(groupStore.selectedGroup.id, 0)
       } catch (error) {
         console.error('Error cargando vehículos:', error)
-        showMessage('Error al cargar vehículos de servicio', 'error')
+        showMessage('Error al cargar vehículos', 'error')
       } finally {
         loadingVehiculos.value = false
       }
@@ -100,14 +102,34 @@ watch(() => props.isOpen, async (isOpen) => {
   }
 })
 
+const esVehiculoDisponible = (v: any) => {
+  if (!v) return false
+  if (v.id_servicio && String(v.id_servicio).trim() !== '') return false
+  if (v.estado) {
+    const est = String(v.estado).trim().toUpperCase()
+    if (est !== 'DISPONIBLE') return false
+  }
+  if (v.escolta && String(v.escolta).trim() !== '') return false
+  return true
+}
+
+const getVehiculoEstadoTexto = (v: any) => {
+  if (!v) return ''
+  if (v.estado) return String(v.estado).trim().toUpperCase()
+  if (v.id_servicio && String(v.id_servicio).trim() !== '') return 'EN SERVICIO'
+  if (v.escolta && String(v.escolta).trim() !== '') return `OCUPADO: ${v.escolta}`
+  return 'DISPONIBLE'
+}
+
 const selectVehiculo = (id: string) => {
   if (asignando.value) return
   const v = vehiculosList.value.find(item => item.id_vehiculo === id)
-  if (v && v.escolta && v.escolta.trim() !== '') {
+  if (v && !esVehiculoDisponible(v)) {
+    const estadoTxt = getVehiculoEstadoTexto(v)
     toast.add({
       severity: 'warn',
-      summary: 'Vehículo Ocupado',
-      detail: `Este vehículo ya tiene asignado al escolta: ${v.escolta}`,
+      summary: 'Vehículo No Disponible',
+      detail: `Este vehículo no está disponible (${estadoTxt}). Solo se pueden seleccionar vehículos en estado DISPONIBLE.`,
       life: 4000
     })
     return
@@ -236,7 +258,7 @@ const handleClose = () => {
 
           <div class="space-y-3">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-              Vehículo de Servicio
+              Vehículo
             </label>
             <div class="relative">
               <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2" :class="{ 'opacity-60 cursor-not-allowed': asignando }">
@@ -308,18 +330,23 @@ const handleClose = () => {
                   @click="selectVehiculo(v.id_vehiculo)"
                   class="card-recurso relative flex flex-col gap-0.5 px-3.5 py-2 rounded-xl transition-all cursor-pointer border select-none bg-slate-50 dark:bg-white/[0.02] border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-300 hover:border-blue-500/40 dark:hover:border-blue-400/30 hover:bg-blue-50 dark:hover:bg-blue-500/5 hover:text-[#3b82f6]"
                   :class="[
-                    v.escolta ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                    !esVehiculoDisponible(v) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
                   ]"
                 >
-                  <div class="flex items-center gap-1.5">
-                    <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
-                    <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.placa }}</span>
+                  <div class="flex items-center justify-between gap-1.5">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <HugeiconsIcon :icon="Car01Icon" :size="13" class="shrink-0" />
+                      <span class="text-xs font-semibold truncate max-w-[120px]">{{ v.placa }}</span>
+                    </div>
+                    <span
+                      class="text-[8px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wider shrink-0"
+                      :class="esVehiculoDisponible(v) ? 'bg-emerald-500/15 text-emerald-500 dark:text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/20'"
+                    >
+                      {{ getVehiculoEstadoTexto(v) }}
+                    </span>
                   </div>
                   <div class="flex justify-between items-center mt-0.5 w-full">
-                    <span class="text-[9px] font-mono opacity-60 mr-2">{{ v.tipo }}</span>
-                    <span v-if="v.escolta" class="text-amber-500 dark:text-amber-400 font-bold text-[8px] uppercase tracking-wide">
-                      Ocupado: {{ v.escolta }}
-                    </span>
+                    <span class="text-[9px] font-mono opacity-60 mr-2 truncate">{{ v.nombre || v.tipo }}</span>
                   </div>
                 </div>
               </div>

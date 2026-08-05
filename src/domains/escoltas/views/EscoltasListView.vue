@@ -32,7 +32,7 @@ import {
   fetchServiciosDropdownApi,
   fetchHardwareSimplesApi
 } from '../../servicios/services/servicios.api'
-import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
+import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
 import type { Escolta } from '../types/escolta'
 import { ESCOLTA_ESTADO, ESCOLTA_ESTADO_LABELS } from '../types/escolta'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
@@ -103,7 +103,7 @@ const cargarAsignacionesData = async () => {
   try {
     const [sData, vData, hData] = await Promise.all([
       fetchServiciosDropdownApi(selectedGroup.value.id),
-      fetchVehiculosServicioSimpleApi(selectedGroup.value.id),
+      fetchVehiculosListarSimpleApi(selectedGroup.value.id, 0),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0)
     ])
     servicios.value = sData
@@ -179,12 +179,22 @@ const toggleMenu = (id: string, event: MouseEvent) => {
     openMenuId.value = null
     return
   }
-  
+
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
-  menuPosition.value = {
-    top: `${rect.bottom + 8}px`,
-    right: `${window.innerWidth - rect.right}px`
+  const menuHeight = 220
+  const spaceBelow = window.innerHeight - rect.bottom
+
+  if (spaceBelow < menuHeight && rect.top > menuHeight) {
+    menuPosition.value = {
+      top: `${rect.top - menuHeight - 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+  } else {
+    menuPosition.value = {
+      top: `${rect.bottom + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
   }
   openMenuId.value = id
 }

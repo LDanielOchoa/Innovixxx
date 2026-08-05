@@ -1134,6 +1134,8 @@ const getAlertLabel = (tipo: number) => {
     case 2: return 'SOS / Emergencia'
     case 3: return 'Salida de ruta'
     case 4: return 'Candado abierto'
+    case 5: return 'Candado cerrado'
+    case 6: return 'Ruta en su lugar'
     default: return `Alerta tipo ${tipo}`
   }
 }
@@ -1207,6 +1209,7 @@ const focusAlertOnMap = (alerta: any) => {
   map.value.panTo({ lat: latNum, lng: lonNum })
   map.value.setZoom(17)
   adjustMapTilt(map.value)
+  updateMarkersOnMap()
 }
 
 const routeEndpointMarkers = ref<any[]>([])

@@ -35,18 +35,26 @@ const props = defineProps<{
 const { t } = useI18n()
 const isLoading = ref(true)
 
+const emit = defineEmits<{
+  (e: 'selectAlert', alerta: AlertaDetalle): void
+}>()
+
 const getNombreTipoAlerta = (tipo: number): string => {
   switch (tipo) {
     case 1:
       return t('dashboard.tacticalMap.overspeed') || 'Exceso de velocidad'
     case 2:
-      return t('dashboard.tacticalMap.sos') || 'SOS'
+      return t('dashboard.tacticalMap.sos') || 'SOS / Emergencia'
     case 3:
       return t('dashboard.tacticalMap.routeDeviation') || 'Alejamiento de ruta'
     case 4:
       return t('dashboard.tacticalMap.lockOpen') || 'Candado abierto'
+    case 5:
+      return t('dashboard.tacticalMap.lockClose') || 'Candado cerrado'
+    case 6:
+      return t('dashboard.tacticalMap.routeReturn') || 'Ruta en su lugar'
     default:
-      return 'Alerta activa'
+      return `Alerta tipo ${tipo}`
   }
 }
 
@@ -87,7 +95,8 @@ const alarmList = computed(() => {
       time: horaFormatted || '--:--',
       car: `HW #${alerta.id_hardware}`,
       issue: getNombreTipoAlerta(alerta.tipo),
-      tipo: alerta.tipo
+      tipo: alerta.tipo,
+      alertaOriginal: alerta
     }
   })
 })
@@ -140,7 +149,7 @@ onMounted(() => {
       <!-- Lista de Alarmas -->
       <div class="flex-1 relative overflow-hidden">
         <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5 h-full overflow-y-auto custom-scrollbar pr-1">
-          <div v-for="alarm in alarmList" :key="alarm.id" class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-[#0F1115]/50 rounded-lg border border-slate-200/50 dark:border-white/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/30">
+          <div v-for="alarm in alarmList" :key="alarm.id" @click="emit('selectAlert', alarm.alertaOriginal)" class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-[#0F1115]/50 rounded-lg border border-slate-200/50 dark:border-white/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/50 cursor-pointer">
             <div class="flex items-center gap-2.5">
                <div class="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
                <span class="text-slate-400 dark:text-slate-500 text-[9px] font-black w-14 uppercase tracking-tighter">{{ alarm.time }}</span>
