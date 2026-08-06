@@ -30,8 +30,8 @@ declare global {
 }
 
 const router = useRouter()
-const correo = ref('global_1@mail.com')
-const contrasena = ref('123456')
+const correo = ref('')
+const contrasena = ref('')
 const mostrarContrasena = ref(false)
 const errorVisible = ref(false)
 const errorMensaje = ref('')
