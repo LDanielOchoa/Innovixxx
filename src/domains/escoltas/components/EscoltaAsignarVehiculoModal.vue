@@ -12,7 +12,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { asignarVehiculoEscoltaApi } from '../services/escoltas.api'
-import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
+import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import type { Escolta } from '../types/escolta'
 import type { Vehiculo } from '../../vehiculos/types/vehiculo'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -87,7 +87,7 @@ watch(() => props.isOpen, async (isOpen) => {
     if (groupStore.selectedGroup?.id) {
       loadingVehiculos.value = true
       try {
-        vehiculosList.value = await fetchVehiculosListarSimpleApi(groupStore.selectedGroup.id, 0)
+        vehiculosList.value = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
       } catch (error) {
         console.error('Error cargando vehículos:', error)
         showMessage('Error al cargar vehículos', 'error')

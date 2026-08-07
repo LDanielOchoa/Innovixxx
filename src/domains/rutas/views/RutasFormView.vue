@@ -1113,18 +1113,18 @@ const procesarPosicionesGps = async (posiciones: any[]) => {
   const ultima  = posiciones[posiciones.length - 1]
 
   const nuevasParadas = []
-  nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio, fecha: primera.time_fx || primera.server_time })
+  nuevasParadas.push({ lat: parseFloat(primera.lat), lon: parseFloat(primera.lon), tipo: tipoInicio, fecha: primera.server_time })
 
   // Mapear todos los puntos intermedios reales del GPS
   if (posiciones.length > 2) {
     for (let i = 1; i < posiciones.length - 1; i++) {
       const pos = posiciones[i]
-      nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio, fecha: pos.time_fx || pos.server_time })
+      nuevasParadas.push({ lat: parseFloat(pos.lat), lon: parseFloat(pos.lon), tipo: tipoIntermedio, fecha: pos.server_time })
     }
   }
 
   if (posiciones.length > 1) {
-    nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin, fecha: ultima.time_fx || ultima.server_time })
+    nuevasParadas.push({ lat: parseFloat(ultima.lat), lon: parseFloat(ultima.lon), tipo: tipoFin, fecha: ultima.server_time })
   }
 
   isGpsReconstructed.value = true

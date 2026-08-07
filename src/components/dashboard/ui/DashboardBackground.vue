@@ -45,7 +45,7 @@ const getNombreTipoAlerta = (tipo: number): string => {
     case 5:
       return t('dashboard.tacticalMap.lockClose') || 'Candado cerrado'
     case 6:
-      return t('dashboard.tacticalMap.routeReturn') || 'Ruta en su lugar'
+      return t('dashboard.tacticalMap.routeReturn') || 'Retorno Ruta'
     default:
       return `Alerta activa (${tipo})`
   }

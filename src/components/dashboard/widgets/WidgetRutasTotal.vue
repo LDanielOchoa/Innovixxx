@@ -56,7 +56,6 @@ watch(() => props.total, (newVal) => {
             {{ rutasTotal }}
           </p>
           <div class="flex items-center gap-1.5 mt-3">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
             <p class="text-[9.5px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black">
               Total Rutas
             </p>

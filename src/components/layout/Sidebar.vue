@@ -107,7 +107,6 @@ const displayedMenuItems = computed(() => {
     { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' }
   ]
 
-  // Si es superadmin, mostrar todos los items (excepto adminOnly que requiere isAdmin)
   if (authStore.isSuperAdmin) {
     const allowedItems = menuItems.filter(item => {
       if (item.separator) return true

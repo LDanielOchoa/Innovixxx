@@ -25,7 +25,7 @@ import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escol
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
-import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
+import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import type { Vehiculo } from '../../vehiculos/types/vehiculo'
 import type { Servicio } from '../../servicios/types/servicio'
@@ -387,7 +387,7 @@ watch(() => props.isOpen, async (isOpen) => {
       }
 
       try {
-        const vehiculosData = await fetchVehiculosListarSimpleApi(groupStore.selectedGroup.id, 0)
+        const vehiculosData = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
         vehiculosList.value = vehiculosData
       } catch (error) {
         console.error('Error al cargar vehiculos:', error)

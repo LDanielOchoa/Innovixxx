@@ -73,12 +73,6 @@ const handleMouseUp = () => {
           </div>
           <h3 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.25em]">{{ title }}</h3>
         </div>
-        
-        <!-- Indicador de Actividad -->
-        <div class="flex gap-1">
-          <div class="w-1 h-1 rounded-full bg-[#3b82f6] animate-pulse"></div>
-          <div class="w-1 h-1 rounded-full bg-[#3b82f6]/40 animate-pulse [animation-delay:0.2s]"></div>
-        </div>
       </div>
 
       <!-- Content -->

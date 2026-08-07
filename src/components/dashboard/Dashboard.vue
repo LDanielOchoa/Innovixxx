@@ -136,7 +136,7 @@ const getNombreTipoAlerta = (tipo: number): string => {
     case 3: return 'Alejamiento de ruta'
     case 4: return 'Candado abierto'
     case 5: return 'Candado cerrado'
-    case 6: return 'Ruta en su lugar'
+    case 6: return 'Retorno Ruta'
     default: return `Alerta tipo ${tipo}`
   }
 }

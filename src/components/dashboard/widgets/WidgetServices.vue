@@ -90,15 +90,6 @@ watch(() => props.ejecucion_fail, (newVal) => {
 
     <!-- Contenido Real -->
     <div v-else class="space-y-6">
-      <!-- Selector de Filtro -->
-      <div class="relative inline-block w-full">
-        <select v-model="servicesFilter" class="w-full bg-slate-50/50 dark:bg-[#0F1115]/50 border border-slate-200/50 dark:border-white/5 rounded-xl px-4 py-2 text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest outline-none cursor-pointer hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 transition-all appearance-none shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)]">
-          <option value="today">{{ t('dashboard.widgets.services.filter.today') }}</option>
-          <option value="week">{{ t('dashboard.widgets.services.filter.week') }}</option>
-          <option value="month">{{ t('dashboard.widgets.services.filter.month') }}</option>
-        </select>
-        <HugeiconsIcon :icon="ArrowDown01Icon" :size="12" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-      </div>
       
       <!-- Grid de Estados -->
       <div class="grid grid-cols-2 gap-2">

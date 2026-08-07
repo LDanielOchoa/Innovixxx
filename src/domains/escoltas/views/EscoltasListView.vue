@@ -32,7 +32,7 @@ import {
   fetchServiciosDropdownApi,
   fetchHardwareSimplesApi
 } from '../../servicios/services/servicios.api'
-import { fetchVehiculosListarSimpleApi } from '../../vehiculos/services/vehiculos.api'
+import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import type { Escolta } from '../types/escolta'
 import { ESCOLTA_ESTADO, ESCOLTA_ESTADO_LABELS } from '../types/escolta'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
@@ -103,7 +103,7 @@ const cargarAsignacionesData = async () => {
   try {
     const [sData, vData, hData] = await Promise.all([
       fetchServiciosDropdownApi(selectedGroup.value.id),
-      fetchVehiculosListarSimpleApi(selectedGroup.value.id, 0),
+      fetchVehiculosServicioSimpleApi(selectedGroup.value.id),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0)
     ])
     servicios.value = sData

@@ -92,7 +92,6 @@ watch(() => props.noDisponible, (val) => {
             {{ escoltasData.enServicio }}
           </p>
           <div class="flex items-center gap-1 mt-2.5">
-            <span class="w-1 h-1 rounded-full bg-[#3b82f6] animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
             <p class="text-[7.5px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black whitespace-nowrap">
               En Servicio
             </p>
@@ -107,7 +106,6 @@ watch(() => props.noDisponible, (val) => {
             {{ escoltasData.disponible }}
           </p>
           <div class="flex items-center gap-1 mt-2.5">
-            <span class="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
             <p class="text-[7.5px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black whitespace-nowrap">
               Disponibles
             </p>
@@ -122,7 +120,6 @@ watch(() => props.noDisponible, (val) => {
             {{ escoltasData.noDisponible }}
           </p>
           <div class="flex items-center gap-1 mt-2.5">
-            <span class="w-1 h-1 rounded-full bg-rose-500"></span>
             <p class="text-[7.5px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black whitespace-nowrap">
               Inactivos
             </p>
@@ -137,7 +134,6 @@ watch(() => props.noDisponible, (val) => {
             {{ escoltasData.total }}
           </p>
           <div class="flex items-center gap-1 mt-2.5">
-            <span class="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></span>
             <p class="text-[7.5px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black whitespace-nowrap">
               Total
             </p>

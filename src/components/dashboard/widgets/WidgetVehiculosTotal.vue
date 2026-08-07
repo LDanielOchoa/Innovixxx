@@ -56,7 +56,6 @@ watch(() => props.total, (newVal) => {
             {{ vehiculosTotal }}
           </p>
           <div class="flex items-center gap-1.5 mt-2.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]"></span>
             <p class="text-[9px] text-slate-400 dark:text-slate-500 uppercase tracking-wider font-black">
               Total Vehículos
             </p>
