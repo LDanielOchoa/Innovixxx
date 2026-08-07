@@ -53,7 +53,7 @@ export const dashboard = {
           routeDeviation: 'Alejamiento Ruta',
           lockOpen: 'Candado Abierto',
           lockClose: 'Candado Cerrado',
-          routeReturn: 'Ruta en su lugar'
+          routeReturn: 'Retorno Ruta'
         }
       }
     },
@@ -63,7 +63,7 @@ export const dashboard = {
       routeDeviation: 'Alejamiento de ruta',
       lockOpen: 'Candado abierto',
       lockClose: 'Candado cerrado',
-      routeReturn: 'Ruta en su lugar'
+      routeReturn: 'Retorno Ruta'
     },
     vortex: {
       tags: {
