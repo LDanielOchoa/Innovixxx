@@ -20,6 +20,23 @@ export function useRouteDrawer(
   const directionsRenderers = shallowRef<any[]>([])
   const polylines           = shallowRef<any[]>([])
   const highlightedRenderer = shallowRef<any>(null)
+  let mainPolyline: any     = null
+
+  const getOrCreatePolyline = (mapObj: any, color: string) => {
+    if (!mainPolyline && (window as any).google?.maps?.Polyline) {
+      mainPolyline = new (window as any).google.maps.Polyline({
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 4,
+        map: mapObj
+      })
+    } else if (mainPolyline) {
+      try {
+        mainPolyline.setOptions({ strokeColor: color, map: mapObj })
+      } catch (_) {}
+    }
+    return mainPolyline
+  }
 
   // ── Debounce ───────────────────────────────────────────────
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -42,6 +59,10 @@ export function useRouteDrawer(
     const polyToKeep = polylines.value.slice(0, from)
     polyToRemove.forEach(p => { try { p.setMap(null) } catch (_) { } })
     polylines.value = polyToKeep
+
+    if (from === 0 && mainPolyline) {
+      try { mainPolyline.setPath([]) } catch (_) {}
+    }
   }
 
   const _requestChunk = (
@@ -85,8 +106,6 @@ export function useRouteDrawer(
 
   /**
    * Recalcula la ruta a partir de un índice de parada.
-   * Incluye debounce de 400ms para agrupar ediciones rápidas,
-   * o ejecución inmediata si immediate = true.
    */
   const recalculateFromIndex = (
     startParadaIndex: number,
@@ -108,15 +127,10 @@ export function useRouteDrawer(
       const forcePolyline = true
 
       if (forcePolyline) {
-        _clearRenderers(0)
-        const polyline = new (window as any).google.maps.Polyline({
-          path: paradas.map(p => ({ lat: p.lat, lng: p.lon })),
-          strokeColor: color,
-          strokeOpacity: 0.9,
-          strokeWeight: 4,
-          map: map.value
-        })
-        polylines.value.push(polyline)
+        const poly = getOrCreatePolyline(map.value, color)
+        if (poly) {
+          poly.setPath(paradas.map(p => ({ lat: Number(p.lat), lng: Number(p.lon) })))
+        }
         return
       }
 
@@ -144,27 +158,25 @@ export function useRouteDrawer(
    * Dibuja la ruta completa (sin debounce) — usado al cargar datos existentes.
    */
   const drawFullRoute = (paradas: ParadaPayload[], color: string, usePolyline: boolean = true) => {
-    _clearRenderers(0)
     if (!Array.isArray(paradas)) return
 
-    // Filtrar paradas con coordenadas válidas y numéricas finitas
     const validParadas = paradas.filter(p => p && typeof p.lat === 'number' && typeof p.lon === 'number' && isFinite(p.lat) && isFinite(p.lon))
-    if (validParadas.length < 2) return
+    if (validParadas.length < 2) {
+      _clearRenderers(0)
+      return
+    }
 
     const forcePolyline = true
 
     if (forcePolyline) {
-      const polyline = new (window as any).google.maps.Polyline({
-        path: validParadas.map(p => ({ lat: Number(p.lat), lng: Number(p.lon) })),
-        strokeColor: color,
-        strokeOpacity: 0.9,
-        strokeWeight: 4,
-        map: map.value
-      })
-      polylines.value.push(polyline)
+      const poly = getOrCreatePolyline(map.value, color)
+      if (poly) {
+        poly.setPath(validParadas.map(p => ({ lat: Number(p.lat), lng: Number(p.lon) })))
+      }
       return
     }
 
+    _clearRenderers(0)
     if (!directionsService.value) return
     const totalChunks = Math.ceil((paradas.length - 1) / CHUNK_SIZE)
     for (let ci = 0; ci < totalChunks; ci++) {

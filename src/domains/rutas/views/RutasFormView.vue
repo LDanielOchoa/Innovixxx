@@ -225,6 +225,18 @@
                 </span>
               </div>
 
+              <!-- Resumen de datos GPS seleccionados cuando está cargado -->
+              <div v-if="isGpsReconstructed" class="p-2.5 rounded-xl bg-white/60 dark:bg-[#13161C]/60 border border-blue-500/10 space-y-1 text-[11px]">
+                <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-200">
+                  <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black">Dispositivo:</span>
+                  <span>{{ selectedHardwareLabel || 'Dispositivo seleccionado' }}</span>
+                </div>
+                <div v-if="fechaDesdeFormatted || fechaHastaFormatted" class="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                  <span class="text-slate-400 dark:text-slate-500 uppercase font-black text-[9.5px]">Rango:</span>
+                  <span class="font-medium">{{ fechaDesdeFormatted }} - {{ fechaHastaFormatted }}</span>
+                </div>
+              </div>
+
               <button
                 type="button"
                 @click="openGpsModal"
@@ -645,11 +657,25 @@ const hardwareOptions = computed(() => {
   }))
 })
 
+const selectedHardwareLabel = computed(() => {
+  const item = hardwareList.value.find(h => h.id_hardware === selectedHardwareId.value)
+  return item ? `${item.nombre} (${item.familia})` : selectedHardwareId.value
+})
+
+const fechaDesdeFormatted = computed(() => {
+  if (!fechaDesde.value) return ''
+  const d = fechaDesde.value
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+})
+
+const fechaHastaFormatted = computed(() => {
+  if (!fechaHasta.value) return ''
+  const d = fechaHasta.value
+  return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+})
+
 const openGpsModal = async () => {
   isGpsModalOpen.value = true
-  selectedHardwareId.value = ''
-  fechaDesde.value = null
-  fechaHasta.value = null
   gpsModalMessage.value = null
   if (!selectedGroup.value?.id) return
   
@@ -1030,20 +1056,49 @@ const onParadaSelect = (index: number | null) => {
 }
 
 const onParadaDelete = (index: number) => {
+  // Capturar tipo y posición ANTES de eliminar (operación síncrona, sin coste)
+  const deletedParada = paradasTemporales.value[index]
+  const deletedTipo   = deletedParada?.tipo ?? null
+  const totalAntes    = paradasTemporales.value.length
+
+  // Borrado quirúrgico del marcador O(1)
   const realIndex = deleteParada(index)
   if (realIndex === -1) return
 
-  // Actualizar índice seleccionado inmediatamente (no bloquea)
+  // Actualizar índice seleccionado
   if (selectedParadaIndex.value === realIndex) {
     selectedParadaIndex.value = null
   } else if (selectedParadaIndex.value !== null && selectedParadaIndex.value > realIndex) {
     selectedParadaIndex.value--
   }
 
-  // Diferir el recálculo de la polilínea al siguiente tick para no congelar la UI
-  nextTick(() => {
-    recalculateFromIndex(realIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value, true)
-  })
+  // Si la parada eliminada era inicio o fin, heredar el tipo actualizando únicamente ese marcador específico
+  if (deletedTipo !== null && paradasTemporales.value.length > 0) {
+    const tipoNombre = tiposParada.value.find(t => t.id_tipo === deletedTipo)?.nombre?.toLowerCase() ?? ''
+
+    const eraInicio = tipoNombre.includes('inicio') || tipoNombre.includes('start')
+    const eraFin    = tipoNombre.includes('fin')    || tipoNombre.includes('end')
+
+    if (eraInicio && (realIndex === 0 || index === 0)) {
+      const nuevoPrimero = paradasTemporales.value[0]
+      if (nuevoPrimero) {
+        nuevoPrimero.tipo = deletedTipo
+        updateParadaTipo(0, deletedTipo)
+      }
+    }
+
+    if (eraFin && (realIndex >= totalAntes - 1 || index >= totalAntes - 1)) {
+      const nuevoUltimoIndex = paradasTemporales.value.length - 1
+      const nuevoUltimo = paradasTemporales.value[nuevoUltimoIndex]
+      if (nuevoUltimo) {
+        nuevoUltimo.tipo = deletedTipo
+        updateParadaTipo(nuevoUltimoIndex, deletedTipo)
+      }
+    }
+  }
+
+  // Actualizar la polilínea inmediatamente con setPath() (ultra rápido)
+  recalculateFromIndex(realIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value, true)
 }
 
 const clearParadasTemporales = () => {

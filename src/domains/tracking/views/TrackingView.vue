@@ -307,6 +307,8 @@ const createClusterMarkerElement = (cluster: Cluster) => {
 
 const {
   map,
+  isLoadingMap,
+  mapLoadError,
   initMap: initMapInstance,
   startDarkModeObserver
 } = useMapSetup('google-map-container', {
@@ -1242,9 +1244,10 @@ const routeParadasCache = new Map<string, any[]>()
 // usuario ya seleccionó otro ítem (evita dibujar rutas obsoletas).
 let routeRequestSeq = 0
 
-const selectItem = (item: any) => {
+const selectItem = (item: any, isUserAction = true) => {
   // Si el usuario hace clic sobre el mismo ítem seleccionado, deseleccionar
   if (
+    isUserAction &&
     selectedItem.value &&
     (
       (item.id_servicio && selectedItem.value.id_servicio === item.id_servicio) ||
@@ -1261,9 +1264,10 @@ const selectItem = (item: any) => {
   clearRouteLines()
   clearRouteEndpointMarkers()
 
-  if (selectedItem.value && selectedItem.value.lat && selectedItem.value.lon && map.value) {
+  // Solo mover o hacer zoom si la acción fue explícita del usuario
+  if (isUserAction && selectedItem.value && selectedItem.value.lat && selectedItem.value.lon && map.value) {
     map.value.panTo({ lat: selectedItem.value.lat, lng: selectedItem.value.lon })
-    map.value.setZoom(17)
+    map.value.setZoom(15)
     adjustMapTilt(map.value)
   }
 }
@@ -1348,13 +1352,6 @@ watch(selectedItem, async (newVal, oldVal) => {
 
           createMarker(firstP, rutaInicio, 'Inicio de Ruta')
           createMarker(lastP, rutaFin, 'Fin de Ruta')
-        }
-
-        // Ajustar los límites del mapa para encuadrar la ruta
-        if (map.value && (window as any).google?.maps?.LatLngBounds) {
-          const bounds = new (window as any).google.maps.LatLngBounds()
-          paradas.forEach((p: any) => bounds.extend({ lat: p.lat, lng: p.lon }))
-          map.value.fitBounds(bounds)
         }
       }
 
@@ -1539,6 +1536,19 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     <!-- MAPA BACKDROP -->
     <div class="absolute inset-0 z-0 overflow-hidden">
       <div id="google-map-container" class="w-full h-full bg-[#0d1116]"></div>
+
+      <!-- Map Loading State (Loader) -->
+      <Transition name="fade-overlay">
+        <div 
+          v-if="isLoadingMap && !mapLoadError"
+          class="absolute inset-0 z-[15] flex items-center justify-center bg-[#0d1116]/90 backdrop-blur-sm pointer-events-none"
+        >
+          <div class="flex flex-col items-center gap-4">
+            <div class="w-12 h-12 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
+            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando mapa de seguimiento...</p>
+          </div>
+        </div>
+      </Transition>
 
       <!-- Popover de información de Hardware -->
       <Transition name="hover-card-pop">
@@ -1757,14 +1767,19 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
         <!-- Separador sutil -->
         <div class="h-4 w-px bg-slate-200 dark:bg-slate-800 shrink-0 mx-0.5"></div>
 
-        <!-- Botón de Geocercas -->
+        <!-- Botón de Geocercas (siempre visible, cliqueable solo en SERVICIOS y HARDWARE) -->
         <button
-          @click="toggleGeocercas"
-          :title="showGeocercas ? 'Ocultar Geocercas' : 'Mostrar Geocercas'"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-colors focus:outline-none shrink-0 border"
-          :class="showGeocercas 
-            ? 'bg-amber-500/90 text-white border-amber-500/80' 
-            : 'text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-transparent'"
+          @click="activeTab !== 'ESCOLTAS' && toggleGeocercas()"
+          :disabled="activeTab === 'ESCOLTAS'"
+          :title="activeTab === 'ESCOLTAS' ? 'Geocercas no disponibles en Escoltas' : (showGeocercas ? 'Ocultar Geocercas' : 'Mostrar Geocercas')"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all focus:outline-none shrink-0 border"
+          :class="[
+            activeTab === 'ESCOLTAS' 
+              ? 'opacity-40 cursor-not-allowed text-slate-500 border-transparent bg-transparent'
+              : (showGeocercas 
+                  ? 'bg-amber-500/90 text-white border-amber-500/80 cursor-pointer' 
+                  : 'text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-transparent cursor-pointer')
+          ]"
         >
           <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="14" class="animate-spin" />
           <HugeiconsIcon v-else :icon="MapsIcon" :size="14" />

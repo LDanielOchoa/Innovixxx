@@ -12,8 +12,10 @@ import {
   MoreHorizontalIcon,
   CheckmarkCircle01Icon,
   FilterIcon,
-  ArrowDown01Icon
+  ArrowDown01Icon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
@@ -213,6 +215,7 @@ const exportToExcel = () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('vehiculos')
   fetchVehicles()
   document.addEventListener('click', handleDocumentClick)
 })
@@ -274,6 +277,20 @@ watch(() => selectedGroup.value.id, () => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchVehicles"
+          :disabled="isLoading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': isLoading }"
+          />
+        </button>
 
         <!-- Filtro por Estado -->
         <div class="relative w-full sm:w-auto" ref="estadoDropdownRef">

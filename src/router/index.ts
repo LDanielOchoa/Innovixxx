@@ -1,9 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { CookieAuth } from '../utils/cookie-auth'
-import Login from '../views/Login.vue'
-import AppLayout from '../components/layout/AppLayout.vue'
 import { PERMISSIONS } from '../utils/permissions'
 import { useAuthStore } from '../stores/auth.store'
+import { useRouteNavigation } from '../composables/useRouteNavigation'
+import { loadModuleMessages } from '../i18n'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -15,7 +15,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: Login,
+      component: () => import('../views/Login.vue'),
       meta: { guestOnly: true }
     },
     {
@@ -40,7 +40,7 @@ const router = createRouter({
     // ─── Shell con Sidebar + Header (se monta una sola vez) ───────────────
     {
       path: '/',
-      component: AppLayout,
+      component: () => import('../components/layout/AppLayout.vue'),
       meta: { requiresAuth: true },
       children: [
         {
@@ -187,7 +187,14 @@ const router = createRouter({
 })
 
 // ─── Guardián de Navegación Global ───────────────
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
+  const { startNavigation } = useRouteNavigation()
+  startNavigation()
+
+  if (to.name) {
+    loadModuleMessages(String(to.name))
+  }
+
   const token = CookieAuth.getToken()
   const isAuthRequired = to.matched.some(record => record.meta.requiresAuth)
   const isGuestOnly = to.matched.some(record => record.meta.guestOnly)
@@ -218,12 +225,20 @@ router.beforeEach((to, _from, next) => {
 })
 
 router.afterEach((to) => {
+  const { finishNavigation } = useRouteNavigation()
+  finishNavigation()
+
   const badge = document.querySelector('.grecaptcha-badge') as HTMLElement | null
   if (badge) {
     const isAuthPage = to.name === 'login' || to.name === 'recuperar-clave'
     badge.style.setProperty('display', isAuthPage ? 'block' : 'none', 'important')
     badge.style.setProperty('visibility', isAuthPage ? 'visible' : 'hidden', 'important')
   }
+})
+
+router.onError(() => {
+  const { finishNavigation } = useRouteNavigation()
+  finishNavigation()
 })
 
 export default router

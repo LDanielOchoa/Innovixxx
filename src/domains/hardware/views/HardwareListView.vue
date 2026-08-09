@@ -14,8 +14,10 @@ import {
   CheckmarkCircle01Icon,
   LockKeyIcon,
   FilterIcon,
-  ArrowDown01Icon
+  ArrowDown01Icon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 
 import {
   fetchHardwareApi,
@@ -62,7 +64,7 @@ const familiaDropdownRef = ref<HTMLElement | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = 10
 const openMenuId = ref<string | null>(null)
-const menuPosition = ref({ top: '0px', right: '0px' })
+const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
 
 const toggleEstadoDropdown = () => {
   isEstadoDropdownOpen.value = !isEstadoDropdownOpen.value
@@ -137,9 +139,21 @@ const toggleMenu = (id: string, event: MouseEvent) => {
   
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
-  menuPosition.value = {
-    top: `${rect.bottom + 8}px`,
-    right: `${window.innerWidth - rect.right}px`
+  const spaceBelow = window.innerHeight - rect.bottom
+  const estimatedMenuHeight = 150 // Altura aproximada del menú flotante
+
+  if (spaceBelow < estimatedMenuHeight) {
+    // Abrir hacia arriba
+    menuPosition.value = {
+      bottom: `${window.innerHeight - rect.top + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+  } else {
+    // Abrir hacia abajo
+    menuPosition.value = {
+      top: `${rect.bottom + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
   }
   openMenuId.value = id
 }
@@ -199,7 +213,9 @@ const fetchHardware = async () => {
   }
 }
 
-// Modal de crear/editar
+onMounted(() => {
+  loadModuleMessages('hardware')
+})
 const isFormModalOpen = ref(false)
 const editItem = ref<Hardware | null>(null)
 
@@ -355,6 +371,20 @@ const filteredItems = computed(() => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchHardware"
+          :disabled="isLoading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': isLoading }"
+          />
+        </button>
 
         <!-- Filtro por Familia -->
         <div class="relative w-full sm:w-auto" ref="familiaDropdownRef">
@@ -596,7 +626,11 @@ const filteredItems = computed(() => {
           <div
             v-if="openMenuId"
             class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
-            :style="{ top: menuPosition.top, right: menuPosition.right }"
+            :style="{ 
+              ...(menuPosition.top ? { top: menuPosition.top } : {}), 
+              ...(menuPosition.bottom ? { bottom: menuPosition.bottom } : {}), 
+              right: menuPosition.right 
+            }"
           >
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS) && isCandadoSupported(openMenuItem)"

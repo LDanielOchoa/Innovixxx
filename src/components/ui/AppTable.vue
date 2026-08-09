@@ -61,8 +61,8 @@ withDefaults(defineProps<Props>(), {
       </template>
       
       <template #loading>
-        <div class="absolute inset-0 bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-sm flex items-center justify-center z-10">
-          <div class="w-8 h-8 border-[3px] border-slate-200 dark:border-white/10 border-t-[#3b82f6] rounded-full animate-spin"></div>
+        <div class="absolute inset-0 bg-white/60 dark:bg-[#13161C]/80 backdrop-blur-sm flex items-center justify-center z-10">
+          <div class="w-8 h-8 border-[3px] border-blue-500/20 dark:border-blue-400/20 border-t-[#3b82f6] dark:border-t-[#5da6fc] rounded-full animate-spin"></div>
         </div>
       </template>
     </DataTable>

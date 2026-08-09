@@ -19,8 +19,11 @@ import {
   Loading03Icon,
   MoreHorizontalIcon,
   CpuIcon,
-  Car01Icon
+  Car01Icon,
+  RefreshIcon,
+  Shield01Icon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 
 import { 
   fetchEscoltasApi, 
@@ -39,6 +42,7 @@ import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
+import { useToast } from 'primevue/usetoast'
 
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
@@ -55,6 +59,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
 
 const { t } = useI18n()
+const toast = useToast()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -168,7 +173,7 @@ const isDeleteModalOpen = ref(false)
 const itemToDelete = ref<string | null>(null)
 const isCreateModalOpen = ref(false)
 const openMenuId = ref<string | null>(null)
-const menuPosition = ref({ top: '0px', right: '0px' })
+const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
 const isAsignarHardwareModalOpen = ref(false)
 const currentAsignarHardwareEscolta = ref<Escolta | null>(null)
 const isAsignarVehiculoModalOpen = ref(false)
@@ -182,15 +187,17 @@ const toggleMenu = (id: string, event: MouseEvent) => {
 
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
-  const menuHeight = 220
   const spaceBelow = window.innerHeight - rect.bottom
+  const estimatedMenuHeight = 220
 
-  if (spaceBelow < menuHeight && rect.top > menuHeight) {
+  if (spaceBelow < estimatedMenuHeight) {
+    // Abrir hacia arriba
     menuPosition.value = {
-      top: `${rect.top - menuHeight - 8}px`,
+      bottom: `${window.innerHeight - rect.top + 8}px`,
       right: `${window.innerWidth - rect.right}px`
     }
   } else {
+    // Abrir hacia abajo
     menuPosition.value = {
       top: `${rect.bottom + 8}px`,
       right: `${window.innerWidth - rect.right}px`
@@ -245,6 +252,40 @@ const deleteEscolta = async () => {
   }
 }
 
+const getInitials = (name?: string): string => {
+  if (!name) return 'ES'
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
+
+const resendCooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+const startCooldownTimer = (seconds: number = 60) => {
+  resendCooldown.value = seconds
+  if (cooldownTimer) clearInterval(cooldownTimer)
+  cooldownTimer = setInterval(() => {
+    if (resendCooldown.value > 1) {
+      resendCooldown.value--
+    } else {
+      resendCooldown.value = 0
+      if (cooldownTimer) {
+        clearInterval(cooldownTimer)
+        cooldownTimer = null
+      }
+    }
+  }, 1000)
+}
+
+const clearCooldownTimer = () => {
+  resendCooldown.value = 0
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer)
+    cooldownTimer = null
+  }
+}
+
 const openValidateModal = (escolta: Escolta) => {
   currentValidateEscolta.value = escolta
   smsCodeGenerated.value = null
@@ -252,11 +293,15 @@ const openValidateModal = (escolta: Escolta) => {
   isValidating.value = false
   isValidationSuccess.value = false
   validateMessage.value = null
+  clearCooldownTimer()
   isValidatingModalOpen.value = true
+
+  // Envío automático del mensaje SMS al abrir el modal
+  preValidateEscolta()
 }
 
 const preValidateEscolta = async () => {
-  if (isValidating.value || !currentValidateEscolta.value) return
+  if (isValidating.value || !currentValidateEscolta.value || resendCooldown.value > 0) return
   isValidating.value = true
   
   try {
@@ -268,6 +313,7 @@ const preValidateEscolta = async () => {
     if (data.done) {
       smsCodeGenerated.value = data.data?.sms_code?.toString() || '0000'
       showValidateMessage(t('escoltas.smsSent') || 'SMS enviado. Ingresa el código recibido.', 'success')
+      startCooldownTimer(60)
     } else {
       showValidateMessage(data.message || t('escoltas.alertErrorSms'), 'error')
     }
@@ -295,8 +341,14 @@ const postValidateEscolta = async () => {
     })
 
     if (data.done) {
-      isValidationSuccess.value = true
-      validateMessage.value = null
+      isValidatingModalOpen.value = false
+      clearCooldownTimer()
+      toast.add({
+        severity: 'success',
+        summary: t('escoltas.alertSuccessValidate') || '¡Validación Exitosa!',
+        detail: data.message || 'El dispositivo y número de este escolta han sido validados correctamente.',
+        life: 4000
+      })
       await fetchEscoltas()
     } else {
       showValidateMessage(data.message || t('escoltas.alertErrorValidate'), 'error')
@@ -328,12 +380,14 @@ const exportToExcel = () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('escoltas')
   fetchEscoltas()
   document.addEventListener('click', closeMenu)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', closeMenu)
+  clearCooldownTimer()
 })
 
 const filteredEscoltas = computed(() => {
@@ -390,6 +444,20 @@ watch(filtroEstado, async () => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchEscoltas"
+          :disabled="isLoading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': isLoading }"
+          />
+        </button>
       </div>
 
       <!-- Derecha: Filtro de Estado, Exportar y Nuevo Escolta -->
@@ -579,7 +647,11 @@ watch(filtroEstado, async () => {
           <div
             v-if="openMenuId"
             class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
-            :style="{ top: menuPosition.top, right: menuPosition.right }"
+            :style="{ 
+              ...(menuPosition.top ? { top: menuPosition.top } : {}), 
+              ...(menuPosition.bottom ? { bottom: menuPosition.bottom } : {}), 
+              right: menuPosition.right 
+            }"
           >
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_VALIDATE)"
@@ -666,8 +738,8 @@ watch(filtroEstado, async () => {
     <AppModal 
       v-model:is-open="isValidatingModalOpen"
       :title="t('escoltas.modalTitleValidate') || 'Validar Escolta'"
-      :confirm-text="isValidationSuccess ? (t('common.close') || 'Cerrar') : (smsCodeGenerated ? (t('escoltas.btnValidateCode') || 'Validar Código') : (t('escoltas.btnSendSms') || 'Enviar SMS'))"
-      @confirm="isValidationSuccess ? (isValidatingModalOpen = false) : (smsCodeGenerated ? postValidateEscolta() : preValidateEscolta())"
+      :confirm-text="t('escoltas.btnValidateCode') || 'Validar Código'"
+      @confirm="postValidateEscolta"
     >
       <template #icon>
         <div class="w-10 h-10 rounded-xl bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20">
@@ -675,89 +747,74 @@ watch(filtroEstado, async () => {
         </div>
       </template>
 
-      <form @submit.prevent="isValidationSuccess ? (isValidatingModalOpen = false) : (smsCodeGenerated ? postValidateEscolta() : preValidateEscolta())" class="space-y-5 relative" v-if="currentValidateEscolta">
+      <form @submit.prevent="postValidateEscolta" class="space-y-5 relative" v-if="currentValidateEscolta">
         
-        <Transition name="fade-slide" mode="out-in">
-          <div v-if="isValidationSuccess" class="py-10 flex flex-col items-center justify-center text-center space-y-4">
-            <div class="relative group mb-4">
-              <div class="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-500/30 transition-all duration-500"></div>
-              <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_16px_rgba(16,185,129,0.3),inset_0_1px_1px_rgba(255,255,255,0.4)] relative z-10 transform transition-transform duration-500 hover:scale-105">
-                <HugeiconsIcon :icon="Tick01Icon" :size="40" class="text-white drop-shadow-sm" />
-              </div>
+        <!-- Overlay de Carga -->
+        <Transition name="fade">
+          <div v-if="isValidating" class="absolute -inset-4 z-[300] flex flex-col items-center justify-center bg-white/70 dark:bg-[#13161C]/80 backdrop-blur-md rounded-2xl transition-all duration-300">
+            <div class="relative">
+              <div class="absolute inset-0 bg-[#3b82f6]/25 blur-3xl rounded-full animate-pulse"></div>
+              <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
             </div>
-            <h3 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight">¡Validación Exitosa!</h3>
-            <p class="text-[14px] text-slate-500 dark:text-slate-400 max-w-[280px]">
-              El dispositivo y número de este escolta han sido validados correctamente en el sistema de seguridad.
-            </p>
-          </div>
-
-          <div v-else class="space-y-5">
-            <Transition name="fade">
-              <div v-if="isValidating" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
-                <div class="relative">
-                  <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
-                  <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
-                </div>
-                <div class="mt-5 flex flex-col items-center">
-                  <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-                    {{ smsCodeGenerated ? 'Validando...' : 'Enviando SMS...' }}
-                  </span>
-                  <div class="flex gap-1">
-                    <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                    <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                    <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
-                  </div>
-                </div>
-              </div>
-            </Transition>
-
-            <Transition name="message-fade">
-              <div v-if="validateMessage && !isValidating"
-                   class="flex items-center gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide transition-all duration-300 border"
-                   :class="{
-                     'text-red-500 bg-red-500/10 border-red-500/20': validateMessage.type === 'error',
-                     'text-amber-500 bg-amber-500/10 border-amber-500/20': validateMessage.type === 'warning',
-                     'text-emerald-500 bg-emerald-500/10 border-emerald-500/20': validateMessage.type === 'success'
-                   }">
-                <HugeiconsIcon v-if="validateMessage.type === 'error' || validateMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-                <HugeiconsIcon v-else :icon="Tick01Icon" :size="18" />
-                {{ validateMessage.text }}
-              </div>
-            </Transition>
-
-            <div v-if="!smsCodeGenerated" class="space-y-4">
-              <AppFormInput 
-                :modelValue="currentValidateEscolta.nombre"
-                :label="t('escoltas.labelEscolta') || 'Escolta'"
-                :icon="User02Icon"
-                disabled
-                class="uppercase"
-              />
-
-              <AppFormInput 
-                :modelValue="currentValidateEscolta.celular"
-                :label="t('escoltas.labelDestMobile') || 'Número Destino SMS'"
-                :icon="SmartPhone01Icon"
-                disabled
-                class="font-mono tracking-widest"
-              />
-            </div>
-
-            <div v-else class="space-y-4">
-              <AppFormInput 
-                v-model="smsCodeInput"
-                label="Código SMS"
-                :icon="MessageQuestionIcon"
-                placeholder="Ej: 5579"
-                maxlength="6"
-                class="font-mono tracking-widest text-xl text-center"
-              />
-              <p class="text-[11px] text-slate-400 dark:text-slate-500 text-center font-medium mt-1">
-                {{ t('escoltas.msgSmsSent') || 'Un SMS ha sido enviado al celular del escolta.' }}
-              </p>
+            <div class="mt-4 flex flex-col items-center">
+              <span class="text-[11px] font-black text-[#3b82f6] uppercase tracking-[0.2em] mb-1">
+                {{ smsCodeGenerated ? 'Validando código...' : 'Enviando SMS automático...' }}
+              </span>
             </div>
           </div>
         </Transition>
+
+        <!-- Mensaje de Estado / Alerta -->
+        <Transition name="message-fade">
+          <div v-if="validateMessage && !isValidating"
+               class="flex items-center gap-3 py-3 px-4 rounded-xl text-xs font-semibold tracking-wide transition-all duration-300 border"
+               :class="{
+                 'text-red-500 bg-red-500/10 border-red-500/20': validateMessage.type === 'error',
+                 'text-amber-500 bg-amber-500/10 border-amber-500/20': validateMessage.type === 'warning',
+                 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20': validateMessage.type === 'success'
+               }">
+            <HugeiconsIcon v-if="validateMessage.type === 'error' || validateMessage.type === 'warning'" :icon="Alert01Icon" :size="16" class="shrink-0" />
+            <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" class="shrink-0" />
+            <span class="leading-snug">{{ validateMessage.text }}</span>
+          </div>
+        </Transition>
+
+        <!-- Resumen Escolta y Celular -->
+        <div class="p-3.5 rounded-xl bg-slate-50/80 dark:bg-[#1E222B]/50 border border-slate-200/60 dark:border-white/5 flex items-center justify-between">
+          <div class="flex flex-col min-w-0 pr-2">
+            <span class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Escolta</span>
+            <span class="text-xs font-bold text-slate-800 dark:text-white uppercase truncate">{{ currentValidateEscolta.nombre }}</span>
+          </div>
+          <span class="text-[11px] font-mono font-bold text-[#3b82f6] px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 shrink-0">
+            {{ currentValidateEscolta.celular }}
+          </span>
+        </div>
+
+        <!-- CÓDIGO SMS -->
+        <div class="space-y-3">
+          <AppFormInput 
+            v-model="smsCodeInput"
+            label="Código SMS"
+            :icon="MessageQuestionIcon"
+            placeholder="Ej: 5579"
+            maxlength="6"
+            class="font-mono tracking-widest text-center text-lg"
+            autofocus
+          />
+          <div class="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500 px-1">
+            <span>{{ t('escoltas.msgSmsSent') }}</span>
+            <button 
+              type="button" 
+              @click="resendCooldown === 0 ? preValidateEscolta() : null"
+              :disabled="resendCooldown > 0 || isValidating"
+              class="font-bold text-[#3b82f6] hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed transition-all"
+            >
+              <span v-if="resendCooldown > 0">Reenviar SMS ({{ resendCooldown }}s)</span>
+              <span v-else>Reenviar SMS</span>
+            </button>
+          </div>
+        </div>
+
       </form>
     </AppModal>
   </div>

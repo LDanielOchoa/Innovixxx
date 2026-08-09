@@ -169,7 +169,7 @@ const alertasDelServicio = computed(() => {
 
 const hardwareDelServicio = computed(() => {
   const activeItem = hoveredRecursosItem.value || props.selectedItem
-  if (!activeItem || props.activeTab !== 'SERVICIOS') return []
+  if (!activeItem) return []
   const servId = String(activeItem.id_servicio || '').trim().toLowerCase()
   if (!servId) return []
 
@@ -243,7 +243,7 @@ const getNombreHardware = (hw: any) => {
 
 const vehiculosDelServicio = computed(() => {
   const activeItem = hoveredRecursosItem.value || props.selectedItem
-  if (!activeItem || props.activeTab !== 'SERVICIOS') return []
+  if (!activeItem) return []
   const servId = String(activeItem.id_servicio || '').trim().toLowerCase()
   if (!servId) return []
 
@@ -301,7 +301,7 @@ const vehiculosDelServicio = computed(() => {
 
 const escoltasDelServicio = computed(() => {
   const activeItem = hoveredRecursosItem.value || props.selectedItem
-  if (!activeItem || props.activeTab !== 'SERVICIOS') return []
+  if (!activeItem) return []
   const servId = String(activeItem.id_servicio || '').trim().toLowerCase()
   if (!servId) return []
 

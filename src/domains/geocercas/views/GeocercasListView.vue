@@ -14,8 +14,10 @@ import {
   CircleIcon,
   SquareIcon,
   Alert01Icon,
-  Loading03Icon
+  Loading03Icon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi, deleteGeocercaApi } from '../services/geocercas.api'
 import type { Geocerca, GeocercaDetalle } from '../types/geocerca'
@@ -193,6 +195,7 @@ const initializeMap = async (googleMapsApi: any) => {
 }
 
 onMounted(() => {
+  loadModuleMessages('geocercas')
   startDarkModeObserver()
   window.addEventListener('click', closeAllMenus)
 
@@ -679,8 +682,22 @@ const handleDeleteGeocerca = async () => {
             </div>
 
             <!-- Búsqueda -->
-            <div class="relative mt-4">
-              <AppInput v-model="searchQuery" :placeholder="$t('geocercas.searchPlaceholder')" :icon="Search01Icon" />
+            <div class="relative mt-4 flex items-center gap-2">
+              <div class="relative flex-1">
+                <AppInput v-model="searchQuery" :placeholder="$t('geocercas.searchPlaceholder')" :icon="Search01Icon" />
+              </div>
+              <button 
+                @click="fetchGeocercas"
+                :disabled="loading"
+                :title="t('common.reload', 'Recargar')"
+                class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center"
+              >
+                <HugeiconsIcon 
+                  :icon="RefreshIcon" 
+                  :size="16" 
+                  :class="{ 'animate-spin': loading }"
+                />
+              </button>
             </div>
           </div>
 
@@ -768,7 +785,12 @@ const handleDeleteGeocerca = async () => {
                   <Transition name="menu-fade">
                     <div
                       v-if="openMenuGeocercaId === geocerca.id_geocerca"
-                      class="absolute right-0 mt-1.5 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      class="absolute right-0 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      :class="[
+                        paginatedGeocercas.indexOf(geocerca) >= paginatedGeocercas.length - 2 && paginatedGeocercas.length > 3
+                          ? 'bottom-full mb-1.5'
+                          : 'top-full mt-1.5'
+                      ]"
                       @click.stop
                     >
                       <button

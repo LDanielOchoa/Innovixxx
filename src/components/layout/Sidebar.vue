@@ -24,6 +24,8 @@ import {
   MapsIcon
 } from '@hugeicons/core-free-icons'
 
+import { PERMISSIONS } from '../../constants/permissions'
+
 const isExpanded = ref(false)
 const router = useRouter()
 const route = useRoute()
@@ -40,11 +42,15 @@ const openMyProfile = () => {
   isProfileMenuOpen.value = false
 }
 
+import { loadModuleMessages } from '../../i18n'
+
 onMounted(() => {
   const savedState = localStorage.getItem('sidebarExpanded')
   if (savedState !== null) {
     isExpanded.value = savedState === 'true'
   }
+
+  loadModuleMessages('sidebar')
 
   authStore.fetchUserProfile(router, (lang: string) => {
     if (typeof i18n.locale === 'string') {
@@ -79,8 +85,8 @@ type MenuItem = {
 
 const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
-    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: 7 },
-    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: 2 },
+    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_VIEW },
+    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_VIEW },
     { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
 
     { separator: true },
@@ -94,13 +100,13 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: 11 },
+    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: PERMISSIONS.HARDWARE_VIEW },
 
     { separator: true },
 
-    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: 20 },
-    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: 22 },
-    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: 26 },
+    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.BODYGUARDS_VIEW },
+    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.ROUTES_VIEW },
+    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOFENCES_VIEW },
 
     { separator: true },
 
@@ -243,6 +249,7 @@ const cerrarSesion = () => {
             :to="item.route || ''"
             @mouseenter="prefetchRoute(item.route)"
             @focusin="prefetchRoute(item.route)"
+            @click="closeMobileSidebar"
             class="group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
             :class="[
               isActiveRoute(item.route)

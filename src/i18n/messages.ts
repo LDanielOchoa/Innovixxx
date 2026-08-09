@@ -1,1 +1,1 @@
-export { messages } from './messages/index'
+export { baseMessages, moduleMessageLoaders } from './messages/index'

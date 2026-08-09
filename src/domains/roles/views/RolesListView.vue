@@ -9,7 +9,9 @@ import {
   Alert01Icon,
   CheckmarkCircle01Icon,
   MoreHorizontalIcon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import { useRoute } from 'vue-router'
 import Column from 'primevue/column'
@@ -284,7 +286,14 @@ const handleDocumentClick = () => {
   closeMenu()
 }
 
+const reloadRoles = () => {
+  if (selectedGroup.value?.id) {
+    fetchRoles(selectedGroup.value.id)
+  }
+}
+
 onMounted(() => {
+  loadModuleMessages('roles')
   document.addEventListener('click', handleDocumentClick)
 })
 
@@ -319,6 +328,20 @@ onUnmounted(() => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="reloadRoles"
+          :disabled="loading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': loading }"
+          />
+        </button>
       </div>
 
       <!-- Derecha: Botones juntos (Exportar Excel y Nuevo Rol) -->

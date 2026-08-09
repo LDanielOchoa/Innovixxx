@@ -1,62 +1,42 @@
 import { authMessages } from './auth'
 import { commonMessages } from './common'
 import { errorMessages } from './errors'
-import { gruposMessages } from './grupos'
 import { loginMessages } from './login'
-import { rolesMessages } from './roles'
 import { sidebarMessages } from './sidebar'
-import { usersMessages } from './users'
-import { escoltasMessages } from './escoltas'
-import { hardwareMessages } from './hardware'
-import { vehiculosMessages } from './vehiculos'
-import { headerMessages } from './header'
-import { dashboard } from './dashboard'
-import { rutasMessages } from './rutas'
-import { geocercasMessages } from './geocercas'
-import { serviciosMessages } from './servicios'
 
-import { vehiculosServicioMessages } from './vehiculos-servicio'
-
-export const messages = {
+export const baseMessages = {
   es: {
     common: commonMessages.es,
     login: loginMessages.es,
     errors: errorMessages.es,
     auth: authMessages.es,
-    users: usersMessages.es,
-    roles: rolesMessages.es,
-    grupos: gruposMessages.es,
-    sidebar: sidebarMessages.es,
-    escoltas: escoltasMessages.es,
-    hardware: hardwareMessages.es,
-    vehiculos: vehiculosMessages.es,
-    vehiculosServicio: vehiculosServicioMessages.es,
-    header: headerMessages.es,
-    dashboard: dashboard.es,
-    rutas: rutasMessages.es,
-    geocercas: geocercasMessages.es,
-    servicios: serviciosMessages.es
+    sidebar: sidebarMessages.es
   },
   en: {
     common: commonMessages.en,
     login: loginMessages.en,
     errors: errorMessages.en,
     auth: authMessages.en,
-    users: usersMessages.en,
-    roles: rolesMessages.en,
-    grupos: gruposMessages.en,
-    sidebar: sidebarMessages.en,
-    escoltas: escoltasMessages.en,
-    hardware: hardwareMessages.en,
-    vehiculos: vehiculosMessages.en,
-    vehiculosServicio: vehiculosServicioMessages.en,
-    header: headerMessages.en,
-    dashboard: dashboard.en,
-    rutas: rutasMessages.en,
-    geocercas: geocercasMessages.en,
-    servicios: serviciosMessages.en
+    sidebar: sidebarMessages.en
   }
 }
+
+export const moduleMessageLoaders: Record<string, () => Promise<any>> = {
+  users: () => import('./users').then(m => m.usersMessages),
+  roles: () => import('./roles').then(m => m.rolesMessages),
+  grupos: () => import('./grupos').then(m => m.gruposMessages),
+  sidebar: () => import('./sidebar').then(m => m.sidebarMessages),
+  escoltas: () => import('./escoltas').then(m => m.escoltasMessages),
+  hardware: () => import('./hardware').then(m => m.hardwareMessages),
+  vehiculos: () => import('./vehiculos').then(m => m.vehiculosMessages),
+  vehiculosServicio: () => import('./vehiculos-servicio').then(m => m.vehiculosServicioMessages),
+  header: () => import('./header').then(m => m.headerMessages),
+  dashboard: () => import('./dashboard').then(m => m.dashboard),
+  rutas: () => import('./rutas').then(m => m.rutasMessages),
+  geocercas: () => import('./geocercas').then(m => m.geocercasMessages),
+  servicios: () => import('./servicios').then(m => m.serviciosMessages)
+}
+
 
 
 

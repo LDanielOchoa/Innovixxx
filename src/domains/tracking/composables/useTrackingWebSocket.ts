@@ -179,7 +179,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
       } else if (activeTab.value === 'ESCOLTAS') {
         const res = await apiClient<{ done: boolean; data: any[] }>('/api/v1/escolta/listar_simple/', {
           method: 'POST',
-          body: JSON.stringify({ id_grupo: groupId, estado: 1 })
+          body: JSON.stringify({ id_grupo: groupId, estado: 0 })
         })
         if (res.done && Array.isArray(res.data)) {
           refEscoltas.value = res.data
@@ -218,11 +218,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     // Desconectar inmediatamente la conexión previa y anular sus handlers
     disconnectWebSocket()
 
-    // Limpiar listas en vivo para asegurar que solo se muestren los datos que entregue el WebSocket actual
-    if (activeTab.value === 'SERVICIOS') serviciosList.value = []
-    else if (activeTab.value === 'HARDWARE') hardwareList.value = []
-    // Para ESCOLTAS no vaciamos la lista, para conservar escoltas obtenidos en SERVICIOS hasta recibir la data del WS o REST
-
+    // Al reconectar el WebSocket preservamos las listas para mantener la resolución de nombres de recursos
     isManualDisconnect = false
     wsStatus.value = 'connecting'
     wsError.value = null
@@ -442,17 +438,31 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
 
             // 3. Procesar si el payload contiene "escoltas" (Modo 3)
             if (Array.isArray(payload.escoltas)) {
+              const enrichEscolta = (e: any) => {
+                const escId = e.id_escolta || e.identificacion || ''
+                const foundRef = refEscoltas.value.find(r => r.id_escolta === escId || r.identificacion === escId)
+                return {
+                  ...e,
+                  nombre: foundRef?.nombre || foundRef?.nombres || e.nombre || escId,
+                  identificacion: foundRef?.identificacion || e.identificacion || escId,
+                  celular: foundRef?.celular || foundRef?.telefono || e.celular || ''
+                }
+              }
+
+              const enrichedList = payload.escoltas.map(enrichEscolta)
+
               if (payload.msg && payload.msg.toLowerCase().includes('inicial')) {
-                escoltasList.value = payload.escoltas
+                escoltasList.value = enrichedList
               } else {
-                payload.escoltas.forEach((updatedItem: any) => {
-                  const index = escoltasList.value.findIndex(e => e.id_escolta === updatedItem.id_escolta)
+                enrichedList.forEach((updatedItem: any) => {
+                  const key = updatedItem.id_escolta || updatedItem.identificacion
+                  const index = escoltasList.value.findIndex(e => (e.id_escolta || e.identificacion) === key)
                   if (index !== -1) {
                     escoltasList.value[index] = { ...escoltasList.value[index], ...updatedItem }
                   } else {
                     escoltasList.value.push(updatedItem)
                   }
-                  if (selectedItem.value && selectedItem.value.id_escolta === updatedItem.id_escolta) {
+                  if (selectedItem.value && (selectedItem.value.id_escolta === key || selectedItem.value.identificacion === key)) {
                     selectedItem.value = { ...selectedItem.value, ...updatedItem }
                   }
                 })

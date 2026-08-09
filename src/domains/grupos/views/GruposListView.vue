@@ -7,8 +7,10 @@ import {
   Clock01Icon, 
   Delete01Icon,
   Edit02Icon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import { useRoute, useRouter } from 'vue-router'
 import Column from 'primevue/column'
 
@@ -209,6 +211,7 @@ const handleDocumentClick = () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('grupos')
   fetchGrupos()
   document.addEventListener('click', handleDocumentClick)
 })
@@ -252,14 +255,19 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
           </div>
         </div>
 
-        <!-- Filtro de Idioma -->
-        <div class="w-full sm:w-auto min-w-[240px]">
-          <AppSelect 
-            v-model="selectedLang"
-            :options="[{ label: 'Todos los Idiomas', value: '' }, ...langOptions]"
-            :placeholder="t('grupos.formLangPlaceholder')"
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchGrupos"
+          :disabled="loading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': loading }"
           />
-        </div>
+        </button>
       </div>
 
       <!-- Derecha: Botón Nuevo Grupo -->

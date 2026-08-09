@@ -42,7 +42,7 @@ const {
   isDarkMapMode
 } = useMapSetup('hardware-posicion-map-container', {
   defaultZoom: 13,
-  gestureHandling: 'cooperative'
+  gestureHandling: 'greedy'
 })
 
 const posiciones = ref<Posicion[]>([])

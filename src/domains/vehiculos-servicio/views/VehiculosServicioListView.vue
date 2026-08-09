@@ -10,8 +10,10 @@ import {
   Car01Icon,
   FingerPrintIcon,
   Calendar01Icon,
-  MoreHorizontalIcon
+  MoreHorizontalIcon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
@@ -149,6 +151,7 @@ const isDateExpired = (dateStr: string): boolean => {
 }
 
 onMounted(() => {
+  loadModuleMessages('vehiculosServicio')
   fetchVehicles()
   document.addEventListener('click', handleDocumentClick)
 })
@@ -203,8 +206,8 @@ const handleModalSaved = () => {
     <!-- Toolbar: Buscador (izquierda) + Botones (derecha) -->
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
       <!-- Izquierda: Buscador -->
-      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
-        <div class="relative w-full sm:w-[28rem]">
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="relative w-full sm:w-80">
           <input 
             v-model="searchQuery"
             type="text" 
@@ -217,6 +220,20 @@ const handleModalSaved = () => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchVehicles"
+          :disabled="isLoading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': isLoading }"
+          />
+        </button>
       </div>
 
       <!-- Derecha: Botones Exportar y Nuevo Vehículo de Servicio -->

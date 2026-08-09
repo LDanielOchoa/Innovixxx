@@ -330,6 +330,7 @@ onUnmounted(() => {
                 min="0"
                 max="23"
                 :value="currentHour"
+                @focus="($event.target as HTMLInputElement).select()"
                 @change="updateHour(($event.target as HTMLInputElement).value)"
                 class="w-14 px-2 py-1.5 text-center text-[13px] font-bold bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-slate-200 focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-1 focus:ring-[#3b82f6]/20 outline-none transition-all"
               />
@@ -339,6 +340,7 @@ onUnmounted(() => {
                 min="0"
                 max="59"
                 :value="currentMinute"
+                @focus="($event.target as HTMLInputElement).select()"
                 @change="updateMinute(($event.target as HTMLInputElement).value)"
                 class="w-14 px-2 py-1.5 text-center text-[13px] font-bold bg-white dark:bg-[#0F1115] border border-slate-200 dark:border-white/10 rounded-lg text-slate-800 dark:text-slate-200 focus:border-[#3b82f6] dark:focus:border-[#5da6fc] focus:ring-1 focus:ring-[#3b82f6]/20 outline-none transition-all"
               />

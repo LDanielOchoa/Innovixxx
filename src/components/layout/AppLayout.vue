@@ -4,15 +4,25 @@ import Header from './Header.vue'
 import RouteErrorBoundary from './RouteErrorBoundary.vue'
 import { useRoute } from 'vue-router'
 import { useVehiculosServicioPanel } from '../../composables/useVehiculosServicioPanel'
+import { useRouteNavigation } from '../../composables/useRouteNavigation'
 
 const route = useRoute()
 const { isPanelOpen } = useVehiculosServicioPanel()
+const { isRouteNavigating } = useRouteNavigation()
 </script>
 
 <template>
   <div
     class="bg-white dark:bg-[#13161C] font-sans text-slate-700 dark:text-slate-300 h-screen flex overflow-hidden relative selection:bg-[#60a5fa]/30 dark:selection:bg-[#5da6fc]/30 selection:text-white"
   >
+    <!-- Top Progress Bar / Global Router Loader -->
+    <div
+      v-if="isRouteNavigating"
+      class="fixed top-0 left-0 right-0 z-[9999] h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 animate-pulse transition-all duration-300 shadow-[0_0_12px_rgba(59,130,246,0.8)]"
+    >
+      <div class="h-full w-full bg-white/30 animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]"></div>
+    </div>
+
     <!-- Grid de Fondo Tecnológico HUD -->
     <div
       class="absolute inset-0 z-0 opacity-10 dark:opacity-20 pointer-events-none"

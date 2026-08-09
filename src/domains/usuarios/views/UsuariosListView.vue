@@ -8,7 +8,8 @@ import {
   Delete01Icon,
   MoreHorizontalIcon,
   Mail01Icon,
-  UserGroupIcon
+  UserGroupIcon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
 import * as XLSX from 'xlsx'
 import { obtenerUrlImagen } from '../../../utils/imagenes'
@@ -115,7 +116,10 @@ const handleDocumentClick = () => {
   closeMenu()
 }
 
+import { loadModuleMessages } from '../../../i18n'
+
 onMounted(() => {
+  loadModuleMessages('users')
   fetchGrupos()
   document.addEventListener('click', handleDocumentClick)
 })
@@ -245,6 +249,20 @@ const copiarEmail = (email: string) => {
             </svg>
           </div>
         </div>
+
+        <!-- Botón de Recarga afuera -->
+        <button 
+          @click="fetchUsuarios"
+          :disabled="loading"
+          :title="t('common.reload', 'Recargar')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+        >
+          <HugeiconsIcon 
+            :icon="RefreshIcon" 
+            :size="16" 
+            :class="{ 'animate-spin': loading }"
+          />
+        </button>
 
         <!-- Filtro de Grupo -->
         <div class="w-full sm:w-auto min-w-[200px]">

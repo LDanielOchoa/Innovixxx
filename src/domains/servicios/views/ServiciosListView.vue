@@ -16,8 +16,10 @@ import {
   Edit01Icon,
   FilterIcon,
   Clock01Icon,
-  Alert01Icon
+  Alert01Icon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import {
   fetchServicioDashboardApi,
   fetchVehiculosSimplesApi,
@@ -163,7 +165,7 @@ const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' |
 // Menú de acciones
 const openMenuId = ref<string | null>(null)
 const activeMenuServicio = ref<ServicioDashboard | null>(null)
-const menuPosition = ref({ top: '0px', right: '0px' })
+const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
 
 const toggleMenu = (servicio: ServicioDashboard, event: MouseEvent) => {
   if (openMenuId.value === servicio.id_servicio) {
@@ -173,9 +175,21 @@ const toggleMenu = (servicio: ServicioDashboard, event: MouseEvent) => {
   
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
-  menuPosition.value = {
-    top: `${rect.bottom + 8}px`,
-    right: `${window.innerWidth - rect.right}px`
+  const spaceBelow = window.innerHeight - rect.bottom
+  const estimatedMenuHeight = 320 // Altura estimada para las opciones del menú de servicios
+
+  if (spaceBelow < estimatedMenuHeight) {
+    // Abrir hacia arriba
+    menuPosition.value = {
+      bottom: `${window.innerHeight - rect.top + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+  } else {
+    // Abrir hacia abajo
+    menuPosition.value = {
+      top: `${rect.bottom + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
   }
   openMenuId.value = servicio.id_servicio
   activeMenuServicio.value = servicio
@@ -486,6 +500,7 @@ const handleScrollOrResize = () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('servicios')
   fetchFiltrosData()
   document.addEventListener('click', handleDocumentClick)
   window.addEventListener('scroll', handleScrollOrResize, true)
@@ -511,23 +526,39 @@ onUnmounted(() => {
     <!-- Toolbar: Buscador y Filtros (izquierda) + Botones (derecha) -->
     <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
       <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
-        <!-- Buscador -->
-        <div class="relative w-full sm:w-80">
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="t('servicios.searchPlaceholder')"
-            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
-          />
-          <div class="absolute left-3.5 top-3 text-slate-400 pointer-events-none transition-colors">
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
+        <!-- Buscador + Botón Recarga Integrados de forma horizontal -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <div class="relative w-full sm:w-64">
+            <input
+              v-model="searchQuery"
+              type="text"
+              :placeholder="t('servicios.searchPlaceholder')"
+              class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
+            />
+            <div class="absolute left-3.5 top-3 text-slate-400 pointer-events-none transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </div>
           </div>
+
+          <!-- Botón de Recarga afuera -->
+          <button 
+            @click="fetchServicios"
+            :disabled="isLoading"
+            :title="t('common.reload', 'Recargar')"
+            class="p-2 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 h-[38px] w-[38px] flex items-center justify-center"
+          >
+            <HugeiconsIcon 
+              :icon="RefreshIcon" 
+              :size="16" 
+              :class="{ 'animate-spin': isLoading }"
+            />
+          </button>
         </div>
 
         <!-- Rango de Fechas -->
-        <div class="w-full sm:w-auto min-w-[240px] h-[38px] flex items-center date-picker-container">
+        <div class="w-full sm:w-auto min-w-[220px] h-[38px] flex items-center date-picker-container">
           <AppDateRangePicker
             v-model="fechaRango"
             label=""
@@ -537,10 +568,10 @@ onUnmounted(() => {
         </div>
 
         <!-- Ruta Dropdown -->
-        <div ref="rutaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
+        <div ref="rutaDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('ruta')"
-            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
             :class="filtros.id_ruta !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
             <HugeiconsIcon :icon="Route01Icon" :size="14" class="opacity-70" />
@@ -583,10 +614,10 @@ onUnmounted(() => {
         </div>
 
         <!-- Escolta Dropdown -->
-        <div ref="escoltaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
+        <div ref="escoltaDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('escolta')"
-            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
             :class="filtros.id_escolta !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
             <HugeiconsIcon :icon="User02Icon" :size="14" class="opacity-70" />
@@ -629,10 +660,10 @@ onUnmounted(() => {
         </div>
 
         <!-- Estado Dropdown -->
-        <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
+        <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[140px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('estado')"
-            class="w-full flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
             :class="filtros.estado !== 0 ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
           >
             <HugeiconsIcon :icon="Edit01Icon" :size="14" class="opacity-70" />
@@ -664,11 +695,11 @@ onUnmounted(() => {
           </Transition>
         </div>
 
-        <!-- Botón de Limpiar Filtros Estilo Premium Glass-Rose -->
+        <!-- Botón de Limpiar Filtros -->
         <button
           v-if="tieneFiltrosActivos"
           @click="limpiarFiltros"
-          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-xs font-bold h-[38px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-xs font-bold h-[38px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
         >
           <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
           <span>Limpiar</span>
@@ -906,7 +937,11 @@ onUnmounted(() => {
           <div
             v-if="openMenuId"
             class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
-            :style="{ top: menuPosition.top, right: menuPosition.right }"
+            :style="{ 
+              ...(menuPosition.top ? { top: menuPosition.top } : {}), 
+              ...(menuPosition.bottom ? { bottom: menuPosition.bottom } : {}), 
+              right: menuPosition.right 
+            }"
           >
             <button
               @click="openModal('assign', activeMenuServicio)"

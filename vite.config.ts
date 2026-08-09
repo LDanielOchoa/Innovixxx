@@ -10,10 +10,13 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            if (id.includes('vue') || id.includes('@vue') || id.includes('vue-router') || id.includes('pinia')) {
-              return 'vendor-core'
+            if (id.includes('vue') || id.includes('pinia')) {
+              return 'vendor-vue'
             }
-            if (id.includes('lucide-vue-next') || id.includes('feather-icons')) {
+            if (id.includes('primevue') || id.includes('@primevue')) {
+              return 'vendor-primevue'
+            }
+            if (id.includes('@hugeicons') || id.includes('lucide-vue-next')) {
               return 'vendor-icons'
             }
             return 'vendor'

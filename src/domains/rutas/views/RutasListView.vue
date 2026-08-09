@@ -13,8 +13,10 @@ import {
   Alert01Icon,
   Calendar01Icon,
   CpuIcon,
-  Loading03Icon
+  Loading03Icon,
+  RefreshIcon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import { fetchRutasApi, setRutaEstadoApi, fetchRutaDetallesApi, fetchTiposParadaApi } from '../services/rutas.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
@@ -113,7 +115,7 @@ const {
   startDarkModeObserver
 } = useMapSetup('google-map-container', {
   defaultZoom: 12,
-  gestureHandling: 'cooperative'
+  gestureHandling: 'greedy'
 })
 
 const initializeMap = async (googleMapsApi: any) => {
@@ -259,6 +261,7 @@ const closeAllMenus = () => {
 }
 
 onMounted(async () => {
+  loadModuleMessages('rutas')
   startDarkModeObserver()
   window.addEventListener('click', closeAllMenus)
 
@@ -552,8 +555,22 @@ const trazarRutaGps = async () => {
             </div>
  
             <!-- Search -->
-            <div class="relative mt-4">
-              <AppInput v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" :icon="Search01Icon" />
+            <div class="relative mt-4 flex items-center gap-2">
+              <div class="relative flex-1">
+                <AppInput v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" :icon="Search01Icon" />
+              </div>
+              <button 
+                @click="fetchRutas"
+                :disabled="loading"
+                :title="t('common.reload', 'Recargar')"
+                class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center"
+              >
+                <HugeiconsIcon 
+                  :icon="RefreshIcon" 
+                  :size="16" 
+                  :class="{ 'animate-spin': loading }"
+                />
+              </button>
             </div>
           </div>
  
@@ -638,7 +655,12 @@ const trazarRutaGps = async () => {
                   <Transition name="menu-fade">
                     <div
                       v-if="openMenuRutaId === ruta.id_ruta"
-                      class="absolute right-0 mt-1.5 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      class="absolute right-0 w-32 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl shadow-xl py-1 z-50 overflow-hidden"
+                      :class="[
+                        paginatedRutas.indexOf(ruta) >= paginatedRutas.length - 2 && paginatedRutas.length > 3
+                          ? 'bottom-full mb-1.5'
+                          : 'top-full mt-1.5'
+                      ]"
                       @click.stop
                     >
                       <button

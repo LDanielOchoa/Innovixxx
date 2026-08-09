@@ -67,6 +67,7 @@ export function useMapSetup(containerId: string) {
       styles: getMapStyle(activeTheme.value, isDarkMapMode.value),
       disableDefaultUI: true,
       zoomControl: true,
+      gestureHandling: 'greedy',
     })
 
     if (onMapClick) {
