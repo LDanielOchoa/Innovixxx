@@ -215,10 +215,11 @@ router.beforeEach(async (to, _from, next) => {
       return
     }
 
-    if (to.meta.permission && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(to.meta.permission as number)) {
+    if (to.meta.permission && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(to.meta.permission as string)) {
       next({ name: 'dashboard' })
       return
     }
+
   }
 
   next()

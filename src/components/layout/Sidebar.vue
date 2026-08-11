@@ -80,7 +80,7 @@ type MenuItem = {
   text?: string;
   route?: string;
   adminOnly?: boolean;
-  permissionId?: number;
+  permissionId?: string;
 };
 
 const displayedMenuItems = computed(() => {
@@ -95,7 +95,7 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos' },
+    { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
     { icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio' },
 
     { separator: true },
@@ -110,8 +110,9 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios' }
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios', permissionId: PERMISSIONS.SERVICE_LIST_TABLE }
   ]
+
 
   if (authStore.isSuperAdmin) {
     const allowedItems = menuItems.filter(item => {

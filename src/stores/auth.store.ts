@@ -30,7 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAdmin = ref(false)
   const isLoading = ref(true)
-  const userPermissions = ref<number[]>([])
+  const userPermissions = ref<string[]>([])
 
   const userAvatar = computed(() => obtenerUrlImagen(userData.value.foto))
 
@@ -129,60 +129,96 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.href = '/login'
   }
 
-  const hasPermission = (permissionId: number): boolean => {
+  const hasPermission = (permissionId: string | number): boolean => {
     if (isSuperAdmin.value) return true
-    return userPermissions.value.includes(permissionId)
+    const permStr = String(permissionId)
+    return userPermissions.value.some(p => String(p) === permStr)
   }
 
-  const parseMenuOpsToPermissions = (menuOps: { category: string; descripcion: string }[]): number[] => {
+  const parseMenuOpsToPermissions = (menuOps: any[]): string[] => {
     if (!Array.isArray(menuOps) || menuOps.length === 0) return []
 
-    const permissionMap: Record<string, Record<string, number>> = {
-      ROLES: {
-        'Create a role': 1,
-        'List roles': 2,
-        'Edit roles': 3,
-        'Delete roles': 4,
-        'Assign permissions to roles': 5,
-      },
-      USUARIOS: {
-        'Create users': 6,
-        'List users': 7,
-        'Edit users': 8,
-        'Delete users': 9,
-      },
-      HARDWARE: {
-        'Create hardware': 10,
-        'List hardware': 11,
-        'Edit hardware': 12,
-        'Delete hardware': 13,
-        'Assign to service': 14,
-        'Send SMS/TCP commands': 15,
-      },
+    const permissionMap: Record<string, Record<string, string>> = {
       ESCOLTA: {
-        'Create escort': 16,
-        'Update escort': 17,
-        'Delete escort': 18,
-        'Validate escort': 19,
-        'List escorts': 20,
-      },
-      RUTAS: {
-        'Create route': 21,
-        'List routes': 22,
-        'Edit route': 23,
-        'Delete route': 24,
+        'Listar escoltas': 'PxpYRQba',
+        'Create escort': 'PxpYRQba',
+        'List escorts': 'PxpYRQba',
       },
       GEOCERCAS: {
-        'Create geofence': 25,
-        'List geofences': 26,
-        'Edit geofence': 27,
-        'Delete geofence': 28,
+        'Detalles geocercas': '7R1vGpVN',
+        'Listar geocerca': 'O2Qdej9M',
+        'Editar geocerca': 'V7QowQkD',
+        'Borrar geocerca': 'gapyYprY',
+        'Crear geocerca': 'yDpLO1Xm',
+        'Create geofence': 'yDpLO1Xm',
+        'List geofences': 'O2Qdej9M',
+        'Edit geofence': 'V7QowQkD',
+        'Delete geofence': 'gapyYprY',
       },
+      HARDWARE: {
+        'Listar hardware': 'r01A91WP',
+        'List hardware': 'r01A91WP',
+        'Create hardware': 'r01A91WP',
+        'Edit hardware': 'r01A91WP',
+        'Delete hardware': 'r01A91WP',
+      },
+      ROLES: {
+        'Editar roles': '2J1mwQa6',
+        'Crear un role': 'Jm1gBj8w',
+        'Asignar permisos a roles': 'W4jJW1JG',
+        'Borrar roles': 'rnjWvQED',
+        'Listar roles': 'vVj9gpd3',
+        'Create a role': 'Jm1gBj8w',
+        'List roles': 'vVj9gpd3',
+        'Edit roles': '2J1mwQa6',
+        'Delete roles': 'rnjWvQED',
+        'Assign permissions to roles': 'W4jJW1JG',
+      },
+      RUTAS: {
+        'Cambiar estado': '2njwojZN',
+        'Crear ruta': 'LOjrzjYX',
+        'Editar ruta': 'WN1ELjZD',
+        'Listar ruta': 'yPQPn10V',
+        'Create route': 'LOjrzjYX',
+        'List routes': 'yPQPn10V',
+        'Edit route': 'WN1ELjZD',
+        'Delete route': 'WN1ELjZD',
+      },
+      SERVICE: {
+        'Ver historial': '8EpaOLj2',
+        'Crear servicio': 'Jm1gBBj8',
+        'Listar servicios (dash)': 'rnjW5vpE',
+        'Listar servicios (tabla)': 'vVj9Rg1d',
+      },
+      USUARIOS: {
+        'Editar usuarios': '8EpaL127',
+        'Crear usuarios': 'BDjMxQ8K',
+        'Listar usuarios': 'PEjxE1rz',
+        'Borrar usuarios': 'VYQq9Qbz',
+        'Create users': 'BDjMxQ8K',
+        'List users': 'PEjxE1rz',
+        'Edit users': '8EpaL127',
+        'Delete users': 'VYQq9Qbz',
+      },
+      VEHICULOS: {
+        'Actualizar vehiculo': '2aQN81vy',
+        'Listar vehiculos': '7zj6EQRk',
+        'Crear vehiculo': 'rzpnWQl2',
+        'Borrar vehiculos': 'w3Q48Qz0',
+      }
     }
 
-    const permissions = new Set<number>()
+    const permissions = new Set<string>()
 
     for (const op of menuOps) {
+      if (typeof op === 'string') {
+        permissions.add(op)
+        continue
+      }
+      if (op && op.id) {
+        permissions.add(String(op.id))
+        continue
+      }
       const category = op.category?.toUpperCase()
       const descripcion = op.descripcion
 
@@ -256,9 +292,9 @@ export const useAuthStore = defineStore('auth', () => {
         } else if (data.data.permisos) {
           try {
             if (Array.isArray(data.data.permisos)) {
-              userPermissions.value = data.data.permisos.map(Number)
+              userPermissions.value = data.data.permisos.map((p: any) => typeof p === 'object' && p.id ? String(p.id) : String(p))
             } else if (typeof data.data.permisos === 'string') {
-              userPermissions.value = JSON.parse(data.data.permisos).map(Number)
+              userPermissions.value = JSON.parse(data.data.permisos).map(String)
             }
           } catch (e) {
             userPermissions.value = []

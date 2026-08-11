@@ -1,12 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, markRaw } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Shield02Icon, 
   CheckmarkCircle01Icon, 
   Alert01Icon,
   CheckmarkSquare02Icon,
-  Loading03Icon
+  Loading03Icon,
+  PencilEdit01Icon,
+  Delete02Icon,
+  ViewIcon,
+  Add01Icon,
+  Key01Icon,
+  Settings04Icon,
+  Clock01Icon
 } from '@hugeicons/core-free-icons'
 import BaseModal from '../common/BaseModal.vue'
 import { apiClient } from '../../utils/api-client'
@@ -18,8 +25,67 @@ import AppLoader from '../common/AppLoader.vue'
 const { t } = useI18n()
 const toast = useToast()
 
+const getPermissionMeta = (desc?: string) => {
+  const text = (desc || '').toLowerCase()
+  if (text.includes('crear') || text.includes('create')) {
+    return {
+      icon: markRaw(Add01Icon),
+      badgeText: 'Crear',
+      badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    }
+  }
+  if (text.includes('edit') || text.includes('actualizar') || text.includes('update')) {
+    return {
+      icon: markRaw(PencilEdit01Icon),
+      badgeText: 'Editar',
+      badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    }
+  }
+  if (text.includes('borrar') || text.includes('eliminar') || text.includes('delete')) {
+    return {
+      icon: markRaw(Delete02Icon),
+      badgeText: 'Borrar',
+      badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
+    }
+  }
+  if (text.includes('listar') || text.includes('list')) {
+    return {
+      icon: markRaw(ViewIcon),
+      badgeText: 'Listar',
+      badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+    }
+  }
+  if (text.includes('asignar') || text.includes('assign')) {
+    return {
+      icon: markRaw(Key01Icon),
+      badgeText: 'Asignar',
+      badgeClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+    }
+  }
+  if (text.includes('estado') || text.includes('status')) {
+    return {
+      icon: markRaw(Settings04Icon),
+      badgeText: 'Estado',
+      badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+    }
+  }
+  if (text.includes('historial') || text.includes('detalles') || text.includes('detail')) {
+    return {
+      icon: markRaw(Clock01Icon),
+      badgeText: 'Detalles',
+      badgeClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
+    }
+  }
+  return {
+    icon: markRaw(ViewIcon),
+    badgeText: 'General',
+    badgeClass: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
+  }
+}
+
+
 interface Permission {
-  id: number
+  id: string | number
   category: string
   descripcion?: string
   description?: string
@@ -46,14 +112,15 @@ const emit = defineEmits<{
 }>()
 
 const permissions = ref<Permission[]>([])
-const selectedPermissions = ref<number[]>([])
+const selectedPermissions = ref<string[]>([])
 const loadingPermissions = ref(false)
 const loadingList = ref(false)
 
 const internalRole = ref<RoleSummary | null>(props.role)
 
 const selectedPermissionsCount = computed(() => selectedPermissions.value.length)
-const isPermissionSelected = (permissionId: number) => selectedPermissions.value.includes(permissionId)
+const isPermissionSelected = (permissionId: string | number) => selectedPermissions.value.includes(String(permissionId))
+
 
 interface ModalMessage {
   type: 'success' | 'error' | 'warning'
@@ -116,7 +183,7 @@ const fetchRolePermissions = async () => {
         try {
           const parsed = JSON.parse(permsString)
           if (Array.isArray(parsed)) {
-            selectedPermissions.value = parsed.map(Number)
+            selectedPermissions.value = parsed.map(String)
           }
         } catch (e) {
           console.error('Error parsing assigned permissions:', e)
@@ -151,8 +218,9 @@ const savePermissions = async () => {
     const payload = {
       id_grupo: props.groupId,
       id_role: internalRole.value.id_role,
-      permissions: `[${selectedPermissions.value.join(',')}]`
+      permissions: JSON.stringify(selectedPermissions.value)
     }
+
 
     const data = await apiClient<{ done: boolean, message?: string }>('/api/v1/role/asignar/', {
       body: JSON.stringify(payload)
@@ -336,7 +404,7 @@ watch(() => props.role?.id_role, () => {
                       : 'bg-white dark:bg-[#1A1D24] border-slate-200/60 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]'"
                   >
                     <div
-                      class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300"
+                      class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300 shrink-0"
                       :class="isPermissionSelected(permission.id) 
                         ? 'bg-[#3b82f6] border-[#3b82f6]' 
                         : 'bg-transparent border-slate-300 dark:border-white/10'"
@@ -350,15 +418,27 @@ watch(() => props.role?.id_role, () => {
                       />
                     </div>
 
+                    <!-- Icono Visual de la Acción (Crear, Editar, Borrar, Listar, etc.) -->
+                    <div
+                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-300"
+                      :class="getPermissionMeta(permission.descripcion_es || permission.descripcion || permission.nombre || permission.name || permission.description).badgeClass"
+                    >
+                      <HugeiconsIcon
+                        :icon="getPermissionMeta(permission.descripcion_es || permission.descripcion || permission.nombre || permission.name || permission.description).icon"
+                        :size="16"
+                      />
+                    </div>
+
                     <div class="flex-1 min-w-0">
                       <p
                         class="text-[13px] font-bold leading-tight transition-colors duration-300"
-                        :class="isPermissionSelected(permission.id) ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'"
+                        :class="isPermissionSelected(permission.id) ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'"
                       >
                         {{ permission.descripcion_es || permission.descripcion_en || permission.nombre || permission.name || permission.descripcion || permission.description || `Permiso ${permission.id}` }}
                       </p>
                     </div>
                   </div>
+
                 </label>
               </div>
             </div>
