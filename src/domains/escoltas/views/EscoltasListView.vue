@@ -144,11 +144,13 @@ const fetchEscoltas = async () => {
   
   isLoading.value = true
   try {
-    const [escoltasData] = await Promise.all([
+    const resultados = await Promise.allSettled([
       fetchEscoltasApi(selectedGroup.value.id, filtroEstado.value),
       cargarAsignacionesData()
     ])
-    escoltas.value = escoltasData
+    if (resultados[0].status === 'fulfilled') {
+      escoltas.value = resultados[0].value
+    }
   } catch (error) {
     console.error('Error fetching escoltas:', error)
   } finally {

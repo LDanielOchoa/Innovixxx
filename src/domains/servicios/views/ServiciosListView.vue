@@ -70,12 +70,15 @@ const obtenerNombreRuta = (id: string): string => {
 
 const obtenerNombreVehiculo = (id: string): string => {
   const v = catalogoVehiculos.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.placa} (${v.tipo})` : id
+  if (!v) return id
+  if (v.nombre && v.placa) return `${v.nombre} (${v.placa})`
+  if (v.placa && v.tipo) return `${v.placa} (${v.tipo})`
+  return v.nombre || v.placa || id
 }
 
 const obtenerNombreHardware = (id: string): string => {
   const h = catalogoHardware.value.find(item => item.id_hardware === id)
-  return h ? h.nombre : id
+  return h ? (h.nombre || h.id_hardware) : id
 }
 
 const obtenerNombreEscolta = (id: string): string => {
@@ -399,19 +402,21 @@ const fetchServicios = async () => {
 
 const fetchFiltrosData = async () => {
   if (!selectedGroup.value?.id) return
-  try {
-    const [rutasData, escoltasData, vehiculosData, hardwareData] = await Promise.all([
-      fetchRutasApi(selectedGroup.value.id),
-      fetchEscoltasApi(selectedGroup.value.id),
-      fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
-      fetchHardwareSimplesApi(selectedGroup.value.id, 0)
-    ])
-    rutas.value = rutasData
-    escoltas.value = escoltasData
-    catalogoVehiculos.value = vehiculosData
-    catalogoHardware.value = hardwareData
-  } catch (error) {
-    console.error('Error al cargar datos de filtros y catálogos:', error)
+  const resultados = await Promise.allSettled([
+    fetchRutasApi(selectedGroup.value.id),
+    fetchEscoltasApi(selectedGroup.value.id),
+    fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
+    fetchHardwareSimplesApi(selectedGroup.value.id, 0)
+  ])
+
+  if (resultados[0].status === 'fulfilled') rutas.value = resultados[0].value
+  if (resultados[1].status === 'fulfilled') escoltas.value = resultados[1].value
+  if (resultados[2].status === 'fulfilled') catalogoVehiculos.value = resultados[2].value
+  if (resultados[3].status === 'fulfilled') catalogoHardware.value = resultados[3].value
+
+  const fallos = resultados.filter(r => r.status === 'rejected')
+  if (fallos.length > 0) {
+    console.warn(`${fallos.length} catálogo(s) fallaron al cargar:`, fallos.map(f => (f as PromiseRejectedResult).reason))
   }
 }
 

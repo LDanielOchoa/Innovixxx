@@ -111,11 +111,13 @@ const cargarServiciosData = async () => {
 const fetchVehicles = async () => {
   isLoading.value = true
   try {
-    const [vehiclesData] = await Promise.all([
+    const resultados = await Promise.allSettled([
       fetchVehiculosApi(selectedGroup.value.id),
       cargarServiciosData()
     ])
-    vehicles.value = vehiclesData
+    if (resultados[0].status === 'fulfilled') {
+      vehicles.value = resultados[0].value
+    }
   } catch (error) {
     console.error('Error fetching vehicles:', error)
   } finally {

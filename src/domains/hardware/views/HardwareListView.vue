@@ -201,11 +201,13 @@ const fetchHardware = async () => {
 
   isLoading.value = true
   try {
-    const [hardwareData] = await Promise.all([
+    const resultados = await Promise.allSettled([
       fetchHardwareApi(selectedGroup.value.id),
       cargarServiciosData()
     ])
-    items.value = hardwareData
+    if (resultados[0].status === 'fulfilled') {
+      items.value = resultados[0].value
+    }
   } catch (error) {
     console.error('Error fetching hardware:', error)
   } finally {

@@ -296,12 +296,15 @@ const getServicioLabel = (id: string) => {
 
 const getVehiculoLabel = (id: string) => {
   const v = vehiculosList.value.find(item => item.id_vehiculo === id)
-  return v ? `${v.placa}${v.tipo ? ` (${v.tipo})` : ''}` : id
+  if (!v) return id
+  if (v.nombre && v.placa) return `${v.nombre} (${v.placa})`
+  if (v.placa && v.tipo) return `${v.placa} (${v.tipo})`
+  return v.nombre || v.placa || id
 }
 
 const getHardwareLabel = (id: string) => {
   const h = hardwareList.value.find(item => item.id_hardware === id)
-  return h ? h.nombre : id
+  return h ? (h.nombre || h.id_hardware) : id
 }
 
 // Click outside handler

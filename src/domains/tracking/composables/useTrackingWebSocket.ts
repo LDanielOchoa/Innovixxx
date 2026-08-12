@@ -85,7 +85,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     if (showLoading) isLoadingSecondary.value = true
     try {
       // Cargar Rutas, Servicios, Escoltas, Vehículos y Hardware en paralelo
-      const [rutasRes, serviciosRes, escoltasRes, vehiculosRes, hardwareRes] = await Promise.all([
+      const resultados = await Promise.allSettled([
         apiClient<{ done: boolean; data: any[] }>('/api/v1/ruta/listar/', {
           method: 'POST',
           body: JSON.stringify({ id_grupo: groupId })
@@ -108,19 +108,25 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         })
       ])
 
-      if (rutasRes.done && Array.isArray(rutasRes.data)) {
+      const rutasRes = resultados[0].status === 'fulfilled' ? resultados[0].value : null
+      const serviciosRes = resultados[1].status === 'fulfilled' ? resultados[1].value : null
+      const escoltasRes = resultados[2].status === 'fulfilled' ? resultados[2].value : null
+      const vehiculosRes = resultados[3].status === 'fulfilled' ? resultados[3].value : null
+      const hardwareRes = resultados[4].status === 'fulfilled' ? resultados[4].value : null
+
+      if (rutasRes && rutasRes.done && Array.isArray(rutasRes.data)) {
         refRutas.value = rutasRes.data
       }
-      if (serviciosRes.done && Array.isArray(serviciosRes.data)) {
+      if (serviciosRes && serviciosRes.done && Array.isArray(serviciosRes.data)) {
         refServicios.value = serviciosRes.data
       }
-      if (escoltasRes.done && Array.isArray(escoltasRes.data)) {
+      if (escoltasRes && escoltasRes.done && Array.isArray(escoltasRes.data)) {
         refEscoltas.value = escoltasRes.data
       }
-      if (vehiculosRes.done && Array.isArray(vehiculosRes.data)) {
+      if (vehiculosRes && vehiculosRes.done && Array.isArray(vehiculosRes.data)) {
         refVehiculos.value = vehiculosRes.data
       }
-      if (hardwareRes.done && Array.isArray(hardwareRes.data)) {
+      if (hardwareRes && hardwareRes.done && Array.isArray(hardwareRes.data)) {
         refHardware.value = hardwareRes.data
       }
 

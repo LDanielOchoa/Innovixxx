@@ -175,20 +175,14 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingRutas.value = true
       loadingVehiculos.value = true
       try {
-        const [rutasData, vehiculosData] = await Promise.all([
+        const resultados = await Promise.allSettled([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0)
         ])
-        rutas.value = rutasData
-        vehiculos.value = vehiculosData
+        if (resultados[0].status === 'fulfilled') rutas.value = resultados[0].value
+        if (resultados[1].status === 'fulfilled') vehiculos.value = resultados[1].value
       } catch (error) {
         console.error('Error fetching data:', error)
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: t('common.errorNetwork') || 'Error al cargar datos',
-          life: 4000
-        })
       } finally {
         loadingRutas.value = false
         loadingVehiculos.value = false

@@ -51,7 +51,13 @@ const tooltipPos     = ref({ top: '0px', left: '0px' })
 let tooltipTimer: ReturnType<typeof setTimeout> | null = null
 
 const obtenerNombreRuta     = (id: string) => catalogoRutas.value.find(r => r.id_ruta === id)?.nombre ?? id
-const obtenerNombreVehiculo = (id: string) => { const v = catalogoVehiculos.value.find(v => v.id_vehiculo === id); return v ? `${v.nombre} (${v.placa})` : id }
+const obtenerNombreVehiculo = (id: string) => {
+  const v = catalogoVehiculos.value.find(v => v.id_vehiculo === id)
+  if (!v) return id
+  if (v.nombre && v.placa) return `${v.nombre} (${v.placa})`
+  if (v.placa && v.tipo) return `${v.placa} (${v.tipo})`
+  return v.nombre || v.placa || id
+}
 const obtenerNombreHardware = (id: string) => catalogoHardware.value.find(h => h.id_hardware === id)?.nombre ?? id
 const obtenerNombreEscolta  = (id: string) => catalogoEscoltas.value.find(e => e.id_escolta === id)?.nombre ?? id
 const obtenerTelefonoEscolta = (id: string) => catalogoEscoltas.value.find(e => e.id_escolta === id)?.celular ?? ''
@@ -60,16 +66,17 @@ const fetchDatos = async () => {
   if (!selectedGroup.value?.id) { servicios.value = []; isLoading.value = false; return }
   isLoading.value = true
   try {
-    const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
+    const resultados = await Promise.allSettled([
       fetchRutasSimplesApi(selectedGroup.value.id),
       fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
       fetchHardwareSimplesApi(selectedGroup.value.id, 0),
       fetchEscoltasSimplesApi(selectedGroup.value.id, 0)
     ])
-    catalogoRutas.value     = rutasData
-    catalogoVehiculos.value = vehiculosData
-    catalogoHardware.value  = hardwareData
-    catalogoEscoltas.value  = escoltasData
+
+    if (resultados[0].status === 'fulfilled') catalogoRutas.value = resultados[0].value
+    if (resultados[1].status === 'fulfilled') catalogoVehiculos.value = resultados[1].value
+    if (resultados[2].status === 'fulfilled') catalogoHardware.value = resultados[2].value
+    if (resultados[3].status === 'fulfilled') catalogoEscoltas.value = resultados[3].value
 
     const respuesta = await fetchServicioDashboardApi({ id_grupo: selectedGroup.value.id, id_servicio: '', estado: 2 })
     if (respuesta.done && respuesta.data?.servicios) {

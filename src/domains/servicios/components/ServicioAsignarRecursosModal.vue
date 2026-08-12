@@ -320,24 +320,18 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingEscoltas.value = true
 
       try {
-        const [rutasData, vehiculosData, hardwareData, escoltasData] = await Promise.all([
+        const resultados = await Promise.allSettled([
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
           fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
           fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
         ])
-        rutas.value = rutasData
-        vehiculos.value = vehiculosData
-        hardware.value = hardwareData
-        escoltas.value = escoltasData
+        if (resultados[0].status === 'fulfilled') rutas.value = resultados[0].value
+        if (resultados[1].status === 'fulfilled') vehiculos.value = resultados[1].value
+        if (resultados[2].status === 'fulfilled') hardware.value = resultados[2].value
+        if (resultados[3].status === 'fulfilled') escoltas.value = resultados[3].value
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
-        toast.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'Error al inicializar los recursos disponibles del grupo.',
-          life: 4000
-        })
       } finally {
         loadingRutas.value = false
         loadingVehiculos.value = false
