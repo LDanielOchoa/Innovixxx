@@ -81,7 +81,6 @@ const { isRouteNavigating } = useRouteNavigation()
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

@@ -839,8 +839,6 @@ const isItemSelected = (item: any) => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .tracking-sidebar {
   font-family: 'Inter', sans-serif;
 }

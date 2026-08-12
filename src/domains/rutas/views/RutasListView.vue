@@ -673,7 +673,7 @@ const trazarRutaGps = async () => {
                       </button>
 
                       <button
-                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_EDIT)"
+                        v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CHANGE_STATUS)"
                         @click.stop="toggleRutaEstado(ruta); openMenuRutaId = null"
                         class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
                       >
@@ -797,8 +797,6 @@ const trazarRutaGps = async () => {
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.6s cubic-bezier(0.2, 1, 0.3, 1) forwards;

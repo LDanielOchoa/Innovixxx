@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { CookieAuth } from '../utils/cookie-auth'
+import { useGroupStore } from '../stores/group.store'
 import { useFormValidator } from '../composables/useFormValidator'
 import { loginSchema } from '../schemas/auth.schema'
 import InputText from 'primevue/inputtext'
@@ -132,7 +133,9 @@ const iniciarSesion = async () => {
         id: idGrupo,
         nombre: data?.data?.grupo || ''
       }))
-      console.log('[Login] grupo_id guardado:', idGrupo)
+      const groupStore = useGroupStore()
+      groupStore.setGroup({ id: idGrupo, nombre: data?.data?.grupo || '' })
+      console.log('[Login] grupo_id guardado y asignado:', idGrupo)
     } else {
       console.warn('[Login] No se pudo extraer grupo_id. grupoIdRaw:', grupoIdRaw)
     }
@@ -369,7 +372,7 @@ onUnmounted(() => {
                 class="flex items-center gap-2 px-5 py-2 rounded-full text-[12px] font-bold transition-all duration-500 ease-in-out active:scale-95"
                 :class="locale === 'es' ? 'bg-white dark:bg-[#1A1D24] text-[#3b82f6] dark:text-[#5da6fc] shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.8)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.05)] border border-slate-200/50 dark:border-white/5' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent hover:bg-slate-200/30 dark:hover:bg-white/5'"
               >
-                <img src="https://flagcdn.com/co.svg" alt="Colombia" class="w-4 h-auto rounded-[2px] transition-all duration-500" :class="locale !== 'es' && 'opacity-40 saturate-0'" />
+                <img src="/co.svg" alt="Colombia" class="w-4 h-auto rounded-[2px] transition-all duration-500" :class="locale !== 'es' && 'opacity-40 saturate-0'" />
                 <span>Español</span>
               </button>
               <button
@@ -378,7 +381,7 @@ onUnmounted(() => {
                 class="flex items-center gap-2 px-5 py-2 rounded-full text-[12px] font-bold transition-all duration-500 ease-in-out active:scale-95"
                 :class="locale === 'en' ? 'bg-white dark:bg-[#1A1D24] text-[#3b82f6] dark:text-[#5da6fc] shadow-[0_2px_8px_rgba(0,0,0,0.08),inset_0_1px_1px_rgba(255,255,255,0.8)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_1px_rgba(255,255,255,0.05)] border border-slate-200/50 dark:border-white/5' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-transparent hover:bg-slate-200/30 dark:hover:bg-white/5'"
               >
-                <img src="https://flagcdn.com/us.svg" alt="United States" class="w-4 h-auto rounded-[2px] transition-all duration-500" :class="locale !== 'en' && 'opacity-40 saturate-0'" />
+                <img src="/us.svg" alt="United States" class="w-4 h-auto rounded-[2px] transition-all duration-500" :class="locale !== 'en' && 'opacity-40 saturate-0'" />
                 <span>English</span>
               </button>
             </div>
@@ -429,8 +432,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .font-sans {
   font-family: 'Inter', sans-serif;
 }

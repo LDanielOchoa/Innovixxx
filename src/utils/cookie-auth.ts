@@ -20,6 +20,9 @@ function decodeToken(encoded: string): string {
 
 export const CookieAuth = {
   setToken(token: string, days = 7) {
+    try {
+      localStorage.setItem(TOKEN_COOKIE_NAME, token)
+    } catch {}
     const d = new Date()
     d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000))
     const expires = `expires=${d.toUTCString()}`
@@ -37,13 +40,20 @@ export const CookieAuth = {
       if (c.startsWith(name)) {
         const encoded = c.substring(name.length)
         const decoded = decodeToken(encoded)
-        return decoded || null
+        if (decoded) return decoded
       }
     }
+    try {
+      const localToken = localStorage.getItem(TOKEN_COOKIE_NAME)
+      if (localToken) return localToken
+    } catch {}
     return null
   },
 
   removeToken() {
+    try {
+      localStorage.removeItem(TOKEN_COOKIE_NAME)
+    } catch {}
     document.cookie = `${TOKEN_COOKIE_NAME}=; expires=Thu, 01 Jan 1970 00:00:00 UTC;Path=/;`
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     if (!isLocal) {

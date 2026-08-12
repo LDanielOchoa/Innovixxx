@@ -46,18 +46,21 @@ import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVe
 import ServicioVerHistorialModal from '../components/ServicioVerHistorialModal.vue'
 import ServicioVerAlarmasModal from '../components/ServicioVerAlarmasModal.vue'
 import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal.vue'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 import Column from 'primevue/column'
 
 import PageHeader from '../../../components/shared/PageHeader.vue'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
 const servicios = ref<any[]>([])
 const catalogoVehiculos = ref<VehiculoSimple[]>([])
 const catalogoHardware = ref<HardwareSimple[]>([])
-const isLoading = ref(true)
+const isLoading = ref(false)
 const searchQuery = ref('')
 
 const obtenerNombreRuta = (id: string): string => {
@@ -719,6 +722,7 @@ onUnmounted(() => {
         </button>
 
         <button 
+          v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CREATE)"
           @click="openModal('create')"
           class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10 h-[38px]"
         >
@@ -944,6 +948,7 @@ onUnmounted(() => {
             }"
           >
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES)"
               @click="openModal('assign', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -951,6 +956,7 @@ onUnmounted(() => {
               <span>{{ t('servicios.btnAssign', 'Asignar Recursos') }}</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_ROUTE)"
               @click="openModal('route', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -958,6 +964,7 @@ onUnmounted(() => {
               <span>Cambiar Ruta</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_BODYGUARDS)"
               @click="openModal('escort', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -965,6 +972,7 @@ onUnmounted(() => {
               <span>Actualizar Escolta</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_VEHICLES)"
               @click="openModal('vehicles', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -972,6 +980,7 @@ onUnmounted(() => {
               <span>Actualizar Vehículos</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_HISTORY)"
               @click="openModal('history', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -979,6 +988,7 @@ onUnmounted(() => {
               <span>Ver Historial</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.ALERT_HISTORIAL)"
               @click="openModal('alarms', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -986,6 +996,7 @@ onUnmounted(() => {
               <span>Historial de alarmas</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_STATUS)"
               @click="openModal('status', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >

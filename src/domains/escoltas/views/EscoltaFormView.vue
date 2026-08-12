@@ -274,8 +274,6 @@ const saveEscolta = async () => {
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .theme-sync {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;

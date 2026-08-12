@@ -3,8 +3,6 @@ import { z } from 'zod'
 const passwordSchema = z
   .string()
   .min(8, 'La contraseña debe tener al menos 8 caracteres')
-  .regex(/[A-Z]/, 'Debe contener al menos una mayúscula')
-  .regex(/[0-9]/, 'Debe contener al menos un número')
 
 export const createUsuarioSchema = z.object({
   nombre: z.string().min(2, 'El nombre es requerido').max(100, 'Máximo 100 caracteres'),

@@ -13,7 +13,10 @@ import {
   Add01Icon,
   Key01Icon,
   Settings04Icon,
-  Clock01Icon
+  Clock01Icon,
+  Search01Icon,
+  Cancel01Icon,
+  TickDouble02Icon
 } from '@hugeicons/core-free-icons'
 import BaseModal from '../common/BaseModal.vue'
 import { apiClient } from '../../utils/api-client'
@@ -24,6 +27,9 @@ import AppLoader from '../common/AppLoader.vue'
 
 const { t } = useI18n()
 const toast = useToast()
+
+const searchQuery = ref('')
+const selectedCategory = ref<string>('ALL')
 
 const getPermissionMeta = (desc?: string) => {
   const text = (desc || '').toLowerCase()
@@ -83,7 +89,6 @@ const getPermissionMeta = (desc?: string) => {
   }
 }
 
-
 interface Permission {
   id: string | number
   category: string
@@ -119,8 +124,9 @@ const loadingList = ref(false)
 const internalRole = ref<RoleSummary | null>(props.role)
 
 const selectedPermissionsCount = computed(() => selectedPermissions.value.length)
-const isPermissionSelected = (permissionId: string | number) => selectedPermissions.value.includes(String(permissionId))
+const totalPermissionsCount = computed(() => permissions.value.length)
 
+const isPermissionSelected = (permissionId: string | number) => selectedPermissions.value.includes(String(permissionId))
 
 interface ModalMessage {
   type: 'success' | 'error' | 'warning'
@@ -137,17 +143,72 @@ const showModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 
   }
 }
 
+const allCategories = computed(() => {
+  const cats = new Set<string>()
+  permissions.value.forEach(p => {
+    if (p.category) cats.add(p.category)
+  })
+  return Array.from(cats)
+})
+
+const filteredPermissions = computed(() => {
+  let list = permissions.value
+
+  if (selectedCategory.value !== 'ALL') {
+    list = list.filter(p => p.category === selectedCategory.value)
+  }
+
+  if (searchQuery.value.trim()) {
+    const q = searchQuery.value.toLowerCase().trim()
+    list = list.filter(p => {
+      const name = (p.descripcion_es || p.descripcion_en || p.nombre || p.name || p.descripcion || p.description || '').toLowerCase()
+      const cat = (p.category || '').toLowerCase()
+      return name.includes(q) || cat.includes(q)
+    })
+  }
+
+  return list
+})
+
 const permissionsByCategory = computed(() => {
   const groups: Record<string, Permission[]> = {}
-  permissions.value.forEach((permission) => {
+  filteredPermissions.value.forEach((permission) => {
     if (!groups[permission.category]) groups[permission.category] = []
     groups[permission.category]!.push(permission)
   })
   return groups
 })
 
+const toggleCategorySelection = (categoryPerms: Permission[]) => {
+  const categoryIds = categoryPerms.map(p => String(p.id))
+  const allSelected = categoryIds.every(id => selectedPermissions.value.includes(id))
+
+  if (allSelected) {
+    selectedPermissions.value = selectedPermissions.value.filter(id => !categoryIds.includes(id))
+  } else {
+    const currentSet = new Set(selectedPermissions.value)
+    categoryIds.forEach(id => currentSet.add(id))
+    selectedPermissions.value = Array.from(currentSet)
+  }
+}
+
+const isCategoryFullySelected = (categoryPerms: Permission[]) => {
+  if (categoryPerms.length === 0) return false
+  return categoryPerms.every(p => selectedPermissions.value.includes(String(p.id)))
+}
+
+const toggleSelectAll = () => {
+  if (selectedPermissions.value.length === permissions.value.length) {
+    selectedPermissions.value = []
+  } else {
+    selectedPermissions.value = permissions.value.map(p => String(p.id))
+  }
+}
+
 const closeModal = () => {
   modalMessage.value = null
+  searchQuery.value = ''
+  selectedCategory.value = 'ALL'
   emit('update:isOpen', false)
 }
 
@@ -173,21 +234,42 @@ const fetchRolePermissions = async () => {
       id_role: internalRole.value.id_role
     }
 
-    const data = await apiClient<{ done: boolean, data: string[] }>('/api/v1/role/ver_permisos/', {
+    const data = await apiClient<{ done: boolean, data: any }>('/api/v1/role/ver_permisos/', {
       body: JSON.stringify(payload)
     })
     
-    if (data.done && data.data && Array.isArray(data.data) && data.data.length > 0) {
-      const permsString = data.data[0]
-      if (permsString) {
-        try {
-          const parsed = JSON.parse(permsString)
-          if (Array.isArray(parsed)) {
-            selectedPermissions.value = parsed.map(String)
+    if (data.done && data.data) {
+      const rawData = data.data
+      
+      if (Array.isArray(rawData)) {
+        // Si el primer elemento es un string JSON como "[...]" o si es un array plano de IDs
+        if (rawData.length === 1 && typeof rawData[0] === 'string' && rawData[0].trim().startsWith('[')) {
+          try {
+            const parsed = JSON.parse(rawData[0])
+            if (Array.isArray(parsed)) {
+              selectedPermissions.value = parsed.map(String)
+              return
+            }
+          } catch (e) {
+            console.error('Error parsing nested JSON perms:', e)
           }
-        } catch (e) {
-          console.error('Error parsing assigned permissions:', e)
         }
+        // Array de IDs directo ["PxpYRQba", "RzQ3WQdX"]
+        selectedPermissions.value = rawData.map(String)
+      } else if (typeof rawData === 'string') {
+        let cleaned = rawData.trim()
+        if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+          try {
+            const parsed = JSON.parse(cleaned)
+            if (Array.isArray(parsed)) {
+              selectedPermissions.value = parsed.map(String)
+              return
+            }
+          } catch (e) {
+            cleaned = cleaned.slice(1, -1)
+          }
+        }
+        selectedPermissions.value = cleaned.split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean)
       }
     }
   } catch (error) {
@@ -218,9 +300,8 @@ const savePermissions = async () => {
     const payload = {
       id_grupo: props.groupId,
       id_role: internalRole.value.id_role,
-      permissions: JSON.stringify(selectedPermissions.value)
+      permissions: selectedPermissions.value
     }
-
 
     const data = await apiClient<{ done: boolean, message?: string }>('/api/v1/role/asignar/', {
       body: JSON.stringify(payload)
@@ -267,6 +348,8 @@ watch(() => props.isOpen, async (open) => {
   if (props.role) internalRole.value = props.role
   
   selectedPermissions.value = []
+  searchQuery.value = ''
+  selectedCategory.value = 'ALL'
   loadingList.value = true
   
   if (internalRole.value && props.groupId) {
@@ -291,102 +374,187 @@ watch(() => props.role?.id_role, () => {
 <template>
   <BaseModal
     :isOpen="isOpen"
-    :title="t('roles.modalPermissionsTitle')"
-    :confirmText="t('roles.btnSavePermissions')"
-    :cancelText="t('common.cancel')"
+    :title="t('roles.modalPermissionsTitle', 'Asignar Permisos')"
+    :confirmText="t('roles.btnSavePermissions', 'GUARDAR PERMISOS')"
+    :cancelText="t('common.cancel', 'Cancelar')"
     size="xl"
     @confirm="savePermissions"
     @close="closeModal"
     @update:isOpen="emit('update:isOpen', $event)"
     :isConfirmLoading="loadingPermissions"
-    confirmButtonClass="inline-flex justify-center items-center gap-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#2563eb] px-6 py-3 text-[13px] font-bold text-white transition-all shadow-sm active:scale-95 border border-transparent"
   >
     <template #icon>
-      <HugeiconsIcon :icon="Shield02Icon" :size="20" class="text-[#3b82f6]" />
+      <div class="w-8 h-8 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+        <HugeiconsIcon :icon="Shield02Icon" :size="18" />
+      </div>
     </template>
 
-    <div class="flex flex-col gap-6 relative h-[650px]">
+    <div class="flex flex-col gap-4 relative max-h-[70vh] sm:h-[580px]">
       <!-- Overlay de Carga Central (Guardando) -->
       <Transition name="fade">
-        <div v-if="loadingPermissions" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/60 dark:bg-[#13161C]/60 backdrop-blur-md rounded-xl transition-all duration-300">
+        <div v-if="loadingPermissions" class="absolute inset-0 z-[300] flex flex-col items-center justify-center bg-white/80 dark:bg-[#15181E]/85 backdrop-blur-md rounded-2xl transition-all duration-300">
           <div class="relative">
-            <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
-            <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
+            <div class="absolute inset-0 bg-blue-500/20 blur-3xl rounded-full animate-pulse"></div>
+            <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-blue-500 animate-spin relative z-10" />
           </div>
-          <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-              {{ t('roles.assigning') || 'Asignando...' }}
+          <div class="mt-4 flex flex-col items-center">
+            <span class="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
+              {{ t('roles.assigning', 'Guardando cambios...') }}
             </span>
-            <div class="flex gap-1">
-              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-              <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce"></span>
+            <div class="flex gap-1.5 mt-1">
+              <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+              <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+              <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></span>
             </div>
           </div>
         </div>
       </Transition>
 
-      <!-- Feedback Minimalista -->
+      <!-- Feedback Banner -->
       <Transition name="fade">
         <div v-if="modalMessage && !loadingPermissions" 
-             class="flex items-center gap-2 py-3 px-4 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 shadow-sm border"
+             class="flex items-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-semibold transition-all duration-300 shadow-sm border"
              :class="{
-               'text-red-500 bg-red-500/10 border-red-500/20': modalMessage.type === 'error',
-               'text-amber-500 bg-amber-500/10 border-amber-500/20': modalMessage.type === 'warning',
-               'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': modalMessage.type === 'success'
+               'text-rose-600 bg-rose-500/10 border-rose-500/20 dark:text-rose-400': modalMessage.type === 'error',
+               'text-amber-600 bg-amber-500/10 border-amber-500/20 dark:text-amber-400': modalMessage.type === 'warning',
+               'text-emerald-600 bg-emerald-500/10 border-emerald-500/20 dark:text-emerald-400': modalMessage.type === 'success'
              }">
-             <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
-             <HugeiconsIcon v-else :icon="CheckmarkCircle01Icon" :size="18" />
-             {{ modalMessage.text }}
+             <HugeiconsIcon v-if="modalMessage.type === 'error' || modalMessage.type === 'warning'" :icon="Alert01Icon" :size="16" class="shrink-0" />
+             <HugeiconsIcon v-else :icon="CheckmarkCircle01Icon" :size="16" class="shrink-0" />
+             <span class="flex-1">{{ modalMessage.text }}</span>
         </div>
       </Transition>
 
-      <!-- Info del Rol Seleccionado -->
-      <div v-if="internalRole" class="bg-slate-50/50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 rounded-xl p-3 flex items-center justify-between gap-4">
+      <!-- Header Card: Info de Rol y Contador -->
+      <div v-if="internalRole" class="bg-slate-100/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 rounded-2xl p-3.5 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-500 dark:text-[#5da6fc]">
-            <HugeiconsIcon :icon="Shield02Icon" :size="16" />
+          <div class="w-10 h-10 rounded-xl bg-blue-500/15 dark:bg-blue-500/20 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+            <HugeiconsIcon :icon="Shield02Icon" :size="20" />
           </div>
           <div>
-            <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider leading-none mb-1">{{ t('roles.selectedRole') }}</p>
-            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 leading-none">{{ internalRole.nombre }}</p>
+            <p class="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">
+              {{ t('roles.selectedRole', 'Rol Seleccionado') }}
+            </p>
+            <h3 class="text-base font-extrabold text-slate-800 dark:text-white leading-none tracking-tight">
+              {{ internalRole.nombre }}
+            </h3>
           </div>
         </div>
-        <div class="bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 px-2.5 py-1 rounded-lg">
-          <span class="text-[11px] font-bold text-blue-600 dark:text-[#5da6fc] tracking-wide">
-            {{ t('roles.selectedPermissionsCount', { count: selectedPermissionsCount }) }}
-          </span>
+
+        <div class="flex items-center justify-between sm:justify-end gap-2.5">
+          <!-- Marcar / Desmarcar Todos -->
+          <button 
+            type="button"
+            @click="toggleSelectAll" 
+            class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-blue-500/40 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm active:scale-95"
+          >
+            <HugeiconsIcon :icon="TickDouble02Icon" :size="14" />
+            <span>{{ selectedPermissions.length === permissions.length ? 'Desmarcar Todos' : 'Marcar Todos' }}</span>
+          </button>
+
+          <!-- Counter Badge -->
+          <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-1.5 rounded-xl">
+            <span class="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wide">
+              {{ selectedPermissionsCount }} / {{ totalPermissionsCount }} {{ t('roles.permissions', 'Permisos') }}
+            </span>
+          </div>
         </div>
       </div>
 
-      <!-- Lista de Permisos -->
-      <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-6">
+      <!-- Barra de Filtros y Búsqueda -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
+        <!-- Input de Búsqueda -->
+        <div class="relative flex-1">
+          <HugeiconsIcon :icon="Search01Icon" :size="16" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
+          <input 
+            v-model="searchQuery"
+            type="text" 
+            placeholder="Buscar permiso por nombre o acción..."
+            class="w-full bg-slate-100/70 dark:bg-[#15181E] border border-slate-200/80 dark:border-white/10 focus:border-blue-500 dark:focus:border-blue-500 rounded-xl pl-9 pr-8 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition-all duration-200"
+          />
+          <button 
+            v-if="searchQuery" 
+            @click="searchQuery = ''" 
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
+          </button>
+        </div>
+
+        <!-- Selector de Categoría (Dropdown estilizado sin scroll feo) -->
+        <div v-if="allCategories.length > 0" class="sm:w-56 shrink-0 relative">
+          <select
+            v-model="selectedCategory"
+            class="w-full appearance-none bg-slate-100/70 dark:bg-[#15181E] border border-slate-200/80 dark:border-white/10 focus:border-blue-500 dark:focus:border-blue-500 rounded-xl px-3.5 py-2 pr-8 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer transition-all duration-200"
+          >
+            <option value="ALL" class="bg-white dark:bg-[#1A1D24] text-slate-800 dark:text-slate-200">
+              Todas las categorías ({{ permissions.length }})
+            </option>
+            <option 
+              v-for="cat in allCategories" 
+              :key="cat" 
+              :value="cat"
+              class="bg-white dark:bg-[#1A1D24] text-slate-800 dark:text-slate-200"
+            >
+              {{ cat }}
+            </option>
+          </select>
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-slate-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lista de Categorías y Permisos -->
+      <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0">
         <Transition name="fade" mode="out-in">
-          <div v-if="loadingList" class="h-full flex items-center justify-center">
-            <AppLoader :text="t('common.loading') || 'Cargando...'" />
+          <div v-if="loadingList" class="h-full min-h-[200px] flex items-center justify-center">
+            <AppLoader :text="t('common.loading', 'Cargando permisos...')" />
           </div>
 
-          <div v-else-if="permissions.length === 0" class="h-full flex flex-col items-center justify-center text-center">
-            <HugeiconsIcon :icon="Alert01Icon" :size="40" class="text-slate-200 dark:text-white/10 mb-4" />
-            <p class="text-sm font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">{{ t('roles.noPermissions') }}</p>
+          <div v-else-if="filteredPermissions.length === 0" class="h-full min-h-[220px] flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-2xl">
+            <HugeiconsIcon :icon="Alert01Icon" :size="36" class="text-slate-300 dark:text-slate-600 mb-2" />
+            <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              {{ searchQuery ? 'No se encontraron permisos' : t('roles.noPermissions', 'Sin permisos disponibles') }}
+            </p>
+            <p v-if="searchQuery" class="text-xs text-slate-400 dark:text-slate-500 mt-1">Intenta buscar con otros términos</p>
           </div>
 
-          <div v-else class="space-y-8 pb-4">
+          <div v-else class="space-y-4 pb-2">
             <div
               v-for="(categoryPermissions, category) in permissionsByCategory"
               :key="category"
-              class="space-y-4"
+              class="space-y-3 bg-slate-50/60 dark:bg-[#15181E]/40 border border-slate-200/70 dark:border-white/5 rounded-2xl p-3.5"
             >
-              <div class="flex items-center gap-3 px-1">
-                <h4 class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 whitespace-nowrap">{{ category }}</h4>
-                <div class="h-px w-full bg-slate-200/60 dark:bg-white/5"></div>
+              <!-- Sub-header Categoría -->
+              <div class="flex items-center justify-between gap-3 px-1">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <h4 class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                    {{ category }}
+                  </h4>
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-white/10 text-slate-600 dark:text-slate-400">
+                    {{ categoryPermissions.filter(p => isPermissionSelected(p.id)).length }} / {{ categoryPermissions.length }}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  @click="toggleCategorySelection(categoryPermissions)"
+                  class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                >
+                  {{ isCategoryFullySelected(categoryPermissions) ? 'Desmarcar sección' : 'Seleccionar sección' }}
+                </button>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Grid de Permisos -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <label
                   v-for="permission in categoryPermissions"
                   :key="permission.id"
-                  class="group cursor-pointer relative"
+                  class="group cursor-pointer relative select-none"
                   :class="loadingPermissions ? 'pointer-events-none opacity-50' : ''"
                 >
                   <input
@@ -398,29 +566,30 @@ watch(() => props.role?.id_role, () => {
                   >
 
                   <div
-                    class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-300"
+                    class="flex items-center gap-3 p-3 rounded-xl border transition-all duration-200"
                     :class="isPermissionSelected(permission.id)
-                      ? 'bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border-[#3b82f6]/30 dark:border-[#3b82f6]/40 shadow-sm'
-                      : 'bg-white dark:bg-[#1A1D24] border-slate-200/60 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/[0.02]'"
+                      ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-500/40 dark:border-blue-500/40 shadow-sm'
+                      : 'bg-white dark:bg-[#1A1D24] border-slate-200/80 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/15 hover:bg-slate-50 dark:hover:bg-white/[0.02]'"
                   >
+                    <!-- Checkbox Personalizado -->
                     <div
-                      class="w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all duration-300 shrink-0"
+                      class="w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 shrink-0"
                       :class="isPermissionSelected(permission.id) 
-                        ? 'bg-[#3b82f6] border-[#3b82f6]' 
-                        : 'bg-transparent border-slate-300 dark:border-white/10'"
+                        ? 'bg-blue-600 border-blue-600 shadow-sm shadow-blue-500/30' 
+                        : 'bg-transparent border-slate-300 dark:border-white/20 group-hover:border-slate-400 dark:group-hover:border-white/40'"
                     >
                       <HugeiconsIcon
                         :icon="CheckmarkSquare02Icon"
                         :size="12"
-                        :stroke-width="4"
-                        class="text-white transition-transform duration-300"
+                        :stroke-width="3"
+                        class="text-white transition-transform duration-200"
                         :class="isPermissionSelected(permission.id) ? 'scale-100' : 'scale-0'"
                       />
                     </div>
 
-                    <!-- Icono Visual de la Acción (Crear, Editar, Borrar, Listar, etc.) -->
+                    <!-- Icono Visual de Tipo de Permiso -->
                     <div
-                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-300"
+                      class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border transition-all duration-200"
                       :class="getPermissionMeta(permission.descripcion_es || permission.descripcion || permission.nombre || permission.name || permission.description).badgeClass"
                     >
                       <HugeiconsIcon
@@ -429,16 +598,16 @@ watch(() => props.role?.id_role, () => {
                       />
                     </div>
 
+                    <!-- Nombre del Permiso -->
                     <div class="flex-1 min-w-0">
                       <p
-                        class="text-[13px] font-bold leading-tight transition-colors duration-300"
-                        :class="isPermissionSelected(permission.id) ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'"
+                        class="text-xs font-semibold leading-snug transition-colors duration-200"
+                        :class="isPermissionSelected(permission.id) ? 'text-slate-900 dark:text-white font-bold' : 'text-slate-700 dark:text-slate-300'"
                       >
                         {{ permission.descripcion_es || permission.descripcion_en || permission.nombre || permission.name || permission.descripcion || permission.description || `Permiso ${permission.id}` }}
                       </p>
                     </div>
                   </div>
-
                 </label>
               </div>
             </div>
@@ -449,28 +618,10 @@ watch(() => props.role?.id_role, () => {
   </BaseModal>
 </template>
 
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-
-.flex-col {
-  font-family: 'Inter', sans-serif;
-}
-
-.loader-fade-enter-active,
-.loader-fade-leave-active {
-  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.loader-fade-enter-from,
-.loader-fade-leave-to {
-  opacity: 0;
-  transform: scale(0.9) translateY(10px);
-  filter: blur(10px);
-}
-
+<style scoped>
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
@@ -478,13 +629,12 @@ watch(() => props.role?.id_role, () => {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(148, 163, 184, 0.3);
   border-radius: 9999px;
-  border: 1px solid transparent;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
 }
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
 }
 :global(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.25);
@@ -500,5 +650,6 @@ watch(() => props.role?.id_role, () => {
   transform: translateY(4px);
 }
 </style>
+
 
 

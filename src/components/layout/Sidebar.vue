@@ -85,8 +85,8 @@ type MenuItem = {
 
 const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
-    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_VIEW },
-    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_VIEW },
+    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_LIST },
+    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_LIST },
     { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
 
     { separator: true },
@@ -96,17 +96,17 @@ const displayedMenuItems = computed(() => {
     { separator: true },
 
     { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio' },
+    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
 
     { separator: true },
 
-    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: PERMISSIONS.HARDWARE_VIEW },
+    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: PERMISSIONS.HARDWARE_LIST },
 
     { separator: true },
 
-    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.BODYGUARDS_VIEW },
-    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.ROUTES_VIEW },
-    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOFENCES_VIEW },
+    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
+    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
+    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
 
     { separator: true },
 
@@ -390,8 +390,6 @@ const cerrarSesion = () => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 aside {
   font-family: 'Inter', sans-serif;
 }

@@ -92,8 +92,8 @@ const panelStyle = ref<{ top: string; left: string; height: string }>({
 })
 
 const langOptions = [
-  { value: 'es', label: 'Español', flag: 'https://flagcdn.com/co.svg' },
-  { value: 'en', label: 'English', flag: 'https://flagcdn.com/us.svg' }
+  { value: 'es', label: 'Español', flag: '/co.svg' },
+  { value: 'en', label: 'English', flag: '/us.svg' }
 ]
 
 const filteredRoles = computed(() => {
@@ -623,6 +623,7 @@ const saveUsuario = async () => {
             :placeholder="isEditMode ? '••••••••' : 'Mínimo 8 caracteres'"
             :icon="LockPasswordIcon"
             type="password"
+            :error="getError('pass')"
             :disabled="saving"
           />
           <p v-if="isEditMode" class="text-[11px] text-slate-400 dark:text-slate-600 mt-2 pl-1 font-medium italic">

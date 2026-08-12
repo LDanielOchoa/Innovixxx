@@ -79,8 +79,8 @@ const syncStateToUrl = () => {
 }
 
 const langOptions = [
-  { value: 'es', label: 'Español', flag: 'https://flagcdn.com/co.svg' },
-  { value: 'en', label: 'English', flag: 'https://flagcdn.com/us.svg' }
+  { value: 'es', label: 'Español', flag: '/co.svg' },
+  { value: 'en', label: 'English', flag: '/us.svg' }
 ]
 
 const filteredGrupos = computed(() => {
@@ -330,7 +330,7 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
           <template #body="{ data }">
             <div class="flex items-center gap-2">
                 <img 
-                  :src="data.i18n?.toLowerCase().startsWith('es') ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
+                  :src="data.i18n?.toLowerCase().startsWith('es') ? '/co.svg' : '/us.svg'" 
                   :alt="data.i18n"
                   class="w-4 h-3 object-cover rounded-[2px] shadow-sm group-hover/lang:scale-110 transition-transform duration-500"
                 />

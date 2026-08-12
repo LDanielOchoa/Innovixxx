@@ -442,11 +442,9 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
     await drawAllGeocercas()
     return
   }
+  if (!map.value || !selectedGroup.value?.id) return
+  if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_DETAILS)) return
   selectedGeocerca.value = geocerca
-  
-  if (!selectedGroup.value?.id || !map.value) return
-  
-  isLoadingDetails.value = true
   clearDrawings()
   
   try {
@@ -846,8 +844,6 @@ const handleDeleteGeocerca = async () => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.6s cubic-bezier(0.2, 1, 0.3, 1) forwards;

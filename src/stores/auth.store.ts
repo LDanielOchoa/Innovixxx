@@ -138,92 +138,16 @@ export const useAuthStore = defineStore('auth', () => {
   const parseMenuOpsToPermissions = (menuOps: any[]): string[] => {
     if (!Array.isArray(menuOps) || menuOps.length === 0) return []
 
-    const permissionMap: Record<string, Record<string, string>> = {
-      ESCOLTA: {
-        'Listar escoltas': 'PxpYRQba',
-        'Create escort': 'PxpYRQba',
-        'List escorts': 'PxpYRQba',
-      },
-      GEOCERCAS: {
-        'Detalles geocercas': '7R1vGpVN',
-        'Listar geocerca': 'O2Qdej9M',
-        'Editar geocerca': 'V7QowQkD',
-        'Borrar geocerca': 'gapyYprY',
-        'Crear geocerca': 'yDpLO1Xm',
-        'Create geofence': 'yDpLO1Xm',
-        'List geofences': 'O2Qdej9M',
-        'Edit geofence': 'V7QowQkD',
-        'Delete geofence': 'gapyYprY',
-      },
-      HARDWARE: {
-        'Listar hardware': 'r01A91WP',
-        'List hardware': 'r01A91WP',
-        'Create hardware': 'r01A91WP',
-        'Edit hardware': 'r01A91WP',
-        'Delete hardware': 'r01A91WP',
-      },
-      ROLES: {
-        'Editar roles': '2J1mwQa6',
-        'Crear un role': 'Jm1gBj8w',
-        'Asignar permisos a roles': 'W4jJW1JG',
-        'Borrar roles': 'rnjWvQED',
-        'Listar roles': 'vVj9gpd3',
-        'Create a role': 'Jm1gBj8w',
-        'List roles': 'vVj9gpd3',
-        'Edit roles': '2J1mwQa6',
-        'Delete roles': 'rnjWvQED',
-        'Assign permissions to roles': 'W4jJW1JG',
-      },
-      RUTAS: {
-        'Cambiar estado': '2njwojZN',
-        'Crear ruta': 'LOjrzjYX',
-        'Editar ruta': 'WN1ELjZD',
-        'Listar ruta': 'yPQPn10V',
-        'Create route': 'LOjrzjYX',
-        'List routes': 'yPQPn10V',
-        'Edit route': 'WN1ELjZD',
-        'Delete route': 'WN1ELjZD',
-      },
-      SERVICE: {
-        'Ver historial': '8EpaOLj2',
-        'Crear servicio': 'Jm1gBBj8',
-        'Listar servicios (dash)': 'rnjW5vpE',
-        'Listar servicios (tabla)': 'vVj9Rg1d',
-      },
-      USUARIOS: {
-        'Editar usuarios': '8EpaL127',
-        'Crear usuarios': 'BDjMxQ8K',
-        'Listar usuarios': 'PEjxE1rz',
-        'Borrar usuarios': 'VYQq9Qbz',
-        'Create users': 'BDjMxQ8K',
-        'List users': 'PEjxE1rz',
-        'Edit users': '8EpaL127',
-        'Delete users': 'VYQq9Qbz',
-      },
-      VEHICULOS: {
-        'Actualizar vehiculo': '2aQN81vy',
-        'Listar vehiculos': '7zj6EQRk',
-        'Crear vehiculo': 'rzpnWQl2',
-        'Borrar vehiculos': 'w3Q48Qz0',
-      }
-    }
-
     const permissions = new Set<string>()
 
     for (const op of menuOps) {
       if (typeof op === 'string') {
-        permissions.add(op)
+        permissions.add(op.trim())
         continue
       }
-      if (op && op.id) {
-        permissions.add(String(op.id))
+      if (op && typeof op === 'object' && op.id) {
+        permissions.add(String(op.id).trim())
         continue
-      }
-      const category = op.category?.toUpperCase()
-      const descripcion = op.descripcion
-
-      if (category && permissionMap[category]?.[descripcion]) {
-        permissions.add(permissionMap[category][descripcion])
       }
     }
 
@@ -250,10 +174,13 @@ export const useAuthStore = defineStore('auth', () => {
       if (!response.ok) return false
 
       const data = await response.json()
-      const isSuper = data.done === true && Array.isArray(data.data) && data.data.length > 0
+      // Un usuario solo es SuperAdmin si el endpoint de listar todos los grupos responde exitosamente 
+      // y devuelve múltiples grupos (o si el flag done es explícito para administración global).
+      const isSuper = data.done === true && Array.isArray(data.data) && data.data.length > 1
       isSuperAdmin.value = isSuper
       return isSuper
     } catch {
+      isSuperAdmin.value = false
       return false
     }
   }

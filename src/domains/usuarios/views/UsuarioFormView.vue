@@ -73,8 +73,8 @@ const pageMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } 
 const isLangDropdownOpen = ref(false)
 const isRoleDropdownOpen = ref(false)
 const langOptions = [
-  { value: 'es', label: 'Español', flag: 'https://flagcdn.com/co.svg' },
-  { value: 'en', label: 'English', flag: 'https://flagcdn.com/us.svg' }
+  { value: 'es', label: 'Español', flag: '/co.svg' },
+  { value: 'en', label: 'English', flag: '/us.svg' }
 ]
 
 const toggleRoleDropdown = () => {
@@ -494,8 +494,6 @@ const saveUsuario = async () => {
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .theme-sync {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;

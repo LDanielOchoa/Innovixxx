@@ -355,7 +355,7 @@ const copiarEmail = (email: string) => {
             <AppBadge variant="glass" class="group/lang">
               <div class="flex items-center gap-2">
                 <img 
-                  :src="data.lang.toLowerCase() === 'es' ? 'https://flagcdn.com/co.svg' : 'https://flagcdn.com/us.svg'" 
+                  :src="data.lang.toLowerCase() === 'es' ? '/co.svg' : '/us.svg'" 
                   :alt="data.lang"
                   class="w-4 h-3 object-cover rounded-[2px] shadow-sm group-hover/lang:scale-110 transition-transform duration-500"
                 />
@@ -439,8 +439,6 @@ const copiarEmail = (email: string) => {
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap');
-
 .animate-fade-in {
   font-family: 'Inter', sans-serif;
   animation: fadeIn 0.8s cubic-bezier(0.2, 1, 0.3, 1) forwards;

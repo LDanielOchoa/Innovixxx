@@ -65,7 +65,7 @@ const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const router = useRouter()
 const escoltas = ref<Escolta[]>([])
-const isLoading = ref(true)
+const isLoading = ref(false)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const itemsPerPage = 10
@@ -670,6 +670,7 @@ watch(filtroEstado, async () => {
               <span>{{ t('common.edit', 'Editar') }}</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_ASSIGN_HARDWARE)"
               @click="openAsignarHardwareModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -677,6 +678,7 @@ watch(filtroEstado, async () => {
               <span>Asignar Hardware</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_ASSIGN_VEHICLE)"
               @click="openAsignarVehiculoModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -840,7 +842,7 @@ watch(filtroEstado, async () => {
 }
 
 .font-mono {
-  font-family: 'Share Tech Mono', monospace;
+  font-family: 'Inter', sans-serif;
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }

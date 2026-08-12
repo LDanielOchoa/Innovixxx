@@ -31,6 +31,8 @@ import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.ap
 import type { Vehiculo } from '../types/vehiculo'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 import VehiculoModal from '../components/VehiculoModal.vue'
 
 // Shared Domain Components
@@ -40,10 +42,11 @@ import TableActions from '../../../components/shared/TableActions.vue'
 import StatusBadge from '../../../components/shared/StatusBadge.vue'
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const vehicles = ref<Vehiculo[]>([])
-const isLoading = ref(true)
+const isLoading = ref(false)
 const searchQuery = ref('')
 const estadoFiltro = ref<string>('ALL')
 const isEstadoDropdownOpen = ref(false)
@@ -359,6 +362,7 @@ watch(() => selectedGroup.value.id, () => {
         </button>
 
         <button 
+          v-if="authStore.hasPermission(PERMISSIONS.VEHICULOS_CREATE)"
           @click="openCreateModal"
           class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10"
         >
@@ -473,6 +477,7 @@ watch(() => selectedGroup.value.id, () => {
             :style="{ top: menuPosition.top, right: menuPosition.right }"
           >
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.VEHICULOS_EDIT)"
               @click="openEditModal(vehicles.find(v => v.id_vehiculo === openMenuId)!); openMenuId = null"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -480,6 +485,7 @@ watch(() => selectedGroup.value.id, () => {
               <span>{{ t('common.edit', 'Editar') }}</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.VEHICULOS_DELETE)"
               @click="confirmDelete(vehicles.find(v => v.id_vehiculo === openMenuId)!.id_vehiculo); openMenuId = null"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >

@@ -95,12 +95,14 @@ const router = createRouter({
         {
           path: 'vehiculos',
           name: 'vehiculos',
-          component: () => import('../domains/vehiculos/views/VehiculosListView.vue')
+          component: () => import('../domains/vehiculos/views/VehiculosListView.vue'),
+          meta: { permission: PERMISSIONS.VEHICULOS_LIST }
         },
         {
           path: 'vehiculos-servicio',
           name: 'vehiculos-servicio',
-          component: () => import('../domains/vehiculos-servicio/views/VehiculosServicioListView.vue')
+          component: () => import('../domains/vehiculos-servicio/views/VehiculosServicioListView.vue'),
+          meta: { permission: PERMISSIONS.VEHICLE_BODYGUARD_LIST }
         },
         {
           path: 'escoltas',
@@ -168,12 +170,14 @@ const router = createRouter({
         {
           path: 'servicios',
           name: 'servicios',
-          component: () => import('../domains/servicios/views/ServiciosListView.vue')
+          component: () => import('../domains/servicios/views/ServiciosListView.vue'),
+          meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
         },
         {
           path: 'servicios/dashboard',
           name: 'servicios-dashboard',
-          component: () => import('../domains/servicios/views/ServiciosDashboardView.vue')
+          component: () => import('../domains/servicios/views/ServiciosDashboardView.vue'),
+          meta: { permission: PERMISSIONS.SERVICE_LIST_DASH }
         }
       ]
     },

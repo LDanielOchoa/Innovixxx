@@ -15,10 +15,8 @@ onMounted(() => {
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
-
 .font-mono {
-  font-family: 'Share Tech Mono', monospace;
+  font-family: 'Inter', sans-serif;
 }
 
 :global(body) {

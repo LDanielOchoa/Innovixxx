@@ -168,8 +168,8 @@ const selectedTimezoneLabel = computed(() => {
 })
 
 const langOptions = [
-  { value: 'es', label: 'Español', flag: 'https://flagcdn.com/co.svg' },
-  { value: 'en', label: 'English', flag: 'https://flagcdn.com/us.svg' }
+  { value: 'es', label: 'Español', flag: '/co.svg' },
+  { value: 'en', label: 'English', flag: '/us.svg' }
 ]
 
 const selectLang = (lang: typeof langOptions[0]) => {

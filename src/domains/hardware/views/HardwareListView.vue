@@ -51,7 +51,7 @@ const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
 const items = ref<Hardware[]>([])
-const isLoading = ref(true)
+const isLoading = ref(false)
 const searchQuery = ref('')
 const estadoFiltro = ref<string>('ALL')
 const isEstadoDropdownOpen = ref(false)
@@ -733,7 +733,7 @@ const filteredItems = computed(() => {
 }
 
 .font-mono {
-  font-family: 'Share Tech Mono', monospace;
+  font-family: 'Inter', sans-serif;
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }

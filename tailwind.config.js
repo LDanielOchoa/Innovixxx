@@ -19,7 +19,7 @@ export default {
         "dark-muted": "#8B96A5",
       },
       fontFamily: {
-        "sans": ["Plus Jakarta Sans", "sans-serif"]
+        "sans": ["Inter", "sans-serif"]
       },
     },
   },
