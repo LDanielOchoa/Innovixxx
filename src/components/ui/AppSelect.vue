@@ -65,13 +65,15 @@ onUnmounted(() => {
 
 <template>
   <div ref="dropdownRef" class="space-y-2 w-full relative" :class="{ 'z-30': isOpen }">
-    <label 
-      v-if="label" 
-      class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-      :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isFocused }"
-    >
-      {{ label }}
-    </label>
+    <div class="flex items-center justify-between ml-1">
+      <label 
+        v-if="label" 
+        class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] transition-colors duration-300"
+        :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isFocused }"
+      >
+        {{ label }}
+      </label>
+    </div>
     
     <div class="relative">
       <!-- Trigger Button -->

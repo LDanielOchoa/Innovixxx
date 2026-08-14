@@ -74,6 +74,11 @@ const router = createRouter({
           meta: { permission: PERMISSIONS.ROLES_LIST }
         },
         {
+          path: 'comandos',
+          name: 'comandos',
+          component: () => import('../domains/comandos/views/ComandosListView.vue')
+        },
+        {
           path: 'grupos',
           name: 'grupos',
           component: () => import('../domains/grupos/views/GruposListView.vue'),
@@ -171,6 +176,12 @@ const router = createRouter({
           path: 'servicios',
           name: 'servicios',
           component: () => import('../domains/servicios/views/ServiciosListView.vue'),
+          meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
+        },
+        {
+          path: 'servicios/alertas',
+          name: 'servicios-alertas',
+          component: () => import('../domains/servicios/views/AlertasServiciosListView.vue'),
           meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
         },
         {

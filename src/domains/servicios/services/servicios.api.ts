@@ -148,6 +148,40 @@ export const solventarAlertaApi = async (token: string): Promise<any> => {
   })
 }
 
+export interface AlertasServicioListadoPayload {
+  id_grupo: string
+  desde: string
+  hasta: string
+  id_servicio: string
+}
+
+export interface AlertaServicioGlobalItem {
+  token: string
+  id_servicio: string
+  fecha_hora: string
+  hardware: string
+  tipo_alerta: string
+  atendida: boolean
+  solventada: boolean
+  solventada_por: string
+  latitud: string
+  longitud: string
+  visible: boolean
+}
+
+export interface AlertasServicioListadoResponse {
+  message: string
+  done: boolean
+  data: AlertaServicioGlobalItem[]
+}
+
+export const fetchAlertasListadoApi = async (payload: AlertasServicioListadoPayload): Promise<AlertasServicioListadoResponse> => {
+  return apiClient<AlertasServicioListadoResponse>('/api/v1/alertas/listado/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
 export const fetchServicioAlertasApi = async (payload: ServicioAlertasPayload): Promise<ServicioAlertasResponse> => {
   return apiClient<ServicioAlertasResponse>('/api/v1/servicio/ver_alertas/', {
     method: 'POST',

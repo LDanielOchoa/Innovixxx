@@ -5,6 +5,7 @@ export const sidebarMessages = {
     menu: {
       dashboard: 'Dashboard',
       roles: 'Roles',
+      commands: 'Comandos',
       users: 'Usuarios',
       groups: 'Grupos',
       vehicles: 'Vehículos',
@@ -46,6 +47,7 @@ export const sidebarMessages = {
     menu: {
       dashboard: 'Dashboard',
       roles: 'Roles',
+      commands: 'Commands',
       users: 'Users',
       groups: 'Groups',
       vehicles: 'Vehicles',

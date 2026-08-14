@@ -21,12 +21,16 @@ import {
   ServiceIcon,
   Shield02Icon,
   Settings02Icon,
-  MapsIcon
+  MapsIcon,
+  CommandLineIcon,
+  Alert01Icon,
+  ArrowDown01Icon
 } from '@hugeicons/core-free-icons'
 
 import { PERMISSIONS } from '../../constants/permissions'
 
 const isExpanded = ref(false)
+const isServiciosOpen = ref(false)
 const router = useRouter()
 const route = useRoute()
 const i18n = useI18n()
@@ -59,6 +63,10 @@ onMounted(() => {
       i18n.locale.value = lang
     }
   })
+
+  if (route.path.startsWith('/servicios')) {
+    isServiciosOpen.value = true
+  }
 })
 
 const toggleSidebar = () => {
@@ -66,27 +74,44 @@ const toggleSidebar = () => {
   localStorage.setItem('sidebarExpanded', String(isExpanded.value))
 }
 
-// t ya está extraído arriba
+const toggleServiciosMenu = () => {
+  if (!isExpanded.value) {
+    isExpanded.value = true
+  }
+  isServiciosOpen.value = !isServiciosOpen.value
+}
 
-watch(() => route.path, () => {
+watch(() => route.path, (newPath) => {
   if (isMobileSidebarOpen.value) {
     closeMobileSidebar()
   }
+  if (newPath.startsWith('/servicios')) {
+    isServiciosOpen.value = true
+  }
 })
 
+type SubMenuItem = {
+  icon: any
+  text: string
+  route: string
+  permissionId?: string
+}
+
 type MenuItem = {
-  separator?: boolean;
-  icon?: any;
-  text?: string;
-  route?: string;
-  adminOnly?: boolean;
-  permissionId?: string;
-};
+  separator?: boolean
+  icon?: any
+  text?: string
+  route?: string
+  adminOnly?: boolean
+  permissionId?: string
+  children?: SubMenuItem[]
+}
 
 const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
     { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_LIST },
     { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_LIST },
+    { icon: markRaw(CommandLineIcon), text: t('sidebar.menu.commands') || 'Comandos', route: '/comandos' },
     { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
 
     { separator: true },
@@ -110,9 +135,26 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.services') || 'Servicios', route: '/servicios', permissionId: PERMISSIONS.SERVICE_LIST_TABLE }
+    {
+      icon: markRaw(ServiceIcon),
+      text: t('sidebar.menu.services') || 'Servicios',
+      permissionId: PERMISSIONS.SERVICE_LIST_TABLE,
+      children: [
+        {
+          icon: markRaw(ServiceIcon),
+          text: 'Gestión de Servicios',
+          route: '/servicios',
+          permissionId: PERMISSIONS.SERVICE_LIST_TABLE
+        },
+        {
+          icon: markRaw(Alert01Icon),
+          text: 'Alertas Servicios',
+          route: '/servicios/alertas',
+          permissionId: PERMISSIONS.SERVICE_LIST_TABLE
+        }
+      ]
+    }
   ]
-
 
   if (authStore.isSuperAdmin) {
     const allowedItems = menuItems.filter(item => {
@@ -166,8 +208,8 @@ const isActiveRoute = (menuRoute: string | undefined): boolean => {
   if (menuRoute === '/') {
     return currentPath === '/'
   }
-  if (menuRoute === '/servicios' && currentPath.startsWith('/servicios/dashboard')) {
-    return false
+  if (menuRoute === '/servicios') {
+    return currentPath === '/servicios'
   }
   return currentPath === menuRoute || currentPath.startsWith(`${menuRoute}/`)
 }
@@ -191,180 +233,241 @@ const cerrarSesion = () => {
 </script>
 
 <template>
-  <!-- Overlay para móviles Glass -->
-  <div 
-    v-if="isMobileSidebarOpen"
-    @click="closeMobileSidebar"
-    class="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md z-40 md:hidden transition-all duration-500 ease-out"
-  ></div>
-
-  <aside
-    class="h-full flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex-shrink-0 z-[150] pt-8 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)]"
-    :class="[
-      isExpanded ? 'md:w-[240px]' : 'md:w-[72px]',
-      'fixed md:relative top-0 left-0 w-[240px] md:translate-x-0 h-full',
-      isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-    ]"
-  >
-    <!-- Header / Logo -->
-    <div class="w-full px-5 mb-6 h-[40px] shrink-0 flex items-center justify-between">
-      <RouterLink 
-        to="/dashboard"
-        class="h-full bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)] flex-1 cursor-pointer"
-        :style="{
-          WebkitMaskImage: `url(${logoImg})`,
-          maskImage: `url(${logoImg})`,
-          WebkitMaskSize: 'contain',
-          maskSize: 'contain',
-          WebkitMaskRepeat: 'no-repeat',
-          maskRepeat: 'no-repeat',
-          WebkitMaskPosition: 'left center',
-          maskPosition: 'left center'
-        }"
-      ></RouterLink>
-      
-      <!-- Botón Toggle Sidebar -->
-      <button
-        @click="toggleSidebar"
-        class="hidden md:flex w-8 h-8 items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 cursor-pointer shrink-0 ml-2"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform duration-300 ease-in-out" :class="isExpanded ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"/>
-        </svg>
-      </button>
-    </div>
-
-    <!-- Navegación -->
-    <nav class="flex-1 px-2 overflow-y-auto custom-scrollbar space-y-1 pb-4">
-      <template v-if="authStore.isLoading">
-        <div v-for="i in 8" :key="i" class="w-full h-[42px] rounded-[14px] bg-slate-100 dark:bg-white/5 animate-pulse"></div>
-      </template>
-      <template v-else>
-        <template v-for="(item, index) in displayedMenuItems" :key="index">
-          <div v-if="item.separator" class="py-3 px-2">
-            <div class="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent"></div>
-          </div>
-          
-          <RouterLink
-            v-else
-            :to="item.route || ''"
-            @mouseenter="prefetchRoute(item.route)"
-            @focusin="prefetchRoute(item.route)"
-            @click="closeMobileSidebar"
-            class="group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
-            :class="[
-              isActiveRoute(item.route)
-                ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
-                : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
-            ]"
-          >
-            <!-- Background Glow on Hover -->
-            <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
-
-            <div class="flex items-center w-full relative z-10 gap-3">
-              <div 
-                class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
-                :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
-              >
-                <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
-              </div>
-
-              <span 
-                class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
-                :class="[
-                  isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
-                  isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
-                ]"
-              >
-                {{ item.text }}
-              </span>
-            </div>
-          </RouterLink>
-        </template>
-      </template>
-    </nav>
-
-    <!-- Overlay transparente para cerrar el menú flotante al hacer clic fuera -->
+  <div v-show="!isPanelOpen" class="contents">
+    <!-- Overlay para móviles Glass -->
     <div 
-      v-if="isProfileMenuOpen" 
-      @click="isProfileMenuOpen = false" 
-      class="fixed inset-0 z-[190] bg-transparent cursor-default"
+      v-if="isMobileSidebarOpen"
+      @click="closeMobileSidebar"
+      class="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md z-40 md:hidden transition-all duration-500 ease-out"
     ></div>
 
-    <!-- Menú Flotante de Usuario (Dropdown) -->
-    <transition name="fade-slide-right">
+    <aside
+      class="h-full flex flex-col bg-white dark:bg-[#13161C] border-r border-slate-200/70 dark:border-white/5 transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex-shrink-0 z-[150] pt-8 shadow-[0_0_50px_rgba(0,0,0,0.02)] dark:shadow-[0_0_80px_rgba(0,0,0,0.4)]"
+      :class="[
+        isExpanded ? 'md:w-[240px]' : 'md:w-[72px]',
+        'fixed md:relative top-0 left-0 w-[240px] md:translate-x-0 h-full',
+        isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      ]"
+    >
+      <!-- Header / Logo -->
+      <div class="w-full px-5 mb-6 h-[40px] shrink-0 flex items-center justify-between">
+        <RouterLink 
+          to="/dashboard"
+          class="h-full bg-[#3b82f6] dark:bg-[#5da6fc] transition-all duration-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.3)] dark:drop-shadow-[0_0_20px_rgba(93,166,252,0.4)] flex-1 cursor-pointer"
+          :style="{
+            WebkitMaskImage: `url(${logoImg})`,
+            maskImage: `url(${logoImg})`,
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'left center',
+            maskPosition: 'left center'
+          }"
+        ></RouterLink>
+        
+        <!-- Botón Toggle Sidebar -->
+        <button
+          @click="toggleSidebar"
+          class="hidden md:flex w-8 h-8 items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all duration-200 cursor-pointer shrink-0 ml-2"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 transition-transform duration-300 ease-in-out" :class="isExpanded ? 'rotate-180' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navegación -->
+      <nav class="flex-1 px-2 overflow-y-auto custom-scrollbar space-y-1 pb-4">
+        <template v-if="authStore.isLoading">
+          <div v-for="i in 8" :key="i" class="w-full h-[42px] rounded-[14px] bg-slate-100 dark:bg-white/5 animate-pulse"></div>
+        </template>
+        <template v-else>
+          <template v-for="(item, index) in displayedMenuItems" :key="index">
+            <div v-if="item.separator" class="py-3 px-2">
+              <div class="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent"></div>
+            </div>
+
+            <!-- Ítem con Submenú (ej: Servicios) -->
+            <div v-else-if="item.children && item.children.length > 0" class="space-y-1">
+              <button
+                type="button"
+                @click="toggleServiciosMenu"
+                class="w-full group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3 cursor-pointer"
+                :class="[
+                  route.path.startsWith('/servicios')
+                    ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30'
+                    : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10'
+                ]"
+              >
+                <div class="flex items-center justify-between w-full relative z-10 gap-3">
+                  <div class="flex items-center gap-3 min-w-0">
+                    <div
+                      class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
+                      :class="route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                    >
+                      <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="route.path.startsWith('/servicios') ? 2.5 : 1.8" />
+                    </div>
+
+                    <span
+                      class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
+                      :class="[
+                        isExpanded ? 'opacity-100 max-w-[130px]' : 'opacity-0 max-w-0',
+                        route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
+                      ]"
+                    >
+                      {{ item.text }}
+                    </span>
+                  </div>
+
+                  <HugeiconsIcon
+                    v-if="isExpanded"
+                    :icon="ArrowDown01Icon"
+                    :size="14"
+                    class="text-slate-400 dark:text-slate-500 transition-transform duration-300 shrink-0"
+                    :class="{ 'rotate-180 text-[#3b82f6] dark:text-[#5da6fc]': isServiciosOpen }"
+                  />
+                </div>
+              </button>
+
+              <!-- Submenú desplegable -->
+              <div
+                v-show="isServiciosOpen && isExpanded"
+                class="pl-4 space-y-1 transition-all duration-300 animate-fade-in"
+              >
+                <RouterLink
+                  v-for="subItem in item.children"
+                  :key="subItem.route"
+                  :to="subItem.route"
+                  @mouseenter="prefetchRoute(subItem.route)"
+                  @focusin="prefetchRoute(subItem.route)"
+                  @click="closeMobileSidebar"
+                  class="group relative flex items-center h-[38px] rounded-[12px] transition-all duration-300 px-3 border cursor-pointer"
+                  :class="[
+                    route.path === subItem.route
+                      ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold border-[#3b82f6]/20 shadow-xs'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5 border-transparent'
+                  ]"
+                >
+                  <div class="flex items-center gap-2.5 z-10 w-full">
+                    <HugeiconsIcon :icon="subItem.icon" :size="15" class="shrink-0" />
+                    <span class="text-[11.5px] truncate font-semibold">{{ subItem.text }}</span>
+                  </div>
+                </RouterLink>
+              </div>
+            </div>
+
+            <!-- Ítem simple -->
+            <RouterLink
+              v-else
+              :to="item.route || ''"
+              @mouseenter="prefetchRoute(item.route)"
+              @focusin="prefetchRoute(item.route)"
+              @click="closeMobileSidebar"
+              class="group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
+              :class="[
+                isActiveRoute(item.route)
+                  ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
+                  : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
+              ]"
+            >
+              <!-- Background Glow on Hover -->
+              <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
+
+              <div class="flex items-center w-full relative z-10 gap-3">
+                <div 
+                  class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
+                  :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                >
+                  <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
+                </div>
+
+                <span 
+                  class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
+                  :class="[
+                    isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
+                    isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
+                  ]"
+                >
+                  {{ item.text }}
+                </span>
+              </div>
+            </RouterLink>
+          </template>
+        </template>
+      </nav>
+
+      <!-- Overlay transparente para cerrar el menú flotante al hacer clic fuera -->
       <div 
-        v-if="isProfileMenuOpen"
-        class="absolute bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-[18px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-1.5 z-[200] transition-all duration-300"
-        :class="[
-          isExpanded 
-            ? 'bottom-[76px] left-3 right-3 w-auto md:left-[248px] md:bottom-4 md:w-[230px]' 
-            : 'bottom-[76px] left-3 right-3 w-auto md:left-[80px] md:bottom-4 md:w-[230px]'
-        ]"
-      >
-        <!-- Header de Usuario -->
-        <div class="flex items-center gap-3 p-3 bg-slate-50/50 dark:bg-white/5 rounded-t-[14px] mb-1.5">
-          <img :src="authStore.userAvatar" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10" />
-          <div class="flex-1 overflow-hidden">
-            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
-            <p class="text-[11px] text-[#3b82f6] dark:text-[#5da6fc] font-semibold truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
+        v-if="isProfileMenuOpen" 
+        @click="isProfileMenuOpen = false" 
+        class="fixed inset-0 z-[190] bg-transparent cursor-default"
+      ></div>
+
+      <!-- Menú Flotante de Usuario (Dropdown) -->
+      <transition name="fade-slide-right">
+        <div 
+          v-if="isProfileMenuOpen"
+          class="absolute bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 rounded-[18px] shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] p-1.5 z-[200] transition-all duration-300"
+          :class="[
+            isExpanded 
+              ? 'bottom-[76px] left-3 right-3 w-auto md:left-[248px] md:bottom-4 md:w-[230px]' 
+              : 'bottom-[76px] left-3 right-3 w-auto md:left-[80px] md:bottom-4 md:w-[230px]'
+          ]"
+        >
+          <!-- Header de Usuario -->
+          <div class="flex items-center gap-3 p-3 bg-slate-50/50 dark:bg-white/5 rounded-t-[14px] mb-1.5">
+            <img :src="authStore.userAvatar" class="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-white/10" />
+            <div class="flex-1 overflow-hidden">
+              <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+              <p class="text-[11px] text-[#3b82f6] dark:text-[#5da6fc] font-semibold truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
+            </div>
+          </div>
+
+          <!-- Opciones del Menú -->
+          <div class="space-y-1">
+            <button 
+              @click="openMyProfile"
+              class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
+            >
+              <HugeiconsIcon :icon="User02Icon" :size="16" class="text-slate-400 dark:text-slate-500 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors" />
+              <span>{{ t('sidebar.myProfile') }}</span>
+            </button>
+
+            <button 
+              @click="cerrarSesion"
+              class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all duration-300 text-left active:scale-[0.97]"
+            >
+              <HugeiconsIcon :icon="Logout01Icon" :size="16" class="text-red-500 dark:text-red-400" />
+              <span>{{ t('sidebar.logout') }}</span>
+            </button>
           </div>
         </div>
+      </transition>
 
-        <!-- Opciones del Menú -->
-        <div class="space-y-1">
-          <button 
-            @click="openMyProfile"
-            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-gradient-to-r hover:from-[#3b82f6]/10 hover:to-transparent border border-transparent hover:border-[#3b82f6]/20 dark:hover:border-[#3b82f6]/30 transition-all duration-300 text-left active:scale-[0.97] group/opt"
-          >
-            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 group-hover/opt:bg-[#3b82f6]/10 group-hover/opt:text-[#3b82f6] dark:group-hover/opt:text-[#5da6fc] transition-colors duration-300">
-              <HugeiconsIcon :icon="User02Icon" :size="15" />
-            </div>
-            <span>{{ $t('sidebar.profile') || 'Mi Perfil' }}</span>
-          </button>
-
-          <div class="h-px bg-slate-100 dark:bg-white/10 my-1.5"></div>
-
-          <button 
-            @click="cerrarSesion(); isProfileMenuOpen = false"
-            class="w-full flex items-center gap-2.5 px-3 py-2 rounded-[12px] text-[12px] font-bold text-red-600 dark:text-red-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-500/80 border border-transparent hover:border-red-600 transition-all duration-300 text-left active:scale-[0.97] group/opt"
-          >
-            <div class="w-6 h-6 flex items-center justify-center shrink-0 rounded-md bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400 group-hover/opt:bg-white/10 group-hover/opt:text-white transition-colors duration-300">
-              <HugeiconsIcon :icon="Logout01Icon" :size="15" />
-            </div>
-            <span>{{ $t('sidebar.logout') || 'Cerrar Sesión' }}</span>
-          </button>
-        </div>
-      </div>
-    </transition>
-
-    <!-- Footer / Perfil -->
-    <div class="px-3 pb-3 bg-transparent border-t border-slate-200/70 dark:border-white/5 relative">
-      <div class="w-full pt-3">
+      <!-- Footer / Selector de Grupos y Perfil -->
+      <div class="p-2 border-t border-slate-200/60 dark:border-white/5 mt-auto flex flex-col gap-2 relative">
+        <!-- Perfil Usuario Button -->
         <button
           @click="isProfileMenuOpen = !isProfileMenuOpen"
-          class="w-full flex items-center gap-3 rounded-[12px] hover:bg-slate-100 dark:hover:bg-white/5 active:scale-[0.98] transition-all duration-300 group/user relative text-left animate-none px-3 py-2"
+          class="flex items-center gap-3 p-1.5 rounded-[16px] hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/80 dark:hover:border-white/10 transition-all duration-300 w-full text-left relative group/profile cursor-pointer"
         >
-          <!-- Avatar -->
-          <img 
-            :src="authStore.userAvatar" 
-            class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/10 transition-all duration-300 shrink-0"
-            :class="!isExpanded && isProfileMenuOpen ? 'ring-2 ring-[#3b82f6] dark:ring-[#5da6fc]' : ''"
-          />
+          <div class="relative w-9 h-9 shrink-0">
+            <img :src="authStore.userAvatar" class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/10 group-hover/profile:border-[#3b82f6]/50 transition-colors" />
+            <div class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#13161C]"></div>
+          </div>
           
-          <!-- Info -->
-          <div 
-            class="flex-1 text-left overflow-hidden whitespace-nowrap transition-all duration-500"
-            :class="isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0'"
-          >
-            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate mb-0.5 group-hover/user:text-[#3b82f6] dark:group-hover/user:text-[#5da6fc] transition-colors">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
+          <div class="flex-1 overflow-hidden transition-all duration-500" :class="isExpanded ? 'opacity-100 max-w-[120px]' : 'opacity-0 max-w-0'">
+            <p class="text-[12px] font-bold text-slate-800 dark:text-white truncate">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 truncate">{{ authStore.userData.email }}</p>
           </div>
 
-          <!-- Selector Icon -->
           <div 
-            class="text-slate-400 dark:text-slate-500 shrink-0 transition-all duration-500 overflow-hidden"
-            :class="isExpanded ? 'opacity-100 max-w-[20px]' : 'opacity-0 max-w-0'"
+            class="text-slate-400 dark:text-slate-500 group-hover/profile:text-[#3b82f6] dark:group-hover/profile:text-[#5da6fc] transition-transform duration-300"
+            :class="[
+              isExpanded ? 'opacity-100' : 'opacity-0',
+              isProfileMenuOpen ? 'rotate-180' : ''
+            ]"
           >
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-4 h-4">
               <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
@@ -372,21 +475,21 @@ const cerrarSesion = () => {
           </div>
         </button>
       </div>
-    </div>
-  </aside>
+    </aside>
 
-  <UserProfileModal 
-    :isOpen="showProfileModal" 
-    @update:isOpen="showProfileModal = $event" 
-    @profileUpdated="() => authStore.fetchUserProfile(router, (lang: string) => { 
-      if (typeof i18n.locale === 'string') {
-        (i18n.locale as any) = lang
-      } else {
-        i18n.locale.value = lang
-      }
-    })"
-    :userData="authStore.userData" 
-  />
+    <UserProfileModal 
+      :isOpen="showProfileModal" 
+      @update:isOpen="showProfileModal = $event" 
+      @profileUpdated="() => authStore.fetchUserProfile(router, (lang: string) => { 
+        if (typeof i18n.locale === 'string') {
+          (i18n.locale as any) = lang
+        } else {
+          i18n.locale.value = lang
+        }
+      })"
+      :userData="authStore.userData" 
+    />
+  </div>
 </template>
 
 <style scoped>
