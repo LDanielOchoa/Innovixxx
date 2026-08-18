@@ -206,6 +206,9 @@ export const registrarServicioEventoApi = async (payload: ServicioEventoCreatePa
   formData.append('id_servicio', payload.id_servicio)
   formData.append('tipo_evento', String(payload.tipo_evento))
   formData.append('observacion', payload.observacion || '')
+  if (payload.visible !== undefined) {
+    formData.append('visible', payload.visible ? 'True' : 'False')
+  }
   if (payload.foto_1) formData.append('foto_1', payload.foto_1)
   if (payload.foto_2) formData.append('foto_2', payload.foto_2)
   if (payload.foto_3) formData.append('foto_3', payload.foto_3)
@@ -213,6 +216,46 @@ export const registrarServicioEventoApi = async (payload: ServicioEventoCreatePa
   return apiClient('/api/v1/servicio_evento/crear/', {
     method: 'POST',
     body: formData
+  })
+}
+
+export interface ServicioEventoVerFotosPayload {
+  id_grupo: string
+  id_evento: string
+}
+
+export interface ServicioEventoVerFotosItem {
+  url: string
+}
+
+export interface ServicioEventoVerFotosResponse {
+  message: string
+  done: boolean
+  data: ServicioEventoVerFotosItem[]
+}
+
+export const fetchVerFotosServicioEventoApi = async (payload: ServicioEventoVerFotosPayload): Promise<ServicioEventoVerFotosResponse> => {
+  return apiClient<ServicioEventoVerFotosResponse>('/api/v1/servicio_evento/ver_fotos/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export interface ServicioEventoCambiarVisibilidadPayload {
+  id_grupo: string
+  id_evento: string
+  visible: boolean | string
+}
+
+export const cambiarVisibilidadServicioEventoApi = async (payload: ServicioEventoCambiarVisibilidadPayload): Promise<any> => {
+  const formattedPayload = {
+    ...payload,
+    visible: typeof payload.visible === 'boolean' ? (payload.visible ? 'True' : 'False') : payload.visible
+  }
+
+  return apiClient('/api/v1/servicio_evento/cambiar_visibilidad/', {
+    method: 'POST',
+    body: JSON.stringify(formattedPayload)
   })
 }
 

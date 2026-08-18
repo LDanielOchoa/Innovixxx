@@ -67,6 +67,7 @@ const props = withDefaults(defineProps<{
   showFooter?: boolean
   showCloseButton?: boolean
   size?: 'md' | 'lg' | 'xl'
+  maxWidth?: string
 }>(), {
   confirmButtonClass: 'inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8]',
   closeOnClickOutside: true,
@@ -76,6 +77,14 @@ const props = withDefaults(defineProps<{
 })
 
 const modalMaxWidth = computed(() => {
+  if (props.maxWidth) {
+    if (props.maxWidth === 'max-w-5xl') return '64rem'
+    if (props.maxWidth === 'max-w-4xl') return '56rem'
+    if (props.maxWidth === 'max-w-3xl') return '48rem'
+    if (props.maxWidth === 'max-w-2xl') return '42rem'
+    if (props.maxWidth === 'max-w-xl') return '36rem'
+    return props.maxWidth
+  }
   if (props.size === 'xl') return '52rem'
   if (props.size === 'lg') return '38rem'
   return '32rem'

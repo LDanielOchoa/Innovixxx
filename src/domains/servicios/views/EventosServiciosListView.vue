@@ -22,10 +22,19 @@ import {
   Car01Icon,
   CpuIcon,
   Edit01Icon,
-  UserAdd01Icon
+  UserAdd01Icon,
+  Image01Icon,
+  MoreHorizontalIcon,
+  ViewOffIcon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
-import { fetchServicioEventosApi, fetchServiciosDropdownApi } from '../services/servicios.api'
+import {
+  fetchServicioEventosApi,
+  fetchServiciosDropdownApi,
+  fetchVerFotosServicioEventoApi,
+  cambiarVisibilidadServicioEventoApi,
+  type ServicioEventoVerFotosItem
+} from '../services/servicios.api'
 import type { ServicioEventoItem, Servicio } from '../types/servicio'
 import { SERVICIO_ESTADOS_LABELS } from '../types/servicio'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
@@ -367,14 +376,131 @@ const hasValidCoordinates = (lat: string, lng: string) => {
   return !isNaN(numLat) && !isNaN(numLng) && (numLat !== 0 || numLng !== 0)
 }
 
-const openMap = (lat: string, lng: string) => {
-  if (!hasValidCoordinates(lat, lng)) return
-  window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
-}
-
 const openDetailModal = (item: ServicioEventoItem) => {
   selectedEventoModal.value = item
   isDetailModalOpen.value = true
+}
+
+// Menú Flotante de Acciones (Estilo EscoltasListView)
+const openMenuId = ref<string | null>(null)
+const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
+
+const toggleMenu = (id: string, event: MouseEvent) => {
+  if (openMenuId.value === id) {
+    openMenuId.value = null
+    return
+  }
+
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  const menuHeight = 120
+
+  if (spaceBelow < menuHeight && rect.top > menuHeight) {
+    menuPosition.value = {
+      bottom: `${window.innerHeight - rect.top + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+  } else {
+    menuPosition.value = {
+      top: `${rect.bottom + 8}px`,
+      right: `${window.innerWidth - rect.right}px`
+    }
+  }
+  openMenuId.value = id
+}
+
+const closeMenu = () => {
+  openMenuId.value = null
+}
+
+// Modal Ubicación Mapa
+const isMapModalOpen = ref(false)
+const selectedMapCoords = ref<{ lat: string; lng: string; eventoId?: string } | null>(null)
+
+const openMapModal = (lat: string, lng: string, eventoId?: string) => {
+  selectedMapCoords.value = { lat, lng, eventoId }
+  isMapModalOpen.value = true
+}
+
+const openExternalMap = (lat: string, lng: string) => {
+  window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
+}
+
+// Modal Ver Fotos
+const isFotosModalOpen = ref(false)
+const isLoadingFotos = ref(false)
+const fotosList = ref<ServicioEventoVerFotosItem[]>([])
+const selectedEventoFotos = ref<ServicioEventoItem | null>(null)
+const fotosError = ref<string | null>(null)
+
+// Visor Modal individual para ampliar foto
+const isSingleFotoModalOpen = ref(false)
+const activeFotoPreviewUrl = ref<string | null>(null)
+const activeFotoIndex = ref<number>(0)
+
+const openSingleFotoPreview = (url: string, index: number) => {
+  activeFotoPreviewUrl.value = url
+  activeFotoIndex.value = index
+  isSingleFotoModalOpen.value = true
+}
+
+const openFotosModal = async (item: ServicioEventoItem) => {
+  if (!selectedGroup.value?.id) return
+  selectedEventoFotos.value = item
+  isFotosModalOpen.value = true
+  isLoadingFotos.value = true
+  fotosError.value = null
+  fotosList.value = []
+
+  try {
+    const res = await fetchVerFotosServicioEventoApi({
+      id_grupo: selectedGroup.value.id,
+      id_evento: item.id_evento
+    })
+
+    if (res && res.done && Array.isArray(res.data)) {
+      fotosList.value = res.data
+    } else {
+      fotosError.value = res?.message || 'No se pudieron cargar las fotos del evento.'
+    }
+  } catch (err: any) {
+    console.error('Error al cargar fotos del evento:', err)
+    fotosError.value = err?.message || 'Error de conexión al cargar fotos.'
+  } finally {
+    isLoadingFotos.value = false
+  }
+}
+
+const toggleVisibilidadEvento = async (item: ServicioEventoItem) => {
+  if (!selectedGroup.value?.id) return
+  const newVisibleState = !item.visible
+
+  try {
+    const res = await cambiarVisibilidadServicioEventoApi({
+      id_grupo: selectedGroup.value.id,
+      id_evento: item.id_evento,
+      visible: newVisibleState
+    })
+
+    if (res && res.done !== false) {
+      item.visible = newVisibleState
+    } else {
+      console.error('Error al cambiar visibilidad:', res?.message)
+    }
+  } catch (err) {
+    console.error('Error al ejecutar cambiar visibilidad de evento:', err)
+  }
+}
+
+const downloadImage = (url: string, index: number) => {
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `evento_${selectedEventoFotos.value?.id_evento || 'foto'}_${index + 1}`
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
 }
 
 const exportToExcel = () => {
@@ -410,6 +536,19 @@ const handleDocumentClick = (e: MouseEvent) => {
       activeDropdown.value = null
     }
   }
+
+  if (openMenuId.value) {
+    const target = e.target as HTMLElement
+    if (!target.closest('.fixed') && !target.closest('button')) {
+      openMenuId.value = null
+    }
+  }
+}
+
+const handleScroll = () => {
+  if (openMenuId.value) {
+    openMenuId.value = null
+  }
 }
 
 watch(
@@ -424,10 +563,12 @@ watch(
 
 onMounted(() => {
   document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('scroll', handleScroll, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('scroll', handleScroll, true)
 })
 </script>
 
@@ -762,26 +903,6 @@ onUnmounted(() => {
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <!-- Columna ID Evento -->
-        <Column field="id_evento" header="ID Evento" sortable headerStyle="width: 130px">
-          <template #body="{ data }">
-            <span class="font-mono text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 px-2.5 py-1 rounded-lg select-all">
-              {{ data.id_evento }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- Columna ID Servicio -->
-        <Column field="id_servicio" header="ID Servicio" sortable headerStyle="width: 140px">
-          <template #body="{ data }">
-            <AppBadge variant="primary">
-              <span class="font-mono font-bold text-[11px]">
-                {{ data.id_servicio }}
-              </span>
-            </AppBadge>
-          </template>
-        </Column>
-
         <!-- Columna Fecha y Hora -->
         <Column field="fecha_hora" header="Fecha / Hora" sortable headerStyle="width: 190px">
           <template #body="{ data }">
@@ -807,41 +928,59 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <!-- Columna Observación -->
-        <Column field="observacion" header="Observación">
+        <!-- Columna Servicio -->
+        <Column header="Servicio" headerStyle="width: 90px">
           <template #body="{ data }">
-            <div class="flex items-center justify-between gap-2 max-w-lg">
-              <span class="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 leading-relaxed" :title="data.observacion">
-                {{ data.observacion || '---' }}
-              </span>
-              <button
-                v-if="data.observacion"
-                @click="openDetailModal(data)"
-                title="Ver detalle completo"
-                class="text-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-xs shrink-0 cursor-pointer p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
-              >
-                <HugeiconsIcon :icon="InformationCircleIcon" :size="16" />
-              </button>
+            <div class="flex items-center justify-center">
+              <div v-if="data.id_servicio" class="relative group">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center border bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
+                  <HugeiconsIcon :icon="ServiceIcon" :size="15" />
+                </div>
+                <!-- Tooltip idéntico al estilo de EscoltasListView -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                  <div class="flex flex-col gap-0.5">
+                    <span class="font-bold text-[#5da6fc]">Servicio</span>
+                    <span class="font-mono text-[10px]">{{ data.id_servicio }}</span>
+                  </div>
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                </div>
+              </div>
+              <span v-else class="text-slate-400 text-xs font-mono">---</span>
             </div>
           </template>
         </Column>
 
-        <!-- Columna Ubicación -->
-        <Column header="Ubicación" headerStyle="width: 140px">
+        <!-- Columna Observación -->
+        <Column field="observacion" header="Observación">
           <template #body="{ data }">
-            <div v-if="hasValidCoordinates(data.latitud, data.longitud)">
-              <button
-                @click="openMap(data.latitud, data.longitud)"
-                title="Ver ubicación en Google Maps"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 dark:bg-white/5 dark:hover:bg-blue-500/10 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 border border-slate-200/60 dark:border-white/10 text-xs font-medium transition-all active:scale-95 cursor-pointer"
-              >
-                <HugeiconsIcon :icon="MapsIcon" :size="13" class="text-blue-500" />
-                <span class="font-mono text-[11px]">Ver mapa</span>
-              </button>
-            </div>
-            <span v-else class="text-slate-400 dark:text-slate-600 text-xs font-mono">
-              ---
+            <span class="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 leading-relaxed block max-w-lg" :title="data.observacion">
+              {{ data.observacion || '---' }}
             </span>
+          </template>
+        </Column>
+
+        <!-- Columna Ubicación -->
+        <Column header="Ubicación" headerStyle="width: 110px" class="text-center">
+          <template #body="{ data }">
+            <div class="flex items-center justify-center">
+              <div v-if="hasValidCoordinates(data.latitud, data.longitud)" class="relative group">
+                <button
+                  @click="openMapModal(data.latitud, data.longitud, data.id_evento)"
+                  class="w-8 h-8 rounded-lg flex items-center justify-center border bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95 cursor-pointer"
+                >
+                  <HugeiconsIcon :icon="MapsIcon" :size="16" />
+                </button>
+                <!-- Mini Tooltip -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                  <div class="flex items-center gap-1.5 font-semibold text-emerald-400">
+                    <HugeiconsIcon :icon="MapsIcon" :size="12" />
+                    <span>Ver Ubicación</span>
+                  </div>
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                </div>
+              </div>
+              <span v-else class="text-slate-400 dark:text-slate-600 text-xs font-mono">---</span>
+            </div>
           </template>
         </Column>
 
@@ -869,7 +1008,61 @@ onUnmounted(() => {
             </div>
           </template>
         </Column>
+
+        <!-- Columna Acciones -->
+        <Column header="Acciones" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+          <template #body="{ data }">
+            <div class="flex justify-end">
+              <button
+                @click.stop="toggleMenu(data.id_evento, $event)"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
+              >
+                <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
+              </button>
+            </div>
+          </template>
+        </Column>
       </AppTable>
+
+      <!-- Menú desplegable flotante de Acciones -->
+      <Teleport to="body">
+        <Transition name="dropdown-menu">
+          <div
+            v-if="openMenuId"
+            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            :style="{ 
+              ...(menuPosition.top ? { top: menuPosition.top } : {}), 
+              ...(menuPosition.bottom ? { bottom: menuPosition.bottom } : {}), 
+              right: menuPosition.right 
+            }"
+          >
+            <!-- Acción: Ver fotos -->
+            <button
+              @click="openFotosModal(eventos.find(e => e.id_evento === openMenuId)!); closeMenu()"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <HugeiconsIcon :icon="Image01Icon" :size="16" class="text-blue-500 dark:text-blue-400" />
+              <span>Ver fotos</span>
+            </button>
+
+            <!-- Acción: Cambiar Visibilidad -->
+            <button
+              v-if="openMenuId && eventos.find(e => e.id_evento === openMenuId)"
+              @click="toggleVisibilidadEvento(eventos.find(e => e.id_evento === openMenuId)!); closeMenu()"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              <HugeiconsIcon
+                :icon="eventos.find(e => e.id_evento === openMenuId)?.visible ? ViewOffIcon : EyeIcon"
+                :size="16"
+                :class="eventos.find(e => e.id_evento === openMenuId)?.visible ? 'text-amber-500' : 'text-emerald-500'"
+              />
+              <span>
+                {{ eventos.find(e => e.id_evento === openMenuId)?.visible ? 'Ocultar' : 'Hacer visible' }}
+              </span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <!-- Paginación -->
       <div class="border-t border-slate-200/60 dark:border-white/[0.06]">
@@ -880,6 +1073,139 @@ onUnmounted(() => {
         />
       </div>
     </AppTableCard>
+
+    <!-- Modal Ver Fotos -->
+    <AppModal
+      v-model:isOpen="isFotosModalOpen"
+      title="Fotografías del Evento"
+      maxWidth="max-w-4xl"
+      :showFooter="false"
+    >
+      <div class="space-y-4">
+        <!-- Estado de carga -->
+        <div v-if="isLoadingFotos" class="py-16 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2.5">
+          <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <span class="font-medium">Cargando fotografías...</span>
+        </div>
+
+        <!-- Estado de error -->
+        <div v-else-if="fotosError" class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs font-semibold text-rose-600 dark:text-rose-400 text-center">
+          {{ fotosError }}
+        </div>
+
+        <!-- Galería limpia de fotos -->
+        <div v-else-if="fotosList.length > 0" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div
+            v-for="(foto, idx) in fotosList"
+            :key="idx"
+            class="group relative border border-slate-200/80 dark:border-white/10 rounded-2xl overflow-hidden bg-slate-100 dark:bg-[#13161C] flex flex-col transition-all hover:shadow-lg hover:border-blue-500/40"
+          >
+            <!-- Árbol contenedor de imagen con aspecto consistente -->
+            <div
+              @click="openSingleFotoPreview(foto.url, idx)"
+              class="relative w-full aspect-[4/5] bg-white dark:bg-black/30 p-2 flex items-center justify-center cursor-pointer overflow-hidden"
+            >
+              <img
+                :src="foto.url"
+                :alt="`Foto ${idx + 1}`"
+                class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-102"
+              />
+              <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5 backdrop-blur-[2px]">
+                <button
+                  type="button"
+                  @click.stop="openSingleFotoPreview(foto.url, idx)"
+                  class="px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+                >
+                  <HugeiconsIcon :icon="EyeIcon" :size="15" />
+                  <span>Ampliar</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Footer de la tarjeta -->
+            <div class="px-3.5 py-2.5 flex items-center justify-between text-xs bg-white dark:bg-[#1A1D24] border-t border-slate-100 dark:border-white/5">
+              <span class="font-bold text-slate-700 dark:text-slate-200">Foto {{ idx + 1 }}</span>
+              <button
+                type="button"
+                @click="downloadImage(foto.url, idx)"
+                title="Descargar fotografía"
+                class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <HugeiconsIcon :icon="Download01Icon" :size="13" />
+                <span>Descargar</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sin fotos -->
+        <div v-else class="py-16 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+          <HugeiconsIcon :icon="Image01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
+          <span>No hay fotografías asociadas a este evento.</span>
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- Modal Visor Ampliado Lightbox -->
+    <AppModal
+      v-model:isOpen="isSingleFotoModalOpen"
+      :title="`Vista ampliada — Foto ${activeFotoIndex + 1}`"
+      size="xl"
+      maxWidth="max-w-5xl"
+      :showFooter="false"
+    >
+      <div v-if="activeFotoPreviewUrl" class="space-y-4">
+        <div class="relative w-full min-h-[500px] max-h-[82vh] flex items-center justify-center bg-slate-950/80 rounded-2xl p-4 overflow-hidden border border-slate-200/60 dark:border-white/10 backdrop-blur-sm">
+          <img
+            :src="activeFotoPreviewUrl"
+            :alt="`Foto ${activeFotoIndex + 1}`"
+            class="max-w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
+          />
+        </div>
+      </div>
+    </AppModal>
+
+    <!-- Modal Ubicación en Mapa -->
+    <AppModal
+      v-model:isOpen="isMapModalOpen"
+      :title="`Ubicación del Evento ${selectedMapCoords?.eventoId ? '— ' + selectedMapCoords.eventoId : ''}`"
+      maxWidth="max-w-3xl"
+      :showFooter="false"
+    >
+      <div v-if="selectedMapCoords" class="space-y-4">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-xs">
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+              <HugeiconsIcon :icon="MapsIcon" :size="14" />
+              <span>Coordenadas GPS:</span>
+            </div>
+            <span class="font-mono font-bold text-slate-700 dark:text-slate-200">
+              {{ selectedMapCoords.lat }}, {{ selectedMapCoords.lng }}
+            </span>
+          </div>
+          <button
+            type="button"
+            @click="openExternalMap(selectedMapCoords.lat, selectedMapCoords.lng)"
+            class="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <span>Google Maps externo</span>
+            <HugeiconsIcon :icon="EyeIcon" :size="12" />
+          </button>
+        </div>
+
+        <div class="relative w-full h-[420px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-black/20">
+          <iframe
+            width="100%"
+            height="100%"
+            style="border:0;"
+            loading="lazy"
+            allowfullscreen
+            referrerpolicy="no-referrer-when-downgrade"
+            :src="`https://maps.google.com/maps?q=${selectedMapCoords.lat},${selectedMapCoords.lng}&z=15&output=embed`"
+          ></iframe>
+        </div>
+      </div>
+    </AppModal>
 
     <!-- Modal Detalle del Evento -->
     <AppModal

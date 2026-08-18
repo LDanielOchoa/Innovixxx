@@ -15,7 +15,10 @@ import {
   UserAdd01Icon,
   CpuIcon,
   Edit01Icon,
-  Search01Icon
+  Search01Icon,
+  Clock01Icon,
+  EyeIcon,
+  ViewOffIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
@@ -46,16 +49,33 @@ const serviciosDisponibles = ref<Servicio[]>([])
 // Dropdowns interactivos dentro del modal
 const isServicioDropdownOpen = ref(false)
 const isTipoDropdownOpen = ref(false)
+const isVisibilidadDropdownOpen = ref(false)
 const searchServicioText = ref('')
 
 const servicioDropdownModalRef = ref<HTMLElement | null>(null)
 const tipoDropdownModalRef = ref<HTMLElement | null>(null)
+const visibilidadDropdownModalRef = ref<HTMLElement | null>(null)
 
 const formData = reactive({
   id_servicio: '',
   tipo_evento: SERVICIO_EVENTO_TIPOS.EVENTO_REGISTRO,
+  visible: true,
   observacion: ''
 })
+
+const visibilidadConfig = [
+  { value: true, label: 'Visible', icon: EyeIcon, colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  { value: false, label: 'No Visible', icon: ViewOffIcon, colorClass: 'text-slate-500 bg-slate-500/10 border-slate-500/20' }
+]
+
+const selectedVisibilidadConfig = computed(() => {
+  return visibilidadConfig.find(v => v.value === formData.visible) || visibilidadConfig[0]
+})
+
+const selectVisibilidad = (val: boolean) => {
+  formData.visible = val
+  isVisibilidadDropdownOpen.value = false
+}
 
 // Gestión de fotos (hasta 3)
 interface ImageFileSlot {
@@ -163,10 +183,12 @@ const selectTipo = (tipo: number) => {
 const resetForm = () => {
   formData.id_servicio = props.defaultIdServicio || ''
   formData.tipo_evento = SERVICIO_EVENTO_TIPOS.EVENTO_REGISTRO
+  formData.visible = true
   formData.observacion = ''
   modalMessage.value = null
   isServicioDropdownOpen.value = false
   isTipoDropdownOpen.value = false
+  isVisibilidadDropdownOpen.value = false
   searchServicioText.value = ''
 
   images.forEach((img, idx) => {
@@ -241,6 +263,7 @@ const handleSubmit = async () => {
       id_servicio: formData.id_servicio.trim(),
       tipo_evento: Number(formData.tipo_evento),
       observacion: formData.observacion.trim(),
+      visible: formData.visible,
       foto_1: images[0].file,
       foto_2: images[1].file,
       foto_3: images[2].file
@@ -272,6 +295,9 @@ const handleClickOutsideModal = (e: MouseEvent) => {
   }
   if (tipoDropdownModalRef.value && !tipoDropdownModalRef.value.contains(e.target as Node)) {
     isTipoDropdownOpen.value = false
+  }
+  if (visibilidadDropdownModalRef.value && !visibilidadDropdownModalRef.value.contains(e.target as Node)) {
+    isVisibilidadDropdownOpen.value = false
   }
 }
 
@@ -320,23 +346,20 @@ onUnmounted(() => {
         </div>
       </Transition>
 
-      <!-- Fila: Servicio y Tipo de Evento como Desplegables Modernos -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Fila: Servicio, Tipo de Evento y Visibilidad -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
         <!-- Desplegable Servicio -->
         <div ref="servicioDropdownModalRef" class="relative">
-          <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5 flex items-center justify-between">
-            <span>Servicio <span class="text-rose-500">*</span></span>
-            <span v-if="formData.id_servicio" class="text-[10px] font-mono text-blue-500 font-normal">
-              Seleccionado: {{ formData.id_servicio }}
-            </span>
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+            Servicio <span class="text-rose-500">*</span>
           </label>
 
           <!-- Trigger del Dropdown Servicio -->
           <button
             type="button"
             @click.stop="isServicioDropdownOpen = !isServicioDropdownOpen"
-            class="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#3b82f6]/50 focus:outline-none focus:ring-4 focus:ring-[#3b82f6]/10 transition-all min-h-[42px] cursor-pointer"
-            :class="{ 'border-[#3b82f6]/50 ring-4 ring-[#3b82f6]/10': isServicioDropdownOpen }"
+            class="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-blue-500/50 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[42px] cursor-pointer"
+            :class="{ 'border-blue-500/50 ring-4 ring-blue-500/10 bg-white dark:bg-[#13161C]': isServicioDropdownOpen }"
           >
             <div class="flex items-center gap-2.5 truncate flex-1 min-w-0">
               <div class="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -349,13 +372,10 @@ onUnmounted(() => {
                   </span>
                   <span
                     v-if="selectedServicioObj?.estado"
-                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border hidden md:inline-flex"
                     :class="getEstadoBadgeClass(selectedServicioObj.estado)"
                   >
                     {{ getEstadoLabel(selectedServicioObj.estado) }}
-                  </span>
-                  <span v-if="selectedServicioObj?.fecha_inicio" class="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                    ({{ formatDateShort(selectedServicioObj.fecha_inicio) }})
                   </span>
                 </div>
               </template>
@@ -382,41 +402,12 @@ onUnmounted(() => {
               v-if="isServicioDropdownOpen"
               class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/70 dark:border-white/[0.1] rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6)] overflow-hidden"
             >
-              <!-- Buscador dentro del menú -->
-              <div class="p-2 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
-                <div class="relative">
-                  <input
-                    v-model="searchServicioText"
-                    type="text"
-                    placeholder="Buscar o escribir ID..."
-                    class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#13161C] border border-slate-200/60 dark:border-white/10 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50"
-                  />
-                  <div class="absolute left-2.5 top-2 text-slate-400 pointer-events-none">
-                    <HugeiconsIcon :icon="Search01Icon" :size="13" />
-                  </div>
-                </div>
-              </div>
-
               <!-- Lista de Opciones -->
               <div class="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-white/5">
-                <!-- Opción de usar el texto manual si no coincide -->
-                <button
-                  v-if="searchServicioText.trim() && !filteredServiciosList.some(s => s.id_servicio === searchServicioText.trim())"
-                  type="button"
-                  @click="selectServicio(searchServicioText.trim())"
-                  class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-blue-50/50 dark:hover:bg-blue-500/10 text-blue-600 dark:text-blue-400 transition-colors"
-                >
-                  <span class="flex items-center gap-2">
-                    <span class="font-normal text-slate-400">Usar ID:</span>
-                    <span class="font-mono font-bold">{{ searchServicioText.trim() }}</span>
-                  </span>
-                  <span class="text-[10px] uppercase font-bold bg-blue-100 dark:bg-blue-500/20 px-1.5 py-0.5 rounded">Manual</span>
-                </button>
-
                 <!-- Servicios listados -->
-                <template v-if="filteredServiciosList.length > 0">
+                <template v-if="serviciosDisponibles.length > 0">
                   <button
-                    v-for="serv in filteredServiciosList"
+                    v-for="serv in serviciosDisponibles"
                     :key="serv.id_servicio"
                     type="button"
                     @click="selectServicio(serv.id_servicio)"
@@ -441,7 +432,7 @@ onUnmounted(() => {
                       <!-- Fila inferior: Fecha y Ruta -->
                       <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                         <span v-if="serv.fecha_inicio" class="flex items-center gap-1 font-mono">
-                          <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400" />
+                          <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400 shrink-0" />
                           {{ formatDateShort(serv.fecha_inicio) }}
                         </span>
                         <span v-if="serv.id_ruta" class="truncate">
@@ -462,7 +453,7 @@ onUnmounted(() => {
                     </svg>
                   </button>
                 </template>
-                <div v-else-if="!searchServicioText.trim()" class="px-3.5 py-4 text-center text-xs text-slate-400">
+                <div v-else class="px-3.5 py-4 text-center text-xs text-slate-400">
                   {{ isLoadingServicios ? 'Cargando servicios...' : 'No hay servicios disponibles' }}
                 </div>
               </div>
@@ -480,8 +471,8 @@ onUnmounted(() => {
           <button
             type="button"
             @click.stop="isTipoDropdownOpen = !isTipoDropdownOpen"
-            class="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-[#3b82f6]/50 focus:outline-none focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[42px] cursor-pointer"
-            :class="{ 'border-[#3b82f6]/50 ring-4 ring-[#3b82f6]/10': isTipoDropdownOpen }"
+            class="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-blue-500/50 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[42px] cursor-pointer"
+            :class="{ 'border-blue-500/50 ring-4 ring-blue-500/10 bg-white dark:bg-[#13161C]': isTipoDropdownOpen }"
           >
             <div class="flex items-center gap-2.5 truncate">
               <div
@@ -544,6 +535,81 @@ onUnmounted(() => {
             </div>
           </Transition>
         </div>
+
+        <!-- Desplegable Visibilidad -->
+        <div ref="visibilidadDropdownModalRef" class="relative">
+          <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
+            Visibilidad <span class="text-rose-500">*</span>
+          </label>
+
+          <!-- Trigger Visibilidad -->
+          <button
+            type="button"
+            @click.stop="isVisibilidadDropdownOpen = !isVisibilidadDropdownOpen"
+            class="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl bg-slate-50/80 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] text-xs font-semibold text-slate-700 dark:text-slate-200 hover:border-blue-500/50 focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all h-[42px] cursor-pointer"
+            :class="{ 'border-blue-500/50 ring-4 ring-blue-500/10 bg-white dark:bg-[#13161C]': isVisibilidadDropdownOpen }"
+          >
+            <div class="flex items-center gap-2.5 truncate">
+              <div
+                class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border"
+                :class="selectedVisibilidadConfig.colorClass"
+              >
+                <HugeiconsIcon :icon="selectedVisibilidadConfig.icon" :size="13" />
+              </div>
+              <span class="font-bold text-slate-800 dark:text-white truncate">
+                {{ selectedVisibilidadConfig.label }}
+              </span>
+            </div>
+
+            <svg
+              class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200"
+              :class="{ 'rotate-180': isVisibilidadDropdownOpen }"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Menú Flotante Visibilidad -->
+          <Transition name="custom-dropdown">
+            <div
+              v-if="isVisibilidadDropdownOpen"
+              class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/70 dark:border-white/[0.1] rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6)] overflow-hidden divide-y divide-slate-100 dark:divide-white/5"
+            >
+              <button
+                v-for="op in visibilidadConfig"
+                :key="op.value"
+                type="button"
+                @click="selectVisibilidad(op.value)"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                :class="formData.visible === op.value ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
+              >
+                <div class="flex items-center gap-2.5">
+                  <div
+                    class="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border"
+                    :class="op.colorClass"
+                  >
+                    <HugeiconsIcon :icon="op.icon" :size="13" />
+                  </div>
+                  <span class="font-bold text-slate-800 dark:text-white">{{ op.label }}</span>
+                </div>
+                <svg
+                  v-if="formData.visible === op.value"
+                  class="w-4 h-4 text-blue-500 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                >
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </Transition>
+        </div>
       </div>
 
       <!-- Campo Observación -->
@@ -560,7 +626,7 @@ onUnmounted(() => {
           v-model="formData.observacion"
           rows="3"
           placeholder="Escribe los detalles y observaciones del evento..."
-          class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all resize-none leading-relaxed"
+          class="w-full px-3.5 py-2.5 bg-slate-50/80 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 focus:bg-white dark:focus:bg-[#13161C] transition-all resize-none leading-relaxed"
         ></textarea>
       </div>
 
@@ -580,10 +646,10 @@ onUnmounted(() => {
           <div
             v-for="(slot, idx) in images"
             :key="idx"
-            class="relative border border-dashed rounded-xl p-3 flex flex-col items-center justify-center min-h-[120px] transition-all group overflow-hidden"
+            class="relative border border-dashed rounded-xl p-3 flex flex-col items-center justify-center min-h-[125px] transition-all group overflow-hidden"
             :class="slot.previewUrl 
-              ? 'border-blue-500/40 bg-blue-50/10 dark:bg-blue-500/5' 
-              : 'border-slate-200/90 dark:border-white/10 hover:border-[#3b82f6]/50 hover:bg-slate-50/80 dark:hover:bg-white/[0.03] bg-slate-50/40 dark:bg-white/[0.01]'"
+              ? 'border-blue-500/40 bg-blue-50/20 dark:bg-blue-500/10' 
+              : 'border-slate-200/90 dark:border-white/10 hover:border-blue-500/40 hover:bg-blue-50/30 dark:hover:bg-blue-500/[0.03] bg-slate-50/50 dark:bg-white/[0.01]'"
           >
             <!-- Si tiene imagen cargada -->
             <template v-if="slot.previewUrl">
@@ -593,7 +659,7 @@ onUnmounted(() => {
                   :alt="slot.name"
                   class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
-                <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]">
                   <button
                     type="button"
                     @click="removeImage(idx)"
@@ -621,10 +687,10 @@ onUnmounted(() => {
                   class="hidden"
                   @change="handleFileChange(idx, $event)"
                 />
-                <div class="w-9 h-9 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 flex items-center justify-center text-slate-400 group-hover:text-[#3b82f6] group-hover:border-[#3b82f6]/30 mb-2 transition-all group-hover:scale-110">
+                <div class="w-9 h-9 rounded-xl bg-white dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-slate-400 group-hover:text-blue-500 group-hover:border-blue-500/30 group-hover:bg-blue-50 dark:group-hover:bg-blue-500/10 mb-2 transition-all group-hover:scale-110 shadow-sm">
                   <HugeiconsIcon :icon="Upload04Icon" :size="17" />
                 </div>
-                <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-[#3b82f6] transition-colors">
+                <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-500 transition-colors">
                   Foto {{ idx + 1 }}
                 </span>
                 <span class="text-[10px] text-slate-400 font-medium mt-0.5">Click para subir</span>

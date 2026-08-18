@@ -192,9 +192,16 @@ export interface ServicioEventoCreatePayload {
   id_servicio: string
   tipo_evento: number
   observacion: string
+  visible?: boolean
   foto_1?: File | null
   foto_2?: File | null
   foto_3?: File | null
+}
+
+export interface ServicioEventoCambiarVisibilidadPayload {
+  id_grupo: string
+  id_evento: string
+  visible: boolean
 }
 
 export const SERVICIO_EVENTO_TIPOS = {

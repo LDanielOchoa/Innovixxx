@@ -650,21 +650,6 @@ const handleAsignar = async () => {
     return
   }
 
-  // Validación extra de hardware requerido para vehículos asignados
-  for (const vehiculoId of selectedVehiculosIds.value) {
-    const hwIds = vehiculosPayload[vehiculoId] || []
-    if (hwIds.length === 0) {
-      const label = getVehiculoLabel(vehiculoId)
-      toast.add({
-        severity: 'warn',
-        summary: 'Validación de Hardware',
-        detail: `Debe asignar hardware al vehículo: ${label}`,
-        life: 4000
-      })
-      return
-    }
-  }
-
   saving.value = true
 
   try {
@@ -960,7 +945,7 @@ const formatFechaHora = (date: Date | null): string => {
                     class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
                     :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                   >
-                    Dispositivos de Hardware
+                    Dispositivos de Hardware (Opcional)
                   </label>
                   <button
                     ref="btnHardware"
@@ -997,7 +982,7 @@ const formatFechaHora = (date: Date | null): string => {
                         Seleccione vehículos primero
                       </span>
                       <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
-                        {{ loadingHardware ? 'Cargando...' : 'Asignar hardware a vehículos' }}
+                        {{ loadingHardware ? 'Cargando...' : 'Asignar hardware (opcional)' }}
                       </span>
                     </div>
                     <div 
