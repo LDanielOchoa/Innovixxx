@@ -16,7 +16,11 @@ import type {
   ServicioHistorialResponse,
   ServicioCambiarEstadoPayload,
   ServicioAlertasPayload,
-  ServicioAlertasResponse
+  ServicioAlertasResponse,
+  ServicioEventoItem,
+  ServicioEventoListPayload,
+  ServicioEventoListResponse,
+  ServicioEventoCreatePayload
 } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
@@ -188,5 +192,30 @@ export const fetchServicioAlertasApi = async (payload: ServicioAlertasPayload): 
     body: JSON.stringify(payload)
   })
 }
+
+export const fetchServicioEventosApi = async (payload: ServicioEventoListPayload): Promise<ServicioEventoListResponse> => {
+  return apiClient<ServicioEventoListResponse>('/api/v1/servicio_evento/listar/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const registrarServicioEventoApi = async (payload: ServicioEventoCreatePayload): Promise<any> => {
+  const formData = new FormData()
+  formData.append('id_grupo', payload.id_grupo)
+  formData.append('id_servicio', payload.id_servicio)
+  formData.append('tipo_evento', String(payload.tipo_evento))
+  formData.append('observacion', payload.observacion || '')
+  if (payload.foto_1) formData.append('foto_1', payload.foto_1)
+  if (payload.foto_2) formData.append('foto_2', payload.foto_2)
+  if (payload.foto_3) formData.append('foto_3', payload.foto_3)
+
+  return apiClient('/api/v1/servicio_evento/crear/', {
+    method: 'POST',
+    body: formData
+  })
+}
+
+
 
 

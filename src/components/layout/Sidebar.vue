@@ -24,6 +24,7 @@ import {
   MapsIcon,
   CommandLineIcon,
   Alert01Icon,
+  Calendar01Icon,
   ArrowDown01Icon
 } from '@hugeicons/core-free-icons'
 
@@ -79,6 +80,41 @@ const toggleServiciosMenu = () => {
     isExpanded.value = true
   }
   isServiciosOpen.value = !isServiciosOpen.value
+}
+
+// Hooks de animación suave para el submenú desplegable (efecto acordeón con slide & fade)
+const onSubmenuBeforeEnter = (el: Element) => {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.height = '0px'
+  htmlEl.style.opacity = '0'
+  htmlEl.style.transform = 'translateY(-8px)'
+}
+
+const onSubmenuEnter = (el: Element) => {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.transition = 'height 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease-out, transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)'
+  htmlEl.style.height = `${htmlEl.scrollHeight}px`
+  htmlEl.style.opacity = '1'
+  htmlEl.style.transform = 'translateY(0)'
+}
+
+const onSubmenuAfterEnter = (el: Element) => {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.height = 'auto'
+}
+
+const onSubmenuBeforeLeave = (el: Element) => {
+  const htmlEl = el as HTMLElement
+  htmlEl.style.height = `${htmlEl.scrollHeight}px`
+}
+
+const onSubmenuLeave = (el: Element) => {
+  const htmlEl = el as HTMLElement
+  void htmlEl.offsetHeight // Forzar reflow para iniciar transición correctamente
+  htmlEl.style.transition = 'height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+  htmlEl.style.height = '0px'
+  htmlEl.style.opacity = '0'
+  htmlEl.style.transform = 'translateY(-8px)'
 }
 
 watch(() => route.path, (newPath) => {
@@ -150,6 +186,12 @@ const displayedMenuItems = computed(() => {
           icon: markRaw(Alert01Icon),
           text: 'Alertas Servicios',
           route: '/servicios/alertas',
+          permissionId: PERMISSIONS.SERVICE_LIST_TABLE
+        },
+        {
+          icon: markRaw(Calendar01Icon),
+          text: 'Eventos Servicios',
+          route: '/servicios/eventos',
           permissionId: PERMISSIONS.SERVICE_LIST_TABLE
         }
       ]
@@ -330,31 +372,49 @@ const cerrarSesion = () => {
                 </div>
               </button>
 
-              <!-- Submenú desplegable -->
-              <div
-                v-show="isServiciosOpen && isExpanded"
-                class="pl-4 space-y-1 transition-all duration-300 animate-fade-in"
+              <!-- Submenú desplegable con animación de acordeón -->
+              <Transition
+                name="submenu-accordion"
+                @before-enter="onSubmenuBeforeEnter"
+                @enter="onSubmenuEnter"
+                @after-enter="onSubmenuAfterEnter"
+                @before-leave="onSubmenuBeforeLeave"
+                @leave="onSubmenuLeave"
               >
-                <RouterLink
-                  v-for="subItem in item.children"
-                  :key="subItem.route"
-                  :to="subItem.route"
-                  @mouseenter="prefetchRoute(subItem.route)"
-                  @focusin="prefetchRoute(subItem.route)"
-                  @click="closeMobileSidebar"
-                  class="group relative flex items-center h-[38px] rounded-[12px] transition-all duration-300 px-3 border cursor-pointer"
+                <div
+                  v-show="isServiciosOpen && isExpanded"
+                  class="overflow-hidden pl-3 ml-5 my-1 space-y-1 transition-colors border-l"
                   :class="[
-                    route.path === subItem.route
-                      ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold border-[#3b82f6]/20 shadow-xs'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5 border-transparent'
+                    route.path.startsWith('/servicios')
+                      ? 'border-[#3b82f6]/40 dark:border-[#5da6fc]/40'
+                      : 'border-slate-200/80 dark:border-white/10'
                   ]"
                 >
-                  <div class="flex items-center gap-2.5 z-10 w-full">
-                    <HugeiconsIcon :icon="subItem.icon" :size="15" class="shrink-0" />
-                    <span class="text-[11.5px] truncate font-semibold">{{ subItem.text }}</span>
-                  </div>
-                </RouterLink>
-              </div>
+                  <RouterLink
+                    v-for="subItem in item.children"
+                    :key="subItem.route"
+                    :to="subItem.route"
+                    @mouseenter="prefetchRoute(subItem.route)"
+                    @focusin="prefetchRoute(subItem.route)"
+                    @click="closeMobileSidebar"
+                    class="group relative flex items-center h-[38px] rounded-[12px] transition-all duration-300 px-3 border cursor-pointer hover:translate-x-1.5"
+                    :class="[
+                      route.path === subItem.route
+                        ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold border-[#3b82f6]/20 shadow-xs'
+                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5 border-transparent'
+                    ]"
+                  >
+                    <div class="flex items-center gap-2.5 z-10 w-full">
+                      <HugeiconsIcon
+                        :icon="subItem.icon"
+                        :size="15"
+                        class="shrink-0 group-hover:scale-110 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-transform duration-200"
+                      />
+                      <span class="text-[11.5px] truncate font-semibold">{{ subItem.text }}</span>
+                    </div>
+                  </RouterLink>
+                </div>
+              </Transition>
             </div>
 
             <!-- Ítem simple -->

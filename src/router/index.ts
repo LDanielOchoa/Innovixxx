@@ -185,6 +185,12 @@ const router = createRouter({
           meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
         },
         {
+          path: 'servicios/eventos',
+          name: 'servicios-eventos',
+          component: () => import('../domains/servicios/views/EventosServiciosListView.vue'),
+          meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
+        },
+        {
           path: 'servicios/dashboard',
           name: 'servicios-dashboard',
           component: () => import('../domains/servicios/views/ServiciosDashboardView.vue'),

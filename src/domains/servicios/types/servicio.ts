@@ -160,6 +160,65 @@ export interface ServicioAlertasResponse {
   data: ServicioAlertaItem[]
 }
 
+export interface ServicioEventoItem {
+  id_evento: string
+  id_servicio: string
+  evento_tipo: number
+  evento_tipo_nombre: string
+  observacion: string
+  latitud: string
+  longitud: string
+  visible: boolean
+  fecha_hora: string
+  autor: string
+}
+
+export interface ServicioEventoListPayload {
+  id_grupo: string
+  desde: string
+  hasta: string
+  id_servicio: string
+  autor: string
+}
+
+export interface ServicioEventoListResponse {
+  message: string
+  done: boolean
+  data: ServicioEventoItem[]
+}
+
+export interface ServicioEventoCreatePayload {
+  id_grupo: string
+  id_servicio: string
+  tipo_evento: number
+  observacion: string
+  foto_1?: File | null
+  foto_2?: File | null
+  foto_3?: File | null
+}
+
+export const SERVICIO_EVENTO_TIPOS = {
+  EVENTO_REGISTRO: 1,
+  EVENTO_ASIGNACION_RECURSOS: 2,
+  EVENTO_CAMBIO_RUTA: 3,
+  EVENTO_CAMBIO_HARDWARE: 4,
+  EVENTO_CAMBIO_VEHICLE: 5,
+  EVENTO_CAMBIO_ESCOLTA: 6,
+  EVENTO_AGREGAR_ESCOLTA: 7,
+  EVENTO_CAMBIO_ESTADO: 8
+} as const
+
+export const SERVICIO_EVENTO_TIPOS_LABELS: Record<number, string> = {
+  1: 'Registro',
+  2: 'Asignación de Recursos',
+  3: 'Cambio de Ruta',
+  4: 'Cambio de Hardware',
+  5: 'Cambio de Vehículo',
+  6: 'Cambio de Escolta',
+  7: 'Agregar Escolta',
+  8: 'Cambio de Estado'
+}
+
 
 export const SERVICIO_ESTADOS = {
   TODOS: 0,
