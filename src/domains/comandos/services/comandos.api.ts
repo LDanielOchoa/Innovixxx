@@ -1,4 +1,4 @@
-import type { Comando, ListarComandosPayload, CrearComandoPayload, ActualizarComandoPayload, BorrarComandoPayload } from '../types/comando'
+import type { Comando, ListarComandosPayload, CrearComandoPayload, ActualizarComandoPayload, BorrarComandoPayload, EjecutarComandoPayload } from '../types/comando'
 import { apiClient } from '../../../utils/api-client'
 
 interface BackendResponse<T> {
@@ -34,6 +34,13 @@ export const updateComandoApi = async (payload: ActualizarComandoPayload): Promi
 
 export const deleteComandoApi = async (payload: BorrarComandoPayload): Promise<{ done: boolean; message?: string; data?: any }> => {
   return apiClient<BackendResponse<any>>('/api/v1/comando/borrar/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const ejecutarComandoApi = async (payload: EjecutarComandoPayload): Promise<{ done: boolean; message?: string; data?: any }> => {
+  return apiClient<BackendResponse<any>>('/api/v1/comando/ejecutar/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })

@@ -31,3 +31,9 @@ export interface BorrarComandoPayload {
   id_comando: string
 }
 
+export interface EjecutarComandoPayload {
+  id_grupo: string
+  id_comando: string
+  id_hardware: string
+}
+

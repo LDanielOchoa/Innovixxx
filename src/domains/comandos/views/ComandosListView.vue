@@ -12,7 +12,8 @@ import {
   MoreHorizontalIcon,
   Edit02Icon,
   Delete01Icon,
-  CpuIcon
+  CpuIcon,
+  PlayIcon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import { fetchComandosApi, deleteComandoApi } from '../services/comandos.api'
@@ -27,6 +28,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import ComandoFormModal from '../components/ComandoFormModal.vue'
+import ComandoEjecutarModal from '../components/ComandoEjecutarModal.vue'
 
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -43,6 +45,9 @@ const editItem = ref<Comando | null>(null)
 
 const isDeleteModalOpen = ref(false)
 const itemToDelete = ref<Comando | null>(null)
+
+const isEjecutarModalOpen = ref(false)
+const itemToExecute = ref<Comando | null>(null)
 
 const openMenuId = ref<string | null>(null)
 const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
@@ -128,6 +133,11 @@ const confirmDelete = (item: Comando) => {
   isDeleteModalOpen.value = true
 }
 
+const openEjecutarModal = (item: Comando) => {
+  itemToExecute.value = item
+  isEjecutarModalOpen.value = true
+}
+
 const toggleMenu = (id: string, event: MouseEvent) => {
   if (openMenuId.value === id) {
     openMenuId.value = null
@@ -157,10 +167,11 @@ const closeMenu = () => {
   openMenuId.value = null
 }
 
-const handleMenuAction = (action: 'edit' | 'delete', item: Comando) => {
+const handleMenuAction = (action: 'edit' | 'delete' | 'execute', item: Comando) => {
   closeMenu()
   if (action === 'edit') openEditModal(item)
   else if (action === 'delete') confirmDelete(item)
+  else if (action === 'execute') openEjecutarModal(item)
 }
 
 const deleteComando = async () => {
@@ -388,6 +399,13 @@ const paginatedItems = computed(() => {
             @click.stop
           >
             <button
+              @click="handleMenuAction('execute', paginatedItems.find(i => (i.id_comando || i.mask) === openMenuId)!)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
+            >
+              <HugeiconsIcon :icon="PlayIcon" :size="16" />
+              <span>Ejecutar</span>
+            </button>
+            <button
               @click="handleMenuAction('edit', paginatedItems.find(i => (i.id_comando || i.mask) === openMenuId)!)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
@@ -428,6 +446,13 @@ const paginatedItems = computed(() => {
       title="Eliminar Comando"
       message="¿Estás seguro de que deseas eliminar este comando? Esta acción no se puede deshacer."
       @confirm="deleteComando"
+    />
+
+    <!-- Modal Ejecutar Comando -->
+    <ComandoEjecutarModal
+      v-model:is-open="isEjecutarModalOpen"
+      :comando="itemToExecute"
+      @executed="cargarComandos"
     />
   </div>
 </template>
