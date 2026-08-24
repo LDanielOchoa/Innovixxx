@@ -245,7 +245,7 @@ const handleSubmit = async () => {
   }
 
   if (!formData.id_servicio.trim()) {
-    modalMessage.value = { text: 'Selecciona o ingresa el ID del servicio.', type: 'error' }
+    modalMessage.value = { text: 'Selecciona un servicio.', type: 'error' }
     return
   }
 
@@ -367,8 +367,8 @@ onUnmounted(() => {
               </div>
               <template v-if="formData.id_servicio">
                 <div class="flex items-center gap-2 truncate">
-                  <span class="font-mono font-bold text-slate-800 dark:text-white truncate">
-                    {{ formData.id_servicio }}
+                  <span class="font-bold text-slate-800 dark:text-white truncate">
+                    {{ selectedServicioObj?.id_ruta || (selectedServicioObj?.fecha_inicio ? formatDateShort(selectedServicioObj.fecha_inicio) : 'Servicio seleccionado') }}
                   </span>
                   <span
                     v-if="selectedServicioObj?.estado"
@@ -415,10 +415,10 @@ onUnmounted(() => {
                     :class="formData.id_servicio === serv.id_servicio ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
                   >
                     <div class="flex flex-col gap-1 min-w-0 flex-1 pr-2">
-                      <!-- Fila superior: ID y Estado Badge -->
+                      <!-- Fila superior: Ruta / Fecha y Estado Badge -->
                       <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-mono font-bold text-slate-800 dark:text-white text-xs">
-                          {{ serv.id_servicio }}
+                        <span class="font-bold text-slate-800 dark:text-white text-xs truncate">
+                          {{ serv.id_ruta ? 'Ruta: ' + serv.id_ruta : (serv.fecha_inicio ? formatDateShort(serv.fecha_inicio) : 'Servicio') }}
                         </span>
                         <span
                           v-if="serv.estado"
@@ -429,14 +429,11 @@ onUnmounted(() => {
                         </span>
                       </div>
 
-                      <!-- Fila inferior: Fecha y Ruta -->
-                      <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
-                        <span v-if="serv.fecha_inicio" class="flex items-center gap-1 font-mono">
+                      <!-- Fila inferior: Fecha (si ya se muestra la ruta arriba) -->
+                      <div v-if="serv.fecha_inicio && serv.id_ruta" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                        <span class="flex items-center gap-1 font-mono">
                           <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400 shrink-0" />
                           {{ formatDateShort(serv.fecha_inicio) }}
-                        </span>
-                        <span v-if="serv.id_ruta" class="truncate">
-                          • Ruta: {{ serv.id_ruta }}
                         </span>
                       </div>
                     </div>

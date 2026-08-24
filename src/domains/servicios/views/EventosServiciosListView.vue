@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../constants/permissions'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -48,6 +50,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 import ServicioEventoCreateModal from '../components/ServicioEventoCreateModal.vue'
 import * as XLSX from 'xlsx'
 
+const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
@@ -290,9 +293,16 @@ const serviciosDropdownList = computed<ServicioDropdownOption[]>(() => {
   )
 })
 
+const getServicioPorId = (id: string): Servicio | undefined => {
+  return catalogoServicios.value.find(s => s.id_servicio === id)
+}
+
 const getServicioLabel = (): string => {
   if (filtroIdServicio.value === 'all') return 'Servicio'
-  return `Servicio: ${filtroIdServicio.value}`
+  const serv = getServicioPorId(filtroIdServicio.value)
+  if (serv?.id_ruta) return `Ruta: ${serv.id_ruta}`
+  if (serv?.fecha_inicio) return formatDateShort(serv.fecha_inicio)
+  return 'Servicio'
 }
 
 const getTipoEventoLabel = (): string => {
@@ -583,6 +593,7 @@ onUnmounted(() => {
     >
       <template #actions>
         <AppButton
+          v-if="authStore.hasPermission(PERMISSIONS.EVENT_CREATE)"
           variant="primary"
           size="sm"
           :icon="Add01Icon"
@@ -709,10 +720,10 @@ onUnmounted(() => {
                   :class="filtroIdServicio === s.id ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
                 >
                   <div class="flex flex-col gap-1 min-w-0 flex-1 pr-2">
-                    <!-- Fila superior: ID y Estado Badge -->
+                    <!-- Fila superior: Ruta / Fecha y Estado Badge -->
                     <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-mono font-bold text-slate-800 dark:text-white text-xs">
-                        {{ s.id }}
+                      <span class="font-bold text-slate-800 dark:text-white text-xs truncate">
+                        {{ s.ruta ? 'Ruta: ' + s.ruta : (s.fecha ? formatDateShort(s.fecha) : 'Servicio') }}
                       </span>
                       <span
                         v-if="s.estado"
@@ -723,14 +734,11 @@ onUnmounted(() => {
                       </span>
                     </div>
 
-                    <!-- Fila inferior: Fecha y Ruta -->
-                    <div class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
-                      <span v-if="s.fecha" class="flex items-center gap-1 font-mono">
+                    <!-- Fila inferior: Fecha (si se muestra la ruta arriba) -->
+                    <div v-if="s.fecha && s.ruta" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                      <span class="flex items-center gap-1 font-mono">
                         <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400" />
                         {{ formatDateShort(s.fecha) }}
-                      </span>
-                      <span v-if="s.ruta" class="truncate">
-                        • Ruta: {{ s.ruta }}
                       </span>
                     </div>
                   </div>
@@ -936,13 +944,35 @@ onUnmounted(() => {
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center border bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
                   <HugeiconsIcon :icon="ServiceIcon" :size="15" />
                 </div>
-                <!-- Tooltip idéntico al estilo de EscoltasListView -->
-                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
-                  <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Servicio</span>
-                    <span class="font-mono text-[10px]">{{ data.id_servicio }}</span>
+                <!-- Tooltip con fecha, estado y ruta -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900/95 dark:bg-[#1A1D24] text-white text-[11px] font-medium p-2.5 rounded-xl shadow-2xl border border-slate-700/50 dark:border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-all duration-200 z-50 backdrop-blur-md">
+                  <div class="flex flex-col gap-1.5 min-w-[120px]">
+                    <!-- Encabezado / Estado -->
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-bold text-slate-300 dark:text-slate-200 text-[11px]">Servicio</span>
+                      <span
+                        v-if="getServicioPorId(data.id_servicio)?.estado"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border tracking-wider"
+                        :class="getEstadoBadgeClass(getServicioPorId(data.id_servicio)!.estado)"
+                      >
+                        {{ getEstadoLabel(getServicioPorId(data.id_servicio)!.estado) }}
+                      </span>
+                    </div>
+
+                    <!-- Ruta (si existe) -->
+                    <div v-if="getServicioPorId(data.id_servicio)?.id_ruta" class="text-[11px] font-semibold text-white truncate">
+                      Ruta: {{ getServicioPorId(data.id_servicio)!.id_ruta }}
+                    </div>
+
+                    <!-- Fecha -->
+                    <div class="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono">
+                      <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400 shrink-0" />
+                      <span>
+                        {{ formatDateShort(getServicioPorId(data.id_servicio)?.fecha_inicio || data.fecha_hora) }}
+                      </span>
+                    </div>
                   </div>
-                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95 dark:border-t-[#1A1D24]"></div>
                 </div>
               </div>
               <span v-else class="text-slate-400 text-xs font-mono">---</span>
@@ -1038,6 +1068,7 @@ onUnmounted(() => {
           >
             <!-- Acción: Ver fotos -->
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.EVENT_VER_FOTOS)"
               @click="openFotosModal(eventos.find(e => e.id_evento === openMenuId)!); closeMenu()"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >

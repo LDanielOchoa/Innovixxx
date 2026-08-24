@@ -147,7 +147,6 @@ const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
     { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_LIST },
     { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_LIST },
-    { icon: markRaw(CommandLineIcon), text: t('sidebar.menu.commands') || 'Comandos', route: '/comandos' },
     { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
 
     { separator: true },
@@ -165,6 +164,10 @@ const displayedMenuItems = computed(() => {
 
     { separator: true },
 
+    { icon: markRaw(CommandLineIcon), text: t('sidebar.menu.commands') || 'Comandos', route: '/comandos', permissionId: PERMISSIONS.COMMAND_LIST },
+
+    { separator: true },
+
     { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
     { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
     { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
@@ -174,7 +177,6 @@ const displayedMenuItems = computed(() => {
     {
       icon: markRaw(ServiceIcon),
       text: t('sidebar.menu.services') || 'Servicios',
-      permissionId: PERMISSIONS.SERVICE_LIST_TABLE,
       children: [
         {
           icon: markRaw(ServiceIcon),
@@ -186,13 +188,13 @@ const displayedMenuItems = computed(() => {
           icon: markRaw(Alert01Icon),
           text: 'Alertas Servicios',
           route: '/servicios/alertas',
-          permissionId: PERMISSIONS.SERVICE_LIST_TABLE
+          permissionId: PERMISSIONS.ALERT_HISTORIAL
         },
         {
           icon: markRaw(Calendar01Icon),
           text: 'Eventos Servicios',
           route: '/servicios/eventos',
-          permissionId: PERMISSIONS.SERVICE_LIST_TABLE
+          permissionId: PERMISSIONS.EVENT_LIST
         }
       ]
     }
@@ -220,13 +222,29 @@ const displayedMenuItems = computed(() => {
     return finalItems
   }
 
-  // Usuario normal: filtrar por permisos de "List"
-  const allowedItems = menuItems.filter(item => {
-    if (item.separator) return true
-    if (item.adminOnly) return false
-    if (item.permissionId && !authStore.hasPermission(item.permissionId)) return false
-    return true
-  })
+  // Usuario normal: filtrar por permisos de "List" y validar submenús hijos
+  const allowedItems = menuItems
+    .map(item => {
+      if (item.separator) return item
+      if (item.adminOnly) return null
+
+      // Si tiene hijos (como Servicios)
+      if (item.children && item.children.length > 0) {
+        const allowedChildren = item.children.filter(child => {
+          if (!child.permissionId) return true
+          return authStore.hasPermission(child.permissionId)
+        })
+        if (allowedChildren.length === 0) return null
+        return {
+          ...item,
+          children: allowedChildren
+        }
+      }
+
+      if (item.permissionId && !authStore.hasPermission(item.permissionId)) return null
+      return item
+    })
+    .filter((item): item is MenuItem => item !== null)
 
   const finalItems: MenuItem[] = []
   for (let i = 0; i < allowedItems.length; i++) {
@@ -514,7 +532,6 @@ const cerrarSesion = () => {
         >
           <div class="relative w-9 h-9 shrink-0">
             <img :src="authStore.userAvatar" class="w-9 h-9 rounded-full object-cover border border-slate-200 dark:border-white/10 group-hover/profile:border-[#3b82f6]/50 transition-colors" />
-            <div class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#13161C]"></div>
           </div>
           
           <div class="flex-1 overflow-hidden transition-all duration-500" :class="isExpanded ? 'opacity-100 max-w-[120px]' : 'opacity-0 max-w-0'">

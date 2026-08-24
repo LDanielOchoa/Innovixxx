@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../constants/permissions'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -30,6 +32,7 @@ import AppSelect from '../../../components/ui/AppSelect.vue'
 import ComandoFormModal from '../components/ComandoFormModal.vue'
 import ComandoEjecutarModal from '../components/ComandoEjecutarModal.vue'
 
+const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
@@ -99,10 +102,10 @@ const cargarComandos = async () => {
   try {
     comandos.value = await fetchComandosApi({
       id_grupo: selectedGroup.value.id,
-      id_familia: Number(selectedFamilia.value)
+      id_familia: selectedFamilia.value === '0' ? undefined : Number(selectedFamilia.value)
     })
   } catch (error) {
-    console.error('Error al obtener comandos:', error)
+    console.error('Error al cargar comandos:', error)
     comandos.value = []
   } finally {
     loading.value = false
@@ -123,44 +126,30 @@ const openCreateModal = () => {
   isModalOpen.value = true
 }
 
-const openEditModal = (item: Comando) => {
-  editItem.value = item
-  isModalOpen.value = true
-}
-
-const confirmDelete = (item: Comando) => {
-  itemToDelete.value = item
-  isDeleteModalOpen.value = true
-}
-
-const openEjecutarModal = (item: Comando) => {
-  itemToExecute.value = item
-  isEjecutarModalOpen.value = true
-}
-
-const toggleMenu = (id: string, event: MouseEvent) => {
+const toggleMenu = (id: string | undefined, event: MouseEvent) => {
+  if (!id) return
   if (openMenuId.value === id) {
     openMenuId.value = null
     return
   }
-  
-  const button = event.currentTarget as HTMLElement
-  const rect = button.getBoundingClientRect()
-  const spaceBelow = window.innerHeight - rect.bottom
-  const estimatedMenuHeight = 100
+  openMenuId.value = id
 
-  if (spaceBelow < estimatedMenuHeight) {
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  const menuHeight = 140
+
+  if (spaceBelow < menuHeight) {
     menuPosition.value = {
-      bottom: `${window.innerHeight - rect.top + 8}px`,
+      bottom: `${window.innerHeight - rect.top + 6}px`,
       right: `${window.innerWidth - rect.right}px`
     }
   } else {
     menuPosition.value = {
-      top: `${rect.bottom + 8}px`,
+      top: `${rect.bottom + 6}px`,
       right: `${window.innerWidth - rect.right}px`
     }
   }
-  openMenuId.value = id
 }
 
 const closeMenu = () => {
@@ -169,31 +158,36 @@ const closeMenu = () => {
 
 const handleMenuAction = (action: 'edit' | 'delete' | 'execute', item: Comando) => {
   closeMenu()
-  if (action === 'edit') openEditModal(item)
-  else if (action === 'delete') confirmDelete(item)
-  else if (action === 'execute') openEjecutarModal(item)
+  if (action === 'execute') {
+    itemToExecute.value = item
+    isEjecutarModalOpen.value = true
+  } else if (action === 'edit') {
+    editItem.value = item
+    isModalOpen.value = true
+  } else if (action === 'delete') {
+    itemToDelete.value = item
+    isDeleteModalOpen.value = true
+  }
 }
 
 const deleteComando = async () => {
   if (!itemToDelete.value || !selectedGroup.value?.id) return
-  isDeleteModalOpen.value = false
-  const item = itemToDelete.value
-  const idComando = item.id_comando || item.mask
-
-  if (!idComando) return
+  const idOrMask = itemToDelete.value.id_comando || itemToDelete.value.mask
+  if (!idOrMask) return
 
   try {
     const res = await deleteComandoApi({
       id_grupo: selectedGroup.value.id,
-      id_comando: idComando
+      id_comando: idOrMask
     })
     if (res.done) {
-      await cargarComandos()
-    } else {
-      alert(res.message || 'Error al eliminar comando')
+      cargarComandos()
     }
   } catch (error) {
-    console.error('Error al borrar comando:', error)
+    console.error('Error al eliminar comando:', error)
+  } finally {
+    isDeleteModalOpen.value = false
+    itemToDelete.value = null
   }
 }
 
@@ -291,6 +285,7 @@ const paginatedItems = computed(() => {
       <!-- Derecha: Botón Crear Comando -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-start md:justify-end">
         <button 
+          v-if="authStore.hasPermission(PERMISSIONS.COMMAND_CREATE)"
           @click.stop="openCreateModal"
           class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10 cursor-pointer"
         >
@@ -399,6 +394,7 @@ const paginatedItems = computed(() => {
             @click.stop
           >
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.COMMAND_EXECUTE)"
               @click="handleMenuAction('execute', paginatedItems.find(i => (i.id_comando || i.mask) === openMenuId)!)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
             >
@@ -406,6 +402,7 @@ const paginatedItems = computed(() => {
               <span>Ejecutar</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.COMMAND_UPDATE)"
               @click="handleMenuAction('edit', paginatedItems.find(i => (i.id_comando || i.mask) === openMenuId)!)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
@@ -413,6 +410,7 @@ const paginatedItems = computed(() => {
               <span>Editar</span>
             </button>
             <button
+              v-if="authStore.hasPermission(PERMISSIONS.COMMAND_DELETE)"
               @click="handleMenuAction('delete', paginatedItems.find(i => (i.id_comando || i.mask) === openMenuId)!)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
             >

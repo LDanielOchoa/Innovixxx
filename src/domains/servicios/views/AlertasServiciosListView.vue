@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../constants/permissions'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
@@ -22,6 +24,7 @@ import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 
+const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
@@ -272,7 +275,7 @@ const formatDate = (dateStr: string) => {
               </span>
 
               <button
-                v-if="!data.solventada"
+                v-if="!data.solventada && authStore.hasPermission(PERMISSIONS.ALERT_SOLVENTAR)"
                 @click="handleSolventar(data)"
                 :disabled="solventandoToken === data.token"
                 class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50 cursor-pointer"

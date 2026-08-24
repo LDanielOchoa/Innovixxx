@@ -76,7 +76,8 @@ const router = createRouter({
         {
           path: 'comandos',
           name: 'comandos',
-          component: () => import('../domains/comandos/views/ComandosListView.vue')
+          component: () => import('../domains/comandos/views/ComandosListView.vue'),
+          meta: { permission: PERMISSIONS.COMMAND_LIST }
         },
         {
           path: 'grupos',
@@ -182,13 +183,13 @@ const router = createRouter({
           path: 'servicios/alertas',
           name: 'servicios-alertas',
           component: () => import('../domains/servicios/views/AlertasServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
+          meta: { permission: PERMISSIONS.ALERT_HISTORIAL }
         },
         {
           path: 'servicios/eventos',
           name: 'servicios-eventos',
           component: () => import('../domains/servicios/views/EventosServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.SERVICE_LIST_TABLE }
+          meta: { permission: PERMISSIONS.EVENT_LIST }
         },
         {
           path: 'servicios/dashboard',

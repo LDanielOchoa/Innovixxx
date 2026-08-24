@@ -16,7 +16,11 @@ import {
   Clock01Icon,
   Search01Icon,
   Cancel01Icon,
-  TickDouble02Icon
+  TickDouble02Icon,
+  PlayIcon,
+  Image01Icon,
+  SquareUnlock01Icon,
+  Shield01Icon
 } from '@hugeicons/core-free-icons'
 import BaseModal from '../common/BaseModal.vue'
 import { apiClient } from '../../utils/api-client'
@@ -54,6 +58,41 @@ const getPermissionMeta = (desc?: string) => {
       badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
     }
   }
+  if (text.includes('ejecutar') || text.includes('elecutar') || text.includes('execute')) {
+    return {
+      icon: markRaw(PlayIcon),
+      badgeText: 'Ejecutar',
+      badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+    }
+  }
+  if (text.includes('solventar')) {
+    return {
+      icon: markRaw(CheckmarkCircle01Icon),
+      badgeText: 'Solventar',
+      badgeClass: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
+    }
+  }
+  if (text.includes('foto')) {
+    return {
+      icon: markRaw(Image01Icon),
+      badgeText: 'Fotos',
+      badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
+    }
+  }
+  if (text.includes('candado') || text.includes('abrir')) {
+    return {
+      icon: markRaw(SquareUnlock01Icon),
+      badgeText: 'Abrir',
+      badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+    }
+  }
+  if (text.includes('validar') || text.includes('validate')) {
+    return {
+      icon: markRaw(Shield01Icon),
+      badgeText: 'Validar',
+      badgeClass: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
+    }
+  }
   if (text.includes('listar') || text.includes('list')) {
     return {
       icon: markRaw(ViewIcon),
@@ -75,7 +114,7 @@ const getPermissionMeta = (desc?: string) => {
       badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
     }
   }
-  if (text.includes('historial') || text.includes('detalles') || text.includes('detail')) {
+  if (text.includes('historial') || text.includes('detalles') || text.includes('detail') || text.includes('posiciones') || text.includes('mapa')) {
     return {
       icon: markRaw(Clock01Icon),
       badgeText: 'Detalles',
