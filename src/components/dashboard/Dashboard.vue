@@ -26,7 +26,9 @@ import {
   Tick02Icon,
   MapsIcon,
   ArrowLeft02Icon,
-  Loading02Icon
+  Loading02Icon,
+  EyeIcon,
+  ViewOffIcon
 } from '@hugeicons/core-free-icons'
 
 const router = useRouter()
@@ -39,6 +41,7 @@ const { selectedGroup } = storeToRefs(groupStore)
 
 // Estado para resolución de alarmas y mapa
 const selectedAlertaForSolve = ref<any | null>(null)
+const selectedVisibilidadForSolve = ref<boolean>(true)
 const isSolventandoAlerta = ref(false)
 const modalActiveView = ref<'list' | 'map'>('list')
 const mapZoom = ref(16)
@@ -151,6 +154,7 @@ const modalTitle = computed(() => {
 const handleSelectAlert = (alerta: any) => {
   if (alerta) {
     selectedAlertaForSolve.value = alerta
+    selectedVisibilidadForSolve.value = true
     modalActiveView.value = 'list'
     mapZoom.value = 16
     isMapImageLoading.value = true
@@ -162,9 +166,10 @@ const handleSolventarAlerta = async () => {
   
   isSolventandoAlerta.value = true
   const token = selectedAlertaForSolve.value.token
+  const visible = selectedVisibilidadForSolve.value
   
   try {
-    const res = await solventarAlertaApi(token)
+    const res = await solventarAlertaApi({ token, visible })
     if (res?.done !== false) {
       toast.add({
         severity: 'success',
@@ -561,14 +566,43 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Barra de acción inferior -->
-          <div class="flex items-center justify-end gap-3 pt-1">
+          <!-- Barra de acción inferior con Visibilidad y Solventar -->
+          <div class="flex items-center justify-between gap-3 pt-1 flex-wrap sm:flex-nowrap">
+            <!-- Selector de Visibilidad -->
+            <div class="flex items-center gap-2 p-1.5 rounded-xl bg-slate-100/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10">
+              <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5">Visibilidad:</span>
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  @click="selectedVisibilidadForSolve = true"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  :class="selectedVisibilidadForSolve === true
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'"
+                >
+                  <HugeiconsIcon :icon="EyeIcon" :size="14" />
+                  <span>Visible</span>
+                </button>
+                <button
+                  type="button"
+                  @click="selectedVisibilidadForSolve = false"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                  :class="selectedVisibilidadForSolve === false
+                    ? 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-500/30 ring-1 ring-slate-500/20 shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'"
+                >
+                  <HugeiconsIcon :icon="ViewOffIcon" :size="14" />
+                  <span>No Visible</span>
+                </button>
+              </div>
+            </div>
+
             <button
               @click="handleSolventarAlerta"
               :disabled="isSolventandoAlerta"
-              class="px-5 py-2.5 rounded-xl bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm text-xs font-bold"
+              class="px-5 py-2.5 rounded-xl bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm text-xs font-bold ml-auto"
             >
-              <HugeiconsIcon :icon="Tick02Icon" :size="16" />
+              <HugeiconsIcon :icon="isSolventandoAlerta ? Loading02Icon : Tick02Icon" :size="16" :class="{ 'animate-spin': isSolventandoAlerta }" />
               <span>{{ isSolventandoAlerta ? 'Solventando...' : 'Solventar Alarma' }}</span>
             </button>
           </div>
@@ -593,28 +627,14 @@ onUnmounted(() => {
                   {{ selectedAlertaForSolve.fecha_hora || '---' }}
                 </span>
               </div>
-
-              <!-- Botón Acción Solventar -->
-              <div class="flex items-center gap-2 shrink-0">
-                <button
-                  @click="handleSolventarAlerta"
-                  :disabled="isSolventandoAlerta"
-                  class="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
-                >
-                  <HugeiconsIcon :icon="Tick02Icon" :size="15" />
-                  <span>{{ isSolventandoAlerta ? 'Solventando...' : 'Solventar' }}</span>
-                </button>
-              </div>
             </div>
 
-            <!-- Fila Inferior: Información & Botón Ver en mapa -->
-            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 pt-1 text-xs">
-              <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
-                <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                  <HugeiconsIcon :icon="HardDriveIcon" :size="15" class="text-slate-400 shrink-0" />
-                  <span class="font-medium text-slate-400 dark:text-slate-400">Hardware:</span>
-                  <span class="font-bold text-slate-800 dark:text-slate-200">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
-                </div>
+            <!-- Fila de Información: Hardware y Mapa -->
+            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs">
+              <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                <HugeiconsIcon :icon="HardDriveIcon" :size="15" class="text-slate-400 shrink-0" />
+                <span class="font-medium text-slate-400 dark:text-slate-400">Hardware:</span>
+                <span class="font-bold text-slate-800 dark:text-slate-200">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
               </div>
 
               <div v-if="selectedAlertaForSolve.lat && selectedAlertaForSolve.lon" class="flex items-center gap-2 text-slate-600 dark:text-slate-300 ml-auto">
@@ -626,6 +646,48 @@ onUnmounted(() => {
                   <span>Ver en mapa</span>
                 </button>
               </div>
+            </div>
+
+            <!-- Fila de Acción: Selector de Visibilidad y Botón Solventar -->
+            <div class="pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+              <!-- Selector de Visibilidad -->
+              <div class="flex items-center gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5">
+                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5">Visibilidad:</span>
+                <div class="flex items-center gap-1">
+                  <button
+                    type="button"
+                    @click="selectedVisibilidadForSolve = true"
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                    :class="selectedVisibilidadForSolve === true
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'"
+                  >
+                    <HugeiconsIcon :icon="EyeIcon" :size="14" />
+                    <span>Visible</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="selectedVisibilidadForSolve = false"
+                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                    :class="selectedVisibilidadForSolve === false
+                      ? 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-500/30 ring-1 ring-slate-500/20 shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'"
+                  >
+                    <HugeiconsIcon :icon="ViewOffIcon" :size="14" />
+                    <span>No Visible</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Botón Solventar -->
+              <button
+                @click="handleSolventarAlerta"
+                :disabled="isSolventandoAlerta"
+                class="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm ml-auto"
+              >
+                <HugeiconsIcon :icon="isSolventandoAlerta ? Loading02Icon : Tick02Icon" :size="15" :class="{ 'animate-spin': isSolventandoAlerta }" />
+                <span>{{ isSolventandoAlerta ? 'Solventando...' : 'Solventar Alarma' }}</span>
+              </button>
             </div>
           </div>
         </div>

@@ -8,9 +8,13 @@ interface BackendResponse<T> {
 }
 
 export const fetchComandosApi = async (payload: ListarComandosPayload): Promise<Comando[]> => {
+  const requestPayload: ListarComandosPayload = {
+    id_grupo: payload.id_grupo,
+    id_familia: typeof payload.id_familia === 'number' ? payload.id_familia : 0
+  }
   const data = await apiClient<BackendResponse<Comando[]>>('/api/v1/comando/listar/', {
     method: 'POST',
-    body: JSON.stringify(payload)
+    body: JSON.stringify(requestPayload)
   })
   if (data.done && Array.isArray(data.data)) {
     return data.data

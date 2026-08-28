@@ -27,7 +27,8 @@ import {
   UserAdd01Icon,
   Image01Icon,
   MoreHorizontalIcon,
-  ViewOffIcon
+  ViewOffIcon,
+  Alert01Icon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import {
@@ -105,14 +106,8 @@ const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
 const eventTypeConfigs = [
-  { value: 1, label: '1 - Registro', fullName: 'Registro de Servicio', icon: Calendar01Icon, badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
-  { value: 2, label: '2 - Asignación Recursos', fullName: 'Asignación de Recursos', icon: ServiceIcon, badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-  { value: 3, label: '3 - Cambio Ruta', fullName: 'Cambio de Ruta', icon: Route01Icon, badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' },
-  { value: 4, label: '4 - Cambio Hardware', fullName: 'Cambio de Hardware', icon: CpuIcon, badgeClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20' },
-  { value: 5, label: '5 - Cambio Vehículo', fullName: 'Cambio de Vehículo', icon: Car01Icon, badgeClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20' },
-  { value: 6, label: '6 - Cambio Escolta', fullName: 'Cambio de Escolta', icon: User02Icon, badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20' },
-  { value: 7, label: '7 - Agregar Escolta', fullName: 'Agregar Escolta', icon: UserAdd01Icon, badgeClass: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20' },
-  { value: 8, label: '8 - Cambio Estado', fullName: 'Cambio de Estado', icon: Edit01Icon, badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' }
+  { value: 1, label: '1 - Revisión Rutinaria', fullName: 'Revisión Rutinaria', icon: CheckmarkCircle01Icon, badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+  { value: 2, label: '2 - Parada', fullName: 'Parada', icon: Alert01Icon, badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' }
 ]
 
 const toggleDropdown = (type: 'servicio' | 'tipo' | 'visibilidad') => {

@@ -60,9 +60,16 @@ const getNombreTipoAlerta = (tipo: number): string => {
 
 // Suma total de alertas críticas
 const totalAlertasCount = computed(() => {
-  if (!props.alertas) return 0
-  const a = props.alertas
-  return (a.SOS || 0) + (a.velocidad || 0) + (a.ruta_alejamiento || 0) + (a.candado_open || 0) + (a.candado_close || 0) + (a.ruta_retorno || 0)
+  if (props.alertasDetalle && Array.isArray(props.alertasDetalle) && props.alertasDetalle.length > 0) {
+    return props.alertasDetalle.length
+  }
+  if (props.alertas && typeof props.alertas === 'object') {
+    return Object.values(props.alertas).reduce((sum, val) => {
+      const num = typeof val === 'number' ? val : (typeof val === 'string' ? parseInt(val, 10) : 0)
+      return sum + (isNaN(num) ? 0 : num)
+    }, 0)
+  }
+  return 0
 })
 
 // Lista procesada de alertas_detalle reales ordenada de más reciente a menos reciente

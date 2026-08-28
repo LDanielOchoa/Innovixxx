@@ -205,25 +205,13 @@ export interface ServicioEventoCambiarVisibilidadPayload {
 }
 
 export const SERVICIO_EVENTO_TIPOS = {
-  EVENTO_REGISTRO: 1,
-  EVENTO_ASIGNACION_RECURSOS: 2,
-  EVENTO_CAMBIO_RUTA: 3,
-  EVENTO_CAMBIO_HARDWARE: 4,
-  EVENTO_CAMBIO_VEHICLE: 5,
-  EVENTO_CAMBIO_ESCOLTA: 6,
-  EVENTO_AGREGAR_ESCOLTA: 7,
-  EVENTO_CAMBIO_ESTADO: 8
+  TIPO_REVISION_RUTINARIA: 1,
+  TIPO_PARADA: 2
 } as const
 
 export const SERVICIO_EVENTO_TIPOS_LABELS: Record<number, string> = {
-  1: 'Registro',
-  2: 'Asignación de Recursos',
-  3: 'Cambio de Ruta',
-  4: 'Cambio de Hardware',
-  5: 'Cambio de Vehículo',
-  6: 'Cambio de Escolta',
-  7: 'Agregar Escolta',
-  8: 'Cambio de Estado'
+  1: 'Revisión Rutinaria',
+  2: 'Parada'
 }
 
 

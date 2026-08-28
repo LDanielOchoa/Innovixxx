@@ -158,6 +158,7 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     alertas.value = []
     currentPage.value = 1
+    modalMessage.value = null
     activeView.value = 'list'
     selectedAlertaForMap.value = null
     fetchAlertas()
@@ -176,11 +177,12 @@ const backToList = () => {
   selectedAlertaForMap.value = null
 }
 
-const handleSolventar = async (alerta: ServicioAlertaItem) => {
+const handleSolventar = async (alerta: ServicioAlertaItem, visible: boolean = true) => {
   if (solventandoToken.value) return
   solventandoToken.value = alerta.token
+  openSolventarMenuToken.value = null
   try {
-    const res = await solventarAlertaApi(alerta.token)
+    const res = await solventarAlertaApi({ token: alerta.token, visible })
     if (res.done) {
       toast.add({ severity: 'success', summary: 'Éxito', detail: 'Alarma solventada correctamente', life: 3000 })
       await fetchAlertas()
@@ -194,9 +196,20 @@ const handleSolventar = async (alerta: ServicioAlertaItem) => {
   }
 }
 
+onMounted(() => {
+  document.addEventListener('click', closeSolventarMenu)
+  window.addEventListener('scroll', closeSolventarMenu, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeSolventarMenu)
+  window.removeEventListener('scroll', closeSolventarMenu, true)
+})
+
 const handleClose = () => {
   activeView.value = 'list'
   selectedAlertaForMap.value = null
+  openSolventarMenuToken.value = null
   emit('update:isOpen', false)
 }
 </script>
@@ -362,11 +375,12 @@ const handleClose = () => {
                 </template>
                 <template v-else>
                   <button
-                    @click="handleSolventar(item)"
+                    @click.stop="toggleSolventarMenu(item.token, $event)"
                     :disabled="solventandoToken === item.token"
                     class="px-4 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
+                    :class="{ 'ring-2 ring-amber-500/40': openSolventarMenuToken === item.token }"
                   >
-                    <HugeiconsIcon :icon="Tick02Icon" :size="14" />
+                    <HugeiconsIcon :icon="solventandoToken === item.token ? Loading02Icon : Tick02Icon" :size="14" :class="{ 'animate-spin': solventandoToken === item.token }" />
                     <span>{{ solventandoToken === item.token ? 'Solventando...' : 'Solventar' }}</span>
                   </button>
                 </template>
@@ -413,6 +427,48 @@ const handleClose = () => {
       </div>
     </Transition>
   </AppModal>
+
+  <!-- Mini Desplegable Flotante de Visibilidad junto al botón Solventar -->
+  <Teleport to="body">
+    <Transition name="dropdown-popover">
+      <div
+        v-if="openSolventarMenuToken"
+        class="fixed z-[99999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6)] overflow-hidden p-1.5 space-y-1"
+        :style="solventarMenuStyle"
+        @click.stop
+      >
+        <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+          Visibilidad
+        </div>
+
+        <!-- Opción: Visible -->
+        <button
+          type="button"
+          @click="() => {
+            const al = alertas.find(a => a.token === openSolventarMenuToken)
+            if (al) handleSolventar(al, true)
+          }"
+          class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+        >
+          <HugeiconsIcon :icon="EyeIcon" :size="15" />
+          <span>Visible</span>
+        </button>
+
+        <!-- Opción: No Visible -->
+        <button
+          type="button"
+          @click="() => {
+            const al = alertas.find(a => a.token === openSolventarMenuToken)
+            if (al) handleSolventar(al, false)
+          }"
+          class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+        >
+          <HugeiconsIcon :icon="ViewOffIcon" :size="15" />
+          <span>No Visible</span>
+        </button>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -458,6 +514,21 @@ const handleClose = () => {
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(148, 163, 184, 0.5);
+}
+
+.dropdown-popover-enter-active {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.dropdown-popover-leave-active {
+  transition: all 0.12s cubic-bezier(0.4, 0, 1, 1);
+}
+.dropdown-popover-enter-from {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.95);
+}
+.dropdown-popover-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.97);
 }
 </style>
 

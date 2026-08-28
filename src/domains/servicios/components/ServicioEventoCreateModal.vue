@@ -58,7 +58,7 @@ const visibilidadDropdownModalRef = ref<HTMLElement | null>(null)
 
 const formData = reactive({
   id_servicio: '',
-  tipo_evento: SERVICIO_EVENTO_TIPOS.EVENTO_REGISTRO,
+  tipo_evento: SERVICIO_EVENTO_TIPOS.TIPO_REVISION_RUTINARIA,
   visible: true,
   observacion: ''
 })
@@ -92,14 +92,8 @@ const images = reactive<[ImageFileSlot, ImageFileSlot, ImageFileSlot]>([
 ])
 
 const eventTypeConfig = [
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_REGISTRO, label: 'Registro de Servicio', icon: Calendar01Icon, colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_ASIGNACION_RECURSOS, label: 'Asignación de Recursos', icon: ServiceIcon, colorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_CAMBIO_RUTA, label: 'Cambio de Ruta', icon: Route01Icon, colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_CAMBIO_HARDWARE, label: 'Cambio de Hardware', icon: CpuIcon, colorClass: 'text-purple-500 bg-purple-500/10 border-purple-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_CAMBIO_VEHICLE, label: 'Cambio de Vehículo', icon: Car01Icon, colorClass: 'text-cyan-500 bg-cyan-500/10 border-cyan-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_CAMBIO_ESCOLTA, label: 'Cambio de Escolta', icon: User02Icon, colorClass: 'text-indigo-500 bg-indigo-500/10 border-indigo-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_AGREGAR_ESCOLTA, label: 'Agregar Escolta', icon: UserAdd01Icon, colorClass: 'text-teal-500 bg-teal-500/10 border-teal-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.EVENTO_CAMBIO_ESTADO, label: 'Cambio de Estado', icon: Edit01Icon, colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20' }
+  { value: SERVICIO_EVENTO_TIPOS.TIPO_REVISION_RUTINARIA, label: 'Revisión Rutinaria', icon: CheckmarkCircle01Icon, colorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  { value: SERVICIO_EVENTO_TIPOS.TIPO_PARADA, label: 'Parada', icon: Alert01Icon, colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
 ]
 
 const selectedTipoConfig = computed(() => {
@@ -182,7 +176,7 @@ const selectTipo = (tipo: number) => {
 
 const resetForm = () => {
   formData.id_servicio = props.defaultIdServicio || ''
-  formData.tipo_evento = SERVICIO_EVENTO_TIPOS.EVENTO_REGISTRO
+  formData.tipo_evento = SERVICIO_EVENTO_TIPOS.TIPO_REVISION_RUTINARIA
   formData.visible = true
   formData.observacion = ''
   modalMessage.value = null

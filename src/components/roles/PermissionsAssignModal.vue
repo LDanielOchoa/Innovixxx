@@ -252,8 +252,14 @@ const closeModal = () => {
 }
 
 const fetchPermissions = async () => {
+  if (!props.groupId) return
   try {
-    const data = await apiClient<{ done: boolean, data: Permission[] }>('/api/v1/list_permissions/')
+    const payload = {
+      id_grupo: props.groupId
+    }
+    const data = await apiClient<{ done: boolean, data: Permission[] }>('/api/v1/list_permissions/', {
+      body: JSON.stringify(payload)
+    })
     permissions.value = data.done && data.data ? data.data : []
   } catch (error) {
     if (error instanceof ApiError) {
@@ -391,13 +397,15 @@ watch(() => props.isOpen, async (open) => {
   selectedCategory.value = 'ALL'
   loadingList.value = true
   
-  if (internalRole.value && props.groupId) {
-    await Promise.all([
-      fetchPermissions(),
-      fetchRolePermissions()
-    ])
-  } else {
-    await fetchPermissions()
+  if (props.groupId) {
+    if (internalRole.value) {
+      await Promise.all([
+        fetchPermissions(),
+        fetchRolePermissions()
+      ])
+    } else {
+      await fetchPermissions()
+    }
   }
   
   loadingList.value = false

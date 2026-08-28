@@ -102,7 +102,7 @@ const cargarComandos = async () => {
   try {
     comandos.value = await fetchComandosApi({
       id_grupo: selectedGroup.value.id,
-      id_familia: selectedFamilia.value === '0' ? undefined : Number(selectedFamilia.value)
+      id_familia: Number(selectedFamilia.value) || 0
     })
   } catch (error) {
     console.error('Error al cargar comandos:', error)

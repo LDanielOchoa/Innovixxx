@@ -145,10 +145,19 @@ export const cambiarEstadoServicioApi = async (payload: ServicioCambiarEstadoPay
   })
 }
 
-export const solventarAlertaApi = async (token: string): Promise<any> => {
+export interface SolventarAlertaPayload {
+  token: string
+  visible?: boolean
+}
+
+export const solventarAlertaApi = async (payload: string | SolventarAlertaPayload): Promise<any> => {
+  const body = typeof payload === 'string'
+    ? { token: payload, visible: true }
+    : { token: payload.token, visible: payload.visible ?? true }
+
   return apiClient('/api/v1/servicio/solventar_alerta/', {
     method: 'POST',
-    body: JSON.stringify({ token })
+    body: JSON.stringify(body)
   })
 }
 
