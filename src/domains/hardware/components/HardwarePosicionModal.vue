@@ -91,20 +91,8 @@ const hoverSpeed = ref<{ x: number; speed: number; percent: number } | null>(nul
 const BASE_DURATION = 180000
 const speedOptions = [0.25, 0.5, 1, 2, 4, 8]
 
-const getInitialDates = () => {
-  const today = new Date()
-  const lastWeek = new Date(today)
-  lastWeek.setDate(today.getDate() - 7)
-  lastWeek.setHours(0, 0, 0, 0)
-
-  const end = new Date(today)
-  end.setHours(23, 59, 59, 999)
-
-  return { start: lastWeek, end }
-}
-
-const fechaDesde = ref<Date | null>(getInitialDates().start)
-const fechaHasta = ref<Date | null>(getInitialDates().end)
+const fechaDesde = ref<Date | null>(null)
+const fechaHasta = ref<Date | null>(null)
 
 const formatDateTime = (val: Date | null, isEnd: boolean = false) => {
   if (!val) return ''
@@ -140,7 +128,7 @@ const fetchPosiciones = async () => {
       hasta
     })
     await nextTick()
-    drawPositions()
+    await drawPositions()
   } catch (error) {
     console.error('Error al consultar posiciones:', error)
   } finally {
@@ -174,6 +162,9 @@ const clearMapElements = () => {
   playbackSpeedBadgeEl = null
   allPosicionItems.value = []
   visiblePointCount.value = 0
+  batteryPercentage.value = null
+  currentSpeed.value = null
+  currentCourse.value = null
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -269,14 +260,17 @@ const groupPointsByZoom = (
   items: PosicionItem[],
   zoom: number
 ): PosicionItem[] => {
+  if (items.length <= 2) return items
   if (zoom >= 18) return items
 
-  const scale = 256 * Math.pow(2, zoom)
+  const scale = Math.pow(2, zoom)
   const points = items.map(item => {
+    const x = ((item.lon + 180) / 360) * 256 * scale
     const sinLat = Math.sin((item.lat * Math.PI) / 180)
-    const clampedSin = Math.max(-0.9999, Math.min(0.9999, sinLat))
-    const x = ((item.lon + 180) / 360) * scale
-    const y = (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * scale
+    const y =
+      (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) *
+      256 *
+      scale
     return { item, x, y, visited: false }
   })
 
@@ -326,21 +320,21 @@ const createPointMarker = (item: PosicionItem) => {
         }
       : isLast
         ? {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 7.5,
-            fillColor: '#ef4444',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-          }
-        : {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 4,
-            fillColor: isDarkMapMode.value ? '#38bdf8' : '#3b82f6',
-            fillOpacity: 0.9,
-            strokeColor: '#ffffff',
-            strokeWeight: 1.5
-          }
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7.5,
+          fillColor: '#ef4444',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      : {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 4,
+          fillColor: isDarkMapMode.value ? '#38bdf8' : '#3b82f6',
+          fillOpacity: 0.9,
+          strokeColor: '#ffffff',
+          strokeWeight: 1.5
+        }
   })
 
   const dotColor = isFirst ? '#22c55e' : isLast ? '#ef4444' : '#38bdf8'
@@ -357,7 +351,6 @@ const createPointMarker = (item: PosicionItem) => {
         <span style="font-weight:700;color:#0f172a;">${item.battery}%</span>
         <span style="color:#64748b;">Dirección</span>
         <span style="font-weight:700;color:#0f172a;">${item.course}°</span>
-        ${item.sos === 'True' ? '<span style="color:#ef4444;font-weight:700;grid-column:span 2;">⚠ SOS ACTIVO</span>' : ''}
       </div>
     </div>
   `
@@ -389,7 +382,7 @@ const updatePositionMarkers = () => {
   visiblePointCount.value = visibles.length
 }
 
-const drawPositions = () => {
+const drawPositions = async () => {
   if (!map.value || !posiciones.value.length) return
   const google = (window as any).google
 
@@ -414,7 +407,6 @@ const drawPositions = () => {
       battery: pos.battery ?? '0',
       course: pos.course ?? '0',
       time_dv: pos.time_dv ?? '',
-      sos: pos.sos ?? 'False',
       isFirst: index === 0,
       isLast: index === posiciones.value.length - 1
     })
@@ -445,8 +437,18 @@ const drawPositions = () => {
     playbackSpeedBadgeEl = speedBadge
 
     try {
-      if ((google.maps as any).marker?.AdvancedMarkerElement) {
-        playbackMarker.value = new (google.maps as any).marker.AdvancedMarkerElement({
+      let AdvancedMarkerElementClass = (google.maps as any).marker?.AdvancedMarkerElement
+      if (!AdvancedMarkerElementClass && typeof (google.maps as any).importLibrary === 'function') {
+        try {
+          const markerLib = await (google.maps as any).importLibrary('marker')
+          AdvancedMarkerElementClass = markerLib?.AdvancedMarkerElement
+        } catch (e) {
+          console.warn('Error cargando marker library:', e)
+        }
+      }
+
+      if (AdvancedMarkerElementClass) {
+        playbackMarker.value = new AdvancedMarkerElementClass({
           position: path[0],
           map: map.value,
           content: container,
@@ -455,20 +457,58 @@ const drawPositions = () => {
           zIndex: 9999
         })
       } else {
-        playbackMarker.value = new google.maps.Marker({
-          position: path[0],
-          map: map.value,
-          zIndex: 9999
-        })
+        // Fallback robusto con OverlayView que garantiza el montaje del contenedor 3D
+        class CustomPlaybackOverlay extends google.maps.OverlayView {
+          private pos: google.maps.LatLngLiteral
+          private element: HTMLElement
+
+          constructor(pos: google.maps.LatLngLiteral, el: HTMLElement) {
+            super()
+            this.pos = pos
+            this.element = el
+          }
+
+          onAdd() {
+            const panes = this.getPanes()
+            panes?.floatPane.appendChild(this.element)
+          }
+
+          draw() {
+            const projection = this.getProjection()
+            if (!projection) return
+            const point = projection.fromLatLngToDivPixel(new google.maps.LatLng(this.pos.lat, this.pos.lng))
+            if (point) {
+              this.element.style.position = 'absolute'
+              this.element.style.left = `${point.x - 56}px`
+              this.element.style.top = `${point.y - 112}px`
+              this.element.style.zIndex = '9999'
+            }
+          }
+
+          onRemove() {
+            if (this.element.parentElement) {
+              this.element.parentElement.removeChild(this.element)
+            }
+          }
+
+          setPosition(newPos: google.maps.LatLngLiteral) {
+            this.pos = newPos
+            this.draw()
+          }
+        }
+
+        const overlay = new CustomPlaybackOverlay(path[0], container)
+        overlay.setMap(map.value)
+        playbackMarker.value = overlay
       }
     } catch (e) {
-      console.warn('AdvancedMarkerElement error, fallback:', e)
+      console.warn('Error creando marcador de reproducción 3D:', e)
     }
 
     playbackThreeRenderer = new ThreeMarkerRenderer(canvas)
     const mapTilt = map.value ? map.value.getTilt() || 0 : 0
     const mapHeading = map.value ? map.value.getHeading() || 0 : 0
-    playbackThreeRenderer.update(initialCourse, true, mapTilt, initialBattery, 0x22d3ee, true, mapHeading)
+    playbackThreeRenderer.update(initialCourse, false, mapTilt, initialBattery, 0x0088ff, false, mapHeading)
   }
 
   currentIndex.value = 0
@@ -538,11 +578,11 @@ const updatePlaybackData = (progress: number) => {
     const mapHeading = map.value ? map.value.getHeading() || 0 : 0
     playbackThreeRenderer.update(
       data.course,
-      true,
+      false,
       mapTilt,
       data.battery ?? 100,
-      0x22d3ee,
-      true,
+      0x0088ff,
+      false,
       mapHeading
     )
   }
@@ -672,20 +712,22 @@ const initializeMap = async () => {
     initMap(googleMapsApi)
     startDarkModeObserver()
     mapReady.value = true
-    fetchPosiciones()
   }, 150)
 }
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
-    const { start, end } = getInitialDates()
-    fechaDesde.value = start
-    fechaHasta.value = end
+    fechaDesde.value = null
+    fechaHasta.value = null
     posiciones.value = []
+    clearMapElements()
     initializeMap()
   } else {
     stopPlayback()
     clearMapElements()
+    fechaDesde.value = null
+    fechaHasta.value = null
+    posiciones.value = []
     mapReady.value = false
   }
 })
@@ -912,7 +954,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="batteryPercentage !== null || currentSpeed !== null || currentCourse !== null" class="absolute top-[72px] right-4 z-20 bg-[#1e2128]/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl border border-white/5 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] overflow-hidden min-w-[160px]">
+        <div v-if="positionCount > 0 && (batteryPercentage !== null || currentSpeed !== null)" class="absolute top-[72px] right-4 z-20 bg-[#1e2128]/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl border border-white/5 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] overflow-hidden min-w-[160px]">
           <div class="flex flex-col divide-y divide-white/5">
             <div class="flex flex-col items-center gap-1.5 px-5 py-4">
               <HugeiconsIcon :icon="batteryIcon" :size="28" :class="batteryColor" />
@@ -930,28 +972,6 @@ onUnmounted(() => {
               <HugeiconsIcon :icon="DashboardSpeed01Icon" :size="28" :class="speedColor" />
               <span class="text-[24px] font-bold text-white tabular-nums leading-none">{{ currentSpeed ?? 0 }}</span>
               <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">km/h</span>
-            </div>
-            <div class="flex flex-col items-center gap-1.5 px-5 py-4">
-              <div class="relative w-14 h-14">
-                <svg viewBox="0 0 64 64" class="w-full h-full">
-                  <circle cx="32" cy="32" r="30" fill="none" stroke="currentColor" class="text-white/10" stroke-width="2"/>
-                  <text x="32" y="12" text-anchor="middle" class="text-[9px] font-bold fill-slate-500">N</text>
-                  <text x="32" y="58" text-anchor="middle" class="text-[9px] font-bold fill-slate-600">S</text>
-                  <text x="8" y="36" text-anchor="middle" class="text-[9px] font-bold fill-slate-600">O</text>
-                  <text x="56" y="36" text-anchor="middle" class="text-[9px] font-bold fill-slate-600">E</text>
-                </svg>
-                <div
-                  class="absolute inset-0 flex items-center justify-center transition-transform duration-300 ease-out"
-                  :style="{ transform: `rotate(${currentCourse ?? 0}deg)` }"
-                >
-                  <svg viewBox="0 0 24 24" class="w-7 h-7">
-                    <path d="M12 2L15 10L12 8L9 10L12 2Z" fill="#ef4444"/>
-                    <path d="M12 22L9 14L12 16L15 14L12 22Z" fill="#64748b"/>
-                  </svg>
-                </div>
-              </div>
-              <span class="text-[20px] font-bold text-white tabular-nums leading-none">{{ currentCourse ?? 0 }}°</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Dirección</span>
             </div>
           </div>
         </div>

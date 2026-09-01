@@ -28,7 +28,8 @@ import {
   Image01Icon,
   MoreHorizontalIcon,
   ViewOffIcon,
-  Alert01Icon
+  Alert01Icon,
+  Loading02Icon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import {
@@ -40,6 +41,7 @@ import {
 } from '../services/servicios.api'
 import type { ServicioEventoItem, Servicio } from '../types/servicio'
 import { SERVICIO_ESTADOS_LABELS } from '../types/servicio'
+import { useThemeStore } from '../../../stores/theme.store'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
@@ -53,6 +55,7 @@ import * as XLSX from 'xlsx'
 
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
+const themeStore = useThemeStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
 const eventos = ref<ServicioEventoItem[]>([])
@@ -420,14 +423,68 @@ const closeMenu = () => {
   openMenuId.value = null
 }
 
-// Modal Ubicación Mapa
+// Modal Ubicación Mapa (Google Static Maps)
+const MAP_KEY = 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
 const isMapModalOpen = ref(false)
 const selectedMapCoords = ref<{ lat: string; lng: string; eventoId?: string } | null>(null)
+const mapZoom = ref(16)
+const isMapImageLoading = ref(true)
 
 const openMapModal = (lat: string, lng: string, eventoId?: string) => {
   selectedMapCoords.value = { lat, lng, eventoId }
+  mapZoom.value = 16
+  isMapImageLoading.value = true
   isMapModalOpen.value = true
 }
+
+const zoomIn = () => {
+  if (mapZoom.value < 20) {
+    isMapImageLoading.value = true
+    mapZoom.value++
+  }
+}
+
+const zoomOut = () => {
+  if (mapZoom.value > 10) {
+    isMapImageLoading.value = true
+    mapZoom.value--
+  }
+}
+
+const staticMapUrl = computed(() => {
+  if (!selectedMapCoords.value) return ''
+  const { lat, lng } = selectedMapCoords.value
+  if (!lat || !lng) return ''
+
+  let url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${mapZoom.value}&size=640x460&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${MAP_KEY}`
+
+  if (themeStore.isDark) {
+    const darkStyles = [
+      'element:geometry|color:0x242f3e',
+      'element:labels.text.stroke|color:0x242f3e',
+      'element:labels.text.fill|color:0x746855',
+      'feature:administrative.locality|element:labels.text.fill|color:0xd59563',
+      'feature:poi|element:labels.text.fill|color:0xd59563',
+      'feature:poi.park|element:geometry|color:0x263c3f',
+      'feature:poi.park|element:labels.text.fill|color:0x6b9a76',
+      'feature:road|element:geometry|color:0x38414e',
+      'feature:road|element:geometry.stroke|color:0x212a37',
+      'feature:road|element:labels.text.fill|color:0x9ca5b3',
+      'feature:road.highway|element:geometry|color:0x746855',
+      'feature:road.highway|element:geometry.stroke|color:0x1f2835',
+      'feature:road.highway|element:labels.text.fill|color:0xf3d19c',
+      'feature:transit|element:geometry|color:0x2f3948',
+      'feature:transit.station|element:labels.text.fill|color:0xd59563',
+      'feature:water|element:geometry|color:0x17263c',
+      'feature:water|element:labels.text.fill|color:0x515c6d',
+      'feature:water|element:labels.text.stroke|color:0x17263c'
+    ].map(s => `style=${encodeURIComponent(s)}`).join('&')
+
+    url += `&${darkStyles}`
+  }
+
+  return url
+})
 
 const openExternalMap = (lat: string, lng: string) => {
   window.open(`https://www.google.com/maps?q=${lat},${lng}`, '_blank')
@@ -1201,40 +1258,76 @@ onUnmounted(() => {
     <AppModal
       v-model:isOpen="isMapModalOpen"
       :title="`Ubicación del Evento ${selectedMapCoords?.eventoId ? '— ' + selectedMapCoords.eventoId : ''}`"
+      size="lg"
       maxWidth="max-w-3xl"
       :showFooter="false"
     >
-      <div v-if="selectedMapCoords" class="space-y-4">
-        <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-xs">
+      <template #icon>
+        <div class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center justify-center shadow-sm">
+          <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
+        </div>
+      </template>
+
+      <div v-if="selectedMapCoords" class="flex flex-col gap-4">
+        <!-- Barra de Información superior del Mapa -->
+        <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-100/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 backdrop-blur-md flex-wrap sm:flex-nowrap">
           <div class="flex items-center gap-3">
-            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
               <HugeiconsIcon :icon="MapsIcon" :size="14" />
               <span>Coordenadas GPS:</span>
             </div>
-            <span class="font-mono font-bold text-slate-700 dark:text-slate-200">
+            <span class="font-mono font-bold text-slate-700 dark:text-slate-200 text-xs">
               {{ selectedMapCoords.lat }}, {{ selectedMapCoords.lng }}
             </span>
           </div>
+
           <button
             type="button"
             @click="openExternalMap(selectedMapCoords.lat, selectedMapCoords.lng)"
-            class="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer ml-auto"
           >
-            <span>Google Maps externo</span>
-            <HugeiconsIcon :icon="EyeIcon" :size="12" />
+            <HugeiconsIcon :icon="MapsIcon" :size="14" />
+            <span>Abrir en Google Maps</span>
           </button>
         </div>
 
-        <div class="relative w-full h-[420px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-black/20">
-          <iframe
-            width="100%"
-            height="100%"
-            style="border:0;"
-            loading="lazy"
-            allowfullscreen
-            referrerpolicy="no-referrer-when-downgrade"
-            :src="`https://maps.google.com/maps?q=${selectedMapCoords.lat},${selectedMapCoords.lng}&z=15&output=embed`"
-          ></iframe>
+        <!-- Contenedor del Mapa Estático -->
+        <div class="relative w-full h-[420px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-[#13161C] flex items-center justify-center">
+          <div v-if="isMapImageLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 dark:bg-[#13161C]/90 backdrop-blur-sm">
+            <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-blue-500 animate-spin" />
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
+          </div>
+
+          <img
+            v-if="staticMapUrl"
+            :src="staticMapUrl"
+            :alt="`Ubicación del evento ${selectedMapCoords.eventoId || ''}`"
+            class="w-full h-full object-cover transition-opacity duration-300"
+            :class="{ 'opacity-0': isMapImageLoading, 'opacity-100': !isMapImageLoading }"
+            @load="isMapImageLoading = false"
+            @error="isMapImageLoading = false"
+          />
+
+          <!-- Controles de Zoom -->
+          <div class="absolute bottom-4 right-4 z-20 flex flex-col gap-1 bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-lg">
+            <button
+              @click="zoomIn"
+              :disabled="mapZoom >= 20"
+              class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
+              title="Acercar (+)"
+            >
+              +
+            </button>
+            <div class="h-px w-full bg-slate-200 dark:bg-white/10"></div>
+            <button
+              @click="zoomOut"
+              :disabled="mapZoom <= 10"
+              class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
+              title="Alejar (-)"
+            >
+              −
+            </button>
+          </div>
         </div>
       </div>
     </AppModal>

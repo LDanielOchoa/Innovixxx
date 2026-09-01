@@ -609,20 +609,13 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 7rem" class="text-right" alignHeader="right">
+        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 4rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
-            <div class="flex justify-end items-center gap-1">
-              <button
-                v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_HISTORY_MAP)"
-                @click.stop="openPosicionModal(data)"
-                title="Ver Posición en Mapa"
-                class="w-8 h-8 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-[#3b82f6]/10 dark:hover:bg-[#5da6fc]/10 transition-all duration-200 cursor-pointer"
-              >
-                <HugeiconsIcon :icon="Location01Icon" :size="16" />
-              </button>
+            <div class="flex justify-end items-center">
               <button
                 @click.stop="toggleMenu(data.id_hardware, $event)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
+                title="Acciones"
               >
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
               </button>
