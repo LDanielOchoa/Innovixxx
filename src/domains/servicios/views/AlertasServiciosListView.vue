@@ -19,7 +19,8 @@ import {
   Tick02Icon,
   ServiceIcon,
   EyeIcon,
-  ViewOffIcon
+  ViewOffIcon,
+  FilterIcon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import { useToast } from 'primevue/usetoast'
@@ -44,6 +45,16 @@ const { selectedGroup } = storeToRefs(groupStore)
 const alertasList = ref<AlertaServicioGlobalItem[]>([])
 const isLoading = ref(false)
 const searchQuery = ref('')
+
+// Filtros desplegables adicionales
+const filtroTipoAlerta = ref<string>('all')
+const filtroVisibilidad = ref<'all' | 'visible' | 'hidden'>('all')
+const filtroSolventada = ref<'all' | 'solventada' | 'pendiente'>('all')
+const activeFilterDropdown = ref<'tipo' | 'visibilidad' | 'solventada' | null>(null)
+const tipoDropdownRef = ref<HTMLElement | null>(null)
+const visibilidadDropdownRef = ref<HTMLElement | null>(null)
+const solventadaDropdownRef = ref<HTMLElement | null>(null)
+const searchTipoFilter = ref('')
 
 // Fechas por defecto: 1 semana hacia adelante desde hoy
 const today = new Date()
@@ -73,6 +84,68 @@ const fechaRango = ref({
 const currentPage = ref(1)
 const itemsPerPage = 10
 const solventandoToken = ref<string | null>(null)
+
+// Control de apertura de desplegables de filtro
+const toggleFilterDropdown = (name: 'tipo' | 'visibilidad' | 'solventada') => {
+  if (activeFilterDropdown.value === name) {
+    activeFilterDropdown.value = null
+  } else {
+    activeFilterDropdown.value = name
+    searchTipoFilter.value = ''
+  }
+}
+
+const selectTipoAlertaFiltro = (tipo: string) => {
+  filtroTipoAlerta.value = tipo
+  activeFilterDropdown.value = null
+  currentPage.value = 1
+}
+
+const selectVisibilidadFiltro = (vis: 'all' | 'visible' | 'hidden') => {
+  filtroVisibilidad.value = vis
+  activeFilterDropdown.value = null
+  currentPage.value = 1
+}
+
+const selectSolventadaFiltro = (val: 'all' | 'solventada' | 'pendiente') => {
+  filtroSolventada.value = val
+  activeFilterDropdown.value = null
+  currentPage.value = 1
+}
+
+// Lista única de tipos de alertas disponibles dinámicamente
+const tiposAlertaDisponibles = computed<string[]>(() => {
+  const set = new Set<string>()
+  alertasList.value.forEach((a) => {
+    if (a.tipo_alerta && typeof a.tipo_alerta === 'string' && a.tipo_alerta.trim()) {
+      set.add(a.tipo_alerta.trim())
+    }
+  })
+  return Array.from(set).sort()
+})
+
+const filteredTiposAlerta = computed(() => {
+  if (!searchTipoFilter.value.trim()) return tiposAlertaDisponibles.value
+  const q = searchTipoFilter.value.toLowerCase().trim()
+  return tiposAlertaDisponibles.value.filter(t => t.toLowerCase().includes(q))
+})
+
+const getTipoAlertaLabel = (): string => {
+  if (filtroTipoAlerta.value === 'all') return 'Tipo de Alerta'
+  return filtroTipoAlerta.value
+}
+
+const getVisibilidadLabel = (): string => {
+  if (filtroVisibilidad.value === 'all') return 'Visibilidad'
+  if (filtroVisibilidad.value === 'visible') return 'Solo Visibles'
+  return 'Solo Ocultas'
+}
+
+const getSolventadaLabel = (): string => {
+  if (filtroSolventada.value === 'all') return 'Estado Solventada'
+  if (filtroSolventada.value === 'solventada') return 'Solo Solventadas'
+  return 'Solo No Solventadas'
+}
 
 // Estado del Mini Menú Desplegable Flotante al lado del botón Solventar
 const openSolventarMenuToken = ref<string | null>(null)
@@ -272,14 +345,37 @@ const recargar = () => {
   cargarAlertas()
 }
 
+const handleDocumentClick = (e: MouseEvent) => {
+  closeSolventarMenu()
+
+  if (activeFilterDropdown.value) {
+    const refMap: Record<string, HTMLElement | null> = {
+      tipo: tipoDropdownRef.value,
+      visibilidad: visibilidadDropdownRef.value,
+      solventada: solventadaDropdownRef.value
+    }
+    const currentRef = refMap[activeFilterDropdown.value]
+    if (currentRef && !currentRef.contains(e.target as Node)) {
+      activeFilterDropdown.value = null
+    }
+  }
+}
+
+const handleScroll = () => {
+  closeSolventarMenu()
+  if (activeFilterDropdown.value) {
+    activeFilterDropdown.value = null
+  }
+}
+
 onMounted(() => {
-  document.addEventListener('click', closeSolventarMenu)
-  window.addEventListener('scroll', closeSolventarMenu, true)
+  document.addEventListener('click', handleDocumentClick)
+  window.addEventListener('scroll', handleScroll, true)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeSolventarMenu)
-  window.removeEventListener('scroll', closeSolventarMenu, true)
+  document.removeEventListener('click', handleDocumentClick)
+  window.removeEventListener('scroll', handleScroll, true)
 })
 
 watch([selectedGroup, fechaRango], () => {
@@ -288,18 +384,42 @@ watch([selectedGroup, fechaRango], () => {
 }, { deep: true, immediate: true })
 
 const filteredItems = computed(() => {
-  if (!searchQuery.value.trim()) return alertasList.value
+  let result = alertasList.value
 
-  const query = searchQuery.value.toLowerCase().trim()
-  return alertasList.value.filter((item) => {
-    return (
-      item.id_servicio?.toLowerCase().includes(query) ||
-      item.hardware?.toLowerCase().includes(query) ||
-      item.tipo_alerta?.toLowerCase().includes(query) ||
-      item.solventada_por?.toLowerCase().includes(query) ||
-      item.token?.toLowerCase().includes(query)
-    )
-  })
+  // Filtro por tipo de alerta
+  if (filtroTipoAlerta.value !== 'all') {
+    result = result.filter(item => item.tipo_alerta === filtroTipoAlerta.value)
+  }
+
+  // Filtro por visibilidad
+  if (filtroVisibilidad.value === 'visible') {
+    result = result.filter(item => item.visible === true)
+  } else if (filtroVisibilidad.value === 'hidden') {
+    result = result.filter(item => item.visible === false)
+  }
+
+  // Filtro por estado solventada
+  if (filtroSolventada.value === 'solventada') {
+    result = result.filter(item => item.solventada === true)
+  } else if (filtroSolventada.value === 'pendiente') {
+    result = result.filter(item => item.solventada === false)
+  }
+
+  // Filtro por texto de búsqueda
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase().trim()
+    result = result.filter((item) => {
+      return (
+        item.id_servicio?.toLowerCase().includes(query) ||
+        item.hardware?.toLowerCase().includes(query) ||
+        item.tipo_alerta?.toLowerCase().includes(query) ||
+        item.solventada_por?.toLowerCase().includes(query) ||
+        item.token?.toLowerCase().includes(query)
+      )
+    })
+  }
+
+  return result
 })
 
 const paginatedItems = computed(() => {
@@ -324,15 +444,15 @@ const formatDate = (dateStr: string) => {
     />
 
     <!-- Toolbar -->
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-      <div class="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
+      <div class="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full xl:w-auto">
         <!-- Buscador -->
         <div class="relative w-full sm:w-72">
           <input 
             v-model="searchQuery"
             type="text" 
             placeholder="Buscar por servicio, hardware, alerta..."
-            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
+            class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -342,11 +462,239 @@ const formatDate = (dateStr: string) => {
         </div>
 
         <!-- Date Picker -->
-        <div class="w-full sm:w-auto">
+        <div class="w-full sm:w-auto min-w-[210px] h-[38px] flex items-center">
           <AppDateRangePicker
             v-model="fechaRango"
             placeholder="Rango de Fechas"
+            class="w-full"
           />
+        </div>
+
+        <!-- Desplegable Tipo de Alerta -->
+        <div ref="tipoDropdownRef" class="relative w-full sm:w-auto min-w-[160px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleFilterDropdown('tipo')"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtroTipoAlerta !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+          >
+            <HugeiconsIcon :icon="Alert01Icon" :size="14" class="opacity-70 shrink-0" />
+            <span class="truncate flex-1 text-left">{{ getTipoAlertaLabel() }}</span>
+            <span v-if="filtroTipoAlerta !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg
+              class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200"
+              :class="activeFilterDropdown === 'tipo' ? 'rotate-180' : ''"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Menú Dropdown Tipo de Alerta -->
+          <Transition name="dropdown-popover">
+            <div
+              v-if="activeFilterDropdown === 'tipo'"
+              class="absolute left-0 z-50 mt-1.5 w-[220px] bg-white dark:bg-[#1A1D24] border border-slate-200/70 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            >
+              <!-- Buscador dentro del dropdown si hay varios tipos -->
+              <div v-if="tiposAlertaDisponibles.length > 5" class="p-2 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+                <div class="relative">
+                  <input
+                    v-model="searchTipoFilter"
+                    type="text"
+                    placeholder="Buscar tipo..."
+                    class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#13161C] border border-slate-200/60 dark:border-white/10 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50"
+                  />
+                  <div class="absolute left-2.5 top-2 text-slate-400 pointer-events-none">
+                    <HugeiconsIcon :icon="Search01Icon" :size="13" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="max-h-[220px] overflow-y-auto custom-scrollbar divide-y divide-slate-100 dark:divide-white/5">
+                <!-- Opción Todos -->
+                <button
+                  @click="selectTipoAlertaFiltro('all')"
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  :class="filtroTipoAlerta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+                >
+                  <span>Todos los Tipos</span>
+                  <svg v-if="filtroTipoAlerta === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+
+                <!-- Tipos de alerta -->
+                <button
+                  v-for="tipo in filteredTiposAlerta"
+                  :key="tipo"
+                  @click="selectTipoAlertaFiltro(tipo)"
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                  :class="filtroTipoAlerta === tipo ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+                >
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
+                      :class="tipo === 'SOS' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'"
+                    >
+                      {{ tipo }}
+                    </span>
+                  </div>
+                  <svg v-if="filtroTipoAlerta === tipo" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Desplegable Visibilidad -->
+        <div ref="visibilidadDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleFilterDropdown('visibilidad')"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtroVisibilidad !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+          >
+            <HugeiconsIcon :icon="EyeIcon" :size="14" class="opacity-70 shrink-0" />
+            <span class="truncate flex-1 text-left">{{ getVisibilidadLabel() }}</span>
+            <span v-if="filtroVisibilidad !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg
+              class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200"
+              :class="activeFilterDropdown === 'visibilidad' ? 'rotate-180' : ''"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Menú Dropdown Visibilidad -->
+          <Transition name="dropdown-popover">
+            <div
+              v-if="activeFilterDropdown === 'visibilidad'"
+              class="absolute left-0 z-50 mt-1.5 w-[190px] bg-white dark:bg-[#1A1D24] border border-slate-200/70 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden divide-y divide-slate-100 dark:divide-white/5"
+            >
+              <!-- Todas -->
+              <button
+                @click="selectVisibilidadFiltro('all')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroVisibilidad === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <span>Todas</span>
+                <svg v-if="filtroVisibilidad === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+
+              <!-- Solo Visibles -->
+              <button
+                @click="selectVisibilidadFiltro('visible')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroVisibilidad === 'visible' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <div class="flex items-center gap-2">
+                  <HugeiconsIcon :icon="EyeIcon" :size="13" class="text-emerald-500" />
+                  <span>Solo Visibles</span>
+                </div>
+                <svg v-if="filtroVisibilidad === 'visible'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+
+              <!-- Solo Ocultas -->
+              <button
+                @click="selectVisibilidadFiltro('hidden')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroVisibilidad === 'hidden' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <div class="flex items-center gap-2">
+                  <HugeiconsIcon :icon="ViewOffIcon" :size="13" class="text-slate-400" />
+                  <span>Solo No Visibles</span>
+                </div>
+                <svg v-if="filtroVisibilidad === 'hidden'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </Transition>
+        </div>
+
+        <!-- Desplegable Estado Solventada -->
+        <div ref="solventadaDropdownRef" class="relative w-full sm:w-auto min-w-[170px] flex-1 sm:flex-initial">
+          <button
+            @click.stop="toggleFilterDropdown('solventada')"
+            class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
+            :class="filtroSolventada !== 'all' ? 'border-[#3b82f6]/50 dark:border-[#3b82f6]/50 text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#5da6fc]/5' : ''"
+          >
+            <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="14" class="opacity-70 shrink-0" />
+            <span class="truncate flex-1 text-left">{{ getSolventadaLabel() }}</span>
+            <span v-if="filtroSolventada !== 'all'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] animate-pulse shrink-0"></span>
+            <svg
+              class="w-3.5 h-3.5 shrink-0 opacity-60 transition-transform duration-200"
+              :class="activeFilterDropdown === 'solventada' ? 'rotate-180' : ''"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- Menú Dropdown Solventada -->
+          <Transition name="dropdown-popover">
+            <div
+              v-if="activeFilterDropdown === 'solventada'"
+              class="absolute left-0 z-50 mt-1.5 w-[210px] bg-white dark:bg-[#1A1D24] border border-slate-200/70 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden divide-y divide-slate-100 dark:divide-white/5"
+            >
+              <!-- Todas -->
+              <button
+                @click="selectSolventadaFiltro('all')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroSolventada === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <span>Todas</span>
+                <svg v-if="filtroSolventada === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+
+              <!-- Solo Solventadas -->
+              <button
+                @click="selectSolventadaFiltro('solventada')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroSolventada === 'solventada' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <div class="flex items-center gap-2">
+                  <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="13" class="text-emerald-500" />
+                  <span>Solo Solventadas</span>
+                </div>
+                <svg v-if="filtroSolventada === 'solventada'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+
+              <!-- Solo No Solventadas (Pendientes) -->
+              <button
+                @click="selectSolventadaFiltro('pendiente')"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                :class="filtroSolventada === 'pendiente' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
+              >
+                <div class="flex items-center gap-2">
+                  <HugeiconsIcon :icon="Cancel01Icon" :size="13" class="text-amber-500" />
+                  <span>Solo No Solventadas</span>
+                </div>
+                <svg v-if="filtroSolventada === 'pendiente'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </button>
+            </div>
+          </Transition>
         </div>
 
         <!-- Botón Recargar -->
@@ -354,7 +702,7 @@ const formatDate = (dateStr: string) => {
           @click="recargar"
           :disabled="isLoading"
           title="Recargar"
-          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer h-[38px] w-[38px] flex items-center justify-center"
         >
           <HugeiconsIcon 
             :icon="RefreshIcon" 
@@ -372,7 +720,7 @@ const formatDate = (dateStr: string) => {
         :loading="isLoading"
         :rows="itemsPerPage"
         removableSort
-        empty-message="No se encontraron alertas en el rango de fechas seleccionado"
+        empty-message="No se encontraron alertas con los filtros seleccionados"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
@@ -421,7 +769,7 @@ const formatDate = (dateStr: string) => {
           </template>
         </Column>
 
-        <!-- Columna Ubicación / Mapa (a la izquierda de Atendida) -->
+        <!-- Columna Ubicación / Mapa -->
         <Column header="Mapa" headerStyle="width: 80px" class="text-center">
           <template #body="{ data }">
             <div class="flex items-center justify-center">
@@ -435,6 +783,19 @@ const formatDate = (dateStr: string) => {
               </button>
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs font-mono">---</span>
             </div>
+          </template>
+        </Column>
+
+        <!-- Columna Visibilidad -->
+        <Column field="visible" header="Visibilidad" sortable headerStyle="width: 120px">
+          <template #body="{ data }">
+            <span
+              class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
+              :class="data.visible ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10'"
+            >
+              <HugeiconsIcon :icon="data.visible ? EyeIcon : ViewOffIcon" :size="13" />
+              {{ data.visible ? 'Visible' : 'No visible' }}
+            </span>
           </template>
         </Column>
 
