@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Alert01Icon,
@@ -10,7 +10,9 @@ import {
   Tick02Icon,
   MapsIcon,
   ArrowLeft02Icon,
-  Loading02Icon
+  Loading02Icon,
+  EyeIcon,
+  ViewOffIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useThemeStore } from '../../../stores/theme.store'
@@ -39,6 +41,52 @@ const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' }
 const solventandoToken = ref<string | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
+
+// Estado del Menú Desplegable Flotante de Solventar
+const openSolventarMenuToken = ref<string | null>(null)
+const solventarMenuPosition = ref<{ top?: string; bottom?: string; left?: string; right?: string }>({})
+
+const solventarMenuStyle = computed(() => {
+  const style: Record<string, string> = {}
+  if (solventarMenuPosition.value.top) style.top = solventarMenuPosition.value.top
+  if (solventarMenuPosition.value.bottom) style.bottom = solventarMenuPosition.value.bottom
+  if (solventarMenuPosition.value.left) style.left = solventarMenuPosition.value.left
+  if (solventarMenuPosition.value.right) style.right = solventarMenuPosition.value.right
+  return style
+})
+
+const toggleSolventarMenu = (token: string, event: MouseEvent) => {
+  event.stopPropagation()
+  if (openSolventarMenuToken.value === token) {
+    openSolventarMenuToken.value = null
+    return
+  }
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  const spaceBelow = window.innerHeight - rect.bottom
+  const menuHeight = 115
+
+  const pos: { top?: string; bottom?: string; left?: string; right?: string } = {}
+
+  if (spaceBelow < menuHeight && rect.top > menuHeight) {
+    pos.bottom = `${window.innerHeight - rect.top + 6}px`
+  } else {
+    pos.top = `${rect.bottom + 6}px`
+  }
+
+  if (rect.left + 180 > window.innerWidth) {
+    pos.right = `${window.innerWidth - rect.right}px`
+  } else {
+    pos.left = `${rect.left}px`
+  }
+
+  solventarMenuPosition.value = pos
+  openSolventarMenuToken.value = token
+}
+
+const closeSolventarMenu = () => {
+  openSolventarMenuToken.value = null
+}
 
 // Estado de vista dentro del mismo modal ('list' | 'map')
 const activeView = ref<'list' | 'map'>('list')

@@ -295,9 +295,10 @@ const getServicioPorId = (id: string): Servicio | undefined => {
 const getServicioLabel = (): string => {
   if (filtroIdServicio.value === 'all') return 'Servicio'
   const serv = getServicioPorId(filtroIdServicio.value)
+  if (serv?.id_servicio) return serv.id_servicio
   if (serv?.id_ruta) return `Ruta: ${serv.id_ruta}`
   if (serv?.fecha_inicio) return formatDateShort(serv.fecha_inicio)
-  return 'Servicio'
+  return filtroIdServicio.value || 'Servicio'
 }
 
 const getTipoEventoLabel = (): string => {
@@ -715,24 +716,29 @@ onUnmounted(() => {
                   :class="filtroIdServicio === s.id ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
                 >
                   <div class="flex flex-col gap-1 min-w-0 flex-1 pr-2">
-                    <!-- Fila superior: Ruta / Fecha y Estado Badge -->
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-bold text-slate-800 dark:text-white text-xs truncate">
-                        {{ s.ruta ? 'Ruta: ' + s.ruta : (s.fecha ? formatDateShort(s.fecha) : 'Servicio') }}
-                      </span>
+                    <!-- Fila superior: ID del Servicio (y Ruta si tiene) y Estado Badge -->
+                    <div class="flex items-center justify-between gap-2 flex-wrap">
+                      <div class="flex items-center gap-1.5 min-w-0">
+                        <span class="font-bold text-slate-800 dark:text-white text-xs font-mono truncate">
+                          {{ s.id }}
+                        </span>
+                        <span v-if="s.ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          • Ruta: {{ s.ruta }}
+                        </span>
+                      </div>
                       <span
                         v-if="s.estado"
-                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider"
+                        class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider shrink-0"
                         :class="getEstadoBadgeClass(s.estado)"
                       >
                         {{ getEstadoLabel(s.estado) }}
                       </span>
                     </div>
 
-                    <!-- Fila inferior: Fecha (si se muestra la ruta arriba) -->
-                    <div v-if="s.fecha && s.ruta" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                    <!-- Fila inferior: Fecha -->
+                    <div v-if="s.fecha" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                       <span class="flex items-center gap-1 font-mono">
-                        <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400" />
+                        <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400 shrink-0" />
                         {{ formatDateShort(s.fecha) }}
                       </span>
                     </div>

@@ -3,7 +3,6 @@ import { ref, watch, shallowRef, nextTick, computed, onUnmounted } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Location01Icon,
-  Calendar01Icon,
   Loading02Icon,
   BatteryFullIcon,
   BatteryMedium01Icon,
@@ -18,11 +17,16 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
+import { ThreeMarkerRenderer } from '../../../utils/threeMarkerRenderer'
+import { load3dAssets } from '../../../utils/three3dLoader'
 import { fetchMapPositionsApi } from '../services/hardware.api'
 import type { Hardware, Posicion } from '../types/hardware'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
-import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
+import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
+
+// Precargar modelo 3D y texturas
+load3dAssets().catch(() => {})
 
 const props = defineProps<{
   isOpen: boolean
@@ -42,16 +46,37 @@ const {
   isDarkMapMode
 } = useMapSetup('hardware-posicion-map-container', {
   defaultZoom: 13,
-  gestureHandling: 'greedy'
+  gestureHandling: 'greedy',
+  mapId: '688c00fbadb30bbb930f73e2'
 })
 
+interface PosicionItem {
+  index: number
+  lat: number
+  lon: number
+  speed: string
+  battery: string
+  course: string
+  time_dv: string
+  sos: string
+  isFirst: boolean
+  isLast: boolean
+}
+
 const posiciones = ref<Posicion[]>([])
+const allPosicionItems = shallowRef<PosicionItem[]>([])
 const isLoading = ref(false)
 const mapReady = ref(false)
-const markers = shallowRef<google.maps.Marker[]>([])
+const pointMarkers = shallowRef<any[]>([])
+const visiblePointCount = ref(0)
+let zoomListenerAttached = false
+
 const polyline = shallowRef<google.maps.Polyline | null>(null)
-const playbackMarker = shallowRef<google.maps.Marker | null>(null)
+const playbackMarker = shallowRef<any>(null)
 const playbackPath = shallowRef<google.maps.LatLngLiteral[]>([])
+
+let playbackThreeRenderer: ThreeMarkerRenderer | null = null
+let playbackSpeedBadgeEl: HTMLElement | null = null
 
 const isPlaying = ref(false)
 const currentIndex = ref(0)
@@ -66,20 +91,31 @@ const hoverSpeed = ref<{ x: number; speed: number; percent: number } | null>(nul
 const BASE_DURATION = 180000
 const speedOptions = [0.25, 0.5, 1, 2, 4, 8]
 
-const getLastWeek = () => {
+const getInitialDates = () => {
   const today = new Date()
   const lastWeek = new Date(today)
   lastWeek.setDate(today.getDate() - 7)
-  const fmt = (d: Date) => {
-    const y = d.getFullYear()
-    const m = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    return `${y}-${m}-${day}`
-  }
-  return { start: fmt(lastWeek), end: fmt(today) }
+  lastWeek.setHours(0, 0, 0, 0)
+
+  const end = new Date(today)
+  end.setHours(23, 59, 59, 999)
+
+  return { start: lastWeek, end }
 }
 
-const fechaRango = ref(getLastWeek())
+const fechaDesde = ref<Date | null>(getInitialDates().start)
+const fechaHasta = ref<Date | null>(getInitialDates().end)
+
+const formatDateTime = (val: Date | null, isEnd: boolean = false) => {
+  if (!val) return ''
+  const y = val.getFullYear()
+  const m = String(val.getMonth() + 1).padStart(2, '0')
+  const d = String(val.getDate()).padStart(2, '0')
+  const h = String(val.getHours()).padStart(2, '0')
+  const min = String(val.getMinutes()).padStart(2, '0')
+  const s = isEnd && val.getSeconds() === 0 ? '59' : String(val.getSeconds()).padStart(2, '0')
+  return `${y}-${m}-${d} ${h}:${min}:${s}`
+}
 
 const close = () => {
   stopPlayback()
@@ -88,14 +124,15 @@ const close = () => {
 
 const fetchPosiciones = async () => {
   if (!props.hardware || !selectedGroup.value?.id) return
+  if (!fechaDesde.value || !fechaHasta.value) return
   stopPlayback()
   isLoading.value = true
   posiciones.value = []
   clearMapElements()
 
   try {
-    const desde = `${fechaRango.value.start} 00:00:00`
-    const hasta = `${fechaRango.value.end} 23:59:59`
+    const desde = formatDateTime(fechaDesde.value, false)
+    const hasta = formatDateTime(fechaHasta.value, true)
     posiciones.value = await fetchMapPositionsApi({
       id_hardware: props.hardware.id_hardware,
       id_grupo: selectedGroup.value.id,
@@ -105,23 +142,38 @@ const fetchPosiciones = async () => {
     await nextTick()
     drawPositions()
   } catch (error) {
-    console.error('Error fetching positions:', error)
+    console.error('Error al consultar posiciones:', error)
   } finally {
     isLoading.value = false
   }
 }
 
 const clearMapElements = () => {
-  markers.value.forEach(m => m.setMap(null))
-  markers.value = []
+  pointMarkers.value.forEach(m => {
+    if (typeof m.setMap === 'function') m.setMap(null)
+    else if ('map' in m) m.map = null
+  })
+  pointMarkers.value = []
+
   if (polyline.value) {
     polyline.value.setMap(null)
     polyline.value = null
   }
+  if (playbackThreeRenderer) {
+    playbackThreeRenderer.destroy()
+    playbackThreeRenderer = null
+  }
   if (playbackMarker.value) {
-    playbackMarker.value.setMap(null)
+    if (typeof playbackMarker.value.setMap === 'function') {
+      playbackMarker.value.setMap(null)
+    } else {
+      playbackMarker.value.map = null
+    }
     playbackMarker.value = null
   }
+  playbackSpeedBadgeEl = null
+  allPosicionItems.value = []
+  visiblePointCount.value = 0
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -135,6 +187,208 @@ const lerpLatLng = (
   lng: lerp(a.lng, b.lng, t)
 })
 
+const createPlaybackMarkerElement = (initialSpeed = 0) => {
+  const container = document.createElement('div')
+  container.className = 'custom-gps-marker'
+  container.style.cssText = 'position:relative;width:112px;height:148px;display:flex;flex-direction:column;align-items:center;user-select:none;pointer-events:none;'
+
+  const inner = document.createElement('div')
+  inner.className = 'marker-inner-wrapper'
+  inner.style.cssText = [
+    'position:relative',
+    'width:112px',
+    'height:112px',
+    'flex-shrink:0',
+    'transform-origin:center center',
+    'transition:transform 0.1s ease-out'
+  ].join(';')
+
+  const canvas = document.createElement('canvas')
+  canvas.className = 'marker-3d-canvas'
+  canvas.width = 112
+  canvas.height = 112
+  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
+  inner.appendChild(canvas)
+
+  const connector = document.createElement('div')
+  connector.style.cssText = 'width:2px;height:7px;background:linear-gradient(to bottom, #38bdf8 0%, rgba(56,189,248,0) 100%);opacity:0.6;margin-top:-2px;border-radius:1px;'
+
+  const tail = document.createElement('div')
+  tail.className = 'marker-info-tail'
+  tail.style.cssText = [
+    'display:flex',
+    'align-items:center',
+    'gap:6px',
+    'padding:3px 10px 3px 8px',
+    'background:rgba(11, 15, 25, 0.92)',
+    'border:1px solid rgba(255, 255, 255, 0.12)',
+    'border-radius:9999px',
+    'white-space:nowrap',
+    'box-shadow:0 4px 16px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.15)',
+    'z-index:3',
+    'position:relative'
+  ].join(';')
+
+  const speedSection = document.createElement('div')
+  speedSection.style.cssText = 'display:flex;align-items:center;gap:4px;'
+
+  const speedIconSvg = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 13L15.5 9.5" stroke="#38bdf8" stroke-width="2.2" stroke-linecap="round"/>
+    <circle cx="12" cy="13" r="1.5" fill="#38bdf8"/>
+    <path d="M20.5 15A9 9 0 1 0 3.5 15" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-dasharray="32 2"/>
+  </svg>`
+
+  const speedIconEl = document.createElement('div')
+  speedIconEl.innerHTML = speedIconSvg
+  speedIconEl.style.cssText = 'display:flex;align-items:center;'
+
+  const speedBadge = document.createElement('span')
+  speedBadge.className = 'tail-speed'
+  speedBadge.style.cssText = 'font-size:11px;font-weight:900;font-family:Inter,sans-serif;letter-spacing:-0.02em;color:#ffffff;line-height:1;'
+  speedBadge.textContent = `${Math.round(initialSpeed)}`
+
+  const speedUnit = document.createElement('span')
+  speedUnit.style.cssText = 'font-size:8px;font-weight:700;font-family:Inter,sans-serif;color:rgba(148,163,184,0.7);letter-spacing:0.05em;text-transform:uppercase;line-height:1;'
+  speedUnit.textContent = 'km/h'
+
+  speedSection.appendChild(speedIconEl)
+  speedSection.appendChild(speedBadge)
+  speedSection.appendChild(speedUnit)
+  tail.appendChild(speedSection)
+
+  container.appendChild(inner)
+  container.appendChild(connector)
+  container.appendChild(tail)
+
+  return { container, canvas, speedBadge }
+}
+
+const CLUSTER_RADIUS_PX = 50
+
+const groupPointsByZoom = (
+  items: PosicionItem[],
+  zoom: number
+): PosicionItem[] => {
+  if (zoom >= 18) return items
+
+  const scale = 256 * Math.pow(2, zoom)
+  const points = items.map(item => {
+    const sinLat = Math.sin((item.lat * Math.PI) / 180)
+    const clampedSin = Math.max(-0.9999, Math.min(0.9999, sinLat))
+    const x = ((item.lon + 180) / 360) * scale
+    const y = (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * scale
+    return { item, x, y, visited: false }
+  })
+
+  const representatives: PosicionItem[] = []
+
+  for (let i = 0; i < points.length; i++) {
+    if (points[i].visited) continue
+    points[i].visited = true
+
+    // El primero del grupo es el representante
+    representatives.push(points[i].item)
+
+    for (let j = i + 1; j < points.length; j++) {
+      if (points[j].visited) continue
+      const dx = points[i].x - points[j].x
+      const dy = points[i].y - points[j].y
+      if (Math.sqrt(dx * dx + dy * dy) <= CLUSTER_RADIUS_PX) {
+        points[j].visited = true
+      }
+    }
+  }
+
+  return representatives
+}
+
+const createPointMarker = (item: PosicionItem) => {
+  const isFirst = item.isFirst
+  const isLast = item.isLast
+
+  const marker = new google.maps.Marker({
+    position: { lat: item.lat, lng: item.lon },
+    map: map.value,
+    title: isFirst
+      ? `Inicio: ${formatUnixTime(item.time_dv)}`
+      : isLast
+        ? `Fin: ${formatUnixTime(item.time_dv)}`
+        : formatUnixTime(item.time_dv),
+    zIndex: isFirst || isLast ? 100 : 10,
+    icon: isFirst
+      ? {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 7.5,
+          fillColor: '#22c55e',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      : isLast
+        ? {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 7.5,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2
+          }
+        : {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 4,
+            fillColor: isDarkMapMode.value ? '#38bdf8' : '#3b82f6',
+            fillOpacity: 0.9,
+            strokeColor: '#ffffff',
+            strokeWeight: 1.5
+          }
+  })
+
+  const dotColor = isFirst ? '#22c55e' : isLast ? '#ef4444' : '#38bdf8'
+  const infoContent = `
+    <div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:185px;">
+      <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+        <span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${dotColor};flex-shrink:0;"></span>
+        <span>${formatUnixTime(item.time_dv)}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;">
+        <span style="color:#64748b;">Velocidad</span>
+        <span style="font-weight:700;color:#0f172a;">${item.speed} km/h</span>
+        <span style="color:#64748b;">Batería</span>
+        <span style="font-weight:700;color:#0f172a;">${item.battery}%</span>
+        <span style="color:#64748b;">Dirección</span>
+        <span style="font-weight:700;color:#0f172a;">${item.course}°</span>
+        ${item.sos === 'True' ? '<span style="color:#ef4444;font-weight:700;grid-column:span 2;">⚠ SOS ACTIVO</span>' : ''}
+      </div>
+    </div>
+  `
+  const infoWindow = new google.maps.InfoWindow({ content: infoContent })
+  marker.addListener('click', () => {
+    infoWindow.open(map.value, marker)
+  })
+
+  return marker
+}
+
+const updatePositionMarkers = () => {
+  if (!map.value || !allPosicionItems.value.length) return
+
+  pointMarkers.value.forEach(m => {
+    if (typeof m.setMap === 'function') m.setMap(null)
+    else if ('map' in m) m.map = null
+  })
+  pointMarkers.value = []
+
+  const currentZoom = map.value.getZoom() || 13
+  const visibles = groupPointsByZoom(allPosicionItems.value, currentZoom)
+
+  const newMarkers: any[] = []
+  visibles.forEach(item => {
+    newMarkers.push(createPointMarker(item))
+  })
+  pointMarkers.value = newMarkers
+  visiblePointCount.value = visibles.length
+}
+
 const drawPositions = () => {
   if (!map.value || !posiciones.value.length) return
   const google = (window as any).google
@@ -142,117 +396,79 @@ const drawPositions = () => {
   clearMapElements()
 
   const bounds = new google.maps.LatLngBounds()
-  const newMarkers: google.maps.Marker[] = []
   const path: google.maps.LatLngLiteral[] = []
+  const items: PosicionItem[] = []
 
-  posiciones.value.forEach((pos) => {
+  posiciones.value.forEach((pos, index) => {
     const lat = parseFloat(pos.lat)
     const lng = parseFloat(pos.lon)
     if (isNaN(lat) || isNaN(lng)) return
     const latLng = { lat, lng }
     path.push(latLng)
     bounds.extend(latLng)
+    items.push({
+      index,
+      lat,
+      lon: lng,
+      speed: pos.speed ?? '0',
+      battery: pos.battery ?? '0',
+      course: pos.course ?? '0',
+      time_dv: pos.time_dv ?? '',
+      sos: pos.sos ?? 'False',
+      isFirst: index === 0,
+      isLast: index === posiciones.value.length - 1
+    })
   })
 
   playbackPath.value = path
-
-  const simplified = douglasPeucker(path, 0.0008)
-  const simplifiedSet = new Set(simplified.map(p => `${p.lat},${p.lng}`))
-
-  path.forEach((latLng, index) => {
-    const key = `${latLng.lat},${latLng.lng}`
-    const isFirst = index === 0
-    const isLast = index === path.length - 1
-    const isSimplified = simplifiedSet.has(key)
-
-    if (!isFirst && !isLast && !isSimplified) return
-
-    const marker = new google.maps.Marker({
-      position: latLng,
-      map: map.value,
-      title: isFirst || isLast ? formatUnixTime(posiciones.value[index]?.time_dv || '') : undefined,
-      icon: isFirst
-        ? {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: '#22c55e',
-            fillOpacity: 1,
-            strokeColor: '#ffffff',
-            strokeWeight: 2
-          }
-        : isLast
-          ? {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: '#ef4444',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2
-            }
-          : {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 4,
-              fillColor: '#3b82f6',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 1
-            }
-    })
-
-    const pos = posiciones.value[index]
-    if (pos) {
-      const infoContent = `
-        <div style="font-family:Inter,sans-serif;padding:4px 2px;min-width:180px;">
-          <div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;">
-            ${formatUnixTime(pos.time_dv)}
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;">
-            <span style="color:#64748b;">Velocidad</span>
-            <span style="font-weight:600;color:#1e293b;">${pos.speed} km/h</span>
-            <span style="color:#64748b;">Batería</span>
-            <span style="font-weight:600;color:#1e293b;">${pos.battery}%</span>
-            <span style="color:#64748b;">Dirección</span>
-            <span style="font-weight:600;color:#1e293b;">${pos.course}°</span>
-            ${pos.sos === 'True' ? '<span style="color:#ef4444;font-weight:700;grid-column:span 2;">SOS ACTIVO</span>' : ''}
-          </div>
-        </div>
-      `
-      const infoWindow = new google.maps.InfoWindow({ content: infoContent })
-      marker.addListener('click', () => {
-        infoWindow.open(map.value, marker)
-      })
-    }
-
-    newMarkers.push(marker)
-  })
-
-  markers.value = newMarkers
+  allPosicionItems.value = items
 
   if (path.length > 1) {
     polyline.value = new google.maps.Polyline({
       path,
       geodesic: true,
       strokeColor: isDarkMapMode.value ? '#5da6fc' : '#3b82f6',
-      strokeOpacity: 0.8,
-      strokeWeight: 3,
+      strokeOpacity: 0.85,
+      strokeWeight: 3.5,
       map: map.value
     })
   }
 
+  // Cursor 3D con ThreeMarkerRenderer
   if (path.length > 0) {
-    playbackMarker.value = new google.maps.Marker({
-      position: path[0],
-      map: map.value,
-      zIndex: 999,
-      icon: {
-        path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-        fillColor: '#3b82f6',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-        scale: 1.5
+    const firstPos = posiciones.value[0]
+    const initialSpeed = firstPos?.speed ? parseFloat(String(firstPos.speed)) : 0
+    const initialBattery = firstPos?.battery !== undefined ? parseFloat(String(firstPos.battery)) : 100
+    const initialCourse = firstPos?.course !== undefined ? parseFloat(String(firstPos.course)) : 0
+
+    const { container, canvas, speedBadge } = createPlaybackMarkerElement(initialSpeed)
+    playbackSpeedBadgeEl = speedBadge
+
+    try {
+      if ((google.maps as any).marker?.AdvancedMarkerElement) {
+        playbackMarker.value = new (google.maps as any).marker.AdvancedMarkerElement({
+          position: path[0],
+          map: map.value,
+          content: container,
+          anchorLeft: '-50%',
+          anchorTop: '-56px',
+          zIndex: 9999
+        })
+      } else {
+        playbackMarker.value = new google.maps.Marker({
+          position: path[0],
+          map: map.value,
+          zIndex: 9999
+        })
       }
-    })
+    } catch (e) {
+      console.warn('AdvancedMarkerElement error, fallback:', e)
+    }
+
+    playbackThreeRenderer = new ThreeMarkerRenderer(canvas)
+    const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    const mapHeading = map.value ? map.value.getHeading() || 0 : 0
+    playbackThreeRenderer.update(initialCourse, true, mapTilt, initialBattery, 0x22d3ee, true, mapHeading)
   }
 
   currentIndex.value = 0
@@ -261,6 +477,15 @@ const drawPositions = () => {
 
   if (!bounds.isEmpty()) {
     map.value.fitBounds(bounds)
+  }
+
+  updatePositionMarkers()
+
+  if (!zoomListenerAttached && map.value) {
+    map.value.addListener('zoom_changed', () => {
+      updatePositionMarkers()
+    })
+    zoomListenerAttached = true
   }
 }
 
@@ -292,13 +517,35 @@ const getInterpolatedData = (progress: number) => {
 
 const updatePlaybackData = (progress: number) => {
   const pos = getInterpolatedPosition(progress)
-  if (pos) {
-    playbackMarker.value?.setPosition(pos)
+  if (pos && playbackMarker.value) {
+    if ('position' in playbackMarker.value) {
+      playbackMarker.value.position = pos
+    } else if (typeof playbackMarker.value.setPosition === 'function') {
+      playbackMarker.value.setPosition(pos)
+    }
   }
   const data = getInterpolatedData(progress)
   batteryPercentage.value = data.battery
   currentSpeed.value = data.speed
   currentCourse.value = Math.round(data.course)
+
+  if (playbackSpeedBadgeEl) {
+    playbackSpeedBadgeEl.textContent = `${data.speed ?? 0}`
+  }
+
+  if (playbackThreeRenderer) {
+    const mapTilt = map.value ? map.value.getTilt() || 0 : 0
+    const mapHeading = map.value ? map.value.getHeading() || 0 : 0
+    playbackThreeRenderer.update(
+      data.course,
+      true,
+      mapTilt,
+      data.battery ?? 100,
+      0x22d3ee,
+      true,
+      mapHeading
+    )
+  }
 }
 
 const playbackProgress = computed(() => {
@@ -431,7 +678,9 @@ const initializeMap = async () => {
 
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
-    fechaRango.value = getLastWeek()
+    const { start, end } = getInitialDates()
+    fechaDesde.value = start
+    fechaHasta.value = end
     posiciones.value = []
     initializeMap()
   } else {
@@ -451,17 +700,9 @@ watch(() => isDarkMapMode.value, () => {
 
 const positionCount = computed(() => posiciones.value.length)
 
-const renderedMarkerCount = computed(() => {
-  if (!posiciones.value.length) return 0
-  const path: google.maps.LatLngLiteral[] = []
-  posiciones.value.forEach((pos) => {
-    const lat = parseFloat(pos.lat)
-    const lng = parseFloat(pos.lon)
-    if (!isNaN(lat) && !isNaN(lng)) path.push({ lat, lng })
-  })
-  if (path.length <= 2) return path.length
-  const simplified = douglasPeucker(path, 0.0008)
-  return simplified.length
+const clusterSummaryText = computed(() => {
+  if (!posiciones.value.length) return ''
+  return `${visiblePointCount.value} de ${positionCount.value} visibles`
 })
 
 const batteryPercentage = ref<number | null>(null)
@@ -524,38 +765,6 @@ const speedGraphMax = computed(() => {
   return Math.max(...posiciones.value.map(p => parseFloat(String(p.speed)) || 0), 1)
 })
 
-const perpendicularDistance = (point: google.maps.LatLngLiteral, lineStart: google.maps.LatLngLiteral, lineEnd: google.maps.LatLngLiteral): number => {
-  const dx = lineEnd.lng - lineStart.lng
-  const dy = lineEnd.lat - lineStart.lat
-  const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.sqrt((point.lat - lineStart.lat) ** 2 + (point.lng - lineStart.lng) ** 2)
-  const t = ((point.lat - lineStart.lat) * dy + (point.lng - lineStart.lng) * dx) / lenSq
-  const projLat = lineStart.lat + t * dy
-  const projLng = lineStart.lng + t * dx
-  return Math.sqrt((point.lat - projLat) ** 2 + (point.lng - projLng) ** 2)
-}
-
-const douglasPeucker = (points: google.maps.LatLngLiteral[], tolerance: number): google.maps.LatLngLiteral[] => {
-  if (points.length <= 2) return points
-  let maxDist = 0
-  let maxIndex = 0
-  const start = points[0]
-  const end = points[points.length - 1]
-  for (let i = 1; i < points.length - 1; i++) {
-    const dist = perpendicularDistance(points[i], start, end)
-    if (dist > maxDist) {
-      maxDist = dist
-      maxIndex = i
-    }
-  }
-  if (maxDist > tolerance) {
-    const left = douglasPeucker(points.slice(0, maxIndex + 1), tolerance)
-    const right = douglasPeucker(points.slice(maxIndex), tolerance)
-    return [...left.slice(0, -1), ...right]
-  }
-  return [start, end]
-}
-
 const formatUnixTime = (unixTimestamp: string): string => {
   if (!unixTimestamp) return '---'
   const date = new Date(parseInt(unixTimestamp) * 1000)
@@ -617,6 +826,7 @@ const currentDateDisplay = computed(() => {
 
 onUnmounted(() => {
   stopPlayback()
+  clearMapElements()
 })
 </script>
 
@@ -648,16 +858,26 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- Barra Superior Flotante: DateTimePickers Desde/Hasta + Consultar -->
         <div class="absolute top-4 left-4 z-20 flex items-start gap-3" style="right: 180px;">
-          <div class="bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 flex items-center gap-3 flex-1 max-w-xl">
-            <HugeiconsIcon :icon="Calendar01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc] shrink-0" />
-            <div class="flex-1 min-w-0">
-              <AppDateRangePicker v-model="fechaRango" placeholder="Rango de fechas" />
+          <div class="bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 flex flex-wrap sm:flex-nowrap items-center gap-3">
+            <div class="w-48 sm:w-56 min-w-0">
+              <AppDateTimePicker
+                v-model="fechaDesde"
+                placeholder="Fecha y hora inicial"
+              />
+            </div>
+            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">a</span>
+            <div class="w-48 sm:w-56 min-w-0">
+              <AppDateTimePicker
+                v-model="fechaHasta"
+                placeholder="Fecha y hora final"
+              />
             </div>
             <button
               @click="fetchPosiciones"
-              :disabled="isLoading"
-              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[12px] font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
+              :disabled="isLoading || !fechaDesde || !fechaHasta"
+              class="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[12px] font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-[#3b82f6]/20"
             >
               <HugeiconsIcon v-if="isLoading" :icon="Loading02Icon" :size="14" class="animate-spin" />
               <span>{{ isLoading ? 'Cargando...' : 'Consultar' }}</span>
@@ -665,11 +885,11 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="positionCount > 0" class="absolute top-[72px] left-4 z-20 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 max-w-xs">
+        <div v-if="positionCount > 0" class="absolute top-[82px] left-4 z-20 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 max-w-xs">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Posiciones</span>
             <span class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 px-2 py-0.5 rounded-full">{{ positionCount }}</span>
-            <span class="text-[10px] text-slate-400 dark:text-slate-500">({{ renderedMarkerCount }} marcadores)</span>
+            <span class="text-[10px] text-slate-400 dark:text-slate-500">({{ clusterSummaryText }})</span>
           </div>
           <div class="space-y-1.5 text-[11px]">
             <div v-if="firstPosition" class="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 interface Group {
   id: string
@@ -7,6 +7,7 @@ interface Group {
   logo?: string
 }
 
+export const ID_GRUPO_MAIN = 'MWDomp21'
 const LONGITUD_ID_GRUPO = 8
 
 export const esIdGrupoValido = (id: unknown): id is string =>
@@ -14,6 +15,11 @@ export const esIdGrupoValido = (id: unknown): id is string =>
 
 export const useGroupStore = defineStore('group', () => {
   const selectedGroup = ref<Group>({ id: '', nombre: '' })
+
+  // Determina si el grupo actualmente seleccionado es el grupo principal
+  const esGrupoMain = computed(() => {
+    return selectedGroup.value.id === ID_GRUPO_MAIN
+  })
 
   const setGroup = (group: Group) => {
     const idActualValido = esIdGrupoValido(selectedGroup.value.id) ? selectedGroup.value.id.trim() : ''
@@ -26,10 +32,11 @@ export const useGroupStore = defineStore('group', () => {
     }
   }
 
-  return { selectedGroup, setGroup }
+  return { selectedGroup, esGrupoMain, setGroup }
 }, {
   persist: {
     key: 'auth-grupo-obj',
     storage: localStorage
   }
 })
+

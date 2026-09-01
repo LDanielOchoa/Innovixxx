@@ -361,8 +361,11 @@ onUnmounted(() => {
               </div>
               <template v-if="formData.id_servicio">
                 <div class="flex items-center gap-2 truncate">
-                  <span class="font-bold text-slate-800 dark:text-white truncate">
-                    {{ selectedServicioObj?.id_ruta || (selectedServicioObj?.fecha_inicio ? formatDateShort(selectedServicioObj.fecha_inicio) : 'Servicio seleccionado') }}
+                  <span class="font-bold text-slate-800 dark:text-white font-mono text-xs truncate">
+                    {{ selectedServicioObj?.id_servicio || formData.id_servicio }}
+                  </span>
+                  <span v-if="selectedServicioObj?.id_ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                    • Ruta: {{ selectedServicioObj.id_ruta }}
                   </span>
                   <span
                     v-if="selectedServicioObj?.estado"
@@ -409,22 +412,27 @@ onUnmounted(() => {
                     :class="formData.id_servicio === serv.id_servicio ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
                   >
                     <div class="flex flex-col gap-1 min-w-0 flex-1 pr-2">
-                      <!-- Fila superior: Ruta / Fecha y Estado Badge -->
-                      <div class="flex items-center gap-2 flex-wrap">
-                        <span class="font-bold text-slate-800 dark:text-white text-xs truncate">
-                          {{ serv.id_ruta ? 'Ruta: ' + serv.id_ruta : (serv.fecha_inicio ? formatDateShort(serv.fecha_inicio) : 'Servicio') }}
-                        </span>
+                      <!-- Fila superior: ID del Servicio (y Ruta si tiene) y Estado Badge -->
+                      <div class="flex items-center justify-between gap-2 flex-wrap">
+                        <div class="flex items-center gap-1.5 min-w-0">
+                          <span class="font-bold text-slate-800 dark:text-white text-xs font-mono truncate">
+                            {{ serv.id_servicio }}
+                          </span>
+                          <span v-if="serv.id_ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                            • Ruta: {{ serv.id_ruta }}
+                          </span>
+                        </div>
                         <span
                           v-if="serv.estado"
-                          class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider"
+                          class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase border tracking-wider shrink-0"
                           :class="getEstadoBadgeClass(serv.estado)"
                         >
                           {{ getEstadoLabel(serv.estado) }}
                         </span>
                       </div>
 
-                      <!-- Fila inferior: Fecha (si ya se muestra la ruta arriba) -->
-                      <div v-if="serv.fecha_inicio && serv.id_ruta" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
+                      <!-- Fila inferior: Fecha -->
+                      <div v-if="serv.fecha_inicio" class="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 font-normal">
                         <span class="flex items-center gap-1 font-mono">
                           <HugeiconsIcon :icon="Clock01Icon" :size="12" class="text-slate-400 shrink-0" />
                           {{ formatDateShort(serv.fecha_inicio) }}

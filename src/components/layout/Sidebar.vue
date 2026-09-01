@@ -134,47 +134,50 @@ type SubMenuItem = {
 }
 
 type MenuItem = {
+  id: string
   separator?: boolean
   icon?: any
   text?: string
   route?: string
   adminOnly?: boolean
+  soloGrupoMain?: boolean
   permissionId?: string
   children?: SubMenuItem[]
 }
 
 const displayedMenuItems = computed(() => {
   const menuItems: MenuItem[] = [
-    { icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_LIST },
-    { icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_LIST },
-    { icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true },
+    { id: 'item-users', icon: markRaw(User02Icon), text: t('sidebar.menu.users') || 'Usuarios', route: '/usuarios', permissionId: PERMISSIONS.USERS_LIST },
+    { id: 'item-roles', icon: markRaw(Shield01Icon), text: t('sidebar.menu.roles') || 'Roles y Permisos', route: '/roles', permissionId: PERMISSIONS.ROLES_LIST },
+    { id: 'item-groups', icon: markRaw(UserGroupIcon), text: t('sidebar.menu.groups') || 'Grupos', route: '/grupos', adminOnly: true, soloGrupoMain: true },
 
-    { separator: true },
+    { id: 'sep-dashboard', separator: true },
 
-    { icon: markRaw(Layout01Icon), text: t('sidebar.menu.dashboard') || 'Dashboard', route: '/dashboard' },
+    { id: 'item-dashboard', icon: markRaw(Layout01Icon), text: t('sidebar.menu.dashboard') || 'Dashboard', route: '/dashboard' },
 
-    { separator: true },
+    { id: 'sep-vehicles', separator: true },
 
-    { icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
-    { icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
+    { id: 'item-vehicles', icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
+    { id: 'item-escort-vehicles', icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
 
-    { separator: true },
+    { id: 'sep-hardware', separator: true },
 
-    { icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: PERMISSIONS.HARDWARE_LIST },
+    { id: 'item-hardware', icon: markRaw(CpuIcon), text: t('sidebar.menu.hardware') || 'Hardware', route: '/hardware', permissionId: PERMISSIONS.HARDWARE_LIST },
 
-    { separator: true },
+    { id: 'sep-commands', separator: true },
 
-    { icon: markRaw(CommandLineIcon), text: t('sidebar.menu.commands') || 'Comandos', route: '/comandos', permissionId: PERMISSIONS.COMMAND_LIST },
+    { id: 'item-commands', icon: markRaw(CommandLineIcon), text: t('sidebar.menu.commands') || 'Comandos', route: '/comandos', permissionId: PERMISSIONS.COMMAND_LIST, soloGrupoMain: true },
 
-    { separator: true },
+    { id: 'sep-tracking', separator: true },
 
-    { icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
-    { icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
-    { icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
+    { id: 'item-bodyguards', icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
+    { id: 'item-routes', icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
+    { id: 'item-geofences', icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
 
-    { separator: true },
+    { id: 'sep-services', separator: true },
 
     {
+      id: 'item-services',
       icon: markRaw(ServiceIcon),
       text: t('sidebar.menu.services') || 'Servicios',
       children: [
@@ -204,6 +207,7 @@ const displayedMenuItems = computed(() => {
     const allowedItems = menuItems.filter(item => {
       if (item.separator) return true
       if (item.adminOnly && !authStore.isAdmin) return false
+      if (item.soloGrupoMain && !groupStore.esGrupoMain) return false
       return true
     })
 
@@ -222,11 +226,12 @@ const displayedMenuItems = computed(() => {
     return finalItems
   }
 
-  // Usuario normal: filtrar por permisos de "List" y validar submenús hijos
+  // Usuario normal: filtrar por permisos de "List", grupo main y validar submenús hijos
   const allowedItems = menuItems
     .map(item => {
       if (item.separator) return item
       if (item.adminOnly) return null
+      if (item.soloGrupoMain && !groupStore.esGrupoMain) return null
 
       // Si tiene hijos (como Servicios)
       if (item.children && item.children.length > 0) {
@@ -343,135 +348,142 @@ const cerrarSesion = () => {
           <div v-for="i in 8" :key="i" class="w-full h-[42px] rounded-[14px] bg-slate-100 dark:bg-white/5 animate-pulse"></div>
         </template>
         <template v-else>
-          <template v-for="(item, index) in displayedMenuItems" :key="index">
-            <div v-if="item.separator" class="py-3 px-2">
-              <div class="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent"></div>
-            </div>
+          <TransitionGroup name="menu-item-anim" tag="div" class="space-y-1 relative w-full">
+            <div 
+              v-for="item in displayedMenuItems" 
+              :key="item.id"
+              class="w-full transition-all duration-300"
+            >
+              <!-- Separador -->
+              <div v-if="item.separator" class="py-3 px-2">
+                <div class="h-px bg-gradient-to-r from-transparent via-slate-200 dark:via-white/10 to-transparent"></div>
+              </div>
 
-            <!-- Ítem con Submenú (ej: Servicios) -->
-            <div v-else-if="item.children && item.children.length > 0" class="space-y-1">
-              <button
-                type="button"
-                @click="toggleServiciosMenu"
-                class="w-full group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3 cursor-pointer"
-                :class="[
-                  route.path.startsWith('/servicios')
-                    ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30'
-                    : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10'
-                ]"
-              >
-                <div class="flex items-center justify-between w-full relative z-10 gap-3">
-                  <div class="flex items-center gap-3 min-w-0">
-                    <div
-                      class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
-                      :class="route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
-                    >
-                      <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="route.path.startsWith('/servicios') ? 2.5 : 1.8" />
-                    </div>
-
-                    <span
-                      class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
-                      :class="[
-                        isExpanded ? 'opacity-100 max-w-[130px]' : 'opacity-0 max-w-0',
-                        route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
-                      ]"
-                    >
-                      {{ item.text }}
-                    </span>
-                  </div>
-
-                  <HugeiconsIcon
-                    v-if="isExpanded"
-                    :icon="ArrowDown01Icon"
-                    :size="14"
-                    class="text-slate-400 dark:text-slate-500 transition-transform duration-300 shrink-0"
-                    :class="{ 'rotate-180 text-[#3b82f6] dark:text-[#5da6fc]': isServiciosOpen }"
-                  />
-                </div>
-              </button>
-
-              <!-- Submenú desplegable con animación de acordeón -->
-              <Transition
-                name="submenu-accordion"
-                @before-enter="onSubmenuBeforeEnter"
-                @enter="onSubmenuEnter"
-                @after-enter="onSubmenuAfterEnter"
-                @before-leave="onSubmenuBeforeLeave"
-                @leave="onSubmenuLeave"
-              >
-                <div
-                  v-show="isServiciosOpen && isExpanded"
-                  class="overflow-hidden pl-3 ml-5 my-1 space-y-1 transition-colors border-l"
+              <!-- Ítem con Submenú (ej: Servicios) -->
+              <div v-else-if="item.children && item.children.length > 0" class="space-y-1">
+                <button
+                  type="button"
+                  @click="toggleServiciosMenu"
+                  class="w-full group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3 cursor-pointer"
                   :class="[
                     route.path.startsWith('/servicios')
-                      ? 'border-[#3b82f6]/40 dark:border-[#5da6fc]/40'
-                      : 'border-slate-200/80 dark:border-white/10'
+                      ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30'
+                      : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10'
                   ]"
                 >
-                  <RouterLink
-                    v-for="subItem in item.children"
-                    :key="subItem.route"
-                    :to="subItem.route"
-                    @mouseenter="prefetchRoute(subItem.route)"
-                    @focusin="prefetchRoute(subItem.route)"
-                    @click="closeMobileSidebar"
-                    class="group relative flex items-center h-[38px] rounded-[12px] transition-all duration-300 px-3 border cursor-pointer hover:translate-x-1.5"
+                  <div class="flex items-center justify-between w-full relative z-10 gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                      <div
+                        class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
+                        :class="route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                      >
+                        <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="route.path.startsWith('/servicios') ? 2.5 : 1.8" />
+                      </div>
+
+                      <span
+                        class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
+                        :class="[
+                          isExpanded ? 'opacity-100 max-w-[130px]' : 'opacity-0 max-w-0',
+                          route.path.startsWith('/servicios') ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
+                        ]"
+                      >
+                        {{ item.text }}
+                      </span>
+                    </div>
+
+                    <HugeiconsIcon
+                      v-if="isExpanded"
+                      :icon="ArrowDown01Icon"
+                      :size="14"
+                      class="text-slate-400 dark:text-slate-500 transition-transform duration-300 shrink-0"
+                      :class="{ 'rotate-180 text-[#3b82f6] dark:text-[#5da6fc]': isServiciosOpen }"
+                    />
+                  </div>
+                </button>
+
+                <!-- Submenú desplegable con animación de acordeón -->
+                <Transition
+                  name="submenu-accordion"
+                  @before-enter="onSubmenuBeforeEnter"
+                  @enter="onSubmenuEnter"
+                  @after-enter="onSubmenuAfterEnter"
+                  @before-leave="onSubmenuBeforeLeave"
+                  @leave="onSubmenuLeave"
+                >
+                  <div
+                    v-show="isServiciosOpen && isExpanded"
+                    class="overflow-hidden pl-3 ml-5 my-1 space-y-1 transition-colors border-l"
                     :class="[
-                      route.path === subItem.route
-                        ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold border-[#3b82f6]/20 shadow-xs'
-                        : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5 border-transparent'
+                      route.path.startsWith('/servicios')
+                        ? 'border-[#3b82f6]/40 dark:border-[#5da6fc]/40'
+                        : 'border-slate-200/80 dark:border-white/10'
                     ]"
                   >
-                    <div class="flex items-center gap-2.5 z-10 w-full">
-                      <HugeiconsIcon
-                        :icon="subItem.icon"
-                        :size="15"
-                        class="shrink-0 group-hover:scale-110 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-transform duration-200"
-                      />
-                      <span class="text-[11.5px] truncate font-semibold">{{ subItem.text }}</span>
-                    </div>
-                  </RouterLink>
-                </div>
-              </Transition>
-            </div>
-
-            <!-- Ítem simple -->
-            <RouterLink
-              v-else
-              :to="item.route || ''"
-              @mouseenter="prefetchRoute(item.route)"
-              @focusin="prefetchRoute(item.route)"
-              @click="closeMobileSidebar"
-              class="group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
-              :class="[
-                isActiveRoute(item.route)
-                  ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
-                  : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
-              ]"
-            >
-              <!-- Background Glow on Hover -->
-              <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
-
-              <div class="flex items-center w-full relative z-10 gap-3">
-                <div 
-                  class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
-                  :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
-                >
-                  <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
-                </div>
-
-                <span 
-                  class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
-                  :class="[
-                    isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
-                    isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
-                  ]"
-                >
-                  {{ item.text }}
-                </span>
+                    <RouterLink
+                      v-for="subItem in item.children"
+                      :key="subItem.route"
+                      :to="subItem.route"
+                      @mouseenter="prefetchRoute(subItem.route)"
+                      @focusin="prefetchRoute(subItem.route)"
+                      @click="closeMobileSidebar"
+                      class="group relative flex items-center h-[38px] rounded-[12px] transition-all duration-300 px-3 border cursor-pointer hover:translate-x-1.5"
+                      :class="[
+                        route.path === subItem.route
+                          ? 'bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] font-bold border-[#3b82f6]/20 shadow-xs'
+                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-white/5 border-transparent'
+                      ]"
+                    >
+                      <div class="flex items-center gap-2.5 z-10 w-full">
+                        <HugeiconsIcon
+                          :icon="subItem.icon"
+                          :size="15"
+                          class="shrink-0 group-hover:scale-110 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-transform duration-200"
+                        />
+                        <span class="text-[11.5px] truncate font-semibold">{{ subItem.text }}</span>
+                      </div>
+                    </RouterLink>
+                  </div>
+                </Transition>
               </div>
-            </RouterLink>
-          </template>
+
+              <!-- Ítem simple -->
+              <RouterLink
+                v-else
+                :to="item.route || ''"
+                @mouseenter="prefetchRoute(item.route)"
+                @focusin="prefetchRoute(item.route)"
+                @click="closeMobileSidebar"
+                class="group relative flex items-center h-[42px] rounded-[14px] transition-all duration-500 outline-none active:scale-[0.96] overflow-hidden px-3"
+                :class="[
+                  isActiveRoute(item.route)
+                    ? 'bg-gradient-to-r from-[#3b82f6]/15 to-transparent dark:from-[#3b82f6]/20 border border-[#3b82f6]/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.5),0_4px_10px_rgba(59,130,246,0.1)] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_15px_rgba(59,130,246,0.15)]'
+                    : 'hover:bg-gradient-to-r hover:from-slate-50 hover:to-transparent dark:hover:from-white/5 border border-transparent hover:border-slate-200 dark:hover:border-white/10 hover:shadow-[0_2px_8px_rgba(0,0,0,0.02)] dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.2)] shadow-none'
+                ]"
+              >
+                <!-- Background Glow on Hover -->
+                <div class="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/5 transition-colors duration-500"></div>
+
+                <div class="flex items-center w-full relative z-10 gap-3">
+                  <div 
+                    class="w-9 h-9 flex items-center justify-center shrink-0 transition-all duration-500 rounded-lg"
+                    :class="isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-500 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] group-hover:bg-[#3b82f6]/10'"
+                  >
+                    <HugeiconsIcon :icon="item.icon" :size="18" :stroke-width="isActiveRoute(item.route) ? 2.5 : 1.8" />
+                  </div>
+
+                  <span 
+                    class="text-[12px] font-bold tracking-tight transition-all duration-500 overflow-hidden whitespace-nowrap inline-block"
+                    :class="[
+                      isExpanded ? 'opacity-100 max-w-[150px]' : 'opacity-0 max-w-0',
+                      isActiveRoute(item.route) ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-500 dark:text-slate-400 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc]'
+                    ]"
+                  >
+                    {{ item.text }}
+                  </span>
+                </div>
+              </RouterLink>
+            </div>
+          </TransitionGroup>
         </template>
       </nav>
 
@@ -602,6 +614,30 @@ aside {
 .fade-slide-right-leave-to {
   opacity: 0;
   transform: translateX(-12px) scale(0.95);
+}
+
+/* Animación de entrada, salida y reordenamiento fluido para los ítems del menú */
+.menu-item-anim-move,
+.menu-item-anim-enter-active,
+.menu-item-anim-leave-active {
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-item-anim-enter-from {
+  opacity: 0;
+  transform: translateX(-18px) scale(0.92);
+}
+
+.menu-item-anim-leave-to {
+  opacity: 0;
+  transform: translateX(-18px) scale(0.92);
+}
+
+.menu-item-anim-leave-active {
+  position: absolute;
+  width: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
 </style>
 
