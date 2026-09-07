@@ -140,7 +140,13 @@ watch(() => authStore.isSuperAdmin, async (isSuper, wasSuper) => {
 const openTrackingWindow = async (grupo?: Group) => {
   const tokenWs = localStorage.getItem('auth-token-ws') || ''
   const groupTarget = grupo ?? groupStore.selectedGroup
-  const groupId = groupTarget?.id || localStorage.getItem('auth-grupo-id') || ''
+
+  // El store de Pinia persiste el grupo en 'auth-grupo-obj' como JSON.
+  // 'auth-grupo-id' solo existe si el WS ya leyó un query param previo.
+  const grupoPersistitdo = (() => {
+    try { return JSON.parse(localStorage.getItem('auth-grupo-obj') || '{}') } catch { return {} }
+  })()
+  const groupId = groupTarget?.id || grupoPersistitdo?.id || localStorage.getItem('auth-grupo-id') || ''
   const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
 
   // Usar el groupId como nombre de ventana permite que:
