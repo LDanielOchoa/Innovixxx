@@ -32,6 +32,9 @@ const isMenuOpen = ref(false)
 const groups = ref<Group[]>([])
 const searchQuery = ref('')
 
+// Referencia a la ventana de tracking actualmente abierta
+const trackingWindowRef = ref<Window | null>(null)
+
 const toggleMenu = () => {
   if (groups.value.length > 1) {
     isMenuOpen.value = !isMenuOpen.value
@@ -132,27 +135,42 @@ watch(() => authStore.isSuperAdmin, async (isSuper, wasSuper) => {
   }
 })
 
-const selectGroup = (group: Group) => {
-  groupStore.setGroup(group)
-  closeMenu()
-}
-
-const openTrackingWindow = async () => {
+// Abre (o enfoca) la ventana de tracking para el grupo indicado.
+// Si el navegador ya tiene una ventana con ese nombre y groupId, la trae al frente.
+const openTrackingWindow = async (grupo?: Group) => {
   const tokenWs = localStorage.getItem('auth-token-ws') || ''
-  const groupId = groupStore.selectedGroup?.id || localStorage.getItem('auth-grupo-id') || ''
+  const groupTarget = grupo ?? groupStore.selectedGroup
+  const groupId = groupTarget?.id || localStorage.getItem('auth-grupo-id') || ''
   const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
-  const windowName = `TrackingWindow_${Date.now()}_${Math.floor(Math.random() * 1000)}`
-  
+
+  // Usar el groupId como nombre de ventana permite que:
+  // - El mismo grupo siempre reutilice/enfoque su ventana existente
+  // - Grupos distintos tengan ventanas independientes
+  const windowName = `TrackingWindow_${groupId}`
+
+  const abrirVentana = (features: string) => {
+    // Cerrar la ventana anterior antes de abrir la nueva
+    if (trackingWindowRef.value && !trackingWindowRef.value.closed) {
+      trackingWindowRef.value.close()
+    }
+    const win = window.open(url, windowName, features)
+    if (win) {
+      trackingWindowRef.value = win
+      win.focus()
+    }
+  }
+
   try {
     // Intenta usar la API moderna de Window Management
     if ('getScreenDetails' in window) {
       const screenDetails = await (window as any).getScreenDetails()
-      // Buscar una pantalla que no sea la actual
-      const secondaryScreen = screenDetails.screens.find((s: any) => s.left !== screenDetails.currentScreen.left || s.top !== screenDetails.currentScreen.top)
-      
+      const secondaryScreen = screenDetails.screens.find(
+        (s: any) => s.left !== screenDetails.currentScreen.left || s.top !== screenDetails.currentScreen.top
+      )
+
       if (secondaryScreen) {
         const { left, top, width, height } = secondaryScreen
-        window.open(url, windowName, `left=${left},top=${top},width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`)
+        abrirVentana(`left=${left},top=${top},width=${width},height=${height},menubar=no,toolbar=no,location=no,status=no`)
         return
       }
     }
@@ -160,12 +178,28 @@ const openTrackingWindow = async () => {
     console.warn('Acceso a detalles de pantalla denegado o no soportado:', err)
   }
 
-  // Fallback: Abrir en la pantalla actual si no hay segunda pantalla o no hay permiso
+  // Fallback: centrar en la pantalla actual
   const width = 1200
   const height = 800
   const left = (window.screen.width / 2) - (width / 2)
   const top = (window.screen.height / 2) - (height / 2)
-  window.open(url, windowName, `width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`)
+  abrirVentana(`width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`)
+}
+
+const selectGroup = (group: Group) => {
+  const grupoAnteriorId = groupStore.selectedGroup?.id
+  groupStore.setGroup(group)
+  closeMenu()
+
+  // Si la ventana de tracking del grupo anterior está abierta, abrir una nueva para el nuevo grupo
+  if (
+    grupoAnteriorId &&
+    grupoAnteriorId !== group.id &&
+    trackingWindowRef.value &&
+    !trackingWindowRef.value.closed
+  ) {
+    openTrackingWindow(group)
+  }
 }
 
 const refreshPage = async () => {
