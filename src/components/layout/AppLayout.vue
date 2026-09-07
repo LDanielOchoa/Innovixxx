@@ -1,14 +1,41 @@
 <script setup lang="ts">
+import { watch } from 'vue'
 import Sidebar from './Sidebar.vue'
 import Header from './Header.vue'
 import RouteErrorBoundary from './RouteErrorBoundary.vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useVehiculosServicioPanel } from '../../composables/useVehiculosServicioPanel'
 import { useRouteNavigation } from '../../composables/useRouteNavigation'
+import { useGroupStore } from '../../stores/group.store'
+import { useAuthStore } from '../../stores/auth.store'
 
 const route = useRoute()
+const router = useRouter()
+const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { isPanelOpen } = useVehiculosServicioPanel()
 const { isRouteNavigating } = useRouteNavigation()
+
+// Expulsión inmediata a /dashboard si el usuario cambia a un grupo no autorizado o pierde permisos mientras está en una vista restringida
+watch([() => groupStore.esGrupoMain, () => authStore.userPermissions, () => authStore.isAdmin, () => authStore.isSuperAdmin], () => {
+  const requiresMainGroup = route.matched.some(record => record.meta.soloGrupoMain)
+  if (requiresMainGroup && !groupStore.esGrupoMain) {
+    router.replace({ name: 'dashboard' })
+    return
+  }
+
+  const requiresAdmin = route.matched.some(record => record.meta.adminOnly)
+  if (requiresAdmin && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.isAdmin) {
+    router.replace({ name: 'dashboard' })
+    return
+  }
+
+  const permissionRecord = route.matched.find(record => record.meta.permission)
+  if (permissionRecord && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(permissionRecord.meta.permission as string)) {
+    router.replace({ name: 'dashboard' })
+    return
+  }
+})
 </script>
 
 <template>

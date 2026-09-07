@@ -46,6 +46,7 @@ export interface HardwareSimple {
   familia: string
   id_servicio: string
   estado: string
+  bateria?: number | string
 }
 
 export interface EscoltaSimple {

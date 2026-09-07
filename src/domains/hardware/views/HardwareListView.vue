@@ -15,7 +15,12 @@ import {
   LockKeyIcon,
   FilterIcon,
   ArrowDown01Icon,
-  RefreshIcon
+  RefreshIcon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon,
+  Clock01Icon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 
@@ -38,6 +43,7 @@ import AppBadge from '../../../components/ui/AppBadge.vue'
 import HardwareFormModal from '../components/HardwareFormModal.vue'
 import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
 import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.vue'
+import HardwareOffsetHoursModal from '../components/HardwareOffsetHoursModal.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
@@ -262,7 +268,16 @@ const openAbrirCandadoModal = (item: Hardware) => {
   isAbrirCandadoModalOpen.value = true
 }
 
-const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado') => {
+// Modal de offset de horas
+const isOffsetModalOpen = ref(false)
+const offsetHardware = ref<Hardware | null>(null)
+
+const openOffsetModal = (item: Hardware) => {
+  offsetHardware.value = item
+  isOffsetModalOpen.value = true
+}
+
+const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas') => {
   const item = items.value.find(i => i.id_hardware === openMenuId.value)
   openMenuId.value = null
   if (!item) return
@@ -270,6 +285,7 @@ const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candad
   else if (action === 'edit') openEditModal(item)
   else if (action === 'delete') confirmDelete(item.id_hardware)
   else if (action === 'abrir-candado') openAbrirCandadoModal(item)
+  else if (action === 'offset-horas') openOffsetModal(item)
 }
 
 const deleteHardware = async () => {
@@ -296,10 +312,31 @@ const deleteHardware = async () => {
   }
 }
 
+// Funciones de utilidad para visualización del nivel de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') {
+    return 'text-slate-400 bg-slate-500/10 border-slate-500/20'
+  }
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
+  return 'text-red-500 dark:text-red-400 bg-red-500/10 border-red-500/20'
+}
+
 const exportToExcel = () => {
   const dataToExport = filteredItems.value.map(item => ({
     Nombre: item.nombre,
     Familia: item.familia,
+    Bateria: item.bateria !== undefined && item.bateria !== null && item.bateria !== '' ? `${item.bateria}%` : '---',
     Serial: item.serial,
     IMEI: item.imei,
     MAC: item.mac,
@@ -561,6 +598,22 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
+        <!-- Columna Batería -->
+        <Column field="bateria" :header="t('hardware.thBattery', 'Batería')" sortable headerStyle="width: 130px">
+          <template #body="{ data }">
+            <div v-if="data.bateria !== undefined && data.bateria !== null && data.bateria !== ''" class="flex items-center gap-2 py-1">
+              <div 
+                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all"
+                :class="getBatteryClass(data.bateria)"
+              >
+                <HugeiconsIcon :icon="getBatteryIcon(data.bateria)" :size="15" />
+                <span>{{ data.bateria }}%</span>
+              </div>
+            </div>
+            <span v-else class="text-xs text-slate-400 dark:text-slate-500 font-mono">---</span>
+          </template>
+        </Column>
+
         <Column :header="t('hardware.thAssignment', 'Asignación')">
           <template #body="{ data }">
             <div class="flex items-center gap-2 py-1">
@@ -653,6 +706,14 @@ const filteredItems = computed(() => {
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
+              @click="handleMenuAction('offset-horas')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>Offset Horas</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
               @click="handleMenuAction('edit')"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
@@ -704,6 +765,13 @@ const filteredItems = computed(() => {
     <HardwareAbrirCandadoModal
       v-model:is-open="isAbrirCandadoModalOpen"
       :hardware="candadoHardware"
+      @updated="fetchHardware"
+    />
+
+    <!-- Modal Offset Horas -->
+    <HardwareOffsetHoursModal
+      v-model:is-open="isOffsetModalOpen"
+      :hardware="offsetHardware"
       @updated="fetchHardware"
     />
   </div>

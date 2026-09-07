@@ -8,7 +8,11 @@ import {
   Tick01Icon,
   Loading03Icon,
   User02Icon,
-  Alert01Icon
+  Alert01Icon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { asignarHardwareEscoltaApi } from '../services/escoltas.api'
@@ -22,6 +26,24 @@ import { useI18n } from 'vue-i18n'
 const groupStore = useGroupStore()
 const toast = useToast()
 const { t } = useI18n()
+
+// Helpers para formato de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return 'text-slate-400'
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400'
+  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400'
+  return 'text-red-500 dark:text-red-400'
+}
 
 const props = defineProps<{
   isOpen: boolean
@@ -293,8 +315,12 @@ const handleClose = () => {
                   <HugeiconsIcon :icon="CpuIcon" :size="13" class="shrink-0" />
                   <span class="text-xs font-semibold truncate max-w-[120px]">{{ hardwareAsignado.nombre }}</span>
                 </div>
-                <div class="flex justify-between items-center mt-0.5 w-full">
-                  <span class="text-[9px] font-mono opacity-80 mr-2">{{ hardwareAsignado.familia || 'Sin familia' }}</span>
+                <div class="flex justify-between items-center mt-0.5 w-full text-[9px] gap-2">
+                  <span class="font-mono opacity-80 truncate">{{ hardwareAsignado.familia || 'Sin familia' }}</span>
+                  <span v-if="hardwareAsignado.bateria !== undefined && hardwareAsignado.bateria !== null && hardwareAsignado.bateria !== ''" class="inline-flex items-center gap-1 font-bold shrink-0 opacity-95">
+                    <HugeiconsIcon :icon="getBatteryIcon(hardwareAsignado.bateria)" :size="11" />
+                    {{ hardwareAsignado.bateria }}%
+                  </span>
                 </div>
                 <!-- Botón Quitar Flotante -->
                 <button
@@ -342,8 +368,12 @@ const handleClose = () => {
                       {{ getHardwareEstadoTexto(h) }}
                     </span>
                   </div>
-                  <div class="flex justify-between items-center mt-0.5 w-full">
-                    <span class="text-[9px] font-mono opacity-60 mr-2 truncate">{{ h.familia || 'Sin familia' }}</span>
+                  <div class="flex justify-between items-center mt-0.5 w-full text-[9px] gap-2">
+                    <span class="font-mono opacity-60 truncate">{{ h.familia || 'Sin familia' }}</span>
+                    <span v-if="h.bateria !== undefined && h.bateria !== null && h.bateria !== ''" class="inline-flex items-center gap-1 font-semibold shrink-0" :class="getBatteryClass(h.bateria)">
+                      <HugeiconsIcon :icon="getBatteryIcon(h.bateria)" :size="11" />
+                      {{ h.bateria }}%
+                    </span>
                   </div>
                 </div>
               </div>

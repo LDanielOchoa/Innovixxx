@@ -6,13 +6,17 @@ import {
   CpuIcon,
   Alert01Icon,
   Tick01Icon,
-  Loading03Icon
+  Loading03Icon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import type { Comando } from '../types/comando'
-import type { HardwareSimple } from '../../servicios/types/servicio'
+import type { Hardware, FamiliaHardware } from '../../hardware/types/hardware'
 import { ejecutarComandoApi } from '../services/comandos.api'
-import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
+import { fetchHardwareApi, fetchFamiliasApi } from '../../hardware/services/hardware.api'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import { useToast } from 'primevue/usetoast'
@@ -30,7 +34,8 @@ const toast = useToast()
 
 const ejecutando = ref(false)
 const modalMessage = ref<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null)
-const hardwareList = ref<HardwareSimple[]>([])
+const hardwareList = ref<Hardware[]>([])
+const familias = ref<FamiliaHardware[]>([])
 const loadingHardware = ref(false)
 const selectedHardware = ref('')
 
@@ -38,7 +43,12 @@ const cargarHardware = async () => {
   if (!groupStore.selectedGroup?.id) return
   loadingHardware.value = true
   try {
-    hardwareList.value = await fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0)
+    const [hwData, famData] = await Promise.all([
+      fetchHardwareApi(groupStore.selectedGroup.id),
+      fetchFamiliasApi()
+    ])
+    hardwareList.value = hwData
+    familias.value = famData
   } catch (error) {
     console.error('Error al cargar dispositivos:', error)
   } finally {
@@ -46,17 +56,68 @@ const cargarHardware = async () => {
   }
 }
 
-// Opciones del select agrupadas por familia
+// Helpers para formato e icono de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') {
+    return 'text-slate-400 dark:text-slate-500'
+  }
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400'
+  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400'
+  return 'text-red-500 dark:text-red-400'
+}
+
+// Nombre de la familia a la que pertenece el comando seleccionado
+const nombreFamiliaComando = computed(() => {
+  if (!props.comando?.id_familia) return ''
+  const idTarget = Number(props.comando.id_familia)
+  const encontrada = familias.value.find((f) => Number(f.id_familia) === idTarget)
+  return encontrada ? encontrada.nombre : `Familia ${props.comando.id_familia}`
+})
+
+// Filtrar dispositivos de hardware exclusivos de la familia del comando
+const hardwaresFiltrados = computed(() => {
+  if (!props.comando?.id_familia) return hardwareList.value
+
+  const idTarget = Number(props.comando.id_familia)
+  const nombreTarget = nombreFamiliaComando.value.toLowerCase().trim()
+
+  return hardwareList.value.filter((hw) => {
+    // Comparación por ID de familia
+    if (hw.id_familia !== undefined && Number(hw.id_familia) === idTarget) {
+      return true
+    }
+    // Comparación por nombre de familia
+    if (hw.familia && nombreTarget && hw.familia.toLowerCase().trim() === nombreTarget) {
+      return true
+    }
+    return false
+  })
+})
+
+// Opciones del select según los hardwares filtrados
 const opcionesHardware = computed(() => {
-  return hardwareList.value.map((hw) => ({
-    value: hw.id_hardware,
-    label: `${hw.nombre} — ${hw.familia || 'Sin familia'} (${hw.estado})`
-  }))
+  return hardwaresFiltrados.value.map((hw) => {
+    const textoBateria = hw.bateria !== undefined && hw.bateria !== null && hw.bateria !== '' ? ` (${hw.bateria}%)` : ''
+    return {
+      value: hw.id_hardware,
+      label: `${hw.nombre} — ${hw.familia || nombreFamiliaComando.value || 'Sin familia'}${textoBateria}${hw.estado ? ` [${hw.estado}]` : ''}`
+    }
+  })
 })
 
 // Info del hardware seleccionado
 const hardwareSeleccionado = computed(() => {
-  return hardwareList.value.find((hw) => hw.id_hardware === selectedHardware.value)
+  return hardwaresFiltrados.value.find((hw) => hw.id_hardware === selectedHardware.value)
 })
 
 watch(
@@ -193,7 +254,12 @@ const handleEjecutar = async () => {
 
         <!-- Info del comando a ejecutar -->
         <div v-if="comando" class="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
-          <div class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Comando a ejecutar</div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Comando a ejecutar</span>
+            <span v-if="nombreFamiliaComando" class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
+              Familia: {{ nombreFamiliaComando }}
+            </span>
+          </div>
           <div class="text-[14px] font-bold text-slate-800 dark:text-white">{{ comando.nombre || 'Sin nombre' }}</div>
           <div class="mt-1 font-mono text-[12px] text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-black/20 px-2 py-1 rounded-lg inline-block">
             {{ comando.texto || 'Sin texto' }}
@@ -205,16 +271,22 @@ const handleEjecutar = async () => {
           <AppSelect
             v-model="selectedHardware"
             label="Dispositivo de Hardware"
-            placeholder="Selecciona el dispositivo..."
+            :placeholder="hardwaresFiltrados.length === 0 && !loadingHardware ? 'No hay dispositivos para esta familia' : 'Selecciona el dispositivo...'"
             :options="opcionesHardware"
             :icon="CpuIcon"
-            :disabled="loadingHardware || ejecutando"
+            :disabled="loadingHardware || ejecutando || hardwaresFiltrados.length === 0"
           />
 
           <!-- Spinner de carga de hardware -->
           <div v-if="loadingHardware" class="flex items-center gap-2 text-xs text-slate-400">
             <HugeiconsIcon :icon="Loading03Icon" :size="14" class="animate-spin" />
             <span>Cargando dispositivos...</span>
+          </div>
+
+          <!-- Mensaje cuando no hay dispositivos de la familia del comando -->
+          <div v-else-if="hardwaresFiltrados.length === 0" class="flex items-center gap-2 text-xs text-amber-500/90 font-medium px-1 pt-1">
+            <HugeiconsIcon :icon="Alert01Icon" :size="14" class="shrink-0" />
+            <span>No se encontraron dispositivos de hardware de la familia <strong>{{ nombreFamiliaComando || 'seleccionada' }}</strong>.</span>
           </div>
 
           <!-- Info del hardware seleccionado -->
@@ -231,9 +303,17 @@ const handleEjecutar = async () => {
                   <div class="text-[13px] font-bold text-slate-800 dark:text-white truncate">
                     {{ hardwareSeleccionado.nombre }}
                   </div>
-                  <div class="text-[11px] text-slate-500 dark:text-slate-400">
-                    Familia: <span class="font-semibold">{{ hardwareSeleccionado.familia || 'N/A' }}</span> · 
-                    Estado: <span class="font-semibold" :class="hardwareSeleccionado.estado === 'DISPONIBLE' ? 'text-emerald-500' : 'text-amber-500'">{{ hardwareSeleccionado.estado }}</span>
+                  <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <span>Familia: <strong class="font-semibold text-slate-700 dark:text-slate-300">{{ hardwareSeleccionado.familia || 'N/A' }}</strong></span>
+                    <template v-if="hardwareSeleccionado.bateria !== undefined && hardwareSeleccionado.bateria !== null && hardwareSeleccionado.bateria !== ''">
+                      <span>·</span>
+                      <span class="inline-flex items-center gap-1 font-semibold" :class="getBatteryClass(hardwareSeleccionado.bateria)">
+                        <HugeiconsIcon :icon="getBatteryIcon(hardwareSeleccionado.bateria)" :size="13" />
+                        {{ hardwareSeleccionado.bateria }}%
+                      </span>
+                    </template>
+                    <span>·</span>
+                    <span>Estado: <strong class="font-semibold" :class="hardwareSeleccionado.estado === 'DISPONIBLE' ? 'text-emerald-500' : 'text-amber-500'">{{ hardwareSeleccionado.estado }}</strong></span>
                   </div>
                 </div>
               </div>

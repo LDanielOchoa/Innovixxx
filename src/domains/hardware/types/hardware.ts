@@ -8,9 +8,13 @@ export interface Hardware {
   id_familia: number
   familia?: string
   estado?: number | string
+  bateria?: number | string
   numero_sms?: string
   id_binario?: string
   clave_open?: string
+  id_servicio?: string
+  grupo_servicio?: string
+  id_ruta?: number | string
 }
 
 export interface FamiliaHardware {
@@ -67,4 +71,10 @@ export interface HardwareAbrirCandadoPayload {
   id_hardware: string
   clave_hardware: string
   modo: 'sms'
+}
+
+export interface HardwareOffsetHoursPayload {
+  id_grupo: string
+  id_hardware: string
+  offset: number
 }

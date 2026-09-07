@@ -4,6 +4,7 @@ export const sidebarMessages = {
     centralPanel: '>> Panel Central',
     menu: {
       dashboard: 'Dashboard',
+      administration: 'Administración',
       roles: 'Roles',
       commands: 'Comandos',
       users: 'Usuarios',
@@ -16,7 +17,8 @@ export const sidebarMessages = {
       hardware: 'Hardware',
       service: 'Servicio',
       geofences: 'Geocercas',
-      services: 'Servicios'
+      services: 'Servicios',
+      devices: 'Dispositivos'
     },
     defaultUser: 'USUARIO',
     defaultGroup: 'GRUPO',
@@ -46,6 +48,7 @@ export const sidebarMessages = {
     centralPanel: '>> Central Panel',
     menu: {
       dashboard: 'Dashboard',
+      administration: 'Administration',
       roles: 'Roles',
       commands: 'Commands',
       users: 'Users',
@@ -57,7 +60,8 @@ export const sidebarMessages = {
       hardware: 'Hardware',
       service: 'Service',
       geofences: 'Geofences',
-      services: 'Services'
+      services: 'Services',
+      devices: 'Devices'
     },
     defaultUser: 'USER',
     defaultGroup: 'GROUP',

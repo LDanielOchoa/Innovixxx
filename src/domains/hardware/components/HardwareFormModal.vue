@@ -88,30 +88,38 @@ const filteredFamilias = computed(() => {
 })
 
 const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
-  if (!btnRef) return
-  const modalEl = document.querySelector('[role="dialog"] .sm\\:my-8') as HTMLElement
-  if (!modalEl) return
+  if (!btnRef || typeof window === 'undefined') return
 
-  const modalRect = modalEl.getBoundingClientRect()
-  const panelWidth = 380
+  const windowWidth = window.innerWidth
+
+  // Localizar la tarjeta del modal contenedor
+  const modalEl = (btnRef.closest('[role="dialog"] .inline-block') as HTMLElement)
+    || (btnRef.closest('.rounded-2xl') as HTMLElement)
+    || (document.querySelector('[role="dialog"] .inline-block') as HTMLElement)
+
+  // Ancho adaptable del panel
+  const panelWidth = Math.min(356, windowWidth - 24)
   const gap = 12
-  const panelHeight = modalRect.height
 
-  let left = modalRect.right + gap
-  if (left + panelWidth > window.innerWidth - 16) {
-    left = modalRect.left - panelWidth - gap
-  }
+  let modalTop = 32
+  let modalHeight = 480
+  let targetLeft = windowWidth - panelWidth - 16
 
-  let top = modalRect.top
-  if (top + panelHeight > window.innerHeight - 16) {
-    top = window.innerHeight - panelHeight - 16
+  if (modalEl) {
+    const modalRect = modalEl.getBoundingClientRect()
+    modalTop = modalRect.top
+    modalHeight = modalRect.height
+
+    // Anclar a la derecha del modal con prioridad, clamp al borde derecho de la pantalla
+    const idealLeft = modalRect.right + gap
+    const maxLeft = windowWidth - panelWidth - 16
+    targetLeft = Math.max(12, Math.min(idealLeft, maxLeft))
   }
-  if (top < 8) top = 8
 
   panelStyle.value = {
-    top: `${top}px`,
-    left: `${left}px`,
-    height: `${panelHeight}px`
+    top: `${modalTop}px`,
+    left: `${targetLeft}px`,
+    height: `${modalHeight}px`
   }
 }
 
@@ -156,11 +164,13 @@ const handleResize = () => {
 onMounted(() => {
   document.addEventListener('mousedown', handleClickOutside)
   window.addEventListener('resize', handleResize)
+  window.addEventListener('scroll', handleResize, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('mousedown', handleClickOutside)
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('scroll', handleResize, true)
 })
 
 const showMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
@@ -544,16 +554,16 @@ const handleClose = () => {
     </template>
   </AppModal>
 
-  <!-- PANEL FLOTANTE DE FAMILIA -->
+  <!-- PANEL FLOTANTE DE FAMILIA (SIEMPRE A LA DERECHA) -->
   <Teleport to="body">
-    <Transition name="panel-flotante">
+    <Transition name="panel-flotante-derecha">
       <div
         v-if="panelActivo && isOpen && !isInitializing"
-        class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden"
+        class="panel-flotante-recursos fixed z-[200] flex flex-col overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
         :style="{
           top: panelStyle.top,
           left: panelStyle.left,
-          width: '356px',
+          width: 'min(356px, calc(100vw - 24px))',
           height: panelStyle.height,
         }"
       >
@@ -573,7 +583,7 @@ const handleClose = () => {
               </p>
             </div>
           </div>
-          <button type="button" @click="cerrarPanel" class="panel-close-btn">
+          <button type="button" @click="cerrarPanel" class="panel-close-btn cursor-pointer">
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
           </button>
         </div>
@@ -592,7 +602,7 @@ const handleClose = () => {
               v-if="searchFamiliaQuery"
               type="button"
               @click.stop="searchFamiliaQuery = ''"
-              class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
+              class="text-slate-400 hover:text-slate-300 transition-colors shrink-0 cursor-pointer"
             >
               <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
             </button>
@@ -605,7 +615,7 @@ const handleClose = () => {
             :key="f.id_familia"
             type="button"
             @click="selectFamilia(f.id_familia)"
-            class="panel-row group/row"
+            class="panel-row group/row cursor-pointer"
             :class="String(formData.id_familia) === String(f.id_familia) ? 'panel-row--on' : 'panel-row--off'"
           >
             <div
@@ -626,7 +636,7 @@ const handleClose = () => {
         </div>
 
         <div class="px-4 py-3.5 shrink-0 panel-footer">
-          <button type="button" @click="cerrarPanel" class="panel-confirm-btn">
+          <button type="button" @click="cerrarPanel" class="panel-confirm-btn cursor-pointer">
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
             {{ t('hardware.panelConfirmFamilia') || 'Confirmar Familia' }}
           </button>
@@ -829,23 +839,38 @@ const handleClose = () => {
 }
 .panel-confirm-btn:active { transform: translateY(1px); }
 
-.panel-flotante-enter-active {
+.panel-flotante-derecha-enter-active {
   transition:
     opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
-.panel-flotante-leave-active {
+.panel-flotante-derecha-leave-active {
   transition:
     opacity 0.18s cubic-bezier(0.4, 0, 1, 1),
     transform 0.18s cubic-bezier(0.4, 0, 1, 1);
 }
-.panel-flotante-enter-from {
+.panel-flotante-derecha-enter-from {
   opacity: 0;
-  transform: translateX(-16px);
+  transform: translateX(16px);
 }
-.panel-flotante-leave-to {
+.panel-flotante-derecha-leave-to {
   opacity: 0;
-  transform: translateX(-10px);
+  transform: translateX(10px);
+}
+
+.panel-modal-pop-enter-active,
+.panel-modal-pop-leave-active {
+  transition:
+    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.panel-modal-pop-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -46%) scale(0.95);
+}
+.panel-modal-pop-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -48%) scale(0.97);
 }
 
 .custom-scrollbar::-webkit-scrollbar {

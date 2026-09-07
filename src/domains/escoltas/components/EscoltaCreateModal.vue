@@ -16,7 +16,11 @@ import {
   CpuIcon,
   LicenseIcon,
   Search01Icon,
-  ArrowDown01Icon
+  ArrowDown01Icon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
@@ -305,6 +309,28 @@ const getVehiculoLabel = (id: string) => {
 const getHardwareLabel = (id: string) => {
   const h = hardwareList.value.find(item => item.id_hardware === id)
   return h ? (h.nombre || h.id_hardware) : id
+}
+
+// Helpers para cálculo y presentación de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return 'text-slate-400'
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-400'
+  if (nivel >= 20) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+const getHardwareSeleccionado = () => {
+  return hardwareList.value.find(item => item.id_hardware === formData.id_hardware)
 }
 
 // Click outside handler
@@ -732,6 +758,14 @@ const formatFecha = (date: Date | null): string => {
                     <span class="flex-1 text-sm font-medium truncate" :class="formData.id_hardware ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
                       {{ formData.id_hardware ? getHardwareLabel(formData.id_hardware) : (loadingHardware ? 'Cargando...' : t('escoltas.placeholderHardware', 'Seleccione un dispositivo')) }}
                     </span>
+                    <span
+                      v-if="formData.id_hardware && getHardwareSeleccionado()?.bateria !== undefined && getHardwareSeleccionado()?.bateria !== null && getHardwareSeleccionado()?.bateria !== ''"
+                      class="inline-flex items-center gap-1 text-[11px] font-bold mr-2 shrink-0"
+                      :class="getBatteryClass(getHardwareSeleccionado()?.bateria)"
+                    >
+                      <HugeiconsIcon :icon="getBatteryIcon(getHardwareSeleccionado()?.bateria)" :size="13" />
+                      {{ getHardwareSeleccionado()?.bateria }}%
+                    </span>
                     <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'hardware' }" />
                   </button>
                 </div>
@@ -1022,9 +1056,17 @@ const formatFecha = (date: Date | null): string => {
                     {{ getHardwareEstadoTexto(h) }}
                   </span>
                 </div>
-                <span class="text-[10px] text-slate-400 truncate mt-0.5">
-                  {{ h.familia || 'Sin familia' }}
-                </span>
+                <div class="flex justify-between items-center text-[10px] text-slate-400 mt-0.5 gap-2">
+                  <span class="truncate">{{ h.familia || 'Sin familia' }}</span>
+                  <span
+                    v-if="h.bateria !== undefined && h.bateria !== null && h.bateria !== ''"
+                    class="inline-flex items-center gap-1 font-semibold shrink-0"
+                    :class="getBatteryClass(h.bateria)"
+                  >
+                    <HugeiconsIcon :icon="getBatteryIcon(h.bateria)" :size="11" />
+                    {{ h.bateria }}%
+                  </span>
+                </div>
               </div>
             </button>
             <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">

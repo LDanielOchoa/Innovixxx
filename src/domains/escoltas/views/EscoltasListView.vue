@@ -21,7 +21,11 @@ import {
   CpuIcon,
   Car01Icon,
   RefreshIcon,
-  Shield01Icon
+  Shield01Icon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 
@@ -98,9 +102,32 @@ const getVehiculoInfo = (id: string) => {
   return v ? `${v.placa}${v.tipo ? ` (${v.tipo})` : ''}` : id
 }
 
+// Helpers para cálculo y presentación de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return 'text-slate-400'
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-400'
+  if (nivel >= 20) return 'text-amber-400'
+  return 'text-red-400'
+}
+
+const getHardwareItem = (id: string) => {
+  return hardwareList.value.find(item => item.id_hardware === id)
+}
+
 const getHardwareInfo = (id: string) => {
-  const h = hardwareList.value.find(item => item.id_hardware === id)
-  return h ? `${h.nombre} (${h.familia || 'Sin familia'})` : id
+  const h = getHardwareItem(id)
+  if (!h) return id
+  return `${h.nombre} — ${h.familia || 'Sin familia'}`
 }
 
 const cargarAsignacionesData = async () => {
@@ -596,7 +623,17 @@ watch(filtroEstado, async () => {
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Hardware</span>
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="font-bold text-[#5da6fc]">Hardware</span>
+                      <span 
+                        v-if="data.id_hardware && getHardwareItem(data.id_hardware)?.bateria !== undefined && getHardwareItem(data.id_hardware)?.bateria !== null && getHardwareItem(data.id_hardware)?.bateria !== ''"
+                        class="inline-flex items-center gap-1 text-[10px] font-bold"
+                        :class="getBatteryClass(getHardwareItem(data.id_hardware)?.bateria)"
+                      >
+                        <HugeiconsIcon :icon="getBatteryIcon(getHardwareItem(data.id_hardware)?.bateria)" :size="11" />
+                        {{ getHardwareItem(data.id_hardware)?.bateria }}%
+                      </span>
+                    </div>
                     <span class="font-mono text-[10px]">{{ data.id_hardware ? getHardwareInfo(data.id_hardware) : 'No asignado' }}</span>
                   </div>
                   <!-- Arrow -->

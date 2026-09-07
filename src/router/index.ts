@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { CookieAuth } from '../utils/cookie-auth'
 import { PERMISSIONS } from '../utils/permissions'
 import { useAuthStore } from '../stores/auth.store'
+import { useGroupStore } from '../stores/group.store'
 import { useRouteNavigation } from '../composables/useRouteNavigation'
 import { loadModuleMessages } from '../i18n'
 
@@ -77,26 +78,26 @@ const router = createRouter({
           path: 'comandos',
           name: 'comandos',
           component: () => import('../domains/comandos/views/ComandosListView.vue'),
-          meta: { permission: PERMISSIONS.COMMAND_LIST }
+          meta: { permission: PERMISSIONS.COMMAND_LIST, soloGrupoMain: true }
         },
         {
           path: 'grupos',
           name: 'grupos',
           component: () => import('../domains/grupos/views/GruposListView.vue'),
-          meta: { adminOnly: true }
+          meta: { adminOnly: true, soloGrupoMain: true }
         },
         {
           path: 'grupos/nuevo',
           name: 'grupos-crear',
           component: () => import('../domains/grupos/views/GrupoFormView.vue'),
-          meta: { adminOnly: true }
+          meta: { adminOnly: true, soloGrupoMain: true }
         },
         {
           path: 'grupos/:id/editar',
           name: 'grupos-editar',
           component: () => import('../domains/grupos/views/GrupoFormView.vue'),
           props: true,
-          meta: { adminOnly: true }
+          meta: { adminOnly: true, soloGrupoMain: true }
         },
         {
           path: 'vehiculos',
@@ -183,13 +184,13 @@ const router = createRouter({
           path: 'servicios/alertas',
           name: 'servicios-alertas',
           component: () => import('../domains/servicios/views/AlertasServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.ALERT_HISTORIAL }
+          meta: { permission: PERMISSIONS.ALERT_HISTORIAL, soloGrupoMain: true }
         },
         {
           path: 'servicios/eventos',
           name: 'servicios-eventos',
           component: () => import('../domains/servicios/views/EventosServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.EVENT_LIST }
+          meta: { permission: PERMISSIONS.EVENT_LIST, soloGrupoMain: true }
         },
         {
           path: 'servicios/dashboard',
@@ -231,17 +232,28 @@ router.beforeEach(async (to, _from, next) => {
 
   if (isAuthRequired && token) {
     const authStore = useAuthStore()
+    const groupStore = useGroupStore()
 
-    if (to.meta.adminOnly && !authStore.isLoading && !authStore.isSuperAdmin) {
+    // 1. Verificación de rutas restringidas exclusivamente al Grupo Main
+    const requiresMainGroup = to.matched.some(record => record.meta.soloGrupoMain)
+    if (requiresMainGroup && !groupStore.esGrupoMain) {
       next({ name: 'dashboard' })
       return
     }
 
-    if (to.meta.permission && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(to.meta.permission as string)) {
+    // 2. Verificación de rutas solo para Administrador
+    const requiresAdmin = to.matched.some(record => record.meta.adminOnly)
+    if (requiresAdmin && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.isAdmin) {
       next({ name: 'dashboard' })
       return
     }
 
+    // 3. Verificación de permisos específicos requeridos
+    const permissionRecord = to.matched.find(record => record.meta.permission)
+    if (permissionRecord && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.hasPermission(permissionRecord.meta.permission as string)) {
+      next({ name: 'dashboard' })
+      return
+    }
   }
 
   next()

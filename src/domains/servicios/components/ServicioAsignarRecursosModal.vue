@@ -14,9 +14,31 @@ import {
   Alert01Icon,
   Loading03Icon,
   FloppyDiskIcon,
-  ArrowDown01Icon
+  ArrowDown01Icon,
+  BatteryFullIcon,
+  BatteryMedium01Icon,
+  BatteryLowIcon,
+  BatteryEmptyIcon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
+
+// Helpers para visualización de batería
+const getBatteryIcon = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return BatteryEmptyIcon
+  const nivel = Number(bateria)
+  if (nivel >= 75) return BatteryFullIcon
+  if (nivel >= 40) return BatteryMedium01Icon
+  if (nivel >= 15) return BatteryLowIcon
+  return BatteryEmptyIcon
+}
+
+const getBatteryClass = (bateria: number | string | undefined | null) => {
+  if (bateria === undefined || bateria === null || bateria === '') return 'text-slate-400'
+  const nivel = Number(bateria)
+  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400'
+  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400'
+  return 'text-red-500 dark:text-red-400'
+}
 import {
   fetchRutasSimplesApi,
   fetchVehiculosSimplesApi,
@@ -1330,12 +1352,18 @@ const formatFechaHora = (date: Date | null): string => {
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
-                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
-                  <span class="text-slate-400 dark:text-slate-500">{{ h.familia || 'Sin familia' }}</span>
-                  <span v-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1 gap-1">
+                  <span class="text-slate-400 dark:text-slate-500 flex items-center gap-1.5 min-w-0 truncate">
+                    <span class="truncate">{{ h.familia || 'Sin familia' }}</span>
+                    <span v-if="h.bateria !== undefined && h.bateria !== null && h.bateria !== ''" class="inline-flex items-center gap-0.5 font-semibold shrink-0" :class="getBatteryClass(h.bateria)">
+                      <HugeiconsIcon :icon="getBatteryIcon(h.bateria)" :size="10.5" />
+                      {{ h.bateria }}%
+                    </span>
+                  </span>
+                  <span v-if="obtenerVehiculoAsociadoAHardware(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
                     Ocupado: {{ getVehiculoLabel(obtenerVehiculoAsociadoAHardware(h.id_hardware)!) }}
                   </span>
-                  <span v-else-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                  <span v-else-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
                     {{ h.estado }}
                   </span>
                 </span>
