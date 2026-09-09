@@ -34,46 +34,83 @@ interface SharedEngine {
 }
 
 let sharedEngine: SharedEngine | null = null
+let isWebGLSupported: boolean | null = null
 
-function getSharedEngine(): SharedEngine {
+function checkWebGLSupport(): boolean {
+  if (isWebGLSupported !== null) return isWebGLSupported
+
+  try {
+    const testCanvas = document.createElement('canvas')
+    const gl =
+      testCanvas.getContext('webgl2') ||
+      testCanvas.getContext('webgl') ||
+      testCanvas.getContext('experimental-webgl')
+
+    if (!gl) {
+      isWebGLSupported = false
+      return false
+    }
+
+    const testRenderer = new THREE.WebGLRenderer({ canvas: testCanvas, precision: 'mediump' })
+    testRenderer.dispose()
+    isWebGLSupported = true
+  } catch {
+    isWebGLSupported = false
+  }
+
+  if (!isWebGLSupported) {
+    console.warn('[ThreeMarkerRenderer] WebGL no está disponible en este entorno. Se utilizará renderizado 2D de respaldo.')
+  }
+
+  return isWebGLSupported
+}
+
+function getSharedEngine(): SharedEngine | null {
   if (sharedEngine) return sharedEngine
+  if (!checkWebGLSupport()) return null
 
-  const canvas = document.createElement('canvas')
-  canvas.width = SHARED_SIZE
-  canvas.height = SHARED_SIZE
+  try {
+    const canvas = document.createElement('canvas')
+    canvas.width = SHARED_SIZE
+    canvas.height = SHARED_SIZE
 
-  const renderer = new THREE.WebGLRenderer({
-    canvas,
-    alpha: true,
-    antialias: true, // Habilitar antialiasing para que los bordes se vean lisos y suaves
-    powerPreference: 'high-performance',
-    precision: 'mediump'
-  })
-  renderer.setSize(SHARED_SIZE, SHARED_SIZE, false)
-  renderer.setPixelRatio(1)
-  renderer.setClearColor(0x000000, 0)
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      alpha: true,
+      antialias: true, // Habilitar antialiasing para que los bordes se vean lisos y suaves
+      powerPreference: 'high-performance',
+      precision: 'mediump'
+    })
+    renderer.setSize(SHARED_SIZE, SHARED_SIZE, false)
+    renderer.setPixelRatio(1)
+    renderer.setClearColor(0x000000, 0)
 
-  const scene = new THREE.Scene()
+    const scene = new THREE.Scene()
 
-  // Cámara cenital fija mirando al centro
-  const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100)
-  camera.position.set(0, 0, 4)
-  camera.lookAt(0, 0, 0)
+    // Cámara cenital fija mirando al centro
+    const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 100)
+    camera.position.set(0, 0, 4)
+    camera.lookAt(0, 0, 0)
 
-  // Iluminación (luces neutras para evitar tintes o reflejos azules indeseados)
-  const ambient = new THREE.AmbientLight(0xffffff, 0.9)
-  scene.add(ambient)
+    // Iluminación (luces neutras para evitar tintes o reflejos azules indeseados)
+    const ambient = new THREE.AmbientLight(0xffffff, 0.9)
+    scene.add(ambient)
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
-  keyLight.position.set(2, 3, 5)
-  scene.add(keyLight)
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.6)
+    keyLight.position.set(2, 3, 5)
+    scene.add(keyLight)
 
-  const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
-  fillLight.position.set(-2, -3, 2)
-  scene.add(fillLight)
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.3)
+    fillLight.position.set(-2, -3, 2)
+    scene.add(fillLight)
 
-  sharedEngine = { renderer, scene, camera }
-  return sharedEngine
+    sharedEngine = { renderer, scene, camera }
+    return sharedEngine
+  } catch (err) {
+    isWebGLSupported = false
+    console.warn('[ThreeMarkerRenderer] Error al inicializar WebGLRenderer. Activando fallback 2D:', err)
+    return null
+  }
 }
 
 export class ThreeMarkerRenderer {
@@ -106,14 +143,16 @@ export class ThreeMarkerRenderer {
     canvas.height = Math.round(cssSize * dpr)
     this.ctx = canvas.getContext('2d')
 
-    // Crear el canvas de textura 2D e inicializar la textura inmediatamente (sincrónico)
-    this.textureCanvas = document.createElement('canvas')
-    this.textureCanvas.width = 256
-    this.textureCanvas.height = 256
-    this.baseTexture = new THREE.CanvasTexture(this.textureCanvas)
-    this.baseTexture.colorSpace = THREE.SRGBColorSpace
+    if (checkWebGLSupport()) {
+      // Crear el canvas de textura 2D e inicializar la textura inmediatamente (sincrónico)
+      this.textureCanvas = document.createElement('canvas')
+      this.textureCanvas.width = 256
+      this.textureCanvas.height = 256
+      this.baseTexture = new THREE.CanvasTexture(this.textureCanvas)
+      this.baseTexture.colorSpace = THREE.SRGBColorSpace
 
-    this.init()
+      this.init()
+    }
   }
 
   private drawBaseTexture(battery: number, isSelected: boolean, showBatteryRing = true) {
@@ -179,9 +218,11 @@ export class ThreeMarkerRenderer {
   }
 
   private async init() {
+    if (!checkWebGLSupport()) return
+
     try {
       const assets = await load3dAssets()
-      if (this.isDestroyed) return
+      if (this.isDestroyed || !checkWebGLSupport()) return
 
       // Grupo para el marcador completo (se monta en la escena compartida solo al renderizar)
       this.markerGroup = new THREE.Group()
@@ -265,6 +306,12 @@ export class ThreeMarkerRenderer {
     this.lastCustomColorHex = customColorHex
     this.lastShowBatteryRing = showBatteryRing
 
+    const engine = getSharedEngine()
+    if (!engine) {
+      this.render2DFallback(course, isSelected, battery, customColorHex, showBatteryRing, mapHeading)
+      return
+    }
+
     // 1. Actualizar textura de base y visibilidad del disco circular
     this.drawBaseTexture(battery, isSelected, showBatteryRing)
     if (this.baseMesh) {
@@ -315,6 +362,7 @@ export class ThreeMarkerRenderer {
 
     try {
       const engine = getSharedEngine()
+      if (!engine) return
 
       // El desplazamiento calculado siempre parte del mismo pivote para no
       // acumular correcciones entre actualizaciones consecutivas.
@@ -381,16 +429,123 @@ export class ThreeMarkerRenderer {
     if (!this.markerGroup || !this.ctx || this.isDestroyed) return
     try {
       const engine = getSharedEngine()
+      if (!engine) {
+        this.render2DFallback(
+          this.lastCourse,
+          this.lastSelected,
+          this.lastBattery !== -1 ? this.lastBattery : 100,
+          this.lastCustomColorHex,
+          this.lastShowBatteryRing,
+          this.lastHeading
+        )
+        return
+      }
       engine.scene.add(this.markerGroup)
       engine.renderer.render(engine.scene, engine.camera)
       // Copiar el frame renderizado al canvas 2D visible del marcador
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
       this.ctx.drawImage(engine.renderer.domElement, 0, 0, this.canvas.width, this.canvas.height)
       engine.scene.remove(this.markerGroup)
-    } catch (err) {
-      // Si WebGL no está disponible, el marcador simplemente queda sin flecha 3D
-      console.error('Error al renderizar marcador 3D:', err)
+    } catch {
+      this.render2DFallback(
+        this.lastCourse,
+        this.lastSelected,
+        this.lastBattery !== -1 ? this.lastBattery : 100,
+        this.lastCustomColorHex,
+        this.lastShowBatteryRing,
+        this.lastHeading
+      )
     }
+  }
+
+  // Renderizado 2D de respaldo cuando WebGL está desactivado o no disponible en el navegador
+  private render2DFallback(
+    course: number,
+    isSelected: boolean,
+    battery = 100,
+    customColorHex?: number,
+    showBatteryRing = true,
+    mapHeading = 0
+  ) {
+    if (!this.ctx || this.isDestroyed) return
+
+    const width = this.canvas.width
+    const height = this.canvas.height
+    const cx = width / 2
+    const cy = height / 2
+    const radius = width * 0.38
+    const strokeWidth = Math.max(2, width * 0.055)
+
+    this.ctx.clearRect(0, 0, width, height)
+
+    // 1. Dibujar disco de base y anillo de batería si está habilitado
+    if (showBatteryRing) {
+      // Fondo oscuro translúcido
+      this.ctx.beginPath()
+      this.ctx.arc(cx, cy, radius, 0, 2 * Math.PI)
+      this.ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'
+      this.ctx.fill()
+
+      // Borde del círculo
+      this.ctx.lineWidth = strokeWidth
+      this.ctx.strokeStyle = isSelected ? '#22d3ee' : 'rgba(165, 243, 252, 0.2)'
+      this.ctx.stroke()
+
+      // Arco de batería
+      const clampedBattery = Math.max(0, Math.min(100, battery))
+      let strokeColor = '#10B981'
+      if (clampedBattery <= 20) {
+        strokeColor = '#EF4444'
+      } else if (clampedBattery <= 50) {
+        strokeColor = '#F59E0B'
+      }
+
+      if (clampedBattery > 0) {
+        const startAngle = -Math.PI / 2
+        const endAngle = startAngle + (clampedBattery / 100) * 2 * Math.PI
+
+        this.ctx.beginPath()
+        this.ctx.arc(cx, cy, radius, startAngle, endAngle)
+        this.ctx.lineWidth = strokeWidth
+        this.ctx.lineCap = clampedBattery <= 5 ? 'butt' : 'round'
+        this.ctx.strokeStyle = strokeColor
+        this.ctx.stroke()
+      }
+    }
+
+    // 2. Dibujar flecha de dirección 2D orientada al rumbo geográfico compensado
+    const angleRad = ((course - mapHeading) * Math.PI) / 180
+    const arrowColor =
+      customColorHex !== undefined
+        ? '#' + customColorHex.toString(16).padStart(6, '0')
+        : isSelected
+          ? '#22d3ee'
+          : '#0088ff'
+
+    const arrowLength = radius * 0.95
+    const arrowWidth = radius * 0.75
+
+    this.ctx.save()
+    this.ctx.translate(cx, cy)
+    this.ctx.rotate(angleRad)
+
+    this.ctx.beginPath()
+    // Punta superior
+    this.ctx.moveTo(0, -arrowLength)
+    // Ala derecha
+    this.ctx.lineTo(arrowWidth / 2, arrowLength * 0.55)
+    // Hueco inferior central
+    this.ctx.lineTo(0, arrowLength * 0.25)
+    // Ala izquierda
+    this.ctx.lineTo(-arrowWidth / 2, arrowLength * 0.55)
+    this.ctx.closePath()
+
+    this.ctx.fillStyle = arrowColor
+    this.ctx.shadowColor = 'rgba(0, 0, 0, 0.4)'
+    this.ctx.shadowBlur = 4
+    this.ctx.fill()
+
+    this.ctx.restore()
   }
 
   public destroy() {
