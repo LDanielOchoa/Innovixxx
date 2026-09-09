@@ -245,7 +245,7 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
           <input 
             v-model="searchQuery"
             type="text" 
-            :placeholder="t('grupos.searchPlaceholder', 'Buscar...')"
+            :placeholder="t('grupos.searchPlaceholder')"
             class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
@@ -259,7 +259,7 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
         <button 
           @click="fetchGrupos"
           :disabled="loading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -292,7 +292,7 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('grupos.noGroups', 'No se encontraron grupos')"
+        :empty-message="t('grupos.noGroups')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
@@ -350,7 +350,7 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
           </template>
         </Column>
 
-        <Column :header="t('grupos.colActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('grupos.colActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -376,14 +376,14 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               @click="confirmDelete(String(grupos.find(g => String(g.id) === openMenuId)!.id)); openMenuId = null"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -402,8 +402,8 @@ const mostrarFallbackLogo = (logo: string | null | undefined) => {
     <!-- Modales -->
     <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle')"
-      :message="$t('common.confirmDeleteMsg')"
+      :title="t('common.confirmDeleteTitle')"
+      :message="t('common.confirmDeleteMsg')"
       @confirm="deleteGrupo"
     />
 

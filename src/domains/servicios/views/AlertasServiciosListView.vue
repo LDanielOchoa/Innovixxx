@@ -3,6 +3,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { useThemeStore } from '../../../stores/theme.store'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { PERMISSIONS } from '../../../constants/permissions'
 import { storeToRefs } from 'pinia'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -36,6 +38,7 @@ import PageHeader from '../../../components/shared/PageHeader.vue'
 
 const MAP_KEY = 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
 
+const { t } = useI18n()
 const toast = useToast()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
@@ -131,20 +134,20 @@ const filteredTiposAlerta = computed(() => {
 })
 
 const getTipoAlertaLabel = (): string => {
-  if (filtroTipoAlerta.value === 'all') return 'Tipo de Alerta'
+  if (filtroTipoAlerta.value === 'all') return t('servicios.filterEventType')
   return filtroTipoAlerta.value
 }
 
 const getVisibilidadLabel = (): string => {
-  if (filtroVisibilidad.value === 'all') return 'Visibilidad'
-  if (filtroVisibilidad.value === 'visible') return 'Solo Visibles'
-  return 'Solo Ocultas'
+  if (filtroVisibilidad.value === 'all') return t('servicios.filterVisibility')
+  if (filtroVisibilidad.value === 'visible') return t('servicios.filterOnlyVisible')
+  return t('servicios.filterOnlyHidden')
 }
 
 const getSolventadaLabel = (): string => {
-  if (filtroSolventada.value === 'all') return 'Estado Solventada'
-  if (filtroSolventada.value === 'solventada') return 'Solo Solventadas'
-  return 'Solo No Solventadas'
+  if (filtroSolventada.value === 'all') return t('servicios.filterSolved')
+  if (filtroSolventada.value === 'solventada') return t('servicios.filterOnlySolved')
+  return t('servicios.filterOnlyPending')
 }
 
 // Estado del Mini Menú Desplegable Flotante al lado del botón Solventar
@@ -205,16 +208,16 @@ const ejecutarSolventar = async (token: string, visible: boolean) => {
     if (res?.done !== false) {
       toast.add({
         severity: 'success',
-        summary: 'Éxito',
-        detail: 'Alarma solventada correctamente',
+        summary: t('servicios.toastSuccess'),
+        detail: t('servicios.toastAlarmSolvedDetail'),
         life: 3000
       })
       await cargarAlertas()
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: res?.msg || res?.message || 'No se pudo solventar la alarma',
+        summary: t('servicios.toastError'),
+        detail: res?.msg || res?.message || t('servicios.toastConnectionError'),
         life: 4000
       })
     }
@@ -222,8 +225,8 @@ const ejecutarSolventar = async (token: string, visible: boolean) => {
     console.error('Error al solventar alerta:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error?.message || 'Error de conexión al solventar la alerta',
+      summary: t('servicios.toastError'),
+      detail: error?.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -369,6 +372,7 @@ const handleScroll = () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('servicios')
   document.addEventListener('click', handleDocumentClick)
   window.addEventListener('scroll', handleScroll, true)
 })
@@ -437,8 +441,7 @@ const formatDate = (dateStr: string) => {
   <div class="p-6 md:p-8 animate-fade-in">
     <!-- Header -->
     <PageHeader
-      title="Alertas de Servicios"
-      subtitle="Consulta y seguimiento de alertas generadas en servicios"
+      :title="t('servicios.titleAlertas')"
       :count="filteredItems.length"
       :icon="Alert01Icon"
     />
@@ -451,7 +454,7 @@ const formatDate = (dateStr: string) => {
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Buscar por servicio, hardware, alerta..."
+            :placeholder="t('servicios.searchAlertsPlaceholder')"
             class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
@@ -465,7 +468,7 @@ const formatDate = (dateStr: string) => {
         <div class="w-full sm:w-auto min-w-[210px] h-[38px] flex items-center">
           <AppDateRangePicker
             v-model="fechaRango"
-            placeholder="Rango de Fechas"
+            :placeholder="t('servicios.dateRangePlaceholder')"
             class="w-full"
           />
         </div>
@@ -504,7 +507,7 @@ const formatDate = (dateStr: string) => {
                   <input
                     v-model="searchTipoFilter"
                     type="text"
-                    placeholder="Buscar tipo..."
+                    :placeholder="t('servicios.filterSearchType')"
                     class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#13161C] border border-slate-200/60 dark:border-white/10 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50"
                   />
                   <div class="absolute left-2.5 top-2 text-slate-400 pointer-events-none">
@@ -520,7 +523,7 @@ const formatDate = (dateStr: string) => {
                   class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                   :class="filtroTipoAlerta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
                 >
-                  <span>Todos los Tipos</span>
+                  <span>{{ t('servicios.filterAllEventTypes') }}</span>
                   <svg v-if="filtroTipoAlerta === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -585,7 +588,7 @@ const formatDate = (dateStr: string) => {
                 class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 :class="filtroVisibilidad === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Todas</span>
+                <span>{{ t('servicios.filterAllVisibilities') }}</span>
                 <svg v-if="filtroVisibilidad === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -599,7 +602,7 @@ const formatDate = (dateStr: string) => {
               >
                 <div class="flex items-center gap-2">
                   <HugeiconsIcon :icon="EyeIcon" :size="13" class="text-emerald-500" />
-                  <span>Solo Visibles</span>
+                  <span>{{ t('servicios.filterOnlyVisible') }}</span>
                 </div>
                 <svg v-if="filtroVisibilidad === 'visible'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -614,7 +617,7 @@ const formatDate = (dateStr: string) => {
               >
                 <div class="flex items-center gap-2">
                   <HugeiconsIcon :icon="ViewOffIcon" :size="13" class="text-slate-400" />
-                  <span>Solo No Visibles</span>
+                  <span>{{ t('servicios.filterOnlyHidden') }}</span>
                 </div>
                 <svg v-if="filtroVisibilidad === 'hidden'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -658,7 +661,7 @@ const formatDate = (dateStr: string) => {
                 class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 :class="filtroSolventada === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Todas</span>
+                <span>{{ t('servicios.filterAllSolved') }}</span>
                 <svg v-if="filtroSolventada === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -672,7 +675,7 @@ const formatDate = (dateStr: string) => {
               >
                 <div class="flex items-center gap-2">
                   <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="13" class="text-emerald-500" />
-                  <span>Solo Solventadas</span>
+                  <span>{{ t('servicios.filterOnlySolved') }}</span>
                 </div>
                 <svg v-if="filtroSolventada === 'solventada'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -687,7 +690,7 @@ const formatDate = (dateStr: string) => {
               >
                 <div class="flex items-center gap-2">
                   <HugeiconsIcon :icon="Cancel01Icon" :size="13" class="text-amber-500" />
-                  <span>Solo No Solventadas</span>
+                  <span>{{ t('servicios.filterOnlyPending') }}</span>
                 </div>
                 <svg v-if="filtroSolventada === 'pendiente'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -701,7 +704,7 @@ const formatDate = (dateStr: string) => {
         <button 
           @click="recargar"
           :disabled="isLoading"
-          title="Recargar"
+          :title="t('servicios.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer h-[38px] w-[38px] flex items-center justify-center"
         >
           <HugeiconsIcon 
@@ -720,14 +723,14 @@ const formatDate = (dateStr: string) => {
         :loading="isLoading"
         :rows="itemsPerPage"
         removableSort
-        empty-message="No se encontraron alertas con los filtros seleccionados"
+        :empty-message="t('servicios.noActiveAlerts')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
         <!-- Columna ID Servicio -->
-        <Column field="id_servicio" header="ID Servicio" sortable headerStyle="width: 140px">
+        <Column field="id_servicio" :header="t('servicios.thId')" sortable headerStyle="width: 140px">
           <template #body="{ data }">
             <AppBadge variant="primary">
               <span class="font-mono font-bold text-[11px]">
@@ -738,7 +741,7 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Fecha y Hora -->
-        <Column field="fecha_hora" header="Fecha / Hora" sortable headerStyle="width: 170px">
+        <Column field="fecha_hora" :header="t('servicios.thDate')" sortable headerStyle="width: 170px">
           <template #body="{ data }">
             <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-mono text-xs">
               <HugeiconsIcon :icon="Clock01Icon" :size="14" class="text-slate-400" />
@@ -748,7 +751,7 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Hardware -->
-        <Column field="hardware" header="Hardware" sortable>
+        <Column field="hardware" :header="t('servicios.thHardware')" sortable>
           <template #body="{ data }">
             <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
               {{ data.hardware || '---' }}
@@ -757,7 +760,7 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Tipo Alerta -->
-        <Column field="tipo_alerta" header="Tipo Alerta" sortable>
+        <Column field="tipo_alerta" :header="t('servicios.thAlerts')" sortable>
           <template #body="{ data }">
             <span 
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider"
@@ -770,13 +773,13 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Ubicación / Mapa -->
-        <Column header="Mapa" headerStyle="width: 80px" class="text-center">
+        <Column :header="t('servicios.btnViewMap')" headerStyle="width: 80px" class="text-center">
           <template #body="{ data }">
             <div class="flex items-center justify-center">
               <button
                 v-if="hasValidCoordinates(data.latitud, data.longitud)"
                 @click="openMapModal(data)"
-                title="Ver ubicación en mapa"
+                :title="t('servicios.btnViewMap')"
                 class="w-8 h-8 rounded-lg flex items-center justify-center border bg-blue-500/10 text-blue-600 dark:text-[#5da6fc] border-blue-500/20 hover:bg-blue-500/20 transition-all active:scale-95 cursor-pointer shadow-sm"
               >
                 <HugeiconsIcon :icon="MapsIcon" :size="16" />
@@ -787,33 +790,33 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Visibilidad -->
-        <Column field="visible" header="Visibilidad" sortable headerStyle="width: 120px">
+        <Column field="visible" :header="t('servicios.thVisibility')" sortable headerStyle="width: 120px">
           <template #body="{ data }">
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
               :class="data.visible ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10'"
             >
               <HugeiconsIcon :icon="data.visible ? EyeIcon : ViewOffIcon" :size="13" />
-              {{ data.visible ? 'Visible' : 'No visible' }}
+              {{ data.visible ? t('servicios.visibleStatus') : t('servicios.hiddenStatus') }}
             </span>
           </template>
         </Column>
 
         <!-- Columna Atendida -->
-        <Column field="atendida" header="Atendida" sortable headerStyle="width: 110px">
+        <Column field="atendida" :header="t('servicios.thSolved')" sortable headerStyle="width: 110px">
           <template #body="{ data }">
             <span
               class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold"
               :class="data.atendida ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-100 dark:bg-white/5'"
             >
               <HugeiconsIcon :icon="data.atendida ? CheckmarkCircle01Icon : Cancel01Icon" :size="13" />
-              {{ data.atendida ? 'Sí' : 'No' }}
+              {{ data.atendida ? t('common.yes') : t('common.no') }}
             </span>
           </template>
         </Column>
 
         <!-- Columna Solventada / Desplegable Rápido de Visibilidad -->
-        <Column field="solventada" header="Solventada" sortable headerStyle="width: 140px">
+        <Column field="solventada" :header="t('servicios.thSolved')" sortable headerStyle="width: 140px">
           <template #body="{ data }">
             <div class="flex items-center">
               <!-- Si ya está solventada: Badge verde -->
@@ -822,7 +825,7 @@ const formatDate = (dateStr: string) => {
                 class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-sm"
               >
                 <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="13" />
-                <span>Solventada</span>
+                <span>{{ t('servicios.alarmSolved') }}</span>
               </span>
 
               <!-- Si NO está solventada: Botón que despliega el mini menú de visibilidad al lado -->
@@ -833,14 +836,14 @@ const formatDate = (dateStr: string) => {
                 :disabled="solventandoToken === data.token"
                 class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
                 :class="{ 'ring-2 ring-emerald-500/40 bg-emerald-700': openSolventarMenuToken === data.token }"
-                title="Seleccionar visibilidad y solventar alarma"
+                :title="t('servicios.btnSolveOptions')"
               >
                 <HugeiconsIcon
                   :icon="solventandoToken === data.token ? Loading02Icon : Tick02Icon"
                   :size="13"
                   :class="{ 'animate-spin': solventandoToken === data.token }"
                 />
-                <span>{{ solventandoToken === data.token ? 'Solventando...' : 'Solventar' }}</span>
+                <span>{{ solventandoToken === data.token ? t('common.loading') : t('servicios.btnSolveAlarm') }}</span>
               </button>
 
               <span v-else class="text-xs text-slate-400 font-medium">---</span>
@@ -849,7 +852,7 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Solventada Por -->
-        <Column field="solventada_por" header="Solventada por">
+        <Column field="solventada_por" :header="t('servicios.thAuthor')">
           <template #body="{ data }">
             <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {{ data.solventada && data.solventada_por && data.solventada_por !== 'Desconocido' ? data.solventada_por : '---' }}
@@ -878,7 +881,7 @@ const formatDate = (dateStr: string) => {
           @click.stop
         >
           <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            Visibilidad
+            {{ t('servicios.filterVisibility') }}
           </div>
 
           <!-- Opción: Visible -->
@@ -888,7 +891,7 @@ const formatDate = (dateStr: string) => {
             class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
           >
             <HugeiconsIcon :icon="EyeIcon" :size="15" />
-            <span>Visible</span>
+            <span>{{ t('servicios.visibleStatus') }}</span>
           </button>
 
           <!-- Opción: No Visible -->
@@ -898,7 +901,7 @@ const formatDate = (dateStr: string) => {
             class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
           >
             <HugeiconsIcon :icon="ViewOffIcon" :size="15" />
-            <span>No Visible</span>
+            <span>{{ t('servicios.hiddenStatus') }}</span>
           </button>
         </div>
       </Transition>
@@ -909,7 +912,7 @@ const formatDate = (dateStr: string) => {
       :isOpen="isMapModalOpen"
       @update:isOpen="closeMapModal"
       @close="closeMapModal"
-      :title="`Ubicación: ${selectedAlertaForMap?.tipo_alerta || 'Alarma'}`"
+      :title="`${t('servicios.thCoordinate')}: ${selectedAlertaForMap?.tipo_alerta || ''}`"
       size="lg"
       :showFooter="false"
     >
@@ -925,13 +928,13 @@ const formatDate = (dateStr: string) => {
           <div v-if="selectedAlertaForMap" class="flex items-center gap-3 text-xs flex-wrap">
             <div class="flex items-center gap-2 bg-slate-200/60 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-white/5">
               <HugeiconsIcon :icon="ServiceIcon" :size="14" class="text-slate-400" />
-              <span class="font-medium text-slate-400 dark:text-slate-500">Servicio:</span>
+              <span class="font-medium text-slate-400 dark:text-slate-500">{{ t('servicios.filterService') }}:</span>
               <span class="font-bold text-slate-800 dark:text-slate-100 font-mono">{{ selectedAlertaForMap.id_servicio || '---' }}</span>
             </div>
 
             <div class="flex items-center gap-2 bg-slate-200/60 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-white/5">
               <HugeiconsIcon :icon="HardDriveIcon" :size="14" class="text-slate-400" />
-              <span class="font-medium text-slate-400 dark:text-slate-500">Hardware:</span>
+              <span class="font-medium text-slate-400 dark:text-slate-500">{{ t('servicios.thHardware') }}:</span>
               <span class="font-bold text-slate-800 dark:text-slate-100">{{ selectedAlertaForMap.hardware || '---' }}</span>
             </div>
           </div>
@@ -943,7 +946,7 @@ const formatDate = (dateStr: string) => {
             class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer ml-auto"
           >
             <HugeiconsIcon :icon="MapsIcon" :size="14" />
-            <span>Abrir en Google Maps</span>
+            <span>{{ t('servicios.openInGoogleMaps') }}</span>
           </a>
         </div>
 
@@ -951,7 +954,7 @@ const formatDate = (dateStr: string) => {
         <div class="relative w-full h-[440px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-[#13161C] flex items-center justify-center">
           <div v-if="isMapImageLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 dark:bg-[#13161C]/90 backdrop-blur-sm">
             <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-blue-500 animate-spin" />
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('common.loading') }}</span>
           </div>
 
           <img
@@ -970,7 +973,7 @@ const formatDate = (dateStr: string) => {
               @click="zoomIn"
               :disabled="mapZoom >= 20"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Acercar (+)"
+              :title="t('servicios.zoomIn')"
             >
               +
             </button>
@@ -979,7 +982,7 @@ const formatDate = (dateStr: string) => {
               @click="zoomOut"
               :disabled="mapZoom <= 10"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Alejar (-)"
+              :title="t('servicios.zoomOut')"
             >
               −
             </button>

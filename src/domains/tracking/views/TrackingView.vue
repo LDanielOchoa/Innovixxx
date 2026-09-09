@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { useAuthStore } from '../../../stores/auth.store'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon } from '@hugeicons/core-free-icons'
+import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon, Settings02Icon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
 import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
@@ -16,6 +18,8 @@ import { fetchRutaDetallesApi } from '../../rutas/services/rutas.api'
 import rutaInicio from '../../../assets/ruta_inicio.png'
 import rutaFin from '../../../assets/ruta_fin.png'
 
+loadModuleMessages('tracking')
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 
@@ -244,20 +248,20 @@ const createClusterMarkerElement = (cluster: Cluster) => {
   let textStyle = 'text-[#3b82f6]'
   let iconBg = 'bg-[#3b82f6]/10'
   let needleBorder = 'border-t-[#3b82f6]'
-  let labelText = count === 1 ? 'Servicio' : 'Servicios'
+  let labelText = count === 1 ? t('tracking.service') : t('tracking.services')
 
   if (currentTab === 'HARDWARE') {
     borderStyle = 'border-emerald-500/50'
     textStyle = 'text-emerald-400'
     iconBg = 'bg-emerald-500/10'
     needleBorder = 'border-t-emerald-500'
-    labelText = count === 1 ? 'Dispositivo' : 'Dispositivos'
+    labelText = count === 1 ? t('tracking.device') : t('tracking.devices')
   } else if (currentTab === 'ESCOLTAS') {
     borderStyle = 'border-purple-500/50'
     textStyle = 'text-purple-400'
     iconBg = 'bg-purple-500/10'
     needleBorder = 'border-t-purple-500'
-    labelText = count === 1 ? 'Escolta' : 'Escoltas'
+    labelText = count === 1 ? t('tracking.escort') : t('tracking.escorts')
   }
 
   const iconSvg = currentTab === 'HARDWARE'
@@ -1464,37 +1468,37 @@ const getServicioEstadoInfo = (estadoVal: any) => {
   switch (num) {
     case 1:
       return { 
-        label: 'PRERCARGA', 
+        label: t('tracking.statePreload'), 
         style: 'color: #D65900; background-color: rgba(214, 89, 0, 0.12); border-color: rgba(214, 89, 0, 0.3);', 
         dotStyle: 'background-color: #D65900;' 
       }
     case 2:
       return { 
-        label: 'EN ESPERA', 
+        label: t('tracking.stateWaiting'), 
         style: 'color: #9D21D6; background-color: rgba(157, 33, 214, 0.12); border-color: rgba(157, 33, 214, 0.3);', 
         dotStyle: 'background-color: #9D21D6;' 
       }
     case 3:
       return { 
-        label: 'EJECUCION OK', 
+        label: t('tracking.stateExecOk'), 
         style: 'color: #00C5D6; background-color: rgba(0, 197, 214, 0.12); border-color: rgba(0, 197, 214, 0.3);', 
         dotStyle: 'background-color: #00C5D6;' 
       }
     case 4:
       return { 
-        label: 'EJECUCION FAIL', 
+        label: t('tracking.stateExecFail'), 
         style: 'color: #A1D600; background-color: rgba(161, 214, 0, 0.12); border-color: rgba(161, 214, 0, 0.3);', 
         dotStyle: 'background-color: #A1D600;' 
       }
     case 5:
       return { 
-        label: 'FINALIZADO', 
+        label: t('tracking.stateFinished'), 
         style: 'color: #814F2B; background-color: rgba(129, 79, 43, 0.12); border-color: rgba(129, 79, 43, 0.3);', 
         dotStyle: 'background-color: #814F2B;' 
       }
     case 6:
       return { 
-        label: 'CANCELADO', 
+        label: t('tracking.stateCancelled'), 
         style: 'color: #ef4444; background-color: rgba(239, 68, 68, 0.12); border-color: rgba(239, 68, 68, 0.3);', 
         dotStyle: 'background-color: #ef4444;' 
       }
@@ -1545,7 +1549,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
         >
           <div class="flex flex-col items-center gap-4">
             <div class="w-12 h-12 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
-            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando mapa de seguimiento...</p>
+            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">{{ t('tracking.loadingMap') }}</p>
           </div>
         </div>
       </Transition>
@@ -1565,7 +1569,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                 </div>
                 <div class="min-w-0">
                   <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredItem.nombre }}</h4>
-                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Dispositivo GPS</span>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">{{ t('tracking.gpsDevice') }}</span>
                 </div>
               </div>
               <span class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredItem.serial }}</span>
@@ -1573,20 +1577,20 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 
             <div class="bg-slate-50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">{{ t('tracking.service') }}</span>
                 <span 
                   class="text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1.5 border"
                   :style="hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.style : ''"
                   :class="!hoveredServiceEstadoInfo ? 'bg-slate-200/50 dark:bg-white/5 text-slate-400 dark:text-white/40 border-transparent' : ''"
                 >
                   <span class="w-1.5 h-1.5 rounded-full" :style="hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.dotStyle : ''" :class="!hoveredServiceEstadoInfo ? 'bg-slate-400' : ''"></span>
-                  {{ hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.label : 'Sin Servicio' }}
+                  {{ hoveredServiceEstadoInfo ? hoveredServiceEstadoInfo.label : t('tracking.noService') }}
                 </span>
               </div>
 
               <template v-if="hoveredServiceDateTime.fecha || hoveredServiceDateTime.hora">
                 <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/60 dark:border-white/5">
-                  <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">{{ t('tracking.start') }}</span>
                   <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredServiceDateTime.fecha }}</span>
                     <span v-if="hoveredServiceDateTime.hora" class="text-[#3b82f6] dark:text-[#5da6fc] font-bold">{{ hoveredServiceDateTime.hora }}</span>
@@ -1598,10 +1602,10 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
             <div class="flex items-center justify-between text-[10px] px-1">
               <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
                 <HugeiconsIcon :icon="UserGroupIcon" :size="13" class="text-slate-400" />
-                <span>Escolta</span>
+                <span>{{ t('tracking.escort') }}</span>
               </div>
               <div class="flex flex-col items-end">
-                <span class="text-slate-800 dark:text-white font-semibold truncate max-w-[120px]">{{ hoveredEscolta?.nombre || 'Sin asignar' }}</span>
+                <span class="text-slate-800 dark:text-white font-semibold truncate max-w-[120px]">{{ hoveredEscolta?.nombre || t('tracking.unassigned') }}</span>
                 <span v-if="hoveredEscolta?.celular" class="text-[9px] font-mono text-slate-500 dark:text-slate-400">{{ hoveredEscolta.celular }}</span>
               </div>
             </div>
@@ -1625,7 +1629,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                 </div>
                 <div class="min-w-0">
                   <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ hoveredEscoltaItem.nombre }}</h4>
-                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Escolta Oficial</span>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">{{ t('tracking.officialEscort') }}</span>
                 </div>
               </div>
               <span v-if="hoveredEscoltaItem.identificacion" class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">{{ hoveredEscoltaItem.identificacion }}</span>
@@ -1633,20 +1637,20 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 
             <div class="bg-slate-50 dark:bg-[#181C24]/80 rounded-[12px] p-2.5 border border-slate-200/60 dark:border-white/5 flex flex-col gap-2">
               <div class="flex items-center justify-between">
-                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">Servicio</span>
+                <span class="text-[9px] font-extrabold uppercase tracking-widest text-[#3b82f6] dark:text-[#5da6fc]">{{ t('tracking.service') }}</span>
                 <span 
                   class="text-[9px] font-extrabold px-2 py-0.5 rounded-full flex items-center gap-1.5 border"
                   :style="hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.style : ''"
                   :class="!hoveredEscoltaServiceEstadoInfo ? 'bg-slate-200/50 dark:bg-white/5 text-slate-400 dark:text-white/40 border-transparent' : ''"
                 >
                   <span class="w-1.5 h-1.5 rounded-full" :style="hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.dotStyle : ''" :class="!hoveredEscoltaServiceEstadoInfo ? 'bg-slate-400' : ''"></span>
-                  {{ hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.label : 'Sin Servicio' }}
+                  {{ hoveredEscoltaServiceEstadoInfo ? hoveredEscoltaServiceEstadoInfo.label : t('tracking.noService') }}
                 </span>
               </div>
 
               <template v-if="hoveredEscoltaServiceDateTime.fecha || hoveredEscoltaServiceDateTime.hora">
                 <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-slate-200/60 dark:border-white/5">
-                  <span class="text-slate-500 dark:text-slate-400 font-medium">Inicio</span>
+                  <span class="text-slate-500 dark:text-slate-400 font-medium">{{ t('tracking.start') }}</span>
                   <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredEscoltaServiceDateTime.fecha }}</span>
                     <span v-if="hoveredEscoltaServiceDateTime.hora" class="text-[#3b82f6] dark:text-[#5da6fc] font-bold">{{ hoveredEscoltaServiceDateTime.hora }}</span>
@@ -1656,7 +1660,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
             </div>
 
             <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between text-[10px] px-1">
-              <span class="text-slate-500 dark:text-slate-400 font-medium">Celular</span>
+              <span class="text-slate-500 dark:text-slate-400 font-medium">{{ t('tracking.phone') }}</span>
               <span class="text-slate-800 dark:text-white font-mono font-semibold">{{ hoveredEscoltaItem.celular }}</span>
             </div>
           </div>
@@ -1687,8 +1691,8 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                   <HugeiconsIcon v-else :icon="UserGroupIcon" :size="15" />
                 </div>
                 <div class="min-w-0">
-                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">Grupo de {{ activeTab.toLowerCase() }}</h4>
-                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">Haz clic para acercar</span>
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ t('tracking.clusterGroup', { type: activeTab === 'SERVICIOS' ? t('tracking.services').toLowerCase() : activeTab === 'HARDWARE' ? t('tracking.devices').toLowerCase() : t('tracking.escorts').toLowerCase() }) }}</h4>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">{{ t('tracking.clickToZoom') }}</span>
                 </div>
               </div>
               <span class="text-[9px] font-mono font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 px-2 py-0.5 rounded-lg shrink-0">
@@ -1737,7 +1741,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
             : 'text-blue-500/80 dark:text-blue-400/80 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-transparent'"
         >
           <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'SERVICIOS'"></span>
-          SERVICIOS
+          {{ t('tracking.tabServices') }}
         </button>
 
         <!-- Tab: HARDWARE -->
@@ -1749,7 +1753,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
             : 'text-emerald-600/80 dark:text-emerald-400/80 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 border border-transparent'"
         >
           <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'HARDWARE'"></span>
-          HARDWARE
+          {{ t('tracking.tabHardware') }}
         </button>
 
         <!-- Tab: ESCOLTAS -->
@@ -1761,7 +1765,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
             : 'text-purple-600/80 dark:text-purple-400/80 hover:bg-purple-50 dark:hover:bg-purple-500/10 border border-transparent'"
         >
           <span class="w-1.5 h-1.5 rounded-full bg-white" v-if="activeTab === 'ESCOLTAS'"></span>
-          ESCOLTAS
+          {{ t('tracking.tabEscorts') }}
         </button>
 
         <!-- Separador sutil -->
@@ -1771,7 +1775,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
         <button
           @click="activeTab !== 'ESCOLTAS' && toggleGeocercas()"
           :disabled="activeTab === 'ESCOLTAS'"
-          :title="activeTab === 'ESCOLTAS' ? 'Geocercas no disponibles en Escoltas' : (showGeocercas ? 'Ocultar Geocercas' : 'Mostrar Geocercas')"
+          :title="activeTab === 'ESCOLTAS' ? t('tracking.geofencesNotAvailable') : (showGeocercas ? t('tracking.hideGeofences') : t('tracking.showGeofences'))"
           class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all focus:outline-none shrink-0 border"
           :class="[
             activeTab === 'ESCOLTAS' 
@@ -1783,7 +1787,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
         >
           <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="14" class="animate-spin" />
           <HugeiconsIcon v-else :icon="MapsIcon" :size="14" />
-          <span>Geocercas</span>
+          <span>{{ t('tracking.geofences') }}</span>
         </button>
       </div>
     </div>
@@ -1832,9 +1836,9 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
 
             <!-- Textos -->
             <div class="space-y-1.5">
-              <h3 class="text-lg font-black text-white tracking-tight">Sesión Expirada</h3>
+              <h3 class="text-lg font-black text-white tracking-tight">{{ t('tracking.sessionExpiredTitle') }}</h3>
               <p class="text-xs font-medium text-slate-300 leading-relaxed max-w-xs mx-auto">
-                {{ wsError || 'Su sesión ha vencido. Le recomendamos cerrar sesión en el aplicativo y volver a ingresar.' }}
+                {{ wsError || t('tracking.sessionExpiredDetail') }}
               </p>
             </div>
 
@@ -1844,7 +1848,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                 @click="handleLogoutFromWsModal"
                 class="w-full py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-[0_4px_15px_rgba(225,29,72,0.4)] transition-all active:scale-95 cursor-pointer"
               >
-                Cerrar Sesión
+                {{ t('tracking.btnLogout') }}
               </button>
             </div>
           </div>

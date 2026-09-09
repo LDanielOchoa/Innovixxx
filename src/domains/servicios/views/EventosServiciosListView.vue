@@ -42,6 +42,8 @@ import {
 import type { ServicioEventoItem, Servicio } from '../types/servicio'
 import { SERVICIO_ESTADOS_LABELS } from '../types/servicio'
 import { useThemeStore } from '../../../stores/theme.store'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
@@ -52,6 +54,9 @@ import AppButton from '../../../components/ui/AppButton.vue'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import ServicioEventoCreateModal from '../components/ServicioEventoCreateModal.vue'
 import * as XLSX from 'xlsx'
+
+loadModuleMessages('servicios')
+const { t } = useI18n()
 
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
@@ -108,10 +113,10 @@ const fechaRango = ref({
 const currentPage = ref(1)
 const itemsPerPage = ref(10)
 
-const eventTypeConfigs = [
-  { value: 1, label: '1 - Revisión Rutinaria', fullName: 'Revisión Rutinaria', icon: CheckmarkCircle01Icon, badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
-  { value: 2, label: '2 - Parada', fullName: 'Parada', icon: Alert01Icon, badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' }
-]
+const eventTypeConfigs = computed(() => [
+  { value: 1, label: t('servicios.eventTypeReview'), fullName: t('servicios.eventTypeRoutineReview'), icon: CheckmarkCircle01Icon, badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
+  { value: 2, label: t('servicios.eventTypeStop'), fullName: t('servicios.eventTypeStop'), icon: Alert01Icon, badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20' }
+])
 
 const toggleDropdown = (type: 'servicio' | 'tipo' | 'visibilidad') => {
   activeDropdown.value = activeDropdown.value === type ? null : type
@@ -216,12 +221,20 @@ const tieneFiltrosActivos = computed(() => {
 
 const getEstadoLabel = (estado: any): string => {
   if (typeof estado === 'number') {
-    return SERVICIO_ESTADOS_LABELS[estado] || String(estado)
+    const estadoKeys: Record<number, string> = {
+      1: 'servicios.statePreload',
+      2: 'servicios.stateWaiting',
+      3: 'servicios.stateExecOk',
+      4: 'servicios.stateExecFail',
+      5: 'servicios.stateFinished',
+      6: 'servicios.stateCancelled'
+    }
+    return estadoKeys[estado] ? t(estadoKeys[estado]) : String(estado)
   }
   if (typeof estado === 'string') {
     const num = Number(estado)
-    if (!isNaN(num) && SERVICIO_ESTADOS_LABELS[num]) {
-      return SERVICIO_ESTADOS_LABELS[num]
+    if (!isNaN(num)) {
+      return getEstadoLabel(num)
     }
     return estado
   }
@@ -229,7 +242,7 @@ const getEstadoLabel = (estado: any): string => {
 }
 
 const getEstadoBadgeClass = (estado: any): string => {
-  const lbl = getEstadoLabel(estado).toUpperCase().replace(/\s+/g, '_')
+  const lbl = String(estado).toUpperCase().replace(/\s+/g, '_')
   if (lbl.includes('PRERCARGA') || lbl === '1') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
   if (lbl.includes('ESPERA') || lbl === '2') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
   if (lbl.includes('OK') || lbl.includes('EJECUCION_OK') || lbl === '3') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
@@ -296,28 +309,28 @@ const getServicioPorId = (id: string): Servicio | undefined => {
 }
 
 const getServicioLabel = (): string => {
-  if (filtroIdServicio.value === 'all') return 'Servicio'
+  if (filtroIdServicio.value === 'all') return t('servicios.filterService')
   const serv = getServicioPorId(filtroIdServicio.value)
   if (serv?.id_servicio) return serv.id_servicio
-  if (serv?.id_ruta) return `Ruta: ${serv.id_ruta}`
+  if (serv?.id_ruta) return `${t('servicios.filterRoute')}: ${serv.id_ruta}`
   if (serv?.fecha_inicio) return formatDateShort(serv.fecha_inicio)
-  return filtroIdServicio.value || 'Servicio'
+  return filtroIdServicio.value || t('servicios.filterService')
 }
 
 const getTipoEventoLabel = (): string => {
-  if (filtroTipoEvento.value === 'all') return 'Tipo de Evento'
-  const cfg = eventTypeConfigs.find(c => c.value === filtroTipoEvento.value)
-  return cfg ? cfg.label : `Tipo ${filtroTipoEvento.value}`
+  if (filtroTipoEvento.value === 'all') return t('servicios.filterEventType')
+  const cfg = eventTypeConfigs.value.find(c => c.value === filtroTipoEvento.value)
+  return cfg ? cfg.label : t('servicios.eventTypeGeneric', { type: filtroTipoEvento.value })
 }
 
 const getVisibilidadLabel = (): string => {
-  if (filtroVisibilidad.value === 'all') return 'Visibilidad'
-  if (filtroVisibilidad.value === 'visible') return 'Solo Visibles'
-  return 'Solo Ocultos'
+  if (filtroVisibilidad.value === 'all') return t('servicios.filterVisibility')
+  if (filtroVisibilidad.value === 'visible') return t('servicios.filterOnlyVisible')
+  return t('servicios.filterOnlyHidden')
 }
 
 const getEventoTipoBadge = (item: ServicioEventoItem) => {
-  const cfg = eventTypeConfigs.find(c => c.value === item.evento_tipo)
+  const cfg = eventTypeConfigs.value.find(c => c.value === item.evento_tipo)
   if (cfg) {
     return {
       label: item.evento_tipo_nombre || cfg.fullName,
@@ -326,7 +339,7 @@ const getEventoTipoBadge = (item: ServicioEventoItem) => {
     }
   }
   return {
-    label: item.evento_tipo_nombre || `Tipo ${item.evento_tipo || '---'}`,
+    label: item.evento_tipo_nombre || t('servicios.eventTypeGeneric', { type: item.evento_tipo || '---' }),
     icon: Calendar01Icon,
     badgeClass: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
   }
@@ -525,11 +538,11 @@ const openFotosModal = async (item: ServicioEventoItem) => {
     if (res && res.done && Array.isArray(res.data)) {
       fotosList.value = res.data
     } else {
-      fotosError.value = res?.message || 'No se pudieron cargar las fotos del evento.'
+      fotosError.value = res?.message || t('servicios.toastPhotosError')
     }
   } catch (err: any) {
     console.error('Error al cargar fotos del evento:', err)
-    fotosError.value = err?.message || 'Error de conexión al cargar fotos.'
+    fotosError.value = err?.message || t('servicios.toastPhotosNetworkError')
   } finally {
     isLoadingFotos.value = false
   }
@@ -570,21 +583,21 @@ const exportToExcel = () => {
   if (!filteredItems.value.length) return
 
   const rows = filteredItems.value.map(item => ({
-    'ID Evento': item.id_evento,
-    'ID Servicio': item.id_servicio,
-    'Tipo Evento': item.evento_tipo_nombre || item.evento_tipo,
-    'Fecha y Hora': item.fecha_hora,
-    'Autor': item.autor,
-    'Visible': item.visible ? 'Sí' : 'No',
-    'Observación': item.observacion,
-    'Latitud': item.latitud,
-    'Longitud': item.longitud
+    [t('servicios.excelHeaderIdEvent')]: item.id_evento,
+    [t('servicios.excelHeaderIdService')]: item.id_servicio,
+    [t('servicios.excelHeaderEventType')]: item.evento_tipo_nombre || item.evento_tipo,
+    [t('servicios.excelHeaderDateTime')]: item.fecha_hora,
+    [t('servicios.excelHeaderAuthor')]: item.autor,
+    [t('servicios.excelHeaderVisible')]: item.visible ? t('servicios.yes') : t('servicios.no'),
+    [t('servicios.excelHeaderObservation')]: item.observacion,
+    [t('servicios.excelHeaderLatitude')]: item.latitud,
+    [t('servicios.excelHeaderLongitude')]: item.longitud
   }))
 
   const worksheet = XLSX.utils.json_to_sheet(rows)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Eventos_Servicios')
-  XLSX.writeFile(workbook, `Eventos_Servicios_${fechaRango.value.start}_${fechaRango.value.end}.xlsx`)
+  XLSX.utils.book_append_sheet(workbook, worksheet, t('servicios.excelSheetNameEvents'))
+  XLSX.writeFile(workbook, `${t('servicios.excelFileNameEvents')}_${fechaRango.value.start}_${fechaRango.value.end}.xlsx`)
 }
 
 const handleDocumentClick = (e: MouseEvent) => {
@@ -639,8 +652,8 @@ onUnmounted(() => {
   <div class="p-4 md:p-8 space-y-8 animate-fade-in">
     <!-- Header -->
     <PageHeader
-      title="Eventos de Servicios"
-      subtitle="Consulta y seguimiento de eventos registrados en los servicios"
+      :title="t('servicios.titleEventos')"
+      :subtitle="t('servicios.subtitleEventos')"
       :count="filteredItems.length"
       :icon="Calendar01Icon"
     >
@@ -652,7 +665,7 @@ onUnmounted(() => {
           :icon="Add01Icon"
           @click="isCreateModalOpen = true"
         >
-          Nuevo Evento
+          {{ t('servicios.btnNewEvent') }}
         </AppButton>
         <AppButton
           v-if="filteredItems.length > 0"
@@ -661,7 +674,7 @@ onUnmounted(() => {
           :icon="Download01Icon"
           @click="exportToExcel"
         >
-          Exportar Excel
+          {{ t('servicios.btnExportExcel') }}
         </AppButton>
       </template>
     </PageHeader>
@@ -675,7 +688,7 @@ onUnmounted(() => {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Buscar en eventos..."
+              :placeholder="t('servicios.searchInEventsPlaceholder')"
               class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
             />
             <div class="absolute left-3 top-2.5 text-slate-400 pointer-events-none transition-colors">
@@ -687,7 +700,7 @@ onUnmounted(() => {
           <button
             @click="recargar"
             :disabled="isLoading"
-            title="Recargar"
+            :title="t('servicios.reload')"
             class="p-2 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 h-[38px] w-[38px] flex items-center justify-center cursor-pointer"
           >
             <HugeiconsIcon
@@ -703,7 +716,7 @@ onUnmounted(() => {
           <AppDateRangePicker
             v-model="fechaRango"
             label=""
-            placeholder="Rango de Fechas"
+            :placeholder="t('servicios.dateRangePlaceholder')"
             class="w-full"
           />
         </div>
@@ -742,7 +755,7 @@ onUnmounted(() => {
                   <input
                     v-model="searchServicioFilter"
                     type="text"
-                    placeholder="Buscar servicio..."
+                    :placeholder="t('servicios.filterSearchService')"
                     class="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#13161C] border border-slate-200/60 dark:border-white/10 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50"
                   />
                   <div class="absolute left-2.5 top-2 text-slate-400 pointer-events-none">
@@ -758,7 +771,7 @@ onUnmounted(() => {
                   class="w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                   :class="filtroIdServicio === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
                 >
-                  <span>Todos los Servicios</span>
+                  <span>{{ t('servicios.filterAllServices') }}</span>
                   <svg v-if="filtroIdServicio === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
@@ -780,7 +793,7 @@ onUnmounted(() => {
                           {{ s.id }}
                         </span>
                         <span v-if="s.ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                          • Ruta: {{ s.ruta }}
+                          • {{ t('servicios.filterRoute') }}: {{ s.ruta }}
                         </span>
                       </div>
                       <span
@@ -844,13 +857,13 @@ onUnmounted(() => {
                 class="w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtroTipoEvento === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Todos los Tipos</span>
+                <span>{{ t('servicios.filterAllEventTypes') }}</span>
                 <svg v-if="filtroTipoEvento === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </button>
 
-              <!-- Opciones 1 a 8 -->
+              <!-- Opciones -->
               <button
                 v-for="op in eventTypeConfigs"
                 :key="op.value"
@@ -903,7 +916,7 @@ onUnmounted(() => {
                 class="w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtroVisibilidad === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Toda Visibilidad</span>
+                <span>{{ t('servicios.filterAllVisibilities') }}</span>
                 <svg v-if="filtroVisibilidad === 'all'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -913,7 +926,7 @@ onUnmounted(() => {
                 class="w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtroVisibilidad === 'visible' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Solo Visibles</span>
+                <span>{{ t('servicios.filterOnlyVisible') }}</span>
                 <svg v-if="filtroVisibilidad === 'visible'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -923,7 +936,7 @@ onUnmounted(() => {
                 class="w-full flex items-center justify-between px-4 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtroVisibilidad === 'hidden' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Solo Ocultos</span>
+                <span>{{ t('servicios.filterOnlyHidden') }}</span>
                 <svg v-if="filtroVisibilidad === 'hidden'" class="w-4 h-4 text-[#3b82f6] dark:text-[#5da6fc] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -937,7 +950,7 @@ onUnmounted(() => {
           <input
             v-model="filtroAutor"
             type="text"
-            placeholder="Autor..."
+            :placeholder="t('servicios.filterAuthorPlaceholderShort')"
             @keyup.enter="cargarEventos"
             class="w-full px-3 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all h-[38px]"
           />
@@ -947,11 +960,11 @@ onUnmounted(() => {
         <button
           v-if="tieneFiltrosActivos"
           @click="limpiarFiltros"
-          title="Limpiar filtros"
+          :title="t('servicios.btnClear')"
           class="px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200/60 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-all cursor-pointer flex items-center gap-1.5 h-[38px] shrink-0 active:scale-95"
         >
           <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
-          <span>Limpiar</span>
+          <span>{{ t('servicios.btnClear') }}</span>
         </button>
       </div>
     </div>
@@ -963,14 +976,14 @@ onUnmounted(() => {
         :loading="isLoading"
         :rows="itemsPerPage"
         removableSort
-        empty-message="No se encontraron eventos para los filtros seleccionados"
+        :empty-message="t('servicios.noEventsFoundFiltered')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
         <!-- Columna Fecha y Hora -->
-        <Column field="fecha_hora" header="Fecha / Hora" sortable headerStyle="width: 190px">
+        <Column field="fecha_hora" :header="t('servicios.thDate')" sortable headerStyle="width: 190px">
           <template #body="{ data }">
             <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-mono text-xs">
               <HugeiconsIcon :icon="Clock01Icon" :size="14" class="text-slate-400" />
@@ -980,7 +993,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Tipo de Evento -->
-        <Column field="evento_tipo" header="Tipo de Evento" sortable headerStyle="width: 190px">
+        <Column field="evento_tipo" :header="t('servicios.thEvent')" sortable headerStyle="width: 190px">
           <template #body="{ data }">
             <div class="flex items-center gap-1.5">
               <span
@@ -995,7 +1008,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Servicio -->
-        <Column header="Servicio" headerStyle="width: 90px">
+        <Column :header="t('servicios.filterService')" headerStyle="width: 90px">
           <template #body="{ data }">
             <div class="flex items-center justify-center">
               <div v-if="data.id_servicio" class="relative group">
@@ -1007,7 +1020,7 @@ onUnmounted(() => {
                   <div class="flex flex-col gap-1.5 min-w-[120px]">
                     <!-- Encabezado / Estado -->
                     <div class="flex items-center justify-between gap-2">
-                      <span class="font-bold text-slate-300 dark:text-slate-200 text-[11px]">Servicio</span>
+                      <span class="font-bold text-slate-300 dark:text-slate-200 text-[11px]">{{ t('servicios.filterService') }}</span>
                       <span
                         v-if="getServicioPorId(data.id_servicio)?.estado"
                         class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border tracking-wider"
@@ -1019,7 +1032,7 @@ onUnmounted(() => {
 
                     <!-- Ruta (si existe) -->
                     <div v-if="getServicioPorId(data.id_servicio)?.id_ruta" class="text-[11px] font-semibold text-white truncate">
-                      Ruta: {{ getServicioPorId(data.id_servicio)!.id_ruta }}
+                      {{ t('servicios.filterRoute') }}: {{ getServicioPorId(data.id_servicio)!.id_ruta }}
                     </div>
 
                     <!-- Fecha -->
@@ -1039,7 +1052,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Observación -->
-        <Column field="observacion" header="Observación">
+        <Column field="observacion" :header="t('servicios.thObservations')">
           <template #body="{ data }">
             <span class="text-xs text-slate-700 dark:text-slate-200 line-clamp-2 leading-relaxed block max-w-lg" :title="data.observacion">
               {{ data.observacion || '---' }}
@@ -1048,7 +1061,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Ubicación -->
-        <Column header="Ubicación" headerStyle="width: 110px" class="text-center">
+        <Column :header="t('servicios.thLocation')" headerStyle="width: 110px" class="text-center">
           <template #body="{ data }">
             <div class="flex items-center justify-center">
               <div v-if="hasValidCoordinates(data.latitud, data.longitud)" class="relative group">
@@ -1062,7 +1075,7 @@ onUnmounted(() => {
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex items-center gap-1.5 font-semibold text-emerald-400">
                     <HugeiconsIcon :icon="MapsIcon" :size="12" />
-                    <span>Ver Ubicación</span>
+                    <span>{{ t('servicios.viewLocation') }}</span>
                   </div>
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
                 </div>
@@ -1073,18 +1086,18 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Visibilidad -->
-        <Column field="visible" header="Visible" sortable headerStyle="width: 110px">
+        <Column field="visible" :header="t('servicios.thVisibility')" sortable headerStyle="width: 110px">
           <template #body="{ data }">
             <AppBadge :variant="data.visible ? 'success' : 'glass'" :dot="true">
               <span class="text-[11px] font-bold">
-                {{ data.visible ? 'Visible' : 'Oculto' }}
+                {{ data.visible ? t('servicios.visible') : t('servicios.hidden') }}
               </span>
             </AppBadge>
           </template>
         </Column>
 
         <!-- Columna Autor -->
-        <Column field="autor" header="Autor" sortable headerStyle="width: 160px">
+        <Column field="autor" :header="t('servicios.thAuthor')" sortable headerStyle="width: 160px">
           <template #body="{ data }">
             <div class="flex items-center gap-2">
               <div class="w-6 h-6 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-500 dark:text-slate-400 shrink-0">
@@ -1098,7 +1111,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Acciones -->
-        <Column header="Acciones" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('servicios.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -1131,7 +1144,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Image01Icon" :size="16" class="text-blue-500 dark:text-blue-400" />
-              <span>Ver fotos</span>
+              <span>{{ t('servicios.viewPhotos') }}</span>
             </button>
 
             <!-- Acción: Cambiar Visibilidad -->
@@ -1146,7 +1159,7 @@ onUnmounted(() => {
                 :class="eventos.find(e => e.id_evento === openMenuId)?.visible ? 'text-amber-500' : 'text-emerald-500'"
               />
               <span>
-                {{ eventos.find(e => e.id_evento === openMenuId)?.visible ? 'Ocultar' : 'Hacer visible' }}
+                {{ eventos.find(e => e.id_evento === openMenuId)?.visible ? t('servicios.hide') : t('servicios.makeVisible') }}
               </span>
             </button>
           </div>
@@ -1166,7 +1179,7 @@ onUnmounted(() => {
     <!-- Modal Ver Fotos -->
     <AppModal
       v-model:isOpen="isFotosModalOpen"
-      title="Fotografías del Evento"
+      :title="t('servicios.eventPhotosTitle')"
       maxWidth="max-w-4xl"
       :showFooter="false"
     >
@@ -1174,7 +1187,7 @@ onUnmounted(() => {
         <!-- Estado de carga -->
         <div v-if="isLoadingFotos" class="py-16 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2.5">
           <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <span class="font-medium">Cargando fotografías...</span>
+          <span class="font-medium">{{ t('servicios.loadingPhotos') }}</span>
         </div>
 
         <!-- Estado de error -->
@@ -1196,7 +1209,7 @@ onUnmounted(() => {
             >
               <img
                 :src="foto.url"
-                :alt="`Foto ${idx + 1}`"
+                :alt="t('servicios.photoCount', { index: idx + 1 })"
                 class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-102"
               />
               <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2.5 backdrop-blur-[2px]">
@@ -1206,22 +1219,22 @@ onUnmounted(() => {
                   class="px-3 py-1.5 rounded-xl bg-white/95 dark:bg-slate-900/95 text-slate-800 dark:text-slate-100 text-xs font-bold shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
                 >
                   <HugeiconsIcon :icon="EyeIcon" :size="15" />
-                  <span>Ampliar</span>
+                  <span>{{ t('servicios.enlarge') }}</span>
                 </button>
               </div>
             </div>
 
             <!-- Footer de la tarjeta -->
             <div class="px-3.5 py-2.5 flex items-center justify-between text-xs bg-white dark:bg-[#1A1D24] border-t border-slate-100 dark:border-white/5">
-              <span class="font-bold text-slate-700 dark:text-slate-200">Foto {{ idx + 1 }}</span>
+              <span class="font-bold text-slate-700 dark:text-slate-200">{{ t('servicios.photoCount', { index: idx + 1 }) }}</span>
               <button
                 type="button"
                 @click="downloadImage(foto.url, idx)"
-                title="Descargar fotografía"
+                :title="t('servicios.downloadPhoto')"
                 class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <HugeiconsIcon :icon="Download01Icon" :size="13" />
-                <span>Descargar</span>
+                <span>{{ t('servicios.download') }}</span>
               </button>
             </div>
           </div>
@@ -1230,7 +1243,7 @@ onUnmounted(() => {
         <!-- Sin fotos -->
         <div v-else class="py-16 text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
           <HugeiconsIcon :icon="Image01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
-          <span>No hay fotografías asociadas a este evento.</span>
+          <span>{{ t('servicios.noPhotosAttached') }}</span>
         </div>
       </div>
     </AppModal>
@@ -1238,7 +1251,7 @@ onUnmounted(() => {
     <!-- Modal Visor Ampliado Lightbox -->
     <AppModal
       v-model:isOpen="isSingleFotoModalOpen"
-      :title="`Vista ampliada — Foto ${activeFotoIndex + 1}`"
+      :title="t('servicios.photoEnlargedTitle', { index: activeFotoIndex + 1 })"
       size="xl"
       maxWidth="max-w-5xl"
       :showFooter="false"
@@ -1247,7 +1260,7 @@ onUnmounted(() => {
         <div class="relative w-full min-h-[500px] max-h-[82vh] flex items-center justify-center bg-slate-950/80 rounded-2xl p-4 overflow-hidden border border-slate-200/60 dark:border-white/10 backdrop-blur-sm">
           <img
             :src="activeFotoPreviewUrl"
-            :alt="`Foto ${activeFotoIndex + 1}`"
+            :alt="t('servicios.photoCount', { index: activeFotoIndex + 1 })"
             class="max-w-full max-h-[78vh] object-contain rounded-xl shadow-2xl"
           />
         </div>
@@ -1257,7 +1270,7 @@ onUnmounted(() => {
     <!-- Modal Ubicación en Mapa -->
     <AppModal
       v-model:isOpen="isMapModalOpen"
-      :title="`Ubicación del Evento ${selectedMapCoords?.eventoId ? '— ' + selectedMapCoords.eventoId : ''}`"
+      :title="t('servicios.eventLocationTitle', { id: selectedMapCoords?.eventoId ? '— ' + selectedMapCoords.eventoId : '' })"
       size="lg"
       maxWidth="max-w-3xl"
       :showFooter="false"
@@ -1274,7 +1287,7 @@ onUnmounted(() => {
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-semibold text-xs">
               <HugeiconsIcon :icon="MapsIcon" :size="14" />
-              <span>Coordenadas GPS:</span>
+              <span>{{ t('servicios.gpsCoords') }}</span>
             </div>
             <span class="font-mono font-bold text-slate-700 dark:text-slate-200 text-xs">
               {{ selectedMapCoords.lat }}, {{ selectedMapCoords.lng }}
@@ -1287,7 +1300,7 @@ onUnmounted(() => {
             class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer ml-auto"
           >
             <HugeiconsIcon :icon="MapsIcon" :size="14" />
-            <span>Abrir en Google Maps</span>
+            <span>{{ t('servicios.openInGoogleMaps') }}</span>
           </button>
         </div>
 
@@ -1295,13 +1308,13 @@ onUnmounted(() => {
         <div class="relative w-full h-[420px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-[#13161C] flex items-center justify-center">
           <div v-if="isMapImageLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 dark:bg-[#13161C]/90 backdrop-blur-sm">
             <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-blue-500 animate-spin" />
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('servicios.loadingMap') }}</span>
           </div>
 
           <img
             v-if="staticMapUrl"
             :src="staticMapUrl"
-            :alt="`Ubicación del evento ${selectedMapCoords.eventoId || ''}`"
+            :alt="t('servicios.eventLocationTitle', { id: selectedMapCoords.eventoId || '' })"
             class="w-full h-full object-cover transition-opacity duration-300"
             :class="{ 'opacity-0': isMapImageLoading, 'opacity-100': !isMapImageLoading }"
             @load="isMapImageLoading = false"
@@ -1314,7 +1327,7 @@ onUnmounted(() => {
               @click="zoomIn"
               :disabled="mapZoom >= 20"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Acercar (+)"
+              :title="t('servicios.zoomInTitle')"
             >
               +
             </button>
@@ -1323,7 +1336,7 @@ onUnmounted(() => {
               @click="zoomOut"
               :disabled="mapZoom <= 10"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Alejar (-)"
+              :title="t('servicios.zoomOutTitle')"
             >
               −
             </button>
@@ -1335,45 +1348,45 @@ onUnmounted(() => {
     <!-- Modal Detalle del Evento -->
     <AppModal
       v-model:isOpen="isDetailModalOpen"
-      title="Detalle del Evento"
+      :title="t('servicios.modalTitleEventDetails')"
       maxWidth="max-w-xl"
     >
       <div v-if="selectedEventoModal" class="space-y-5">
         <div class="grid grid-cols-2 gap-3.5 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-xs">
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">ID Evento</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.excelHeaderIdEvent') }}</span>
             <span class="font-mono font-bold text-slate-800 dark:text-slate-200">{{ selectedEventoModal.id_evento }}</span>
           </div>
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">ID Servicio</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.thId') }}</span>
             <span class="font-mono font-bold text-blue-600 dark:text-blue-400">{{ selectedEventoModal.id_servicio }}</span>
           </div>
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">Tipo de Evento</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.thEvent') }}</span>
             <span class="font-semibold text-slate-800 dark:text-slate-200">
               {{ getEventoTipoBadge(selectedEventoModal).label }}
             </span>
           </div>
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">Fecha y Hora</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.thDate') }}</span>
             <span class="font-mono text-slate-800 dark:text-slate-200">{{ formatDate(selectedEventoModal.fecha_hora) }}</span>
           </div>
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">Autor</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.thAuthor') }}</span>
             <span class="font-semibold text-slate-800 dark:text-slate-200">{{ selectedEventoModal.autor || '---' }}</span>
           </div>
           <div>
-            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">Visibilidad</span>
+            <span class="text-slate-400 block mb-0.5 text-[11px] font-medium">{{ t('servicios.thVisibility') }}</span>
             <AppBadge :variant="selectedEventoModal.visible ? 'success' : 'glass'" :dot="true">
-              {{ selectedEventoModal.visible ? 'Visible' : 'Oculto' }}
+              {{ selectedEventoModal.visible ? t('servicios.visible') : t('servicios.hidden') }}
             </AppBadge>
           </div>
         </div>
 
         <div>
-          <label class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">Observación</label>
+          <label class="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">{{ t('servicios.thObservations') }}</label>
           <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-xs text-slate-700 dark:text-slate-200 leading-relaxed max-h-48 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
-            {{ selectedEventoModal.observacion || 'Sin observación registrada' }}
+            {{ selectedEventoModal.observacion || t('servicios.noObservation') }}
           </div>
         </div>
 
@@ -1385,9 +1398,9 @@ onUnmounted(() => {
             variant="secondary"
             size="sm"
             :icon="MapsIcon"
-            @click="openMap(selectedEventoModal.latitud, selectedEventoModal.longitud)"
+            @click="openExternalMap(selectedEventoModal.latitud, selectedEventoModal.longitud)"
           >
-            Abrir en Google Maps
+            {{ t('servicios.openInGoogleMaps') }}
           </AppButton>
         </div>
       </div>

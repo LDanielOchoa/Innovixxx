@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, shallowRef, nextTick, computed, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Location01Icon,
@@ -27,6 +28,8 @@ import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 
 // Precargar modelo 3D y texturas
 load3dAssets().catch(() => {})
+
+const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
@@ -304,9 +307,9 @@ const createPointMarker = (item: PosicionItem) => {
     position: { lat: item.lat, lng: item.lon },
     map: map.value,
     title: isFirst
-      ? `Inicio: ${formatUnixTime(item.time_dv)}`
+      ? `${t('hardware.start')} ${formatUnixTime(item.time_dv)}`
       : isLast
-        ? `Fin: ${formatUnixTime(item.time_dv)}`
+        ? `${t('hardware.end')} ${formatUnixTime(item.time_dv)}`
         : formatUnixTime(item.time_dv),
     zIndex: isFirst || isLast ? 100 : 10,
     icon: isFirst
@@ -345,11 +348,11 @@ const createPointMarker = (item: PosicionItem) => {
         <span>${formatUnixTime(item.time_dv)}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;">
-        <span style="color:#64748b;">Velocidad</span>
+        <span style="color:#64748b;">${t('hardware.speed')}</span>
         <span style="font-weight:700;color:#0f172a;">${item.speed} km/h</span>
-        <span style="color:#64748b;">Batería</span>
+        <span style="color:#64748b;">${t('hardware.battery')}</span>
         <span style="font-weight:700;color:#0f172a;">${item.battery}%</span>
-        <span style="color:#64748b;">Dirección</span>
+        <span style="color:#64748b;">${t('hardware.direction')}</span>
         <span style="font-weight:700;color:#0f172a;">${item.course}°</span>
       </div>
     </div>
@@ -457,7 +460,6 @@ const drawPositions = async () => {
           zIndex: 9999
         })
       } else {
-        // Fallback robusto con OverlayView que garantiza el montaje del contenedor 3D
         class CustomPlaybackOverlay extends google.maps.OverlayView {
           private pos: google.maps.LatLngLiteral
           private element: HTMLElement
@@ -744,7 +746,7 @@ const positionCount = computed(() => posiciones.value.length)
 
 const clusterSummaryText = computed(() => {
   if (!posiciones.value.length) return ''
-  return `${visiblePointCount.value} de ${positionCount.value} visibles`
+  return t('hardware.visibleOf', { visible: visiblePointCount.value, total: positionCount.value })
 })
 
 const batteryPercentage = ref<number | null>(null)
@@ -881,11 +883,11 @@ onUnmounted(() => {
             <HugeiconsIcon :icon="Location01Icon" :size="18" class="text-[#3b82f6] dark:text-[#5da6fc]" />
           </div>
           <div>
-            <h3 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight">{{ hardware?.nombre || 'Dispositivo' }}</h3>
+            <h3 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight">{{ hardware?.nombre || t('hardware.device') }}</h3>
             <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">{{ hardware?.serial }}</span>
           </div>
         </div>
-        <button @click="close" class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all active:scale-95">
+        <button @click="close" class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-all active:scale-95 cursor-pointer">
           <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
@@ -896,7 +898,7 @@ onUnmounted(() => {
         <div v-if="isLoadingMap" class="absolute inset-0 z-10 flex items-center justify-center bg-slate-100/80 dark:bg-[#0F1115]/80">
           <div class="flex flex-col items-center gap-3">
             <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-[#3b82f6] animate-spin" />
-            <span class="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
+            <span class="text-[12px] font-semibold text-slate-500 dark:text-slate-400">{{ t('hardware.loadingMap') }}</span>
           </div>
         </div>
 
@@ -906,14 +908,14 @@ onUnmounted(() => {
             <div class="w-48 sm:w-56 min-w-0">
               <AppDateTimePicker
                 v-model="fechaDesde"
-                placeholder="Fecha y hora inicial"
+                :placeholder="t('hardware.startDatePlaceholder')"
               />
             </div>
-            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">a</span>
+            <span class="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase">{{ t('hardware.rangeTo') }}</span>
             <div class="w-48 sm:w-56 min-w-0">
               <AppDateTimePicker
                 v-model="fechaHasta"
-                placeholder="Fecha y hora final"
+                :placeholder="t('hardware.endDatePlaceholder')"
               />
             </div>
             <button
@@ -922,26 +924,26 @@ onUnmounted(() => {
               class="inline-flex items-center gap-1.5 px-4 py-3 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[12px] font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0 cursor-pointer shadow-md shadow-[#3b82f6]/20"
             >
               <HugeiconsIcon v-if="isLoading" :icon="Loading02Icon" :size="14" class="animate-spin" />
-              <span>{{ isLoading ? 'Cargando...' : 'Consultar' }}</span>
+              <span>{{ isLoading ? t('hardware.loading') : t('hardware.btnQuery') }}</span>
             </button>
           </div>
         </div>
 
         <div v-if="positionCount > 0" class="absolute top-[82px] left-4 z-20 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 max-w-xs">
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Posiciones</span>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('hardware.positions') }}</span>
             <span class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 px-2 py-0.5 rounded-full">{{ positionCount }}</span>
             <span class="text-[10px] text-slate-400 dark:text-slate-500">({{ clusterSummaryText }})</span>
           </div>
           <div class="space-y-1.5 text-[11px]">
             <div v-if="firstPosition" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-              <span class="text-slate-500 dark:text-slate-400">Inicio:</span>
+              <span class="text-slate-500 dark:text-slate-400">{{ t('hardware.start') }}</span>
               <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(firstPosition.time_dv) }}</span>
             </div>
             <div v-if="lastPosition" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
-              <span class="text-slate-500 dark:text-slate-400">Fin:</span>
+              <span class="text-slate-500 dark:text-slate-400">{{ t('hardware.end') }}</span>
               <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(lastPosition.time_dv) }}</span>
             </div>
           </div>
@@ -950,7 +952,7 @@ onUnmounted(() => {
         <div v-if="isLoading && !isLoadingMap" class="absolute inset-0 z-10 flex items-center justify-center bg-slate-100/40 dark:bg-[#0F1115]/40">
           <div class="flex flex-col items-center gap-3 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl rounded-2xl px-6 py-4 border border-slate-200/60 dark:border-white/10 shadow-xl">
             <HugeiconsIcon :icon="Loading02Icon" :size="28" class="text-[#3b82f6] animate-spin" />
-            <span class="text-[12px] font-semibold text-slate-500 dark:text-slate-400">Cargando posiciones...</span>
+            <span class="text-[12px] font-semibold text-slate-500 dark:text-slate-400">{{ t('hardware.loadingPositions') }}</span>
           </div>
         </div>
 
@@ -959,7 +961,7 @@ onUnmounted(() => {
             <div class="flex flex-col items-center gap-1.5 px-5 py-4">
               <HugeiconsIcon :icon="batteryIcon" :size="28" :class="batteryColor" />
               <span class="text-[24px] font-bold text-white tabular-nums leading-none">{{ batteryPercentage ?? 0 }}%</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">Batería</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">{{ t('hardware.battery') }}</span>
               <div class="w-full h-1 bg-white/5 rounded-full overflow-hidden mt-1">
                 <div
                   class="h-full rounded-full transition-all duration-500"
@@ -971,7 +973,7 @@ onUnmounted(() => {
             <div class="flex flex-col items-center gap-1.5 px-5 py-4">
               <HugeiconsIcon :icon="DashboardSpeed01Icon" :size="28" :class="speedColor" />
               <span class="text-[24px] font-bold text-white tabular-nums leading-none">{{ currentSpeed ?? 0 }}</span>
-              <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">km/h</span>
+              <span class="text-[9px] font-bold uppercase tracking-widest text-slate-500">{{ t('hardware.speed') }}</span>
             </div>
           </div>
         </div>
@@ -1021,22 +1023,22 @@ onUnmounted(() => {
               <div class="flex items-center gap-2 shrink-0">
                 <button
                   @click="skipBack"
-                  class="w-7 h-7 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-                  title="Retroceder"
+                  class="w-7 h-7 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-95 cursor-pointer"
+                  :title="t('hardware.rewind')"
                 >
                   <HugeiconsIcon :icon="ArrowLeftDoubleIcon" :size="16" />
                 </button>
                 <button
                   @click="togglePlayback"
-                  class="w-11 h-11 flex items-center justify-center rounded-full bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all active:scale-95 shadow-lg shadow-[#3b82f6]/30"
-                  :title="isPlaying ? 'Pausar' : 'Reproducir'"
+                  class="w-11 h-11 flex items-center justify-center rounded-full bg-[#3b82f6] hover:bg-[#2563eb] text-white transition-all active:scale-95 shadow-lg shadow-[#3b82f6]/30 cursor-pointer"
+                  :title="isPlaying ? t('hardware.pause') : t('hardware.play')"
                 >
                   <HugeiconsIcon :icon="isPlaying ? PauseIcon : PlayIcon" :size="22" />
                 </button>
                 <button
                   @click="skipForward"
-                  class="w-7 h-7 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-                  title="Adelantar"
+                  class="w-7 h-7 flex items-center justify-center rounded-full text-white/70 hover:text-white hover:bg-white/10 transition-all active:scale-95 cursor-pointer"
+                  :title="t('hardware.forward')"
                 >
                   <HugeiconsIcon :icon="ArrowRightDoubleIcon" :size="16" />
                 </button>
@@ -1079,8 +1081,8 @@ onUnmounted(() => {
                   </div>
                   <button
                     @click="cycleSpeed"
-                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all active:scale-95"
-                    title="Velocidad de reproducción"
+                    class="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-bold text-white/60 hover:text-white hover:bg-white/10 transition-all active:scale-95 cursor-pointer"
+                    :title="t('hardware.playbackSpeed')"
                   >
                     <HugeiconsIcon :icon="FastWindIcon" :size="12" />
                     <span>{{ playbackSpeed }}x</span>

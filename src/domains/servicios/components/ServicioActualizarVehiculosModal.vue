@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Car01Icon,
@@ -23,6 +25,8 @@ import { useFormError } from '../../../composables/useFormError'
 import { servicioActualizarVehiculosSchema } from '../../../schemas/servicios.schema'
 import { useToast } from 'primevue/usetoast'
 
+loadModuleMessages('servicios')
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const toast = useToast()
 
@@ -38,7 +42,6 @@ const emit = defineEmits(['update:isOpen', 'updated'])
 // Estados de carga y guardar
 const isLoading = ref(true)
 const saving = ref(false)
-
 
 const { validate, getFirstError } = useFormValidator(servicioActualizarVehiculosSchema)
 const { getError, clearErrors } = useFormError('servicio-actualizar-vehiculos')
@@ -302,8 +305,8 @@ watch(() => props.isOpen, async (isOpen) => {
       console.error('Error al cargar datos:', error)
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: 'Error al cargar los datos del servicio.',
+        summary: t('servicios.toastError'),
+        detail: t('servicios.toastServiceLoadError'),
         life: 4000
       })
     } finally {
@@ -324,8 +327,8 @@ const handleActualizar = async () => {
       const label = getVehiculoLabel(vehiculoId)
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
-        detail: `Debe asignar hardware al vehículo entrante: ${label}`,
+        summary: t('servicios.toastValidation'),
+        detail: t('servicios.validationAssignHardwareIncoming', { label }),
         life: 4000
       })
       return
@@ -340,8 +343,8 @@ const handleActualizar = async () => {
       const label = getVehiculoLabel(vehiculoId)
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
-        detail: `El vehículo actual ${label} no puede quedarse sin hardware.`,
+        summary: t('servicios.toastValidation'),
+        detail: t('servicios.validationVehicleCannotBeWithoutHardware', { label }),
         life: 4000
       })
       return
@@ -386,7 +389,7 @@ const handleActualizar = async () => {
     if (firstErr) {
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
+        summary: t('servicios.toastValidation'),
         detail: firstErr,
         life: 4000
       })
@@ -397,8 +400,8 @@ const handleActualizar = async () => {
   if (final_ids_salen.length === 0 && Object.keys(ids_entran).length === 0) {
     toast.add({
       severity: 'warn',
-      summary: 'Sin cambios',
-      detail: 'No se detectaron cambios para actualizar.',
+      summary: t('servicios.toastNoChangesSummary'),
+      detail: t('servicios.toastNoChangesDetail'),
       life: 4000
     })
     return
@@ -414,15 +417,15 @@ const handleActualizar = async () => {
       emit('updated')
       toast.add({
         severity: 'success',
-        summary: 'Vehículos Actualizados',
-        detail: data.message || 'La flota de vehículos asignada y la distribución de sus dispositivos de hardware se guardaron correctamente.',
+        summary: t('servicios.toastVehiclesUpdatedSuccess'),
+        detail: data.message || t('servicios.toastVehiclesUpdatedDetailFull'),
         life: 4000
       })
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: data.message || 'Error al actualizar vehículos.',
+        summary: t('servicios.toastError'),
+        detail: data.message || t('servicios.toastVehiclesUpdatedDetail'),
         life: 4000
       })
     }
@@ -430,8 +433,8 @@ const handleActualizar = async () => {
     console.error('Error al actualizar vehículos:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error.message || 'Error de conexión con el servidor.',
+      summary: t('servicios.toastError'),
+      detail: error.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -450,8 +453,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleActualizar"
-    title="Actualizar Vehículos y Hardware"
-    confirm-text="Confirmar Cambios"
+    :title="t('servicios.modalTitleUpdateVehicles')"
+    :confirm-text="t('servicios.btnConfirmChanges')"
     size="xl"
     :show-footer="!isLoading"
   >
@@ -470,7 +473,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Guardando Cambios...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('servicios.savingChanges') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -503,10 +506,10 @@ const handleClose = () => {
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-blue-500"></span>
-                  Vehículos Asignados
+                  {{ t('servicios.assignedVehicles') }}
                 </span>
                 <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                  Activos: {{ vehiculosActualesIds.filter(id => !vehiculosSalenIds.includes(id)).length }}
+                  {{ t('servicios.activeCount', { count: vehiculosActualesIds.filter(id => !vehiculosSalenIds.includes(id)).length }) }}
                 </span>
               </div>
               <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
@@ -538,7 +541,7 @@ const handleClose = () => {
                       @click.stop="alternarEliminarVehiculoActual(vId)"
                       class="w-4 h-4 ml-1 flex items-center justify-center rounded transition-colors text-[10px]"
                       :class="vehiculosSalenIds.includes(vId) ? 'text-[#3b82f6] dark:text-[#60a5fa] hover:bg-[#3b82f6]/10' : vehiculoActualSeleccionadoId === vId ? 'text-white/80 hover:text-white hover:bg-white/20' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800'"
-                      :title="vehiculosSalenIds.includes(vId) ? 'Deshacer eliminación' : 'Marcar para salir'"
+                      :title="vehiculosSalenIds.includes(vId) ? t('servicios.undoRemoval') : t('servicios.markToRemove')"
                     >
                       <HugeiconsIcon v-if="vehiculosSalenIds.includes(vId)" :icon="Tick01Icon" :size="10" />
                       <span v-else>✕</span>
@@ -562,20 +565,20 @@ const handleClose = () => {
                       <span class="truncate max-w-[80px]">{{ getVehiculoLabel(vId) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">Nuevo</span>
+                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">{{ t('servicios.newBadge') }}</span>
                       <!-- Botón quitar vehículo entrante -->
                       <button
                         type="button"
                         @click.stop="alternarVehiculoNuevo(vId)"
                         class="w-4 h-4 flex items-center justify-center rounded transition-colors text-[10px]"
                         :class="vehiculoNuevoSeleccionadoId === vId ? 'text-white/80 hover:text-white hover:bg-white/20' : 'text-[#3b82f6]/60 hover:text-red-500 dark:hover:text-red-400'"
-                        title="Quitar vehículo"
+                        :title="t('servicios.removeVehicle')"
                       >✕</button>
                     </div>
                   </div>
                 </div>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-8" v-else>
-                  <span>Sin vehículos en servicio.</span>
+                  <span>{{ t('servicios.vehiclesInServiceEmpty') }}</span>
                 </div>
               </div>
             </div>
@@ -584,13 +587,13 @@ const handleClose = () => {
             <div class="flex flex-col p-4 h-[250px]">
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  Vehículos Disponibles
+                  {{ t('servicios.availableVehiclesPanelTitle') }}
                 </span>
                 <div class="relative w-40 shrink-0">
                   <input
                     v-model="filtroVehiculosDisponiblesQuery"
                     type="text"
-                    placeholder="Buscar..."
+                    :placeholder="t('servicios.searchNamePlateOrType')"
                     class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-blue-500 transition-colors"
                   />
                   <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
@@ -622,7 +625,7 @@ const handleClose = () => {
                   </div>
                 </div>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
-                  <span>{{ filtroVehiculosDisponiblesQuery ? 'Sin coincidencias.' : 'Sin vehículos disponibles.' }}</span>
+                  <span>{{ filtroVehiculosDisponiblesQuery ? t('servicios.noMatches') : t('servicios.noVehiclesFound') }}</span>
                 </div>
               </div>
             </div>
@@ -635,10 +638,10 @@ const handleClose = () => {
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Hardware de los Vehículos
+                  {{ t('servicios.vehiclesHardware') }}
                 </span>
                 <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                  Total: {{ todosLosHardwareAsignados.length }}
+                  {{ t('servicios.totalCount', { count: todosLosHardwareAsignados.length }) }}
                 </span>
               </div>
               
@@ -667,14 +670,14 @@ const handleClose = () => {
                       type="button"
                       @click.stop="removerHardwareVehiculoActual(hwItem.id_hardware)"
                       class="w-4 h-4 ml-1 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[10px]"
-                      title="Remover dispositivo"
+                      :title="t('servicios.removeDevice')"
                     >
                       ✕
                     </button>
                   </div>
                 </div>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-8" v-else>
-                  <span>Sin hardware asignado.</span>
+                  <span>{{ t('servicios.noHardwareAssignedList') }}</span>
                 </div>
               </div>
             </div>
@@ -683,13 +686,13 @@ const handleClose = () => {
             <div class="flex flex-col p-4 h-[250px]">
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  Hardware Disponible
+                  {{ t('servicios.availableHardwarePanelTitle') }}
                 </span>
                 <div class="relative w-40 shrink-0">
                   <input
                     v-model="filtroHardwareDisponibleQuery"
                     type="text"
-                    placeholder="Buscar..."
+                    :placeholder="t('servicios.searchNamePlateOrType')"
                     class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-blue-500 transition-colors"
                   />
                   <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
@@ -699,9 +702,9 @@ const handleClose = () => {
               <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                 <template v-if="vehiculoActualSeleccionadoId || vehiculoNuevoSeleccionadoId">
                   <div class="text-xs text-[#3b82f6] dark:text-[#3b82f6] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10 border border-[#3b82f6]/25 dark:border-[#3b82f6]/25 px-3 py-1 rounded-md mb-2 flex items-center justify-between gap-2 select-none shrink-0">
-                    <span class="truncate">Asignando a: <strong>{{ getVehiculoLabel(vehiculoActualSeleccionadoId || vehiculoNuevoSeleccionadoId || '') }}</strong></span>
+                    <span class="truncate">{{ t('servicios.assigningTo') }} <strong>{{ getVehiculoLabel(vehiculoActualSeleccionadoId || vehiculoNuevoSeleccionadoId || '') }}</strong></span>
                     <span class="text-[10px] uppercase font-semibold text-[#3b82f6] dark:text-[#3b82f6] shrink-0">
-                      {{ vehiculoActualSeleccionadoId ? 'Actual' : 'Nuevo' }}
+                      {{ vehiculoActualSeleccionadoId ? t('servicios.currentBadge') : t('servicios.newBadge') }}
                     </span>
                   </div>
                   <div v-if="hardwareDisponiblesFiltrados.length > 0" class="flex flex-wrap gap-2 items-start">
@@ -727,17 +730,17 @@ const handleClose = () => {
                         <span class="font-medium truncate max-w-[120px]">{{ h.nombre }}</span>
                       </div>
                       <div class="flex items-center gap-1 ml-[18px]">
-                        <span class="text-[10px] opacity-70 font-normal">{{ h.familia || 'Sin familia' }}</span>
-                        <span v-if="esHardwareOcupadoEnOtroServicio(h)" class="text-[9px] font-semibold uppercase tracking-wide opacity-60">· Ocupado</span>
+                        <span class="text-[10px] opacity-70 font-normal">{{ h.familia || t('servicios.withoutFamily') }}</span>
+                        <span v-if="esHardwareOcupadoEnOtroServicio(h)" class="text-[9px] font-semibold uppercase tracking-wide opacity-60">· {{ t('servicios.busyHardwareBadge') }}</span>
                       </div>
                     </div>
                   </div>
                   <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
-                    <span>No hay dispositivos disponibles.</span>
+                    <span>{{ t('servicios.noDevicesAvailable') }}</span>
                   </div>
                 </template>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 text-center px-6 py-10" v-else>
-                  <span>Selecciona un vehículo a la izquierda para administrar sus dispositivos.</span>
+                  <span>{{ t('servicios.selectVehicleToManage') }}</span>
                 </div>
               </div>
             </div>
@@ -748,11 +751,11 @@ const handleClose = () => {
         <!-- Resumen de Cambios en la transacción -->
         <div class="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
           <div class="flex gap-4 items-center">
-            <span>Salen: <strong class="text-blue-600 dark:text-blue-400 font-semibold">{{ vehiculosSalenIds.length }}</strong></span>
+            <span>{{ t('servicios.outgoingEscorts', { count: vehiculosSalenIds.length }) }}</span>
             <span class="w-px h-3 bg-slate-200 dark:bg-slate-800"></span>
-            <span>Entran: <strong class="text-blue-600 dark:text-blue-400 font-semibold">{{ vehiculosEntranIds.length }}</strong></span>
+            <span>{{ t('servicios.incomingEscorts', { count: vehiculosEntranIds.length }) }}</span>
           </div>
-          <span class="text-[11px] text-slate-400">Presiona confirmar para guardar los cambios</span>
+          <span class="text-[11px] text-slate-400">{{ t('servicios.pressConfirmToSave') }}</span>
         </div>
 
       </div>

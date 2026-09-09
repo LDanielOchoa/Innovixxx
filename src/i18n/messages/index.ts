@@ -34,7 +34,9 @@ export const moduleMessageLoaders: Record<string, () => Promise<any>> = {
   dashboard: () => import('./dashboard').then(m => m.dashboard),
   rutas: () => import('./rutas').then(m => m.rutasMessages),
   geocercas: () => import('./geocercas').then(m => m.geocercasMessages),
-  servicios: () => import('./servicios').then(m => m.serviciosMessages)
+  servicios: () => import('./servicios').then(m => m.serviciosMessages),
+  comandos: () => import('./comandos').then(m => m.comandosMessages),
+  tracking: () => import('./tracking').then(m => m.trackingMessages)
 }
 
 

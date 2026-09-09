@@ -93,25 +93,25 @@ const obtenerCelularEscolta = (id: string): string => {
 
 const obtenerLabelModoFin = (val: any): string => {
   const num = Number(val)
-  if (num === 1) return 'Al llegar'
-  if (num === 2) return 'Al descargar'
+  if (num === 1) return t('servicios.endModeArrival')
+  if (num === 2) return t('servicios.endModeUnload')
   return val || '---'
 }
 
 const obtenerLabelAlcance = (val: any): string => {
   const num = Number(val)
-  if (num === 1) return 'Nacional'
-  if (num === 2) return 'Departamental'
-  if (num === 3) return 'Local'
-  return val || 'ND'
+  if (num === 1) return t('servicios.scopeNational')
+  if (num === 2) return t('servicios.scopeState')
+  if (num === 3) return t('servicios.scopeLocal')
+  return val || t('servicios.riskND')
 }
 
 const obtenerLabelNivelRiesgo = (val: any): string => {
   const num = Number(val)
-  if (num === 1) return 'Bajo'
-  if (num === 2) return 'Medio'
-  if (num === 3) return 'Alto'
-  return val || 'ND'
+  if (num === 1) return t('servicios.riskLow')
+  if (num === 2) return t('servicios.riskMedium')
+  if (num === 3) return t('servicios.riskHigh')
+  return val || t('servicios.riskND')
 }
 
 const obtenerLabelEstado = (val: any): string => {
@@ -233,29 +233,29 @@ const selectEstado = (estado: number) => {
 }
 
 const getRutaLabel = (): string => {
-  if (filtros.value.id_ruta === 'all') return 'Todas las Rutas'
+  if (filtros.value.id_ruta === 'all') return t('servicios.filterAllRoutes')
   const ruta = rutas.value.find(r => r.id_ruta === filtros.value.id_ruta)
   return ruta?.nombre || '---'
 }
 
 const getEscoltaLabel = (): string => {
-  if (filtros.value.id_escolta === 'all') return 'Todos los Escoltas'
+  if (filtros.value.id_escolta === 'all') return t('servicios.filterAllEscorts')
   const escolta = escoltas.value.find(e => e.id_escolta === filtros.value.id_escolta)
   return escolta?.nombre || '---'
 }
 
 const getEstadoLabel = (): string => {
-  if (!filtros.value.estado) return 'Selecciona un estado'
-  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || 'Selecciona un estado'
+  if (!filtros.value.estado) return t('servicios.selectStatePrompt')
+  return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || t('servicios.selectStatePrompt')
 }
 
-const estadoOptions = [
-  { value: 0, label: 'Selecciona un estado' },
-  { value: 1, label: 'PRERCARGA' },
-  { value: 2, label: 'EN ESPERA' },
-  { value: 3, label: 'EJECUCION OK' },
-  { value: 4, label: 'EJECUCION FAIL' }
-]
+const estadoOptions = computed(() => [
+  { value: 0, label: t('servicios.selectStatePrompt') },
+  { value: 1, label: t('servicios.statePreload') },
+  { value: 2, label: t('servicios.stateWaiting') },
+  { value: 3, label: t('servicios.stateExecOk') },
+  { value: 4, label: t('servicios.stateExecFail') }
+])
 
 // Estado del tooltip
 const tooltipVisible = ref(false)
@@ -271,9 +271,9 @@ const tooltipIcon = computed(() => {
 })
 
 const tooltipTitulo = computed(() => {
-  if (tooltipTipo.value === 'rutas') return 'Rutas del Servicio'
-  if (tooltipTipo.value === 'vehiculos') return 'Vehículos y Hardware'
-  return 'Escoltas Asignados'
+  if (tooltipTipo.value === 'rutas') return t('servicios.tooltipRoutes')
+  if (tooltipTipo.value === 'vehiculos') return t('servicios.tooltipVehicles')
+  return t('servicios.tooltipEscorts')
 })
 
 const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos' | 'escoltas') => {
@@ -456,19 +456,19 @@ const filteredServicios = computed(() => {
 
 const exportToExcel = () => {
   const dataToExport = filteredServicios.value.map(s => ({
-    'ID Servicio': s.id_servicio,
-    'Fecha Inicio': formatDate(s.fecha_inicio),
-    'Modo Fin': obtenerLabelModoFin(s.modo_fin),
-    'Alcance': obtenerLabelAlcance(s.alcance),
-    'Nivel Riesgo': obtenerLabelNivelRiesgo(s.nivel_riesgo),
-    'Rutas': (s.rutas || []).map((rId: string) => obtenerNombreRuta(rId)).join(', '),
-    'Escoltas': (s.escoltas || []).map((eId: string) => obtenerNombreEscolta(eId)).join(', '),
-    'Estado': obtenerLabelEstado(s.estado)
+    [t('servicios.thId')]: s.id_servicio,
+    [t('servicios.thDateStart')]: formatDate(s.fecha_inicio),
+    [t('servicios.thEndMode')]: obtenerLabelModoFin(s.modo_fin),
+    [t('servicios.thScope')]: obtenerLabelAlcance(s.alcance),
+    [t('servicios.thRiskLevel')]: obtenerLabelNivelRiesgo(s.nivel_riesgo),
+    [t('servicios.filterRoute')]: (s.rutas || []).map((rId: string) => obtenerNombreRuta(rId)).join(', '),
+    [t('servicios.filterEscort')]: (s.escoltas || []).map((eId: string) => obtenerNombreEscolta(eId)).join(', '),
+    [t('servicios.thStatus')]: obtenerLabelEstado(s.estado)
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Servicios')
-  XLSX.writeFile(workbook, 'Listado_Servicios.xlsx')
+  XLSX.utils.book_append_sheet(workbook, worksheet, t('servicios.excelSheetName'))
+  XLSX.writeFile(workbook, `${t('servicios.excelFileName')}.xlsx`)
 }
 
 // Watcher de filtros para recargar automáticamente al cambiar cualquier parámetro
@@ -554,7 +554,7 @@ onUnmounted(() => {
           <button 
             @click="fetchServicios"
             :disabled="isLoading"
-            :title="t('common.reload', 'Recargar')"
+            :title="t('servicios.reload')"
             class="p-2 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 h-[38px] w-[38px] flex items-center justify-center"
           >
             <HugeiconsIcon 
@@ -570,7 +570,7 @@ onUnmounted(() => {
           <AppDateRangePicker
             v-model="fechaRango"
             label=""
-            placeholder="Rango de Fechas"
+            :placeholder="t('servicios.dateRangePlaceholder')"
             class="w-full"
           />
         </div>
@@ -600,7 +600,7 @@ onUnmounted(() => {
                 class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtros.id_ruta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Todas las Rutas</span>
+                <span>{{ t('servicios.filterAllRoutes') }}</span>
                 <svg v-if="filtros.id_ruta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -646,7 +646,7 @@ onUnmounted(() => {
                 class="w-full flex items-center px-4 py-2.5 text-left text-[13px] font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                 :class="filtros.id_escolta === 'all' ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/5 dark:bg-[#3b82f6]/10' : 'text-slate-700 dark:text-slate-300'"
               >
-                <span>Todos los Escoltas</span>
+                <span>{{ t('servicios.filterAllEscorts') }}</span>
                 <svg v-if="filtros.id_escolta === 'all'" class="w-4 h-4 ml-auto shrink-0 text-[#3b82f6] dark:text-[#5da6fc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -710,7 +710,7 @@ onUnmounted(() => {
           class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 dark:bg-rose-500/20 dark:hover:bg-rose-500/30 text-red-600 dark:text-red-400 border border-red-200/20 dark:border-rose-500/10 active:scale-95 transition-all text-xs font-bold h-[38px] cursor-pointer shadow-sm shadow-red-500/5 select-none animate-fade-in shrink-0"
         >
           <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2.5" />
-          <span>Limpiar</span>
+          <span>{{ t('servicios.btnClear') }}</span>
         </button>
       </div>
 
@@ -723,7 +723,7 @@ onUnmounted(() => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('servicios.btnExportExcel') }}</span>
         </button>
 
         <button 
@@ -747,13 +747,13 @@ onUnmounted(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="filtros.estado !== 0 ? `${t('servicios.noResults', 'No se encontraron servicios')} en estado ${getEstadoLabel()}` : 'Selecciona un estado'"
+        :empty-message="filtros.estado !== 0 ? `${t('servicios.noServicesInState')} ${getEstadoLabel()}` : t('servicios.selectStatePrompt')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <Column field="fecha_inicio" :header="t('servicios.thDateStart', 'Fecha Inicio')" sortable>
+        <Column field="fecha_inicio" :header="t('servicios.thDateStart')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-2">
               <HugeiconsIcon :icon="Calendar01Icon" :size="14" class="text-slate-400 dark:text-slate-500 shrink-0" />
@@ -764,7 +764,7 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <Column field="modo_fin" :header="t('servicios.thEndMode', 'Modo Fin')" sortable>
+        <Column field="modo_fin" :header="t('servicios.thEndMode')" sortable>
           <template #body="{ data }">
             <span class="text-[12px] text-slate-600 dark:text-slate-300 font-medium">
               {{ obtenerLabelModoFin(data.modo_fin) }}
@@ -772,10 +772,10 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <Column field="alcance" :header="t('servicios.thScope', 'Alcance')" sortable>
+        <Column field="alcance" :header="t('servicios.thScope')" sortable>
           <template #body="{ data }">
             <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
-               :class="obtenerLabelAlcance(data.alcance) === 'ND'
+               :class="obtenerLabelAlcance(data.alcance) === t('servicios.riskND')
                 ? 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-white/10'
                 : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'">
               {{ obtenerLabelAlcance(data.alcance) }}
@@ -783,7 +783,7 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <Column field="nivel_riesgo" :header="t('servicios.thRiskLevel', 'Nivel Riesgo')" sortable>
+        <Column field="nivel_riesgo" :header="t('servicios.thRiskLevel')" sortable>
           <template #body="{ data }">
             <span class="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border"
               :class="riesgoColors[obtenerLabelNivelRiesgo(data.nivel_riesgo).toUpperCase()] || riesgoColors.ND">
@@ -793,7 +793,7 @@ onUnmounted(() => {
         </Column>
 
         <!-- Columna Única de Asignaciones Consolidada -->
-        <Column :header="'Asignaciones'">
+        <Column :header="t('servicios.thAssignments')">
           <template #body="{ data }">
             <div class="flex items-center gap-2">
               <!-- Botón Rutas -->
@@ -841,7 +841,7 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <Column field="estado" :header="t('servicios.thStatus', 'Estado')" sortable>
+        <Column field="estado" :header="t('servicios.thStatus')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full shrink-0"
@@ -861,7 +861,7 @@ onUnmounted(() => {
           </template>
         </Column>
 
-        <Column :header="t('servicios.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('servicios.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -902,7 +902,7 @@ onUnmounted(() => {
                       <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
                     </div>
                   </template>
-                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin ruta asignada</div>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noRouteAssigned') }}</div>
                 </div>
 
                 <!-- Vehículos -->
@@ -919,11 +919,11 @@ onUnmounted(() => {
                             <span class="truncate font-medium">{{ obtenerNombreHardware(hwId) }}</span>
                           </div>
                         </template>
-                        <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">Sin hardware asignado</div>
+                        <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">{{ t('servicios.noHardwareAssigned') }}</div>
                       </div>
                     </div>
                   </template>
-                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin vehículos asignados</div>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noVehiclesAssigned') }}</div>
                 </div>
 
                 <!-- Escoltas -->
@@ -934,7 +934,7 @@ onUnmounted(() => {
                       <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}<span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 font-normal ml-1">({{ obtenerCelularEscolta(eId) }})</span></span>
                     </div>
                   </template>
-                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">Sin escoltas asignados</div>
+                  <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noEscortsAssigned') }}</div>
                 </div>
               </div>
             </div>
@@ -958,7 +958,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('servicios.btnAssign', 'Asignar Recursos') }}</span>
+              <span>{{ t('servicios.btnAssign') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_ROUTE)"
@@ -966,7 +966,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Route01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Cambiar Ruta</span>
+              <span>{{ t('servicios.btnChangeRoute') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_BODYGUARDS)"
@@ -974,7 +974,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="User02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Actualizar Escolta</span>
+              <span>{{ t('servicios.btnUpdateEscort') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_VEHICLES)"
@@ -982,7 +982,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Actualizar Vehículos</span>
+              <span>{{ t('servicios.btnUpdateVehicles') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_HISTORY)"
@@ -990,7 +990,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Ver Historial</span>
+              <span>{{ t('servicios.btnHistory') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ALERT_HISTORIAL)"
@@ -998,7 +998,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Alert01Icon" :size="16" class="text-rose-500 dark:text-rose-400" />
-              <span>Historial de alarmas</span>
+              <span>{{ t('servicios.btnAlarmHistory') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_STATUS)"
@@ -1006,7 +1006,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Cambiar Estado</span>
+              <span>{{ t('servicios.btnChangeStatus') }}</span>
             </button>
           </div>
         </Transition>

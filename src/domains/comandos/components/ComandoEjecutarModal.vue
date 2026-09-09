@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   PlayIcon,
@@ -21,6 +22,8 @@ import AppModal from '../../../components/ui/AppModal.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
@@ -81,7 +84,7 @@ const nombreFamiliaComando = computed(() => {
   if (!props.comando?.id_familia) return ''
   const idTarget = Number(props.comando.id_familia)
   const encontrada = familias.value.find((f) => Number(f.id_familia) === idTarget)
-  return encontrada ? encontrada.nombre : `Familia ${props.comando.id_familia}`
+  return encontrada ? encontrada.nombre : `${t('comandos.familyPrefix')} ${props.comando.id_familia}`
 })
 
 // Filtrar dispositivos de hardware exclusivos de la familia del comando
@@ -110,7 +113,7 @@ const opcionesHardware = computed(() => {
     const textoBateria = hw.bateria !== undefined && hw.bateria !== null && hw.bateria !== '' ? ` (${hw.bateria}%)` : ''
     return {
       value: hw.id_hardware,
-      label: `${hw.nombre} — ${hw.familia || nombreFamiliaComando.value || 'Sin familia'}${textoBateria}${hw.estado ? ` [${hw.estado}]` : ''}`
+      label: `${hw.nombre} — ${hw.familia || nombreFamiliaComando.value || t('comandos.noFamily')}${textoBateria}${hw.estado ? ` [${hw.estado}]` : ''}`
     }
   })
 })
@@ -142,21 +145,21 @@ const mostrarMensaje = (text: string, type: 'success' | 'error' | 'warning' = 'e
 
 const handleEjecutar = async () => {
   if (!groupStore.selectedGroup?.id) {
-    mostrarMensaje('No hay un grupo seleccionado', 'error')
+    mostrarMensaje(t('comandos.noGroupSelected'), 'error')
     return
   }
   if (!props.comando) {
-    mostrarMensaje('No se ha seleccionado un comando', 'error')
+    mostrarMensaje(t('comandos.noCommandSelected'), 'error')
     return
   }
   if (!selectedHardware.value) {
-    mostrarMensaje('Debes seleccionar un dispositivo de hardware', 'warning')
+    mostrarMensaje(t('comandos.noHardwareSelected'), 'warning')
     return
   }
 
   const idComando = props.comando.id_comando || props.comando.mask
   if (!idComando) {
-    mostrarMensaje('El comando no tiene un identificador válido', 'error')
+    mostrarMensaje(t('comandos.invalidCommandId'), 'error')
     return
   }
 
@@ -173,20 +176,20 @@ const handleEjecutar = async () => {
     if (respuesta.done) {
       toast.add({
         severity: 'success',
-        summary: 'Comando ejecutado',
-        detail: respuesta.message || 'El comando se ha enviado correctamente',
+        summary: t('comandos.alertSuccessExecuteTitle'),
+        detail: respuesta.message || t('comandos.alertSuccessExecuteDetail'),
         life: 3000
       })
       emit('executed')
       emit('update:isOpen', false)
     } else {
-      mostrarMensaje(respuesta.message || 'No fue posible ejecutar el comando', 'error')
+      mostrarMensaje(respuesta.message || t('comandos.alertErrorExecute'), 'error')
     }
   } catch (error) {
     if (error instanceof ApiError) {
       mostrarMensaje(getErrorMessage(error.code), 'error')
     } else {
-      mostrarMensaje('Error de conexión al ejecutar el comando', 'error')
+      mostrarMensaje(t('comandos.alertNetErrorExecute'), 'error')
     }
   } finally {
     ejecutando.value = false
@@ -200,7 +203,7 @@ const handleEjecutar = async () => {
     @update:is-open="$emit('update:isOpen', $event)"
     @close="$emit('update:isOpen', false)"
     :close-on-click-outside="!ejecutando"
-    title="Ejecutar Comando"
+    :title="t('comandos.executeModalTitle')"
     size="lg"
     :show-footer="false"
   >
@@ -220,7 +223,7 @@ const handleEjecutar = async () => {
           </div>
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-1">
-              Enviando Comando...
+              {{ t('comandos.sendingCommand') }}
             </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -255,14 +258,14 @@ const handleEjecutar = async () => {
         <!-- Info del comando a ejecutar -->
         <div v-if="comando" class="p-4 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06]">
           <div class="flex items-center justify-between gap-2 mb-2">
-            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Comando a ejecutar</span>
+            <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">{{ t('comandos.commandToExecute') }}</span>
             <span v-if="nombreFamiliaComando" class="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
-              Familia: {{ nombreFamiliaComando }}
+              {{ t('comandos.familyLabel', { name: nombreFamiliaComando }) }}
             </span>
           </div>
-          <div class="text-[14px] font-bold text-slate-800 dark:text-white">{{ comando.nombre || 'Sin nombre' }}</div>
+          <div class="text-[14px] font-bold text-slate-800 dark:text-white">{{ comando.nombre || t('comandos.noName') }}</div>
           <div class="mt-1 font-mono text-[12px] text-slate-500 dark:text-slate-400 bg-black/5 dark:bg-black/20 px-2 py-1 rounded-lg inline-block">
-            {{ comando.texto || 'Sin texto' }}
+            {{ comando.texto || t('comandos.noCommandText') }}
           </div>
         </div>
 
@@ -270,8 +273,8 @@ const handleEjecutar = async () => {
         <div class="space-y-2">
           <AppSelect
             v-model="selectedHardware"
-            label="Dispositivo de Hardware"
-            :placeholder="hardwaresFiltrados.length === 0 && !loadingHardware ? 'No hay dispositivos para esta familia' : 'Selecciona el dispositivo...'"
+            :label="t('comandos.labelHardware')"
+            :placeholder="hardwaresFiltrados.length === 0 && !loadingHardware ? t('comandos.noDevicesForFamily') : t('comandos.placeholderHardware')"
             :options="opcionesHardware"
             :icon="CpuIcon"
             :disabled="loadingHardware || ejecutando || hardwaresFiltrados.length === 0"
@@ -280,13 +283,13 @@ const handleEjecutar = async () => {
           <!-- Spinner de carga de hardware -->
           <div v-if="loadingHardware" class="flex items-center gap-2 text-xs text-slate-400">
             <HugeiconsIcon :icon="Loading03Icon" :size="14" class="animate-spin" />
-            <span>Cargando dispositivos...</span>
+            <span>{{ t('comandos.loadingDevices') }}</span>
           </div>
 
           <!-- Mensaje cuando no hay dispositivos de la familia del comando -->
           <div v-else-if="hardwaresFiltrados.length === 0" class="flex items-center gap-2 text-xs text-amber-500/90 font-medium px-1 pt-1">
             <HugeiconsIcon :icon="Alert01Icon" :size="14" class="shrink-0" />
-            <span>No se encontraron dispositivos de hardware de la familia <strong>{{ nombreFamiliaComando || 'seleccionada' }}</strong>.</span>
+            <span>{{ t('comandos.noDevicesFoundWarning', { name: nombreFamiliaComando || t('comandos.noFamily') }) }}</span>
           </div>
 
           <!-- Info del hardware seleccionado -->
@@ -304,7 +307,7 @@ const handleEjecutar = async () => {
                     {{ hardwareSeleccionado.nombre }}
                   </div>
                   <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    <span>Familia: <strong class="font-semibold text-slate-700 dark:text-slate-300">{{ hardwareSeleccionado.familia || 'N/A' }}</strong></span>
+                    <span>{{ t('comandos.familyPrefix') }}: <strong class="font-semibold text-slate-700 dark:text-slate-300">{{ hardwareSeleccionado.familia || 'N/A' }}</strong></span>
                     <template v-if="hardwareSeleccionado.bateria !== undefined && hardwareSeleccionado.bateria !== null && hardwareSeleccionado.bateria !== ''">
                       <span>·</span>
                       <span class="inline-flex items-center gap-1 font-semibold" :class="getBatteryClass(hardwareSeleccionado.bateria)">
@@ -313,7 +316,7 @@ const handleEjecutar = async () => {
                       </span>
                     </template>
                     <span>·</span>
-                    <span>Estado: <strong class="font-semibold" :class="hardwareSeleccionado.estado === 'DISPONIBLE' ? 'text-emerald-500' : 'text-amber-500'">{{ hardwareSeleccionado.estado }}</strong></span>
+                    <span>{{ t('comandos.status') }} <strong class="font-semibold" :class="hardwareSeleccionado.estado === 'DISPONIBLE' ? 'text-emerald-500' : 'text-amber-500'">{{ hardwareSeleccionado.estado }}</strong></span>
                   </div>
                 </div>
               </div>
@@ -329,7 +332,7 @@ const handleEjecutar = async () => {
             @click="$emit('update:isOpen', false)"
             class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Cancelar
+            {{ t('common.cancel') }}
           </button>
 
           <button
@@ -340,7 +343,7 @@ const handleEjecutar = async () => {
           >
             <HugeiconsIcon v-if="ejecutando" :icon="Loading03Icon" :size="16" class="animate-spin" />
             <HugeiconsIcon v-else :icon="PlayIcon" :size="16" />
-            <span>{{ ejecutando ? 'Ejecutando...' : 'Ejecutar Comando' }}</span>
+            <span>{{ ejecutando ? t('comandos.executing') : t('comandos.btnExecute') }}</span>
           </button>
         </div>
       </div>

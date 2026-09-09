@@ -28,6 +28,7 @@ import { useAuthStore } from '../../stores/auth.store'
 import { apiClient } from '../../utils/api-client'
 import { CookieAuth } from '../../utils/cookie-auth'
 import { obtenerUrlImagen } from '../../utils/imagenes'
+import { loadModuleMessages } from '../../i18n'
 
 // Components
 import BaseModal from '../common/BaseModal.vue'
@@ -60,6 +61,9 @@ const emit = defineEmits<{
 // ==========================================
 // STORES & TRANSLATIONS
 // ==========================================
+loadModuleMessages('sidebar')
+loadModuleMessages('users')
+
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -100,6 +104,8 @@ const fotoMostrada = computed(() => {
 // ==========================================
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    loadModuleMessages('sidebar')
+    loadModuleMessages('users')
     isInitializing.value = true
     profileForm.nombre = props.userData.nombre || ''
     profileForm.email = props.userData.email || ''
@@ -339,7 +345,7 @@ const handleSaveProfile = async () => {
             <h2 class="text-2xl font-black text-slate-800 dark:text-white tracking-tight break-words max-w-full px-2">{{ userData.nombre || t('sidebar.unidentifiedOperator') }}</h2>
             <div class="flex items-center justify-center gap-2 text-slate-400 dark:text-slate-500 mt-1">
               <HugeiconsIcon :icon="Mail01Icon" :size="14" />
-              <span class="text-xs font-bold break-all max-w-[200px]">{{ userData.email || 'No email' }}</span>
+              <span class="text-xs font-bold break-all max-w-[200px]">{{ userData.email || t('sidebar.none') }}</span>
             </div>
           </div>
           
@@ -461,7 +467,7 @@ const handleSaveProfile = async () => {
         <button 
           @click="rotate(-90)"
           class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
-          title="Rotar a la izquierda"
+          :title="t('sidebar.rotateLeft')"
           type="button"
         >
           <HugeiconsIcon :icon="RotateLeft01Icon" :size="20" />
@@ -469,7 +475,7 @@ const handleSaveProfile = async () => {
         <button 
           @click="rotate(90)"
           class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
-          title="Rotar a la derecha"
+          :title="t('sidebar.rotateRight')"
           type="button"
         >
           <HugeiconsIcon :icon="RotateRight01Icon" :size="20" />
@@ -480,7 +486,7 @@ const handleSaveProfile = async () => {
     <div class="mt-4 flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
       <HugeiconsIcon :icon="Alert01Icon" :size="18" class="text-[#3b82f6]" />
       <p class="text-[12px] font-bold text-slate-600 dark:text-slate-400">
-        {{ t('sidebar.adjustImageInfo', 'Ajusta el círculo para centrar tu foto. Solo lo que esté dentro del círculo será visible.') }}
+        {{ t('sidebar.adjustImageInfo') }}
       </p>
     </div>
   </BaseModal>

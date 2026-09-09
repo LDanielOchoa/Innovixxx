@@ -9,6 +9,8 @@ import {
   Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import {
   actualizarEscoltasApi
 } from '../services/servicios.api'
@@ -21,6 +23,8 @@ import { useFormError } from '../../../composables/useFormError'
 import { servicioActualizarEscoltaSchema } from '../../../schemas/servicios.schema'
 import { useToast } from 'primevue/usetoast'
 
+loadModuleMessages('servicios')
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const toast = useToast()
 
@@ -112,8 +116,8 @@ watch(() => props.isOpen, async (isOpen) => {
       console.error('Error al inicializar datos:', error)
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: 'Error al cargar los datos del servicio.',
+        summary: t('servicios.toastError'),
+        detail: t('servicios.toastServiceLoadError'),
         life: 4000
       })
     } finally {
@@ -138,7 +142,7 @@ const handleActualizar = async () => {
     if (firstErr) {
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
+        summary: t('servicios.toastValidation'),
         detail: firstErr,
         life: 4000
       })
@@ -149,8 +153,8 @@ const handleActualizar = async () => {
   if (escoltasSalenIds.value.length === 0 && escoltasEntranIds.value.length === 0) {
     toast.add({
       severity: 'warn',
-      summary: 'Sin cambios',
-      detail: 'No se detectaron cambios para actualizar.',
+      summary: t('servicios.toastNoChangesSummary'),
+      detail: t('servicios.toastNoChangesDetail'),
       life: 4000
     })
     return
@@ -166,15 +170,15 @@ const handleActualizar = async () => {
       emit('updated')
       toast.add({
         severity: 'success',
-        summary: 'Escoltas Actualizados',
-        detail: data.message || 'Los escoltas asignados al servicio se actualizaron exitosamente.',
+        summary: t('servicios.toastEscortsUpdatedSuccess'),
+        detail: data.message || t('servicios.toastEscortsUpdatedDetail'),
         life: 4000
       })
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: data.message || 'Error al actualizar escoltas.',
+        summary: t('servicios.toastError'),
+        detail: data.message || t('servicios.toastConnectionError'),
         life: 4000
       })
     }
@@ -182,8 +186,8 @@ const handleActualizar = async () => {
     console.error('Error en actualizarEscoltasApi:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error.message || 'Error de conexión con el servidor.',
+      summary: t('servicios.toastError'),
+      detail: error.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -202,8 +206,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleActualizar"
-    title="Actualizar Escoltas"
-    confirm-text="Confirmar Cambios"
+    :title="t('servicios.modalTitleUpdateEscorts')"
+    :confirm-text="t('servicios.btnConfirmChanges')"
     size="xl"
     :show-footer="!isLoading"
   >
@@ -221,7 +225,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Guardando Cambios...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('servicios.savingChanges') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -251,10 +255,10 @@ const handleClose = () => {
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-[#3b82f6]"></span>
-                  Escoltas Asignados
+                  {{ t('servicios.assignedEscorts') }}
                 </span>
                 <span class="text-[11px] font-medium text-slate-500 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded-md">
-                  Activos: {{ escoltasActualesIds.filter(id => !escoltasSalenIds.includes(id)).length }}
+                  {{ t('servicios.activeCount', { count: escoltasActualesIds.filter(id => !escoltasSalenIds.includes(id)).length }) }}
                 </span>
               </div>
               
@@ -283,7 +287,7 @@ const handleClose = () => {
                       @click.stop="alternarSalidaEscolta(eId)"
                       class="w-4 h-4 ml-1 flex items-center justify-center rounded transition-colors text-[10px]"
                       :class="escoltasSalenIds.includes(eId) ? 'text-[#3b82f6] dark:text-[#60a5fa] hover:bg-[#3b82f6]/10' : 'text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800'"
-                      :title="escoltasSalenIds.includes(eId) ? 'Deshacer eliminación' : 'Marcar para salir'"
+                      :title="escoltasSalenIds.includes(eId) ? t('servicios.undoRemoval') : t('servicios.markToRemove')"
                     >
                       <HugeiconsIcon v-if="escoltasSalenIds.includes(eId)" :icon="Tick01Icon" :size="10" />
                       <span v-else>✕</span>
@@ -302,18 +306,18 @@ const handleClose = () => {
                       <span class="truncate max-w-[90px]">{{ getEscoltaLabel(eId) }}</span>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0">
-                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">Nuevo</span>
+                      <span class="text-[9px] font-semibold uppercase tracking-wide opacity-60">{{ t('servicios.newEscortBadge') }}</span>
                       <button
                         type="button"
                         @click.stop="alternarEntradaEscolta(eId)"
                         class="w-4 h-4 flex items-center justify-center rounded transition-colors text-[10px] text-[#3b82f6]/60 hover:text-red-500 dark:hover:text-red-400"
-                        title="Quitar escolta"
+                        :title="t('servicios.undoSelection')"
                       >✕</button>
                     </div>
                   </div>
                 </div>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
-                  <span>Sin escoltas en servicio.</span>
+                  <span>{{ t('servicios.noEscortsInService') }}</span>
                 </div>
               </div>
             </div>
@@ -322,13 +326,13 @@ const handleClose = () => {
             <div class="flex flex-col p-4 h-[320px]">
               <div class="flex justify-between items-center mb-3 shrink-0">
                 <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                  Escoltas Disponibles
+                  {{ t('servicios.availableEscorts') }}
                 </span>
                 <div class="relative w-40 shrink-0">
                   <input
                     v-model="searchEscoltasQuery"
                     type="text"
-                    placeholder="Buscar..."
+                    :placeholder="t('servicios.filterSearchEscort')"
                     class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-[#3b82f6] transition-colors"
                   />
                   <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
@@ -356,7 +360,7 @@ const handleClose = () => {
                   </div>
                 </div>
                 <div class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10" v-else>
-                  <span>{{ searchEscoltasQuery ? 'Sin coincidencias.' : 'Sin escoltas disponibles.' }}</span>
+                  <span>{{ searchEscoltasQuery ? t('servicios.noMatches') : t('servicios.noAvailableEscorts') }}</span>
                 </div>
               </div>
             </div>
@@ -366,11 +370,11 @@ const handleClose = () => {
           <!-- Resumen de Cambios -->
           <div class="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
             <div class="flex gap-4 items-center">
-              <span>Salen: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ escoltasSalenIds.length }}</strong></span>
+              <span>{{ t('servicios.outgoingEscorts', { count: escoltasSalenIds.length }) }}</span>
               <span class="w-px h-3 bg-slate-200 dark:bg-slate-800"></span>
-              <span>Entran: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ escoltasEntranIds.length }}</strong></span>
+              <span>{{ t('servicios.incomingEscorts', { count: escoltasEntranIds.length }) }}</span>
             </div>
-            <span class="text-[11px] text-slate-400">Presiona confirmar para guardar los cambios</span>
+            <span class="text-[11px] text-slate-400">{{ t('servicios.routeChangeSummary') }}</span>
           </div>
 
         </div>

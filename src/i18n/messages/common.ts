@@ -12,6 +12,8 @@ export const commonMessages = {
     save: 'Guardar',
     cancel: 'Cancelar',
     delete: 'Eliminar',
+    edit: 'Editar',
+    reload: 'Recargar',
     confirmDeleteTitle: 'Confirmar Eliminación',
     confirmDeleteMsg: '¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.',
     btnExport: "Exportar Excel",
@@ -25,7 +27,8 @@ export const commonMessages = {
     error: 'Error',
     errorNetwork: 'Error de red',
     back: 'Volver',
-    apply: 'Aplicar'
+    apply: 'Aplicar',
+    copied: 'Copiado'
   },
   en: {
     es: 'ES',
@@ -40,6 +43,8 @@ export const commonMessages = {
     save: 'Save',
     cancel: 'Cancel',
     delete: 'Delete',
+    edit: 'Edit',
+    reload: 'Reload',
     confirmDeleteTitle: 'Confirm Deletion',
     confirmDeleteMsg: 'Are you sure you want to delete this record? This action cannot be undone.',
     btnExport: "Export Excel",
@@ -53,6 +58,7 @@ export const commonMessages = {
     error: 'Error',
     errorNetwork: 'Network error',
     back: 'Back',
-    apply: 'Apply'
+    apply: 'Apply',
+    copied: 'Copied'
   }
 }

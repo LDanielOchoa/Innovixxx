@@ -65,7 +65,8 @@ const formData = ref({
   id_familia: '' as string | number,
   numero_sms: '',
   id_binario: '',
-  clave_open: ''
+  clave_open: '',
+  isdn: ''
 })
 
 // Panel flotante para familia
@@ -201,7 +202,8 @@ watch(() => props.isOpen, async (isOpen) => {
       id_familia: '',
       numero_sms: '',
       id_binario: '',
-      clave_open: ''
+      clave_open: '',
+      isdn: ''
     }
 
     if (props.editItem) {
@@ -214,7 +216,8 @@ watch(() => props.isOpen, async (isOpen) => {
         id_familia: props.editItem.id_familia || '',
         numero_sms: props.editItem.numero_sms || '',
         id_binario: props.editItem.id_binario || '',
-        clave_open: props.editItem.clave_open || ''
+        clave_open: props.editItem.clave_open || '',
+        isdn: props.editItem.isdn !== null && props.editItem.isdn !== undefined ? String(props.editItem.isdn) : ''
       }
     }
 
@@ -247,7 +250,7 @@ const handleSave = async () => {
   modalMessage.value = null
 
   if (!groupStore.selectedGroup?.id) {
-    showMessage(t('common.errorRequiredFields') || 'Seleccione un grupo válido', 'error')
+    showMessage(t('hardware.alertSelectValidGroup'), 'error')
     return
   }
 
@@ -265,7 +268,8 @@ const handleSave = async () => {
     id_ruta: isEditMode.value ? '' : 0,
     numero_sms: formData.value.numero_sms || '',
     id_binario: formData.value.id_binario || '',
-    clave_open: formData.value.clave_open || ''
+    clave_open: formData.value.clave_open || '',
+    isdn: formData.value.isdn || ''
   }
 
   if (isEditMode.value && props.editItem) {
@@ -275,7 +279,7 @@ const handleSave = async () => {
   if (!validate(payload, 'hardware-form')) {
     saving.value = false
     showMessage(
-      getFirstError('hardware-form') || t('common.errorRequiredFields') || 'Por favor complete todos los campos obligatorios.',
+      getFirstError('hardware-form') || t('common.errorRequiredFields'),
       'error'
     )
     return
@@ -284,7 +288,7 @@ const handleSave = async () => {
   try {
     if (isEditMode.value && props.editItem) {
       if (!authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)) {
-        showMessage(t('hardware.alertErrorUpdate') || 'No tienes permiso para editar hardware', 'error')
+        showMessage(t('hardware.alertNoPermissionEdit'), 'error')
         saving.value = false
         return
       }
@@ -292,18 +296,18 @@ const handleSave = async () => {
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('hardware.alertSuccessUpdateTitle', 'Dispositivo Actualizado'),
-          detail: data.message || t('hardware.alertSuccessUpdateDetail', 'El dispositivo de hardware ha sido modificado exitosamente.'),
+          summary: t('hardware.alertSuccessUpdateTitle'),
+          detail: data.message || t('hardware.alertSuccessUpdateDetail'),
           life: 4000
         })
         emit('saved')
         handleClose()
       } else {
-        showMessage(data.message || t('hardware.alertErrorUpdate') || 'Error al actualizar', 'error')
+        showMessage(data.message || t('hardware.alertErrorUpdate'), 'error')
       }
     } else {
       if (!authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)) {
-        showMessage(t('hardware.alertErrorCreate') || 'No tienes permiso para crear hardware', 'error')
+        showMessage(t('hardware.alertNoPermissionCreate'), 'error')
         saving.value = false
         return
       }
@@ -311,8 +315,8 @@ const handleSave = async () => {
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('hardware.alertSuccessCreateTitle', 'Dispositivo Registrado'),
-          detail: data.message || t('hardware.alertSuccessCreateDetail', 'El dispositivo de hardware ha sido registrado exitosamente.'),
+          summary: t('hardware.alertSuccessCreateTitle'),
+          detail: data.message || t('hardware.alertSuccessCreateDetail'),
           life: 4000
         })
         emit('saved')
@@ -325,12 +329,13 @@ const handleSave = async () => {
           id_familia: '',
           numero_sms: '',
           id_binario: '',
-          clave_open: ''
+          clave_open: '',
+          isdn: ''
         }
         resetErrors('hardware-form')
         clearErrors()
       } else {
-        showMessage(data.message || t('hardware.alertErrorCreate') || 'Error al crear', 'error')
+        showMessage(data.message || t('hardware.alertErrorCreate'), 'error')
       }
     }
   } catch (error: any) {
@@ -345,7 +350,7 @@ const handleSave = async () => {
       }
       showMessage(msg, 'error')
     } else {
-      showMessage(error.message || t('hardware.alertNetError') || 'Error de conexión', 'error')
+      showMessage(error.message || t('hardware.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -365,8 +370,8 @@ const handleClose = () => {
     @close="handleClose"
     @confirm="handleSave"
     :close-on-click-outside="!saving"
-    :title="isEditMode ? t('hardware.modalTitleEdit', 'Actualizar Dispositivo') : t('hardware.modalTitleCreate', 'Nuevo Dispositivo')"
-    :confirm-text="isEditMode ? t('hardware.btnSave', 'Guardar Cambios') : t('hardware.btnRegister', 'Crear Hardware')"
+    :title="isEditMode ? t('hardware.modalTitleEdit') : t('hardware.modalTitleCreate')"
+    :confirm-text="isEditMode ? t('hardware.btnSave') : t('hardware.btnRegister')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -401,7 +406,7 @@ const handleClose = () => {
           </div>
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-              {{ isEditMode ? 'Actualizando...' : 'Guardando...' }}
+              {{ isEditMode ? t('hardware.updating') : t('hardware.saving') }}
             </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -431,15 +436,15 @@ const handleClose = () => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AppInput
             v-model="formData.nombre"
-            :label="t('hardware.labelName', 'Nombre (Alias)')"
-            :placeholder="t('hardware.placeholderName', 'Ej: gps gl800 3')"
+            :label="t('hardware.labelName')"
+            :placeholder="t('hardware.placeholderName')"
             :icon="Tag01Icon"
             :disabled="saving"
           />
           <AppInput
             v-model="formData.descripcion"
-            :label="t('hardware.labelDescription', 'Descripción')"
-            :placeholder="t('hardware.placeholderDescription', 'Ej: 10000 mah')"
+            :label="t('hardware.labelDescription')"
+            :placeholder="t('hardware.placeholderDescription')"
             :icon="Tag01Icon"
             :disabled="saving"
           />
@@ -451,7 +456,7 @@ const handleClose = () => {
             class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 transition-colors duration-300"
             :class="panelActivo ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
           >
-            {{ t('hardware.labelFamily', 'Familia Receptora') }}
+            {{ t('hardware.labelFamily') }}
           </label>
           <button
             ref="btnFamilia"
@@ -467,7 +472,7 @@ const handleClose = () => {
             <div class="relative z-10 flex items-center gap-3">
               <HugeiconsIcon :icon="CpuIcon" :size="16" :stroke-width="1.8" class="text-slate-400" />
               <span class="text-sm font-semibold" :class="formData.id_familia ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                {{ formData.id_familia ? getFamiliaLabel(formData.id_familia) : (loadingFamilias ? 'Cargando...' : t('hardware.placeholderFamily', 'Seleccione familia...')) }}
+                {{ formData.id_familia ? getFamiliaLabel(formData.id_familia) : (loadingFamilias ? t('hardware.loading') : t('hardware.placeholderFamily')) }}
               </span>
             </div>
             <HugeiconsIcon :icon="ArrowDown01Icon" :size="18" :stroke-width="2" class="relative z-10 text-slate-400 flex-shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo }" />
@@ -479,22 +484,22 @@ const handleClose = () => {
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <AppInput
               v-model="formData.serial"
-              :label="t('hardware.labelSerial', 'Serial')"
-              :placeholder="t('hardware.placeholderSerial', 'B123RZZR')"
+              :label="t('hardware.labelSerial')"
+              :placeholder="t('hardware.placeholderSerial')"
               :icon="TextNumberSignIcon"
               :disabled="saving"
             />
             <AppInput
               v-model="formData.imei"
-              :label="t('hardware.labelImei', 'IMEI')"
-              :placeholder="t('hardware.placeholderImei', '1234567...')"
+              :label="t('hardware.labelImei')"
+              :placeholder="t('hardware.placeholderImei')"
               :icon="TextNumberSignIcon"
               :disabled="saving"
             />
             <AppInput
               v-model="formData.mac"
-              :label="t('hardware.labelMac', 'MAC')"
-              :placeholder="t('hardware.placeholderMac', 'sw:ki:pl...')"
+              :label="t('hardware.labelMac')"
+              :placeholder="t('hardware.placeholderMac')"
               :icon="TextNumberSignIcon"
               :disabled="saving"
             />
@@ -502,27 +507,34 @@ const handleClose = () => {
         </div>
 
         <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
-          <div class="grid grid-cols-1 gap-4" :class="isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3'">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AppInput
               v-model="formData.numero_sms"
-              label="Número SMS"
-              placeholder="Ej: 9103166133"
+              :label="t('hardware.labelSmsNumber')"
+              :placeholder="t('hardware.placeholderSmsNumber')"
               :icon="SmartPhone01Icon"
+              :disabled="saving"
+            />
+            <AppInput
+              v-model="formData.clave_open"
+              :label="t('hardware.labelOpenKey')"
+              :placeholder="t('hardware.placeholderOpenKey')"
+              :icon="LockIcon"
+              :disabled="saving"
+            />
+            <AppInput
+              v-model="formData.isdn"
+              :label="t('hardware.labelIsdn')"
+              :placeholder="t('hardware.placeholderIsdn')"
+              :icon="TextNumberSignIcon"
               :disabled="saving"
             />
             <AppInput
               v-if="!isEditMode"
               v-model="formData.id_binario"
-              label="ID Binario"
-              placeholder="Ej: 2512001917"
+              :label="t('hardware.labelBinaryId')"
+              :placeholder="t('hardware.placeholderBinaryId')"
               :icon="CpuIcon"
-              :disabled="saving"
-            />
-            <AppInput
-              v-model="formData.clave_open"
-              label="Clave Open"
-              placeholder="Ej: 888888"
-              :icon="LockIcon"
               :disabled="saving"
             />
           </div>
@@ -536,25 +548,25 @@ const handleClose = () => {
           type="button"
           @click="handleClose"
           :disabled="saving"
-          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
-          Cancelar
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
           @click="handleSave"
           :disabled="saving"
-          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-80 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+          class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-80 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none cursor-pointer"
         >
           <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
           <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
-          {{ saving ? (isEditMode ? 'Guardando cambios...' : 'Registrando dispositivo...') : (isEditMode ? t('hardware.btnSave', 'Guardar Cambios') : t('hardware.btnRegister', 'Crear Hardware')) }}
+          {{ saving ? (isEditMode ? t('hardware.savingChanges') : t('hardware.registeringDevice')) : (isEditMode ? t('hardware.btnSave') : t('hardware.btnRegister')) }}
         </button>
       </div>
     </template>
   </AppModal>
 
-  <!-- PANEL FLOTANTE DE FAMILIA (SIEMPRE A LA DERECHA) -->
+  <!-- PANEL FLOTANTE DE FAMILIA -->
   <Teleport to="body">
     <Transition name="panel-flotante-derecha">
       <div
@@ -576,10 +588,10 @@ const handleClose = () => {
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ t('hardware.panelFamiliasTitle') || 'Familias disponibles' }}
+                {{ t('hardware.panelFamiliasTitle') }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
-                {{ filteredFamilias.length }} {{ t('hardware.panelFamiliasCount') || 'familias' }}
+                {{ filteredFamilias.length }} {{ t('hardware.panelFamiliasCount') }}
               </p>
             </div>
           </div>
@@ -594,7 +606,7 @@ const handleClose = () => {
             <input
               v-model="searchFamiliaQuery"
               type="text"
-              :placeholder="t('common.search') || 'Buscar familia...'"
+              :placeholder="t('hardware.searchFamilyPlaceholder')"
               class="panel-search-input"
               @click.stop
             />
@@ -631,14 +643,14 @@ const handleClose = () => {
           </button>
           <div v-if="filteredFamilias.length === 0" class="panel-empty">
             <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-30 mb-2" />
-            <span>{{ searchFamiliaQuery ? 'No se encontraron familias.' : 'Sin familias disponibles' }}</span>
+            <span>{{ searchFamiliaQuery ? t('hardware.noFamiliesFound') : t('hardware.noFamiliesAvailable') }}</span>
           </div>
         </div>
 
         <div class="px-4 py-3.5 shrink-0 panel-footer">
           <button type="button" @click="cerrarPanel" class="panel-confirm-btn cursor-pointer">
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
-            {{ t('hardware.panelConfirmFamilia') || 'Confirmar Familia' }}
+            {{ t('hardware.panelConfirmFamilia') }}
           </button>
         </div>
       </div>
@@ -856,21 +868,6 @@ const handleClose = () => {
 .panel-flotante-derecha-leave-to {
   opacity: 0;
   transform: translateX(10px);
-}
-
-.panel-modal-pop-enter-active,
-.panel-modal-pop-leave-active {
-  transition:
-    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.panel-modal-pop-enter-from {
-  opacity: 0;
-  transform: translate(-50%, -46%) scale(0.95);
-}
-.panel-modal-pop-leave-to {
-  opacity: 0;
-  transform: translate(-50%, -48%) scale(0.97);
 }
 
 .custom-scrollbar::-webkit-scrollbar {

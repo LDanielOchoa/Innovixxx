@@ -16,6 +16,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { createVehiculoServicioApi, updateVehiculoServicioApi } from '../services/vehiculos-servicio.api'
 import { createVehiculoServicioSchema, updateVehiculoServicioSchema } from '../../../schemas/vehiculos-servicio.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
@@ -26,6 +27,8 @@ import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
 import type { VehiculoServicio } from '../types/vehiculo-servicio'
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
+
+loadModuleMessages('vehiculosServicio')
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -50,18 +53,18 @@ const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' }
 const isTypeDropdownOpen = ref(false)
 const typeDropdownRef = ref<HTMLElement | null>(null)
 
-const tipoOptions = [
-  { value: 1, label: 'Carro' },
-  { value: 2, label: 'Motocicleta' }
-]
+const tipoOptions = computed(() => [
+  { value: 1, label: t('vehiculosServicio.typeCar') },
+  { value: 2, label: t('vehiculosServicio.typeMotorcycle') }
+])
 
 const currentTipoLabel = computed(() => {
   const typeVal = Number(formData.tipo)
-  if (!typeVal) return t('vehiculosServicio.placeholderType', 'Seleccione un tipo')
-  return tipoOptions.find(opt => opt.value === typeVal)?.label || t('vehiculosServicio.placeholderType', 'Seleccione un tipo')
+  if (!typeVal) return t('vehiculosServicio.placeholderType')
+  return tipoOptions.value.find(opt => opt.value === typeVal)?.label || t('vehiculosServicio.placeholderType')
 })
 
-const selectTipo = (opt: typeof tipoOptions[0]) => {
+const selectTipo = (opt: { value: number; label: string }) => {
   formData.tipo = opt.value
   isTypeDropdownOpen.value = false
 }
@@ -172,7 +175,7 @@ const handleSave = async () => {
   modalMessage.value = null
 
   if (!groupStore.selectedGroup?.id) {
-    showMessage('Seleccione un grupo válido', 'error')
+    showMessage(t('vehiculosServicio.alertSelectGroup'), 'error')
     return
   }
 
@@ -197,7 +200,7 @@ const handleSave = async () => {
   if (!isValid) {
     saving.value = false
     showMessage(
-      getFirstError('vehiculo-modal-form') || t('vehiculosServicio.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      getFirstError('vehiculo-modal-form') || t('vehiculosServicio.alertValidation'),
       'error'
     )
     return
@@ -214,8 +217,8 @@ const handleSave = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateTitle', 'Vehículo de Servicio Actualizado') : t('vehiculosServicio.alertSuccessCreateTitle', 'Vehículo de Servicio Registrado'),
-        detail: data.message || (isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateDetail', 'El vehículo de servicio ha sido modificado exitosamente.') : t('vehiculosServicio.alertSuccessCreateDetail', 'El vehículo de servicio ha sido registrado exitosamente.')),
+        summary: isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateTitle') : t('vehiculosServicio.alertSuccessCreateTitle'),
+        detail: data.message || (isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateDetail') : t('vehiculosServicio.alertSuccessCreateDetail')),
         life: 4000
       })
       emit('saved')
@@ -232,7 +235,7 @@ const handleSave = async () => {
         clearErrors()
       }
     } else {
-      showMessage(data.message || (isEditMode.value ? 'Error al actualizar' : 'Error al registrar'), 'error')
+      showMessage(data.message || (isEditMode.value ? t('vehiculosServicio.alertErrorUpdate') : t('vehiculosServicio.alertErrorCreate')), 'error')
     }
   } catch (error: any) {
     console.error('Error saving vehiculo:', error)
@@ -246,7 +249,7 @@ const handleSave = async () => {
       }
       showMessage(msg, 'error')
     } else {
-      showMessage(error.message || 'Error de conexión', 'error')
+      showMessage(error.message || t('vehiculosServicio.netError'), 'error')
     }
   } finally {
     saving.value = false
@@ -266,6 +269,7 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(() => {
+  loadModuleMessages('vehiculosServicio')
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -281,8 +285,8 @@ onUnmounted(() => {
     @close="handleClose"
     @confirm="handleSave"
     :close-on-click-outside="!saving"
-    :title="isEditMode ? t('vehiculosServicio.editTitle', 'Editar Vehículo') : t('vehiculosServicio.newTitle', 'Nuevo Vehículo')"
-    :confirm-text="isEditMode ? t('vehiculosServicio.btnSave', 'Guardar Cambios') : t('vehiculosServicio.btnRegister', 'Registrar Vehículo')"
+    :title="isEditMode ? t('vehiculosServicio.editTitle') : t('vehiculosServicio.newTitle')"
+    :confirm-text="isEditMode ? t('vehiculosServicio.btnSave') : t('vehiculosServicio.btnRegister')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -317,7 +321,7 @@ onUnmounted(() => {
           </div>
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-              {{ isEditMode ? 'Actualizando...' : 'Guardando...' }}
+              {{ isEditMode ? t('vehiculosServicio.updating') : t('vehiculosServicio.saving') }}
             </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -348,8 +352,8 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AppInput
             v-model="formData.placa"
-            :label="t('vehiculosServicio.labelPlate', 'Placa')"
-            :placeholder="t('vehiculosServicio.placeholderPlate', 'ABC-456')"
+            :label="t('vehiculosServicio.labelPlate')"
+            :placeholder="t('vehiculosServicio.placeholderPlate')"
             :icon="LicenseIcon"
             :disabled="saving"
           />
@@ -358,7 +362,7 @@ onUnmounted(() => {
           <div ref="typeDropdownRef" class="space-y-2 relative">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 transition-colors duration-300"
               :class="isTypeDropdownOpen ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'">
-              {{ t('vehiculosServicio.labelType', 'Tipo de Vehículo') }}
+              {{ t('vehiculosServicio.labelType') }}
             </label>
             <div
               @click="!saving && (isTypeDropdownOpen = !isTypeDropdownOpen)"
@@ -403,8 +407,8 @@ onUnmounted(() => {
 
         <AppInput
           v-model="formData.serial_chasis"
-          :label="t('vehiculosServicio.labelSerial', 'Serial de Chasis')"
-          :placeholder="t('vehiculosServicio.placeholderSerial', 'A456')"
+          :label="t('vehiculosServicio.labelSerial')"
+          :placeholder="t('vehiculosServicio.placeholderSerial')"
           :icon="FingerPrintIcon"
           :disabled="saving"
         />
@@ -413,15 +417,15 @@ onUnmounted(() => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AppInput
               v-model="formData.marca"
-              :label="t('vehiculosServicio.labelBrand', 'Marca')"
-              :placeholder="t('vehiculosServicio.placeholderBrand', 'Honda')"
+              :label="t('vehiculosServicio.labelBrand')"
+              :placeholder="t('vehiculosServicio.placeholderBrand')"
               :icon="Car01Icon"
               :disabled="saving"
             />
             <AppInput
               v-model="formData.referencia"
-              :label="t('vehiculosServicio.labelReference', 'Referencia')"
-              :placeholder="t('vehiculosServicio.placeholderReference', 'CB-190')"
+              :label="t('vehiculosServicio.labelReference')"
+              :placeholder="t('vehiculosServicio.placeholderReference')"
               :icon="Car01Icon"
               :disabled="saving"
             />
@@ -431,23 +435,23 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
           <AppInput
             v-model="formData.modelo"
-            :label="t('vehiculosServicio.labelModel', 'Modelo')"
-            :placeholder="t('vehiculosServicio.placeholderModel', '2013')"
+            :label="t('vehiculosServicio.labelModel')"
+            :placeholder="t('vehiculosServicio.placeholderModel')"
             :icon="Calendar01Icon"
             type="number"
             :disabled="saving"
           />
           <AppInput
             v-model="formData.cilindrada"
-            :label="t('vehiculosServicio.labelCc', 'Cilindrada')"
-            :placeholder="t('vehiculosServicio.placeholderCc', '199')"
+            :label="t('vehiculosServicio.labelCc')"
+            :placeholder="t('vehiculosServicio.placeholderCc')"
             :icon="EngineIcon"
             type="number"
             :disabled="saving"
           />
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 text-slate-400 dark:text-slate-500">
-              {{ t('vehiculosServicio.labelColor', 'Color') }}
+              {{ t('vehiculosServicio.labelColor') }}
             </label>
             <div class="flex flex-wrap items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl p-3 min-h-[46px]">
               <!-- Predefined Color Swatches -->
@@ -486,7 +490,7 @@ onUnmounted(() => {
                     : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
                 ]"
               >
-                <span>Otros</span>
+                <span>{{ t('vehiculosServicio.otherColors') }}</span>
                 <span 
                   v-if="showCustomColorPicker" 
                   class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
@@ -515,15 +519,15 @@ onUnmounted(() => {
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AppInput
               v-model="formData.soat"
-              :label="t('vehiculosServicio.labelSoat', 'SOAT')"
-              :placeholder="t('vehiculosServicio.placeholderSoat', 'J456789')"
+              :label="t('vehiculosServicio.labelSoat')"
+              :placeholder="t('vehiculosServicio.placeholderSoat')"
               :icon="DocumentAttachmentIcon"
               :disabled="saving"
             />
             <AppDateTimePicker
               v-model="formData.soat_vence"
-              :label="t('vehiculosServicio.labelSoatVence', 'Vencimiento SOAT')"
-              :placeholder="t('vehiculosServicio.placeholderSoatVence', 'Seleccione fecha')"
+              :label="t('vehiculosServicio.labelSoatVence')"
+              :placeholder="t('vehiculosServicio.placeholderSoatVence')"
               :only-date="true"
               :disabled="saving"
             />
@@ -533,15 +537,15 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AppInput
             v-model="formData.tecnomecanica"
-            :label="t('vehiculosServicio.labelTecnomecanica', 'Tecnomecánica')"
-            :placeholder="t('vehiculosServicio.placeholderTecnomecanica', 'u456790')"
+            :label="t('vehiculosServicio.labelTecnomecanica')"
+            :placeholder="t('vehiculosServicio.placeholderTecnomecanica')"
             :icon="DocumentAttachmentIcon"
             :disabled="saving"
           />
           <AppDateTimePicker
             v-model="formData.tecnomecanica_vence"
-            :label="t('vehiculosServicio.labelTecnomecanicaVence', 'Venc. Tecnomecánica')"
-            :placeholder="t('vehiculosServicio.placeholderTecnomecanicaVence', 'Seleccione fecha')"
+            :label="t('vehiculosServicio.labelTecnomecanicaVence')"
+            :placeholder="t('vehiculosServicio.placeholderTecnomecanicaVence')"
             :only-date="true"
             :disabled="saving"
           />
@@ -557,7 +561,7 @@ onUnmounted(() => {
           :disabled="saving"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancelar
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
@@ -567,7 +571,7 @@ onUnmounted(() => {
         >
           <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
           <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
-          {{ saving ? (isEditMode ? 'Guardando cambios...' : 'Registrando vehículo...') : (isEditMode ? t('vehiculosServicio.btnSave', 'Guardar Cambios') : t('vehiculosServicio.btnRegister', 'Registrar Vehículo')) }}
+          {{ saving ? (isEditMode ? t('vehiculosServicio.updatingProgress') : t('vehiculosServicio.registeringProgress')) : (isEditMode ? t('vehiculosServicio.btnSave') : t('vehiculosServicio.btnRegister')) }}
         </button>
       </div>
     </template>

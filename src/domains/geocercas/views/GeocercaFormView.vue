@@ -16,6 +16,7 @@ import {
   PaintBrush01Icon,
   Loading03Icon
 } from '@hugeicons/core-free-icons'
+import { loadModuleMessages } from '../../../i18n'
 import { createGeocercaApi, updateGeocercaApi, fetchGeocercaDetallesApi } from '../services/geocercas.api'
 import type { GeocercaCreatePayload } from '../types/geocerca'
 import { useI18n } from 'vue-i18n'
@@ -166,7 +167,7 @@ const loadGeocercaData = async () => {
     }
   } catch (error) {
     console.error('Error loading geocerca data', error)
-    showModalMessage('Error cargando los datos', 'error')
+    showModalMessage(t('geocercas.errorLoadingData'), 'error')
   } finally {
     isLoadingData.value = false
   }
@@ -416,6 +417,7 @@ watch(() => formData.value.color, () => {
 })
 
 onMounted(() => {
+  loadModuleMessages('geocercas')
   startDarkModeObserver()
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('keydown', handleDocumentKey)
@@ -459,7 +461,7 @@ const saveGeocerca = async () => {
       }
 
   if (formData.value.tipo === 2 && paradas.value.length < 3 && paradas.value.length > 0) {
-    showModalMessage('Una geocerca poligonal requiere al menos 3 puntos', 'warning')
+    showModalMessage(t('geocercas.polygonMinPoints'), 'warning')
     return
   }
 
@@ -477,7 +479,7 @@ const saveGeocerca = async () => {
     let success = false
     if (isEditing.value && props.id) {
       if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_EDIT)) {
-        showModalMessage('No tienes permiso para editar geocercas', 'error')
+        showModalMessage(t('geocercas.noPermissionEdit'), 'error')
         isSubmitting.value = false
         return
       }
@@ -489,16 +491,16 @@ const saveGeocerca = async () => {
     if (success) {
       toast.add({
         severity: 'success',
-        summary: isEditing.value ? 'Actualización exitosa' : 'Creación exitosa',
-        detail: isEditing.value ? 'Geocerca actualizada correctamente' : 'Geocerca creada correctamente',
+        summary: isEditing.value ? t('geocercas.successUpdateTitle') : t('geocercas.successCreateTitle'),
+        detail: isEditing.value ? t('geocercas.successUpdateDetail') : t('geocercas.successCreateDetail'),
         life: 4000
       })
       setTimeout(() => router.push('/geocercas'), 1500)
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: `Error al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`,
+        summary: t('common.error'),
+        detail: t('geocercas.errorAction', { action: isEditing.value ? t('geocercas.actionUpdate') : t('geocercas.actionCreate') }),
         life: 4000
       })
     }
@@ -506,8 +508,8 @@ const saveGeocerca = async () => {
     console.error('Error saving geocerca:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: `Error de red al ${isEditing.value ? 'actualizar' : 'crear'} la geocerca`,
+      summary: t('common.error'),
+      detail: t('geocercas.errorNetAction', { action: isEditing.value ? t('geocercas.actionUpdate') : t('geocercas.actionCreate') }),
       life: 4000
     })
   } finally {
@@ -545,7 +547,7 @@ const clearParadas = () => {
           <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-[#1A1D24]/80 backdrop-blur-md border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] shadow-xl animate-spin">
             <HugeiconsIcon :icon="MapsIcon" :size="32" :stroke-width="1.5" />
           </div>
-          <p class="text-[11px] font-black text-[#3b82f6] uppercase tracking-[0.25em] animate-pulse">Iniciando Mapa...</p>
+          <p class="text-[11px] font-black text-[#3b82f6] uppercase tracking-[0.25em] animate-pulse">{{ t('geocercas.initMap') }}</p>
         </div>
       </Transition>
 
@@ -558,7 +560,7 @@ const clearParadas = () => {
         @contextmenu.prevent
       >
         <div class="px-3 py-2 border-b border-slate-200/60 dark:border-white/5">
-          <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">Geocerca</p>
+          <p class="text-[9px] font-black uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">{{ t('geocercas.contextMenuHeader') }}</p>
         </div>
         <button
           type="button"
@@ -566,7 +568,7 @@ const clearParadas = () => {
           class="w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-[12px] font-bold text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/15 transition-colors duration-150 active:scale-[0.98]"
         >
           <HugeiconsIcon :icon="Delete01Icon" :size="14" :stroke-width="2.2" />
-          <span class="uppercase tracking-wider">Eliminar Geocerca</span>
+          <span class="uppercase tracking-wider">{{ t('geocercas.deleteGeocercaDrawing') }}</span>
         </button>
       </div>
 
@@ -583,7 +585,7 @@ const clearParadas = () => {
                   <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
                   <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
                 </div>
-                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditing ? 'Actualizando' : 'Creando' }} Geocerca</p>
+                <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditing ? t('geocercas.updatingTitle') : t('geocercas.creatingTitle') }}</p>
               </div>
             </div>
           </Transition>
@@ -593,7 +595,8 @@ const clearParadas = () => {
             <div class="relative flex items-center gap-3">
               <!-- Botón Volver Plano -->
               <button @click="router.push('/geocercas')"
-                class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0">
+                class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
+                :title="t('common.back')">
                 <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.2" />
               </button>
 
@@ -604,10 +607,10 @@ const clearParadas = () => {
 
               <div class="flex-1 min-w-0">
                 <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">
-                  {{ isEditing ? 'Editar Geocerca' : 'Nueva Geocerca' }}
+                  {{ isEditing ? t('geocercas.editTitle') : t('geocercas.newTitle') }}
                 </h1>
                 <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
-                  Configuración y Trazado
+                  {{ t('geocercas.configSubtitle') }}
                 </p>
               </div>
             </div>
@@ -635,8 +638,8 @@ const clearParadas = () => {
               <div>
                 <AppInput 
                   v-model="formData.nombre"
-                  label="Nombre de la Geocerca"
-                  placeholder="Ej: Zona Norte"
+                  :label="t('geocercas.labelName')"
+                  :placeholder="t('geocercas.placeholderName')"
                   :icon="MapsIcon"
                   required
                 />
@@ -647,8 +650,8 @@ const clearParadas = () => {
                 <AppInput 
                   v-model="formData.descripcion"
                   type="textarea"
-                  label="Descripción"
-                  placeholder="Describe el propósito de esta geocerca..."
+                  :label="t('geocercas.labelDescription')"
+                  :placeholder="t('geocercas.placeholderDescription')"
                   :rows="3"
                   required
                 />
@@ -657,7 +660,7 @@ const clearParadas = () => {
 
               <!-- Sección: Estilo Visual (Color) -->
               <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Color de Geocerca</label>
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">{{ t('geocercas.labelColor') }}</label>
                 <div class="flex items-center gap-2 flex-wrap">
                   <button
                     v-for="color in predefinedColors"
@@ -689,7 +692,7 @@ const clearParadas = () => {
                         : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
                     ]"
                   >
-                    <span>Otros</span>
+                    <span>{{ t('geocercas.otherColors') }}</span>
                     <span 
                       v-if="showCustomColorPicker" 
                       class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
@@ -715,7 +718,7 @@ const clearParadas = () => {
 
               <!-- Tipo de Geocerca -->
               <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Tipo de Geocerca</label>
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">{{ t('geocercas.labelType') }}</label>
                 <div class="flex p-1 bg-slate-100/50 dark:bg-white/5 rounded-[12px] border border-slate-200/80 dark:border-white/5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                   <button type="button" @click="changeTipo(1)"
                     class="flex-1 flex items-center justify-center gap-2 py-2 transition-all duration-300 font-bold text-[11px] uppercase tracking-wider"
@@ -723,7 +726,7 @@ const clearParadas = () => {
                       ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
                       : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
                     <HugeiconsIcon :icon="CircleIcon" :size="14" :stroke-width="2.5" />
-                    <span>Circular</span>
+                    <span>{{ t('geocercas.typeCircular') }}</span>
                   </button>
                   <button type="button" @click="changeTipo(2)"
                     class="flex-1 flex items-center justify-center gap-2 py-2 transition-all duration-300 font-bold text-[11px] uppercase tracking-wider"
@@ -731,12 +734,10 @@ const clearParadas = () => {
                       ? 'bg-[#3b82f6] hover:bg-[#2563eb] text-white border-transparent shadow-sm rounded-lg'
                       : 'text-slate-400 border-transparent hover:text-slate-600 dark:hover:text-slate-300 rounded-lg'">
                     <HugeiconsIcon :icon="SquareIcon" :size="14" :stroke-width="2.5" />
-                    <span>Poligonal</span>
+                    <span>{{ t('geocercas.typePoligonal') }}</span>
                   </button>
                 </div>
               </div>
-
-
 
             </div>
           </div>
@@ -744,10 +745,10 @@ const clearParadas = () => {
           <!-- Pie de página informativo -->
           <div class="shrink-0 px-5 py-4 border-t border-slate-200/60 dark:border-white/5 flex flex-col gap-3">
             <AppButton variant="primary" @click="saveGeocerca" :loading="isSubmitting" class="w-full !rounded-[12px]">
-              <span>{{ $t('geocercas.btnSave', 'Guardar Geocerca') }}</span>
+              <span>{{ t('geocercas.btnSave') }}</span>
             </AppButton>
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">
-              Haz clic en el mapa para empezar a trazar
+              {{ t('geocercas.clickMapHint') }}
             </p>
           </div>
 

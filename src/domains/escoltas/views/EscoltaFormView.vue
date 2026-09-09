@@ -23,6 +23,8 @@ import type { Escolta } from '../types/escolta'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 import { storeToRefs } from 'pinia'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
@@ -34,6 +36,7 @@ import AppFormInput from '../../../components/ui/AppFormInput.vue'
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 const activeSchema = computed(() => isEditMode.value ? updateEscoltaSchema : createEscoltaSchema)
@@ -89,11 +92,11 @@ const initData = async () => {
           pase_vence: (target as any).pase_vence || ''
         }
       } else {
-        showMessage('No se pudo cargar la información del escolta.', 'error')
+        showMessage(t('escoltas.noResults'), 'error')
       }
     } catch (e) {
       console.error(e)
-      showMessage('Error al cargar datos del escolta', 'error')
+      showMessage(t('escoltas.alertNetError'), 'error')
     } finally {
       loadingInit.value = false
     }
@@ -109,7 +112,7 @@ onMounted(() => {
 const saveEscolta = async () => {
   if (saving.value) return
   if (!selectedGroup.value?.id) {
-    showMessage('Debe seleccionar un grupo válido', 'error')
+    showMessage(t('escoltas.alertNetError'), 'error')
     return
   }
 
@@ -131,24 +134,29 @@ const saveEscolta = async () => {
   try {
     if (isEditMode.value && editId.value) {
       if (!authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)) {
-        showMessage(t('escoltas.alertErrorUpdate') || 'No tienes permiso para actualizar escoltas', 'error')
+        showMessage(t('escoltas.alertErrorUpdate'), 'error')
         saving.value = false
         return
       }
       const data = await updateEscoltaApi({ ...payload, id_escolta: editId.value })
       if (data.done) {
-        showMessage(t('escoltas.alertSuccessUpdate') || 'Escolta actualizado exitosamente', 'success')
+        showMessage(t('escoltas.alertSuccessUpdate'), 'success')
         setTimeout(() => router.push('/escoltas'), 1500)
       } else {
-        showMessage(data.message || t('escoltas.alertErrorUpdate') || 'Error al actualizar', 'error')
+        showMessage(data.message || t('escoltas.alertErrorUpdate'), 'error')
       }
     } else {
+      if (!authStore.hasPermission(PERMISSIONS.ESCOLTA_CREATE)) {
+        showMessage(t('escoltas.alertErrorCreate'), 'error')
+        saving.value = false
+        return
+      }
       const data = await createEscoltaApi(payload)
       if (data.done) {
-        showMessage(t('escoltas.alertSuccessCreate') || 'Escolta registrado exitosamente', 'success')
+        showMessage(t('escoltas.alertSuccessCreate'), 'success')
         setTimeout(() => router.push('/escoltas'), 1500)
       } else {
-        showMessage(data.message || t('escoltas.alertErrorCreate') || 'Error al registrar', 'error')
+        showMessage(data.message || t('escoltas.alertErrorCreate'), 'error')
       }
     }
   } catch (error) {
@@ -156,7 +164,7 @@ const saveEscolta = async () => {
       showMessage(getErrorMessage(error.code), 'error')
     } else {
       console.error('Error saving escolta:', error)
-      showMessage(t('escoltas.alertNetError') || 'Error de conexión', 'error')
+      showMessage(t('escoltas.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -167,8 +175,8 @@ const saveEscolta = async () => {
 <template>
   <AppDataLayout
     class="theme-sync"
-    :title="isEditMode ? (t('escoltas.modalTitleEdit') || 'Actualizar Escolta') : (t('escoltas.modalTitleCreate') || 'Registrar Escolta')"
-    :subtitle="isEditMode ? 'Modifique los datos del escolta seleccionado' : 'Registre un nuevo agente escolta en el sistema'"
+    :title="isEditMode ? t('escoltas.modalTitleEdit') : t('escoltas.modalTitleCreate')"
+    :subtitle="isEditMode ? t('escoltas.serviceSubtitleEdit') : t('escoltas.serviceSubtitleRegister')"
   >
     <template #actions>
       <AppButton
@@ -176,7 +184,7 @@ const saveEscolta = async () => {
         :icon="ArrowLeft01Icon"
         @click="router.push('/escoltas')"
       >
-        <span>{{ t('common.cancel') || 'Cancelar' }}</span>
+        <span>{{ t('common.cancel') }}</span>
       </AppButton>
 
       <AppButton
@@ -186,7 +194,7 @@ const saveEscolta = async () => {
         :disabled="loadingInit"
         @click="saveEscolta"
       >
-        <span>{{ isEditMode ? (t('escoltas.btnSave') || 'Guardar Cambios') : (t('escoltas.btnRegister') || 'Registrar Escolta') }}</span>
+        <span>{{ isEditMode ? t('escoltas.btnSave') : t('escoltas.btnRegister') }}</span>
       </AppButton>
     </template>
 
@@ -226,8 +234,8 @@ const saveEscolta = async () => {
             <!-- Fila 1: Nombre completo (full width) -->
             <AppFormInput
               v-model="formData.nombre"
-              :label="t('escoltas.labelName') || 'Nombre Completo'"
-              :placeholder="t('escoltas.placeholderName') || 'Ej: Pepito Pérez'"
+              :label="t('escoltas.labelName')"
+              :placeholder="t('escoltas.placeholderName')"
               :icon="User02Icon"
               :error="getError('nombre') ?? undefined"
             />
@@ -236,16 +244,16 @@ const saveEscolta = async () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <AppFormInput
                 v-model="formData.cedula"
-                :label="t('escoltas.labelDoc') || 'Documento (Cédula)'"
-                :placeholder="t('escoltas.placeholderDoc') || 'Ej: 79065744'"
+                :label="t('escoltas.labelDoc')"
+                :placeholder="t('escoltas.placeholderDoc')"
                 :icon="ContactBookIcon"
                 :error="getError('cedula') ?? undefined"
               />
 
               <AppFormInput
                 v-model="formData.celular"
-                :label="t('escoltas.labelMobile') || 'Celular'"
-                :placeholder="t('escoltas.placeholderMobile') || 'Ej: 3023014514'"
+                :label="t('escoltas.labelMobile')"
+                :placeholder="t('escoltas.placeholderMobile')"
                 :icon="SmartPhone01Icon"
                 :error="getError('celular') ?? undefined"
               />
@@ -255,14 +263,14 @@ const saveEscolta = async () => {
             <div class="pt-6 border-t border-slate-100 dark:border-white/5 space-y-2">
               <AppFormInput
                 v-model="formData.email"
-                :label="t('escoltas.labelEmail') || 'Correo Electrónico'"
-                
+                :label="t('escoltas.labelEmail')"
+                :placeholder="t('escoltas.placeholderEmail')"
                 :icon="Mail01Icon"
                 :error="getError('email') ?? undefined"
                 type="email"
               />
               <p class="text-[11px] text-slate-400 dark:text-slate-600 mt-1 pl-1 font-medium italic">
-                Máximo 32 caracteres. Se utilizará para notificaciones del sistema.
+                {{ t('escoltas.emailHelp') }}
               </p>
             </div>
 

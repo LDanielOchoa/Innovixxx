@@ -1,6 +1,7 @@
 export const headerMessages = {
   es: {
     welcome: 'Bienvenido',
+    hello: 'Hola',
     workToday: '¿En qué deseas trabajar hoy?',
     availableGroups: 'Grupos Disponibles',
     syncing: 'Sincronizando...',
@@ -11,10 +12,12 @@ export const headerMessages = {
     reports: 'Reportes',
     tracking: 'Rastreo',
     searchPlaceholder: 'Buscar grupo...',
-    noResults: 'No se encontraron grupos'
+    noResults: 'No se encontraron grupos',
+    map: 'Mapa'
   },
   en: {
     welcome: 'Welcome',
+    hello: 'Hello',
     workToday: 'What would you like to work on today?',
     availableGroups: 'Available Groups',
     syncing: 'Syncing...',
@@ -25,6 +28,7 @@ export const headerMessages = {
     reports: 'Reports',
     tracking: 'Tracking',
     searchPlaceholder: 'Search group...',
-    noResults: 'No groups found'
+    noResults: 'No groups found',
+    map: 'Map'
   }
 }

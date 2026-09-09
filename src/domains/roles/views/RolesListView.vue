@@ -112,15 +112,15 @@ const filteredRoles = computed(() => {
 
 const exportToExcel = () => {
   const dataToExport = filteredRoles.value.map(r => ({
-    'ID Role': r.id_role,
-    'Nombre': r.nombre,
-    'Descripción': r.descripcion,
-    'Es Admin': r.is_admin ? 'Sí' : 'No'
+    [t('roles.idRole')]: r.id_role,
+    [t('roles.colRole')]: r.nombre,
+    [t('roles.colDesc')]: r.descripcion,
+    [t('roles.colAdmin')]: r.is_admin ? t('common.yes') : t('common.no')
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Roles')
-  XLSX.writeFile(workbook, 'Listado_Roles.xlsx')
+  XLSX.utils.book_append_sheet(workbook, worksheet, t('roles.title'))
+  XLSX.writeFile(workbook, `${t('roles.title')}.xlsx`)
 }
 
 const openCreateModal = () => {
@@ -187,8 +187,8 @@ const saveRole = async () => {
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('roles.alertSuccessCreateTitle', 'Rol Creado'),
-          detail: t('roles.alertSuccessCreateDetail', 'El rol ha sido registrado exitosamente.'),
+          summary: t('roles.alertSuccessCreateTitle'),
+          detail: t('roles.alertSuccessCreateDetail'),
           life: 4000
         })
         formData.value = { nombre: '', descripcion: '' }
@@ -200,7 +200,7 @@ const saveRole = async () => {
       }
     } else if (modalMode.value === 'editar' && currentEditId.value !== null) {
       if (!authStore.hasPermission(PERMISSIONS.ROLES_EDIT)) {
-        showModalMessage(t('roles.alertErrorUpdate') || 'No tienes permiso para editar roles', 'error')
+        showModalMessage(t('roles.noPermissionEdit'), 'error')
         isSubmitting.value = false
         return
       }
@@ -213,8 +213,8 @@ const saveRole = async () => {
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('roles.alertSuccessUpdateTitle', 'Rol Actualizado'),
-          detail: t('roles.alertSuccessUpdateDetail', 'El rol ha sido modificado exitosamente.'),
+          summary: t('roles.alertSuccessUpdateTitle'),
+          detail: t('roles.alertSuccessUpdateDetail'),
           life: 4000
         })
         isModalOpen.value = false
@@ -319,7 +319,7 @@ onUnmounted(() => {
           <input 
             v-model="searchQuery"
             type="text" 
-            :placeholder="t('roles.searchPlaceholder', 'Buscar...')"
+            :placeholder="t('roles.searchPlaceholder')"
             class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
@@ -333,7 +333,7 @@ onUnmounted(() => {
         <button 
           @click="reloadRoles"
           :disabled="loading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -353,7 +353,7 @@ onUnmounted(() => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('roles.btnExport') }}</span>
         </button>
 
         <button 
@@ -377,12 +377,12 @@ onUnmounted(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('roles.noRoles', 'No se encontraron roles')"
+        :empty-message="t('roles.noRoles')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
-        <template #empty-subtitle>{{ t('roles.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+        <template #empty-subtitle>{{ t('roles.trySearch') }}</template>
 
         <Column field="nombre" :header="t('roles.colRole')" sortable>
           <template #body="{ data }">
@@ -402,7 +402,7 @@ onUnmounted(() => {
           <template #body="{ data }">
             <StatusBadge 
               :variant="data.is_admin ? 'primary' : 'default'" 
-              :label="data.is_admin ? $t('roles.typeAdmin') : $t('roles.typeStandard')"
+              :label="data.is_admin ? t('roles.typeAdmin') : t('roles.typeStandard')"
               :icon="Shield01Icon"
             />
           </template>
@@ -443,7 +443,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ROLES_DELETE)"
@@ -451,7 +451,7 @@ onUnmounted(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -470,14 +470,14 @@ onUnmounted(() => {
     <!-- Modales -->
     <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle')"
-      :message="$t('common.confirmDeleteMsg')"
+      :title="t('common.confirmDeleteTitle')"
+      :message="t('common.confirmDeleteMsg')"
       @confirm="deleteRole"
     />
 
     <AppModal
       v-model:isOpen="isModalOpen"
-      :title="modalMode==='crear' ? $t('roles.modalCreateTitle') : $t('roles.modalEditTitle')"
+      :title="modalMode === 'crear' ? t('roles.modalCreateTitle') : t('roles.modalEditTitle')"
       size="lg"
       :show-footer="!isSubmitting"
     >
@@ -496,7 +496,7 @@ onUnmounted(() => {
             </div>
             <div class="mt-5 flex flex-col items-center">
               <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-                {{ modalMode === 'crear' ? 'Guardando...' : 'Actualizando...' }}
+                {{ modalMode === 'crear' ? t('roles.saving') : t('roles.updating') }}
               </span>
               <div class="flex gap-1">
                 <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -525,18 +525,18 @@ onUnmounted(() => {
         <div class="space-y-5">
           <AppInput 
             v-model="formData.nombre" 
-            :label="$t('roles.formName')" 
+            :label="t('roles.formName')" 
             :icon="Shield01Icon" 
-            :placeholder="$t('roles.formNamePlaceholder')" 
+            :placeholder="t('roles.formNamePlaceholder')" 
             :disabled="isSubmitting"
             :error="getError('nombre')"
           />
           <AppInput 
             v-model="formData.descripcion" 
-            :label="$t('roles.formDesc')" 
+            :label="t('roles.formDesc')" 
             :icon="Shield01Icon" 
             type="textarea" 
-            :placeholder="$t('roles.formDescPlaceholder')" 
+            :placeholder="t('roles.formDescPlaceholder')" 
             :disabled="isSubmitting"
             :error="getError('descripcion')"
           />
@@ -551,7 +551,7 @@ onUnmounted(() => {
             :disabled="isSubmitting"
             class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {{ $t('roles.btnCancel') }}
+            {{ t('roles.btnCancel') }}
           </button>
           <button
             type="button"
@@ -561,7 +561,7 @@ onUnmounted(() => {
           >
             <HugeiconsIcon v-if="isSubmitting" :icon="Loading03Icon" :size="16" class="animate-spin" />
             <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
-            {{ isSubmitting ? (modalMode === 'crear' ? 'Guardando rol...' : 'Actualizando rol...') : (modalMode === 'crear' ? $t('roles.btnSave') : $t('roles.btnUpdate')) }}
+            {{ isSubmitting ? (modalMode === 'crear' ? t('roles.savingRole') : t('roles.updatingRole')) : (modalMode === 'crear' ? t('roles.btnSave') : t('roles.btnUpdate')) }}
           </button>
         </div>
       </template>

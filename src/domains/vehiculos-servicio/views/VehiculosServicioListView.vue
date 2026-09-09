@@ -112,11 +112,11 @@ const deleteVehicle = async () => {
     if (data.done) {
       await fetchVehicles()
     } else {
-      alert(data.message || 'Error al eliminar')
+      console.error(data.message || t('vehiculosServicio.deleteError'))
     }
   } catch (error) {
     if (error instanceof ApiError) {
-      alert(getErrorMessage(error.code))
+      console.error(getErrorMessage(error.code))
     } else {
       console.error('Error deleting service vehicle:', error)
     }
@@ -228,7 +228,7 @@ const handleModalSaved = () => {
         <button 
           @click="fetchVehicles"
           :disabled="isLoading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -248,7 +248,7 @@ const handleModalSaved = () => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('vehiculosServicio.btnExport') }}</span>
         </button>
 
         <button 
@@ -272,14 +272,14 @@ const handleModalSaved = () => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('vehiculosServicio.noResults', 'No se encontraron vehículos de servicio')"
+        :empty-message="t('vehiculosServicio.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
-        <template #empty-subtitle>{{ t('common.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+        <template #empty-subtitle>{{ t('vehiculosServicio.noResultsHint') }}</template>
 
-        <Column field="placa" :header="t('vehiculosServicio.thPlate', 'Placa')" sortable>
+        <Column field="placa" :header="t('vehiculosServicio.thPlate')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
               <span class="text-[14px] font-semibold text-slate-800 dark:text-white uppercase tracking-wider">{{ data.placa || '---' }}</span>
@@ -291,7 +291,7 @@ const handleModalSaved = () => {
           </template>
         </Column>
 
-        <Column field="marca" :header="t('vehiculosServicio.thBrand', 'Marca / Referencia')" sortable>
+        <Column field="marca" :header="t('vehiculosServicio.thBrand')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
               <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200">{{ data.marca || '---' }}</span>
@@ -300,27 +300,27 @@ const handleModalSaved = () => {
           </template>
         </Column>
 
-        <Column field="tipo" :header="t('vehiculosServicio.thType', 'Tipo')" sortable>
+        <Column field="tipo" :header="t('vehiculosServicio.thType')" sortable>
           <template #body="{ data }">
             <AppBadge :variant="'default'">
-              {{ Number(data.tipo) === 1 ? 'Carro' : Number(data.tipo) === 2 ? 'Motocicleta' : data.tipo || '---' }}
+              {{ Number(data.tipo) === 1 ? t('vehiculosServicio.typeCar') : Number(data.tipo) === 2 ? t('vehiculosServicio.typeMotorcycle') : data.tipo || '---' }}
             </AppBadge>
           </template>
         </Column>
 
-        <Column field="modelo" :header="t('vehiculosServicio.thModel', 'Modelo')" sortable>
+        <Column field="modelo" :header="t('vehiculosServicio.thModel')" sortable>
           <template #body="{ data }">
             <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{{ data.modelo || '---' }}</span>
           </template>
         </Column>
 
-        <Column field="cilindrada" :header="t('vehiculosServicio.thCc', 'Cilindrada')" sortable>
+        <Column field="cilindrada" :header="t('vehiculosServicio.thCc')" sortable>
           <template #body="{ data }">
             <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{{ data.cilindrada || 0 }}<span class="text-[11px] font-medium text-slate-400 ml-0.5">cc</span></span>
           </template>
         </Column>
 
-        <Column field="soat_vence" :header="t('vehiculosServicio.thSoat', 'SOAT')" sortable>
+        <Column field="soat_vence" :header="t('vehiculosServicio.thSoat')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 font-mono">{{ data.soat || '---' }}</span>
@@ -331,14 +331,14 @@ const handleModalSaved = () => {
                   :variant="isDateExpired(data.soat_vence) ? 'danger' : 'success'"
                   class="ml-0.5"
                 >
-                  {{ isDateExpired(data.soat_vence) ? 'Vencido' : 'Vigente' }}
+                  {{ isDateExpired(data.soat_vence) ? t('vehiculosServicio.expired') : t('vehiculosServicio.valid') }}
                 </AppBadge>
               </div>
             </div>
           </template>
         </Column>
 
-        <Column field="tecnomecanica_vence" :header="t('vehiculosServicio.thTecnomecanica', 'Tecnomecánica')" sortable>
+        <Column field="tecnomecanica_vence" :header="t('vehiculosServicio.thTecnomecanica')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <span class="text-[11px] font-semibold text-slate-600 dark:text-slate-300 font-mono">{{ data.tecnomecanica || '---' }}</span>
@@ -349,24 +349,24 @@ const handleModalSaved = () => {
                   :variant="isDateExpired(data.tecnomecanica_vence) ? 'danger' : 'success'"
                   class="ml-0.5"
                 >
-                  {{ isDateExpired(data.tecnomecanica_vence) ? 'Vencido' : 'Vigente' }}
+                  {{ isDateExpired(data.tecnomecanica_vence) ? t('vehiculosServicio.expired') : t('vehiculosServicio.valid') }}
                 </AppBadge>
               </div>
             </div>
           </template>
         </Column>
 
-        <Column field="estado" :header="t('vehiculosServicio.thStatus', 'Estado')" sortable>
+        <Column field="estado" :header="t('vehiculosServicio.thStatus')" sortable>
           <template #body="{ data }">
             <AppBadge
               :variant="data.estado === 1 ? 'success' : 'danger'"
             >
-              {{ data.estado === 1 ? t('vehiculosServicio.statusActive', 'Activo') : t('vehiculosServicio.statusInactive', 'Inactivo') }}
+              {{ data.estado === 1 ? t('vehiculosServicio.statusActive') : t('vehiculosServicio.statusInactive') }}
             </AppBadge>
           </template>
         </Column>
 
-        <Column :header="t('vehiculosServicio.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('vehiculosServicio.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -393,7 +393,7 @@ const handleModalSaved = () => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.VEHICLE_BODYGUARD_DELETE)"
@@ -401,7 +401,7 @@ const handleModalSaved = () => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -419,8 +419,8 @@ const handleModalSaved = () => {
     <!-- Delete Confirm Modal -->
     <AppDeleteConfirm
       v-model:isOpen="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle')"
-      :message="$t('vehiculosServicio.confirmDelete', '¿Está seguro de que desea eliminar este vehículo de servicio?')"
+      :title="t('common.confirmDeleteTitle')"
+      :message="t('vehiculosServicio.confirmDelete')"
       @confirm="deleteVehicle"
     />
 

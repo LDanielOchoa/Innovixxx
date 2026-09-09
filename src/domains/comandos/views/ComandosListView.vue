@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../constants/permissions'
@@ -32,6 +34,9 @@ import AppSelect from '../../../components/ui/AppSelect.vue'
 import ComandoFormModal from '../components/ComandoFormModal.vue'
 import ComandoEjecutarModal from '../components/ComandoEjecutarModal.vue'
 
+loadModuleMessages('comandos')
+
+const { t } = useI18n()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -75,7 +80,7 @@ onMounted(() => {
 
 const opcionesFamilias = computed(() => {
   const list = [
-    { value: '0', label: 'TODOS' }
+    { value: '0', label: t('comandos.filterAllFamilies') }
   ]
   familias.value.forEach((f) => {
     list.push({
@@ -88,7 +93,7 @@ const opcionesFamilias = computed(() => {
 
 const getFamiliaNombre = (idFamilia: number) => {
   const found = familias.value.find((f) => f.id_familia === idFamilia)
-  return found ? found.nombre : `Familia ${idFamilia}`
+  return found ? found.nombre : `${t('comandos.familyPrefix')} ${idFamilia}`
 }
 
 const cargarComandos = async () => {
@@ -234,8 +239,8 @@ const paginatedItems = computed(() => {
   <div class="p-6 md:p-8 animate-fade-in" @click="closeMenu">
     <!-- Header -->
     <PageHeader
-      title="Comandos"
-      subtitle="Listado y consulta de comandos configurados"
+      :title="t('comandos.title')"
+      :subtitle="t('comandos.subtitle')"
       :count="filteredItems.length"
       :icon="CommandLineIcon"
     />
@@ -247,7 +252,7 @@ const paginatedItems = computed(() => {
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Buscar por nombre, texto o familia..."
+            :placeholder="t('comandos.searchPlaceholder')"
             class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
@@ -260,7 +265,7 @@ const paginatedItems = computed(() => {
         <button 
           @click.stop="recargarComandos"
           :disabled="loading"
-          title="Recargar"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
         >
           <HugeiconsIcon 
@@ -274,7 +279,7 @@ const paginatedItems = computed(() => {
         <div class="w-full sm:w-56" @click.stop>
           <AppSelect
             v-model="selectedFamilia"
-            placeholder="Filtrar familia..."
+            :placeholder="t('comandos.filterFamilyPlaceholder')"
             :options="opcionesFamilias"
             :icon="CpuIcon"
             :disabled="loadingFamilias"
@@ -292,7 +297,7 @@ const paginatedItems = computed(() => {
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
           </svg>
-          <span>Nuevo Comando</span>
+          <span>{{ t('comandos.btnNew') }}</span>
         </button>
       </div>
     </div>
@@ -304,14 +309,14 @@ const paginatedItems = computed(() => {
         :loading="loading"
         :rows="itemsPerPage"
         removableSort
-        empty-message="No se encontraron comandos"
+        :empty-message="t('comandos.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <!-- Columna Familia Hardware (Muestra el nombre de la familia según id_familia) -->
-        <Column field="id_familia" header="Familia Hardware" sortable headerStyle="width: 220px">
+        <!-- Columna Familia Hardware -->
+        <Column field="id_familia" :header="t('comandos.thFamily')" sortable headerStyle="width: 220px">
           <template #body="{ data }">
             <AppBadge variant="primary">
               <span class="font-bold text-[11px]">
@@ -322,21 +327,21 @@ const paginatedItems = computed(() => {
         </Column>
 
         <!-- Columna Nombre -->
-        <Column field="nombre" header="Nombre" sortable>
+        <Column field="nombre" :header="t('comandos.thName')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-3 py-1">
               <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] flex items-center justify-center shrink-0">
                 <HugeiconsIcon :icon="CodeCircleIcon" :size="16" />
               </div>
               <span class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight">
-                {{ data.nombre || 'Sin nombre' }}
+                {{ data.nombre || t('comandos.noName') }}
               </span>
             </div>
           </template>
         </Column>
 
         <!-- Columna Ver Texto (con Tooltip al pasar el mouse) -->
-        <Column header="Texto" headerStyle="width: 180px">
+        <Column :header="t('comandos.thText')" headerStyle="width: 180px">
           <template #body="{ data }">
             <div class="relative group/tooltip inline-block">
               <!-- Botón / Chip interactivo -->
@@ -344,7 +349,7 @@ const paginatedItems = computed(() => {
                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30 transition-all cursor-pointer select-none"
               >
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[12px] font-semibold">Ver texto</span>
+                <span class="text-[12px] font-semibold">{{ t('comandos.viewText') }}</span>
               </div>
 
               <!-- Tooltip flotante al pasar el mouse -->
@@ -353,10 +358,10 @@ const paginatedItems = computed(() => {
               >
                 <div class="flex items-center gap-1.5 text-[#5da6fc] font-bold text-[10px] uppercase tracking-wider">
                   <HugeiconsIcon :icon="CommandLineIcon" :size="12" />
-                  <span>Comando / Texto</span>
+                  <span>{{ t('comandos.tooltipTitle') }}</span>
                 </div>
                 <div class="font-mono text-[12px] text-slate-200 bg-black/40 px-2 py-1.5 rounded-lg break-all select-all text-left">
-                  {{ data.texto || 'Sin texto de comando' }}
+                  {{ data.texto || t('comandos.noCommandText') }}
                 </div>
                 <!-- Flecha inferior del tooltip -->
                 <div class="absolute top-full left-6 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95 dark:border-t-[#1A1D24]/95"></div>
@@ -366,11 +371,12 @@ const paginatedItems = computed(() => {
         </Column>
 
         <!-- Columna Acciones -->
-        <Column header="Acciones" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('comandos.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
                 @click.stop="toggleMenu(data.id_comando || data.mask, $event)"
+                :title="t('comandos.thActions')"
                 class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
               >
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
@@ -399,7 +405,7 @@ const paginatedItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="PlayIcon" :size="16" />
-              <span>Ejecutar</span>
+              <span>{{ t('comandos.actionExecute') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.COMMAND_UPDATE)"
@@ -407,7 +413,7 @@ const paginatedItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Editar</span>
+              <span>{{ t('comandos.actionEdit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.COMMAND_DELETE)"
@@ -415,7 +421,7 @@ const paginatedItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>Eliminar</span>
+              <span>{{ t('comandos.actionDelete') }}</span>
             </button>
           </div>
         </Transition>
@@ -441,8 +447,8 @@ const paginatedItems = computed(() => {
     <!-- Confirmación de Eliminación -->
     <AppDeleteConfirm
       v-model:is-open="isDeleteModalOpen"
-      title="Eliminar Comando"
-      message="¿Estás seguro de que deseas eliminar este comando? Esta acción no se puede deshacer."
+      :title="t('comandos.deleteTitle')"
+      :message="t('comandos.deleteMessage')"
       @confirm="deleteComando"
     />
 

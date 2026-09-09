@@ -27,6 +27,8 @@ import type { FamiliaHardware } from '../types/hardware'
 import { useI18n } from 'vue-i18n'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
+import { PERMISSIONS } from '../../../utils/permissions'
 import { storeToRefs } from 'pinia'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
@@ -38,6 +40,7 @@ import AppFormInput from '../../../components/ui/AppFormInput.vue'
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
+const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 const activeSchema = computed(() => isEditMode.value ? updateHardwareSchema : createHardwareSchema)
@@ -56,7 +59,8 @@ const formData = ref({
   id_familia: '' as string | number,
   numero_sms: '',
   id_binario: '',
-  clave_open: ''
+  clave_open: '',
+  isdn: ''
 })
 
 const familias = ref<FamiliaHardware[]>([])
@@ -106,14 +110,15 @@ const initData = async () => {
           id_familia: familyId,
           numero_sms: targetDevice.numero_sms || '',
           id_binario: targetDevice.id_binario || '',
-          clave_open: targetDevice.clave_open || ''
+          clave_open: targetDevice.clave_open || '',
+          isdn: targetDevice.isdn !== null && targetDevice.isdn !== undefined ? String(targetDevice.isdn) : ''
         }
       } else {
-        showMessage('No se pudo cargar la información del dispositivo.', 'error')
+        showMessage(t('hardware.alertDeviceNotFound'), 'error')
       }
     } catch (e) {
       console.error(e)
-      showMessage('Error al cargar datos del dispositivo', 'error')
+      showMessage(t('hardware.alertLoadDeviceError'), 'error')
     } finally {
       loadingInit.value = false
     }
@@ -129,7 +134,7 @@ onMounted(() => {
 const saveHardware = async () => {
   if (saving.value) return
   if (!selectedGroup.value?.id) {
-    showMessage('Debe seleccionar un grupo válido', 'error')
+    showMessage(t('hardware.validationSelectValidGroup'), 'error')
     return
   }
 
@@ -148,7 +153,8 @@ const saveHardware = async () => {
     id_ruta: isEditMode.value ? '' : 0,
     numero_sms: formData.value.numero_sms || '',
     id_binario: formData.value.id_binario || '',
-    clave_open: formData.value.clave_open || ''
+    clave_open: formData.value.clave_open || '',
+    isdn: formData.value.isdn || ''
   }
 
   if (!validate(payload, 'hardware-form')) {
@@ -159,28 +165,33 @@ const saveHardware = async () => {
   try {
     if (isEditMode.value && editId.value) {
       if (!authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)) {
-        showMessage(t('hardware.alertErrorUpdate') || 'No tienes permiso para editar hardware', 'error')
+        showMessage(t('hardware.alertNoPermissionEdit'), 'error')
         saving.value = false
         return
       }
       const data = await updateHardwareApi({ ...payload, id_hardware: editId.value })
       if (data.done) {
-        showMessage(t('hardware.alertSuccessUpdate') || 'Dispositivo actualizado exitosamente', 'success')
+        showMessage(t('hardware.alertSuccessUpdate'), 'success')
         setTimeout(() => {
           router.push('/hardware')
         }, 1500)
       } else {
-        showMessage(data.message || t('hardware.alertErrorUpdate') || 'Error al actualizar', 'error')
+        showMessage(data.message || t('hardware.alertErrorUpdate'), 'error')
       }
     } else {
+      if (!authStore.hasPermission(PERMISSIONS.HARDWARE_CREATE)) {
+        showMessage(t('hardware.alertNoPermissionCreate'), 'error')
+        saving.value = false
+        return
+      }
       const data = await createHardwareApi(payload)
       if (data.done) {
-        showMessage(t('hardware.alertSuccessCreate') || 'Dispositivo creado exitosamente', 'success')
+        showMessage(t('hardware.alertSuccessCreate'), 'success')
         setTimeout(() => {
           router.push('/hardware')
         }, 1500)
       } else {
-        showMessage(data.message || t('hardware.alertErrorCreate') || 'Error al crear', 'error')
+        showMessage(data.message || t('hardware.alertErrorCreate'), 'error')
       }
     }
   } catch (error) {
@@ -188,7 +199,7 @@ const saveHardware = async () => {
       showMessage(getErrorMessage(error.code), 'error')
     } else {
       console.error('Error saving hardware:', error)
-      showMessage(t('hardware.alertNetError') || 'Error de conexión', 'error')
+      showMessage(t('hardware.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -199,8 +210,8 @@ const saveHardware = async () => {
 <template>
   <AppDataLayout 
     class="theme-sync" 
-    :title="isEditMode ? (t('hardware.modalTitleEdit') || 'Actualizar Dispositivo') : (t('hardware.modalTitleCreate') || 'Ingresar Dispositivo')" 
-    :subtitle="isEditMode ? 'Modifique los datos técnicos del dispositivo' : 'Registre un nuevo equipo de hardware en el sistema'"
+    :title="isEditMode ? t('hardware.modalTitleEdit') : t('hardware.modalTitleCreate')" 
+    :subtitle="isEditMode ? t('hardware.deviceTechnicalDataSubtitle') : t('hardware.deviceRegisterSubtitle')"
   >
     <template #actions>
       <AppButton 
@@ -208,7 +219,7 @@ const saveHardware = async () => {
         :icon="ArrowLeft01Icon"
         @click="router.push('/hardware')" 
       >
-        <span>{{ t('common.cancel') || 'Cancelar' }}</span>
+        <span>{{ t('common.cancel') }}</span>
       </AppButton>
 
       <AppButton 
@@ -218,7 +229,7 @@ const saveHardware = async () => {
         :disabled="loadingInit"
         @click="saveHardware" 
       >
-        <span>{{ isEditMode ? (t('hardware.btnSave') || 'Guardar Cambios') : (t('hardware.btnRegister') || 'Crear Hardware') }}</span>
+        <span>{{ isEditMode ? t('hardware.btnSave') : t('hardware.btnRegister') }}</span>
       </AppButton>
     </template>
 
@@ -255,16 +266,16 @@ const saveHardware = async () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <AppFormInput
                 v-model="formData.nombre"
-                :label="t('hardware.labelName') || 'Nombre (Alias)'"
-                :placeholder="t('hardware.placeholderName') || 'Ej: gps gl800 3'"
+                :label="t('hardware.labelName')"
+                :placeholder="t('hardware.placeholderName')"
                 :icon="Tag01Icon"
                 :error="getError('nombre') ?? undefined"
               />
 
               <AppFormInput
                 v-model="formData.descripcion"
-                :label="t('hardware.labelDescription') || 'Descripción'"
-                :placeholder="t('hardware.placeholderDescription') || 'Ej: 10000 mah'"
+                :label="t('hardware.labelDescription')"
+                :placeholder="t('hardware.placeholderDescription')"
                 :icon="Tag01Icon"
                 :error="getError('descripcion') ?? undefined"
               />
@@ -274,24 +285,24 @@ const saveHardware = async () => {
             <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
               <AppFormInput
                 v-model="formData.serial"
-                :label="t('hardware.labelSerial') || 'Serial'"
-                :placeholder="t('hardware.placeholderSerial') || 'B123RZZR'"
+                :label="t('hardware.labelSerial')"
+                :placeholder="t('hardware.placeholderSerial')"
                 :icon="TextNumberSignIcon"
                 :error="getError('serial') ?? undefined"
               />
 
               <AppFormInput
                 v-model="formData.imei"
-                :label="t('hardware.labelImei') || 'IMEI'"
-                :placeholder="t('hardware.placeholderImei') || '1234567...'"
+                :label="t('hardware.labelImei')"
+                :placeholder="t('hardware.placeholderImei')"
                 :icon="TextNumberSignIcon"
                 :error="getError('imei') ?? undefined"
               />
 
               <AppFormInput
                 v-model="formData.mac"
-                :label="t('hardware.labelMac') || 'MAC'"
-                :placeholder="t('hardware.placeholderMac') || 'sw:ki:pl...'"
+                :label="t('hardware.labelMac')"
+                :placeholder="t('hardware.placeholderMac')"
                 :icon="TextNumberSignIcon"
                 :error="getError('mac') ?? undefined"
               />
@@ -301,30 +312,37 @@ const saveHardware = async () => {
             <div class="grid grid-cols-1 gap-5 pt-6 border-t border-slate-100 dark:border-white/5" :class="isEditMode ? 'md:grid-cols-2' : 'md:grid-cols-3'">
               <AppFormInput
                 v-model="formData.numero_sms"
-                label="Número SMS"
-                placeholder="Ej: 9103166133"
+                :label="t('hardware.labelSmsNumber')"
+                :placeholder="t('hardware.placeholderSmsNumber')"
                 :icon="SmartPhone01Icon"
+              />
+
+              <AppFormInput
+                v-model="formData.clave_open"
+                :label="t('hardware.labelOpenKey')"
+                :placeholder="t('hardware.placeholderOpenKey')"
+                :icon="LockIcon"
+              />
+
+              <AppFormInput
+                v-model="formData.isdn"
+                :label="t('hardware.labelIsdn')"
+                :placeholder="t('hardware.placeholderIsdn')"
+                :icon="TextNumberSignIcon"
               />
 
               <AppFormInput
                 v-if="!isEditMode"
                 v-model="formData.id_binario"
-                label="ID Binario"
-                placeholder="Ej: 2512001917"
+                :label="t('hardware.labelBinaryId')"
+                :placeholder="t('hardware.placeholderBinaryId')"
                 :icon="CpuIcon"
-              />
-
-              <AppFormInput
-                v-model="formData.clave_open"
-                label="Clave Open"
-                placeholder="Ej: 888888"
-                :icon="LockIcon"
               />
             </div>
 
             <div class="grid grid-cols-1 gap-5 pt-6 border-t border-slate-100 dark:border-white/5">
               <div class="space-y-2 relative">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ t('hardware.labelFamily') || 'Familia Receptora' }}</label>
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ t('hardware.labelFamily') }}</label>
                 <div
                   @click="isFamilyDropdownOpen = !isFamilyDropdownOpen"
                   class="relative flex items-center justify-between group/input bg-slate-50/80 dark:bg-[#0A0C10]/60 border border-slate-200/60 dark:border-white/5 rounded-[20px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 transition-all duration-300 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.2)]"
@@ -333,7 +351,7 @@ const saveHardware = async () => {
                   <div class="flex items-center gap-3">
                     <HugeiconsIcon :icon="CpuIcon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
                     <span class="text-[13px] font-bold uppercase tracking-wider" :class="formData.id_familia ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
-                      {{ formData.id_familia ? familias.find(f => f.id_familia === formData.id_familia)?.nombre : (t('hardware.placeholderFamily') || 'Seleccione familia...') }}
+                      {{ formData.id_familia ? familias.find(f => f.id_familia === formData.id_familia)?.nombre : t('hardware.placeholderFamily') }}
                     </span>
                   </div>
                   <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2.2" class="text-slate-400 group-hover/input:text-[#3b82f6] transition-transform duration-200" :class="isFamilyDropdownOpen && '-rotate-180'" />
@@ -344,7 +362,7 @@ const saveHardware = async () => {
                 <div v-if="isFamilyDropdownOpen" class="absolute top-[calc(100%+8px)] left-0 w-full bg-white/70 dark:bg-[#0F1115]/70 backdrop-blur-[32px] border border-white/40 dark:border-white/[0.08] rounded-[24px] shadow-[0_16px_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.5)] z-[50] overflow-hidden p-2 ring-1 ring-black/5 dark:ring-white/5">
                   <div class="max-h-56 overflow-y-auto custom-scrollbar space-y-1 pr-1">
                     <div v-if="familias.length === 0" class="p-4 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                      No hay familias disponibles
+                      {{ t('hardware.noFamiliesAvailable') }}
                     </div>
                     <button
                       v-for="familia in familias"

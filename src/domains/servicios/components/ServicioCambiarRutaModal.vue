@@ -9,6 +9,8 @@ import {
   Loading03Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { cambiarRutaServicioApi } from '../services/servicios.api'
 import type { ServicioDashboard, RutaSimple } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -18,6 +20,8 @@ import { useFormError } from '../../../composables/useFormError'
 import { servicioCambiarRutaSchema } from '../../../schemas/servicios.schema'
 import { useToast } from 'primevue/usetoast'
 
+loadModuleMessages('servicios')
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const toast = useToast()
 
@@ -71,7 +75,7 @@ const selectRuta = (id: string) => {
 }
 
 const getRutaLabel = (id: string) => {
-  if (!id) return 'Sin ruta asignada'
+  if (!id) return t('servicios.noRouteAssigned')
   const r = rutasList.value.find(item => item.id_ruta === id)
   return r ? r.nombre : id
 }
@@ -92,7 +96,7 @@ const handleCambiar = async () => {
     if (firstErr) {
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
+        summary: t('servicios.toastValidation'),
         detail: firstErr,
         life: 4000
       })
@@ -109,15 +113,15 @@ const handleCambiar = async () => {
       emit('assigned')
       toast.add({
         severity: 'success',
-        summary: 'Ruta Cambiada',
-        detail: data.message || 'La ruta ha sido actualizada con éxito.',
+        summary: t('servicios.toastRouteUpdatedSuccess'),
+        detail: data.message || t('servicios.toastRouteUpdatedDetail'),
         life: 4000
       })
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: data.message || 'Error al cambiar ruta',
+        summary: t('servicios.toastError'),
+        detail: data.message || t('servicios.toastConnectionError'),
         life: 4000
       })
     }
@@ -125,8 +129,8 @@ const handleCambiar = async () => {
     console.error('Error cambiando ruta:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error.message || 'Error de conexión',
+      summary: t('servicios.toastError'),
+      detail: error.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -145,8 +149,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleCambiar"
-    title="Cambiar Ruta del Servicio"
-    confirm-text="Confirmar Cambio"
+    :title="t('servicios.modalTitleChangeRoute')"
+    :confirm-text="t('servicios.btnConfirmChange')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -164,7 +168,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cambiando Ruta...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('servicios.changingRoute') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -195,7 +199,7 @@ const handleClose = () => {
             <div class="space-y-1.5">
               <span class="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-slate-400"></span>
-                Ruta Actual
+                {{ t('servicios.currentRoute') }}
               </span>
               <div class="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-3 text-xs">
                 <div class="w-8 h-8 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 shrink-0">
@@ -203,7 +207,7 @@ const handleClose = () => {
                 </div>
                 <div class="min-w-0">
                   <p class="font-medium text-slate-800 dark:text-slate-200 truncate">{{ getRutaLabel(servicio?.id_ruta || '') }}</p>
-                  <span class="text-[10px] text-slate-400">Activa en el servicio</span>
+                  <span class="text-[10px] text-slate-400">{{ t('servicios.activeInService') }}</span>
                 </div>
               </div>
             </div>
@@ -212,7 +216,7 @@ const handleClose = () => {
             <div class="space-y-1.5">
               <span class="text-xs font-semibold text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-[#3b82f6]"></span>
-                Nueva Ruta Seleccionada
+                {{ t('servicios.newRouteSelected') }}
               </span>
               <div 
                 v-if="selectedRutaId" 
@@ -224,21 +228,21 @@ const handleClose = () => {
                   </div>
                   <div class="min-w-0">
                     <p class="font-medium text-[#3b82f6] dark:text-[#60a5fa] truncate">{{ getRutaLabel(selectedRutaId) }}</p>
-                    <span class="text-[10px] text-[#3b82f6]/70 dark:text-[#60a5fa]/70">Pendiente de confirmación</span>
+                    <span class="text-[10px] text-[#3b82f6]/70 dark:text-[#60a5fa]/70">{{ t('servicios.pendingConfirmation') }}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   @click="selectedRutaId = ''"
                   class="w-5 h-5 flex items-center justify-center rounded text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-[10px]"
-                  title="Deshacer selección"
+                  :title="t('servicios.undoSelection')"
                 >✕</button>
               </div>
               <div 
                 v-else 
                 class="flex items-center justify-center border border-dashed border-slate-200 dark:border-slate-800 rounded-lg p-4 text-slate-400 text-xs text-center select-none"
               >
-                <span>Selecciona una ruta del panel derecho</span>
+                <span>{{ t('servicios.selectFromRightPanel') }}</span>
               </div>
             </div>
           </div>
@@ -247,13 +251,13 @@ const handleClose = () => {
           <div class="flex flex-col p-4 h-[320px]">
             <div class="flex justify-between items-center mb-3 shrink-0">
               <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
-                Rutas Disponibles
+                {{ t('servicios.availableRoutesHeader') }}
               </span>
               <div class="relative w-40 shrink-0">
                 <input
                   v-model="rutaSearchQuery"
                   type="text"
-                  placeholder="Buscar..."
+                  :placeholder="t('servicios.filterSearchRoute')"
                   class="w-full text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-md pl-7 pr-2 py-1 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 focus:border-[#3b82f6] transition-colors"
                 />
                 <HugeiconsIcon :icon="Search01Icon" :size="12" class="absolute left-2.5 top-2 text-slate-400" />
@@ -282,7 +286,7 @@ const handleClose = () => {
               </div>
 
               <div v-if="filteredRutas.length === 0" class="h-full flex flex-col items-center justify-center text-xs text-slate-400 py-10">
-                <span>{{ rutaSearchQuery ? 'Sin coincidencias.' : 'Sin otras rutas disponibles.' }}</span>
+                <span>{{ rutaSearchQuery ? t('servicios.noMatches') : t('servicios.noRoutesFound') }}</span>
               </div>
             </div>
           </div>
@@ -292,9 +296,9 @@ const handleClose = () => {
         <!-- Resumen de Cambios -->
         <div class="flex items-center justify-between px-4 py-2 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400">
           <div class="flex gap-4 items-center">
-            <span>Cambio: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ selectedRutaId ? '1 ruta seleccionada' : 'Sin cambios' }}</strong></span>
+            <span>{{ t('servicios.toastNoChangesSummary') }}: <strong class="text-[#3b82f6] dark:text-[#60a5fa] font-semibold">{{ selectedRutaId ? t('servicios.oneRouteSelected') : t('servicios.noRouteChanges') }}</strong></span>
           </div>
-          <span class="text-[11px] text-slate-400">Presiona confirmar para actualizar la ruta del servicio</span>
+          <span class="text-[11px] text-slate-400">{{ t('servicios.routeChangeSummary') }}</span>
         </div>
 
       </div>

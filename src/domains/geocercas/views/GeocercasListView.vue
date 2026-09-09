@@ -521,17 +521,17 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
 
 const exportToExcel = () => {
   const dataToExport = filteredGeocercas.value.map(g => ({
-    'ID': g.id_geocerca,
-    'Nombre': g.nombre,
-    'Descripción': g.descripcion,
-    'Tipo': g.tipo,
-    'Color': g.color,
-    'Fecha Creada': g.fecha_creada
+    [t('geocercas.id')]: g.id_geocerca,
+    [t('geocercas.nombre')]: g.nombre,
+    [t('geocercas.descripcion')]: g.descripcion,
+    [t('geocercas.tipo')]: g.tipo,
+    [t('geocercas.color')]: g.color,
+    [t('geocercas.fechaCreada')]: g.fecha_creada
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Geocercas')
-  XLSX.writeFile(workbook, 'Listado_Geocercas.xlsx')
+  XLSX.utils.book_append_sheet(workbook, worksheet, t('geocercas.title'))
+  XLSX.writeFile(workbook, `${t('geocercas.title')}.xlsx`)
 }
 
 // Borrar Geocerca
@@ -586,7 +586,7 @@ const handleDeleteGeocerca = async () => {
         >
           <div class="flex flex-col items-center gap-4">
             <div class="w-14 h-14 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
-            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando mapa...</p>
+            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">{{ t('geocercas.loadingMap') }}</p>
           </div>
         </div>
       </Transition>
@@ -601,13 +601,11 @@ const handleDeleteGeocerca = async () => {
             <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <HugeiconsIcon :icon="Alert01Icon" :size="28" class="text-red-500" />
             </div>
-            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Error al cargar el mapa</p>
-            <p class="text-xs text-slate-400">Verifica tu conexión a internet</p>
+            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">{{ t('geocercas.errorLoadingMap') }}</p>
+            <p class="text-xs text-slate-400">{{ t('geocercas.checkInternet') }}</p>
           </div>
         </div>
       </Transition>
-
-
 
       <!-- Overlay Carga Detalles -->
       <Transition name="fade-overlay">
@@ -620,7 +618,7 @@ const handleDeleteGeocerca = async () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cargando Geocerca...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('geocercas.loadingGeocerca') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -638,7 +636,7 @@ const handleDeleteGeocerca = async () => {
           style="bottom:24px;right:24px;"
         >
           <div class="bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl px-4 py-3 rounded-xl border border-white/20 dark:border-white/5 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-3">
-            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Selecciona una geocerca para verla en el mapa</p>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">{{ t('geocercas.selectGeocercaPrompt') }}</p>
           </div>
         </div>
       </Transition>
@@ -656,9 +654,9 @@ const handleDeleteGeocerca = async () => {
                   <HugeiconsIcon :icon="MapsIcon" :size="18" :stroke-width="2" />
                 </div>
                 <div>
-                  <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ $t('geocercas.title') }}</h1>
+                  <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('geocercas.title') }}</h1>
                   <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5">
-                    {{ $t('geocercas.activeGeocercas', { count: filteredGeocercas.length }) }}
+                    {{ t('geocercas.activeGeocercas', { count: filteredGeocercas.length }) }}
                   </p>
                 </div>
               </div>
@@ -667,13 +665,13 @@ const handleDeleteGeocerca = async () => {
                 <!-- Botón Exportar Plano -->
                 <button @click="exportToExcel"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
-                  title="Exportar">
+                  :title="t('geocercas.export')">
                   <HugeiconsIcon :icon="Download01Icon" :size="14" :stroke-width="2" />
                 </button>
                 <!-- Botón Nueva Geocerca Plano -->
                 <button v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)" @click="router.push('/geocercas/nueva')"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97] transition-all duration-200"
-                  title="Nueva Geocerca">
+                  :title="t('geocercas.newGeocerca')">
                   <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" />
                 </button>
               </div>
@@ -682,12 +680,12 @@ const handleDeleteGeocerca = async () => {
             <!-- Búsqueda -->
             <div class="relative mt-4 flex items-center gap-2">
               <div class="relative flex-1">
-                <AppInput v-model="searchQuery" :placeholder="$t('geocercas.searchPlaceholder')" :icon="Search01Icon" />
+                <AppInput v-model="searchQuery" :placeholder="t('geocercas.searchPlaceholder')" :icon="Search01Icon" />
               </div>
               <button 
                 @click="fetchGeocercas"
                 :disabled="loading"
-                :title="t('common.reload', 'Recargar')"
+                :title="t('common.reload')"
                 class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center"
               >
                 <HugeiconsIcon 
@@ -704,7 +702,7 @@ const handleDeleteGeocerca = async () => {
             <!-- Cargando -->
             <div v-if="loading" class="flex flex-col items-center justify-center py-12 gap-4">
               <div class="w-10 h-10 border-[3px] border-[#3b82f6]/15 border-t-[#3b82f6] rounded-full animate-spin"></div>
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando...</p>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">{{ t('geocercas.loading') }}</p>
             </div>
             
             <!-- Sin resultados -->
@@ -713,8 +711,8 @@ const handleDeleteGeocerca = async () => {
                 <HugeiconsIcon :icon="Search01Icon" :size="28" :stroke-width="1.5" />
               </div>
               <div class="space-y-1">
-                <p class="text-[13px] font-black text-slate-600 dark:text-slate-300">{{ $t('geocercas.noResults') }}</p>
-                <p class="text-[11px] font-medium text-slate-400 dark:text-slate-500">Prueba con otro término</p>
+                <p class="text-[13px] font-black text-slate-600 dark:text-slate-300">{{ t('geocercas.noResults') }}</p>
+                <p class="text-[11px] font-medium text-slate-400 dark:text-slate-500">{{ t('geocercas.tryAnotherTerm') }}</p>
               </div>
             </div>
             
@@ -756,11 +754,11 @@ const handleDeleteGeocerca = async () => {
                       </h3>
                       <!-- Etiqueta de Tipo -->
                       <span class="text-[9px] font-black px-1.5 py-0.5 rounded-md leading-none select-none tracking-wide bg-slate-100 dark:bg-white/[0.05] border border-slate-200/50 dark:border-white/[0.04] text-slate-500 dark:text-slate-400 uppercase">
-                        {{ geocerca.tipo }}
+                        {{ geocerca.tipo === 'Circular' ? t('geocercas.circular') : t('geocercas.poligonal') }}
                       </span>
                     </div>
                     <p class="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-1">
-                      {{ geocerca.descripcion || 'Sin descripción' }}
+                      {{ geocerca.descripcion || t('geocercas.noDescription') }}
                     </p>
                   </div>
                 </div>
@@ -797,7 +795,7 @@ const handleDeleteGeocerca = async () => {
                         class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
                       >
                         <HugeiconsIcon :icon="Edit02Icon" :size="12" class="text-slate-400" />
-                        Editar
+                        {{ t('common.edit') }}
                       </button>
 
                       <button
@@ -806,7 +804,7 @@ const handleDeleteGeocerca = async () => {
                         class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-500/5 transition-colors flex items-center gap-2"
                       >
                         <HugeiconsIcon :icon="Delete02Icon" :size="12" class="text-red-400" />
-                        Eliminar
+                        {{ t('common.delete') }}
                       </button>
                     </div>
                   </Transition>
@@ -826,7 +824,7 @@ const handleDeleteGeocerca = async () => {
           
           <div class="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {{ filteredGeocercas.length > 0 ? `Mostrando ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredGeocercas.length)}–${Math.min(currentPage * itemsPerPage, filteredGeocercas.length)} de ${filteredGeocercas.length}` : 'Sin geocercas' }}
+              {{ filteredGeocercas.length > 0 ? t('geocercas.showingCount', { from: Math.min((currentPage - 1) * itemsPerPage + 1, filteredGeocercas.length), to: Math.min(currentPage * itemsPerPage, filteredGeocercas.length), total: filteredGeocercas.length }) : t('geocercas.noGeocercas') }}
             </p>
           </div>
         </div>

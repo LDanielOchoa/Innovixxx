@@ -15,6 +15,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { createVehiculoApi, updateVehiculoApi, fetchVehicleTypesApi } from '../services/vehiculos.api'
 import { createVehiculoSchema, updateVehiculoSchema } from '../../../schemas/vehiculos.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
@@ -25,6 +26,8 @@ import type { Vehiculo, TipoVehiculo } from '../types/vehiculo'
 
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
+
+loadModuleMessages('vehiculos')
 
 const { t } = useI18n()
 const groupStore = useGroupStore()
@@ -68,9 +71,9 @@ const filteredTypes = computed(() => {
 })
 
 const selectedTypeLabel = computed(() => {
-  if (!formData.tipo) return t('vehiculos.placeholderType', 'Seleccione un tipo')
+  if (!formData.tipo) return t('vehiculos.placeholderType')
   const found = vehicleTypes.value.find(t => String(t.id_tipo) === String(formData.tipo) || t.nombre === formData.tipo)
-  return found ? found.nombre : t('vehiculos.placeholderType', 'Seleccione un tipo')
+  return found ? found.nombre : t('vehiculos.placeholderType')
 })
 
 const selectType = (type: TipoVehiculo) => {
@@ -142,7 +145,7 @@ const handleSave = async () => {
   modalMessage.value = null
 
   if (!groupStore.selectedGroup?.id) {
-    showMessage('Seleccione un grupo válido', 'error')
+    showMessage(t('vehiculos.alertSelectGroup'), 'error')
     saving.value = false
     return
   }
@@ -161,7 +164,7 @@ const handleSave = async () => {
   if (!isValid) {
     saving.value = false
     showMessage(
-      getFirstError('vehiculo-modal-form') || t('vehiculos.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      getFirstError('vehiculo-modal-form') || t('vehiculos.alertValidation'),
       'error'
     )
     return
@@ -178,8 +181,8 @@ const handleSave = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: isEditMode.value ? t('vehiculos.alertSuccessUpdateTitle', 'Vehículo Actualizado') : t('vehiculos.alertSuccessCreateTitle', 'Vehículo Registrado'),
-        detail: data.message || (isEditMode.value ? t('vehiculos.alertSuccessUpdateDetail', 'El vehículo ha sido modificado exitosamente.') : t('vehiculos.alertSuccessCreateDetail', 'El vehículo ha sido registrado exitosamente.')),
+        summary: isEditMode.value ? t('vehiculos.alertSuccessUpdateTitle') : t('vehiculos.alertSuccessCreateTitle'),
+        detail: data.message || (isEditMode.value ? t('vehiculos.alertSuccessUpdateDetail') : t('vehiculos.alertSuccessCreateDetail')),
         life: 4000
       })
       emit('saved')
@@ -196,7 +199,7 @@ const handleSave = async () => {
         clearErrors()
       }
     } else {
-      showMessage(data.message || (isEditMode.value ? 'Error al actualizar' : 'Error al registrar'), 'error')
+      showMessage(data.message || (isEditMode.value ? t('vehiculos.alertErrorUpdate') : t('vehiculos.alertErrorCreate')), 'error')
     }
   } catch (error: any) {
     console.error('Error saving vehiculo:', error)
@@ -210,7 +213,7 @@ const handleSave = async () => {
       }
       showMessage(msg, 'error')
     } else {
-      showMessage(error.message || 'Error de conexión', 'error')
+      showMessage(error.message || t('vehiculos.netError'), 'error')
     }
   } finally {
     saving.value = false
@@ -231,6 +234,7 @@ const handleClickOutside = (event: MouseEvent) => {
 }
 
 onMounted(() => {
+  loadModuleMessages('vehiculos')
   document.addEventListener('click', handleClickOutside)
 })
 
@@ -246,8 +250,8 @@ onUnmounted(() => {
     @close="handleClose"
     @confirm="handleSave"
     :close-on-click-outside="!saving"
-    :title="isEditMode ? t('vehiculos.editTitle', 'Editar Vehículo') : t('vehiculos.newTitle', 'Nuevo Vehículo')"
-    :confirm-text="isEditMode ? t('vehiculos.btnSave', 'Guardar Cambios') : t('vehiculos.btnRegister', 'Registrar Vehículo')"
+    :title="isEditMode ? t('vehiculos.editTitle') : t('vehiculos.newTitle')"
+    :confirm-text="isEditMode ? t('vehiculos.btnSave') : t('vehiculos.btnRegister')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -282,7 +286,7 @@ onUnmounted(() => {
           </div>
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-              {{ isEditMode ? 'Actualizando...' : 'Guardando...' }}
+              {{ isEditMode ? t('vehiculos.updating') : t('vehiculos.saving') }}
             </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -311,8 +315,8 @@ onUnmounted(() => {
       <div class="space-y-5">
         <AppInput
           v-model="formData.nombre"
-          :label="t('vehiculos.labelName', 'Nombre del Vehículo')"
-          :placeholder="t('vehiculos.placeholderName', 'Ej. Camión Principal')"
+          :label="t('vehiculos.labelName')"
+          :placeholder="t('vehiculos.placeholderName')"
           :icon="LicenseIcon"
           :disabled="saving"
         />
@@ -320,15 +324,15 @@ onUnmounted(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <AppInput
             v-model="formData.placa"
-            :label="t('vehiculos.labelPlate', 'Placa')"
-            :placeholder="t('vehiculos.placeholderPlate', 'ABC-123')"
+            :label="t('vehiculos.labelPlate')"
+            :placeholder="t('vehiculos.placeholderPlate')"
             :icon="LicenseIcon"
             :disabled="saving"
           />
           <AppInput
             v-model="formData.serial"
-            :label="t('vehiculos.labelSerial', 'Serial / VIN')"
-            :placeholder="t('vehiculos.placeholderSerial', '1HGBH41JXMN109186')"
+            :label="t('vehiculos.labelSerial')"
+            :placeholder="t('vehiculos.placeholderSerial')"
             :icon="FingerPrintIcon"
             :disabled="saving"
           />
@@ -338,7 +342,7 @@ onUnmounted(() => {
         <div ref="typeDropdownRef" class="space-y-2 relative">
           <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1.5 transition-colors duration-300"
             :class="isTypeDropdownOpen ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'">
-            {{ t('vehiculos.labelType', 'Tipo de Vehículo') }}
+            {{ t('vehiculos.labelType') }}
           </label>
           <div
             @click="saving ? null : (isTypeDropdownOpen = !isTypeDropdownOpen)"
@@ -379,7 +383,7 @@ onUnmounted(() => {
                   <input
                     v-model="typeSearchQuery"
                     type="text"
-                    :placeholder="t('common.search', 'Buscar...')"
+                    :placeholder="t('common.search')"
                     class="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[13px] font-medium text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-[#3b82f6]/30 transition-all"
                     @click.stop
                     autocomplete="off"
@@ -401,7 +405,7 @@ onUnmounted(() => {
                   <HugeiconsIcon v-if="formData.tipo === type.id_tipo" :icon="Tick01Icon" :size="14" :stroke-width="2.5" class="text-[#3b82f6] shrink-0 ml-2" />
                 </button>
                 <div v-if="filteredTypes.length === 0" class="py-6 text-center">
-                  <p class="text-[12px] font-semibold text-slate-400 dark:text-slate-500">Sin resultados</p>
+                  <p class="text-[12px] font-semibold text-slate-400 dark:text-slate-500">{{ t('vehiculos.noTypeResults') }}</p>
                 </div>
               </div>
             </div>
@@ -418,7 +422,7 @@ onUnmounted(() => {
           :disabled="saving"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancelar
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
@@ -428,7 +432,7 @@ onUnmounted(() => {
         >
           <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
           <HugeiconsIcon v-else :icon="Tick01Icon" :size="16" />
-          {{ saving ? (isEditMode ? 'Guardando cambios...' : 'Registrando vehículo...') : (isEditMode ? t('vehiculos.btnSave', 'Guardar Cambios') : t('vehiculos.btnRegister', 'Registrar Vehículo')) }}
+          {{ saving ? (isEditMode ? t('vehiculos.updatingProgress') : t('vehiculos.registeringProgress')) : (isEditMode ? t('vehiculos.btnSave') : t('vehiculos.btnRegister')) }}
         </button>
       </div>
     </template>

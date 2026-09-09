@@ -44,6 +44,7 @@ import HardwareFormModal from '../components/HardwareFormModal.vue'
 import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
 import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.vue'
 import HardwareOffsetHoursModal from '../components/HardwareOffsetHoursModal.vue'
+import HardwareCambiarEstadoModal from '../components/HardwareCambiarEstadoModal.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
@@ -111,12 +112,12 @@ const familiasUnicas = computed(() => {
 })
 
 const getEstadoFiltroLabel = computed(() => {
-  if (estadoFiltro.value === 'ALL') return 'TODOS LOS ESTADOS'
+  if (estadoFiltro.value === 'ALL') return t('hardware.filterAllStates')
   return estadoFiltro.value
 })
 
 const getFamiliaFiltroLabel = computed(() => {
-  if (familiaFiltro.value === 'ALL') return 'TODAS LAS FAMILIAS'
+  if (familiaFiltro.value === 'ALL') return t('hardware.filterAllFamilies')
   return familiaFiltro.value
 })
 
@@ -277,7 +278,16 @@ const openOffsetModal = (item: Hardware) => {
   isOffsetModalOpen.value = true
 }
 
-const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas') => {
+// Modal de cambiar estado
+const isCambiarEstadoModalOpen = ref(false)
+const cambiarEstadoHardware = ref<Hardware | null>(null)
+
+const openCambiarEstadoModal = (item: Hardware) => {
+  cambiarEstadoHardware.value = item
+  isCambiarEstadoModalOpen.value = true
+}
+
+const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas' | 'cambiar-estado') => {
   const item = items.value.find(i => i.id_hardware === openMenuId.value)
   openMenuId.value = null
   if (!item) return
@@ -286,6 +296,7 @@ const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candad
   else if (action === 'delete') confirmDelete(item.id_hardware)
   else if (action === 'abrir-candado') openAbrirCandadoModal(item)
   else if (action === 'offset-horas') openOffsetModal(item)
+  else if (action === 'cambiar-estado') openCambiarEstadoModal(item)
 }
 
 const deleteHardware = async () => {
@@ -340,6 +351,7 @@ const exportToExcel = () => {
     Serial: item.serial,
     IMEI: item.imei,
     MAC: item.mac,
+    ISDN: item.isdn || '---',
     Estado: item.estado,
     ID: item.id_hardware
   }))
@@ -376,6 +388,7 @@ const filteredItems = computed(() => {
       (item.serial?.toLowerCase().includes(query)) ||
       (item.imei?.toLowerCase().includes(query)) ||
       (item.mac?.toLowerCase().includes(query)) ||
+      (item.isdn && String(item.isdn).toLowerCase().includes(query)) ||
       (item.familia?.toLowerCase().includes(query))
     )
   }
@@ -415,7 +428,7 @@ const filteredItems = computed(() => {
         <button 
           @click="fetchHardware"
           :disabled="isLoading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -455,7 +468,7 @@ const filteredItems = computed(() => {
                   ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
               >
-                <span>TODAS LAS FAMILIAS</span>
+                <span>{{ t('hardware.filterAllFamilies') }}</span>
                 <span v-if="familiaFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
               </button>
 
@@ -508,7 +521,7 @@ const filteredItems = computed(() => {
                   ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
               >
-                <span>TODOS LOS ESTADOS</span>
+                <span>{{ t('hardware.filterAllStates') }}</span>
                 <span v-if="estadoFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
               </button>
 
@@ -541,7 +554,7 @@ const filteredItems = computed(() => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('common.btnExport') }}</span>
         </button>
 
         <button 
@@ -565,13 +578,13 @@ const filteredItems = computed(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="estadoFiltro !== 'ALL' ? `No se encontraron dispositivos en estado ${estadoFiltro}` : t('hardware.noResults')"
+        :empty-message="estadoFiltro !== 'ALL' ? t('hardware.noResultsInState', { state: estadoFiltro }) : t('hardware.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <Column field="nombre" :header="t('hardware.thName', 'Dispositivo')" sortable>
+        <Column field="nombre" :header="t('hardware.thName')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
               <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || 'Desconocido' }}</span>
@@ -580,15 +593,16 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column field="serial" :header="t('hardware.thIdentifiers', 'Identificadores')" sortable>
+        <Column field="serial" :header="t('hardware.thIdentifiers')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <span class="text-[12px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wider font-mono">{{ data.serial || '---' }}</span>
+              <span v-if="data.isdn" class="text-[10px] text-slate-400 dark:text-slate-500 font-mono">ISDN: {{ data.isdn }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="familia" :header="t('hardware.thFamily', 'Familia')" sortable>
+        <Column field="familia" :header="t('hardware.thFamily')" sortable>
           <template #body="{ data }">
             <AppBadge variant="primary">
               <span class="text-[10px] font-semibold uppercase tracking-wider">
@@ -599,7 +613,7 @@ const filteredItems = computed(() => {
         </Column>
 
         <!-- Columna Batería -->
-        <Column field="bateria" :header="t('hardware.thBattery', 'Batería')" sortable headerStyle="width: 130px">
+        <Column field="bateria" :header="t('hardware.thBattery')" sortable headerStyle="width: 130px">
           <template #body="{ data }">
             <div v-if="data.bateria !== undefined && data.bateria !== null && data.bateria !== ''" class="flex items-center gap-2 py-1">
               <div 
@@ -614,7 +628,7 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column :header="t('hardware.thAssignment', 'Asignación')">
+        <Column :header="t('hardware.thAssignment')">
           <template #body="{ data }">
             <div class="flex items-center gap-2 py-1">
               <!-- Servicio -->
@@ -628,8 +642,8 @@ const filteredItems = computed(() => {
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Servicio</span>
-                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : 'No asignado' }}</span>
+                    <span class="font-bold text-[#5da6fc]">{{ t('hardware.tooltipService') }}</span>
+                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : t('hardware.unassigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
@@ -639,7 +653,7 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column field="estado" :header="t('hardware.thStatus', 'Estado')" sortable>
+        <Column field="estado" :header="t('hardware.thStatus')" sortable>
           <template #body="{ data }">
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide"
@@ -662,13 +676,13 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
-        <Column :header="t('hardware.thActions', 'Acciones')" headerStyle="width: 4rem" class="text-right" alignHeader="right">
+        <Column :header="t('hardware.thActions')" headerStyle="width: 4rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end items-center">
               <button
                 @click.stop="toggleMenu(data.id_hardware, $event)"
                 class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
-                title="Acciones"
+                :title="t('hardware.thActions')"
               >
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
               </button>
@@ -694,7 +708,7 @@ const filteredItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Ver Posición</span>
+              <span>{{ t('hardware.actionViewPosition') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS) && isCandadoSupported(openMenuItem)"
@@ -702,7 +716,7 @@ const filteredItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="LockKeyIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Abrir Candado</span>
+              <span>{{ t('hardware.actionOpenLock') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
@@ -710,7 +724,15 @@ const filteredItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Clock01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Offset Horas</span>
+              <span>{{ t('hardware.actionOffsetHours') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
+              @click="handleMenuAction('cambiar-estado')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="RefreshIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('hardware.actionChangeState') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT)"
@@ -718,7 +740,7 @@ const filteredItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_DELETE)"
@@ -726,7 +748,7 @@ const filteredItems = computed(() => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -772,6 +794,13 @@ const filteredItems = computed(() => {
     <HardwareOffsetHoursModal
       v-model:is-open="isOffsetModalOpen"
       :hardware="offsetHardware"
+      @updated="fetchHardware"
+    />
+
+    <!-- Modal Cambiar Estado -->
+    <HardwareCambiarEstadoModal
+      v-model:is-open="isCambiarEstadoModalOpen"
+      :hardware="cambiarEstadoHardware"
       @updated="fetchHardware"
     />
   </div>

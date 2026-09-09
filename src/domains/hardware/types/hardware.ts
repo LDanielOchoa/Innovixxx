@@ -8,13 +8,21 @@ export interface Hardware {
   id_familia: number
   familia?: string
   estado?: number | string
+  habilitado?: number | boolean
   bateria?: number | string
   numero_sms?: string
   id_binario?: string
   clave_open?: string
+  isdn?: string | number | null
   id_servicio?: string
   grupo_servicio?: string
   id_ruta?: number | string
+}
+
+export interface HardwareChangeStatePayload {
+  id_grupo: string
+  id_hardware: string
+  habilitado: number // 0 para deshabilitar, 1 para habilitar
 }
 
 export interface FamiliaHardware {
@@ -36,6 +44,7 @@ export interface HardwareCreatePayload {
   numero_sms: string
   id_binario: string
   clave_open: string
+  isdn?: string | number | null
 }
 
 export interface HardwareUpdatePayload extends HardwareCreatePayload {

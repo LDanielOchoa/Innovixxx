@@ -18,6 +18,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { registrarServicioApi, fetchRutasSimplesApi, fetchVehiculosSimplesApi } from '../services/servicios.api'
 import type { ServicioCreatePayload, RutaSimple, VehiculoSimple } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -30,6 +31,7 @@ import { useFormError } from '../../../composables/useFormError'
 import { servicioCreateSchema } from '../../../schemas/servicios.schema'
 import { useToast } from 'primevue/usetoast'
 
+loadModuleMessages('servicios')
 const { t } = useI18n()
 const groupStore = useGroupStore()
 const toast = useToast()
@@ -83,10 +85,10 @@ const filteredRutas = computed(() => {
   )
 })
 
-const modoFinOptions = [
-  { value: '1', label: 'Al llegar' },
-  { value: '2', label: 'Al descargar' }
-]
+const modoFinOptions = computed(() => [
+  { value: '1', label: t('servicios.endModeArrival') },
+  { value: '2', label: t('servicios.endModeUnload') }
+])
 
 const formData = reactive({
   id_ruta: '',
@@ -204,8 +206,8 @@ const selectVehiculo = (id: string) => {
   if (v && !isDisponible && !selectedVehiculosIds.value.includes(id)) {
     toast.add({
       severity: 'warn',
-      summary: 'Vehículo Ocupado',
-      detail: `Este vehículo está ${v.estado} y no puede ser seleccionado.`,
+      summary: t('servicios.toastOccupiedVehicleSummary'),
+      detail: t('servicios.toastOccupiedVehicleDetail', { estado: v.estado }),
       life: 4000
     })
     return
@@ -296,7 +298,7 @@ const handleCreate = async () => {
     if (firstErr) {
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
+        summary: t('servicios.toastValidation'),
         detail: firstErr,
         life: 4000
       })
@@ -313,15 +315,15 @@ const handleCreate = async () => {
       emit('created')
       toast.add({
         severity: 'success',
-        summary: 'Servicio Creado',
-        detail: data.message || 'El servicio ha sido registrado exitosamente.',
+        summary: t('servicios.toastCreatedSuccess'),
+        detail: data.message || t('servicios.toastCreatedDetail'),
         life: 4000
       })
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: data.message || (t('common.error') || 'Error al registrar'),
+        summary: t('servicios.toastError'),
+        detail: data.message || t('servicios.toastConnectionError'),
         life: 4000
       })
     }
@@ -329,8 +331,8 @@ const handleCreate = async () => {
     console.error('Error creating servicio:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error.message || (t('common.errorNetwork') || 'Error de conexión'),
+      summary: t('servicios.toastError'),
+      detail: error.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -349,8 +351,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleCreate"
-    :title="t('servicios.modalTitleCreate', 'Registrar Servicio')"
-    :confirm-text="t('servicios.btnRegister', 'Registrar Servicio')"
+    :title="t('servicios.modalTitleCreate')"
+    :confirm-text="t('servicios.btnRegister')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -369,7 +371,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Registrando Servicio...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('servicios.registeringService') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -393,178 +395,180 @@ const handleClose = () => {
         </div>
       </div>
 
-        <!-- FORM CONTENT -->
-        <div v-if="!isInitializing" class="animate-fade-in space-y-6">
-          <div class="space-y-5">
-            <!-- Ruta -->
-            <div class="space-y-2">
-                <label
-                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300 block"
-                  :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                >
-                  Ruta de Viaje
-                </label>
-                <button
-                  ref="btnRutas"
-                  type="button"
-                  @click="abrirPanel('rutas')"
-                  :disabled="loadingRutas"
-                  class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
-                  :class="[
-                    loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
-                    panelActivo === 'rutas' ? 'panel-on' : '',
-                    getError('id_ruta') ? '!border-red-500/50' : ''
-                  ]"
-                >
-                  <!-- Borde superior brillante -->
-                  <div 
-                    class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
-                    :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
-                  ></div>
+      <!-- FORM CONTENT -->
+      <div v-if="!isInitializing" class="animate-fade-in space-y-6">
+        <div class="space-y-5">
+          <!-- Ruta -->
+          <div class="space-y-2">
+            <label
+              class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300 block"
+              :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+            >
+              {{ t('servicios.labelRoute') }}
+            </label>
+            <button
+              ref="btnRutas"
+              type="button"
+              @click="abrirPanel('rutas')"
+              :disabled="loadingRutas"
+              class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
+              :class="[
+                loadingRutas ? 'opacity-60 cursor-not-allowed' : '',
+                panelActivo === 'rutas' ? 'panel-on' : '',
+                getError('id_ruta') ? '!border-red-500/50' : ''
+              ]"
+            >
+              <!-- Borde superior brillante -->
+              <div 
+                class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                :class="{ 'opacity-100 left-2 right-2': panelActivo === 'rutas' }"
+              ></div>
 
-                  <div 
-                    class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
-                    :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
-                  >
-                    <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
+              <div 
+                class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                :class="panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+              >
+                <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="1.8" />
+              </div>
+              <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
+                <template v-if="formData.id_ruta">
+                  <div class="badge-recurso">
+                    <span class="truncate">{{ getRutaLabel(formData.id_ruta) }}</span>
+                    <button type="button" @click.stop="formData.id_ruta = ''" class="hover:text-red-400 transition-colors shrink-0">
+                      <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
+                    </button>
                   </div>
-                  <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
-                    <template v-if="formData.id_ruta">
-                      <div class="badge-recurso">
-                        <span class="truncate">{{ getRutaLabel(formData.id_ruta) }}</span>
-                        <button type="button" @click.stop="formData.id_ruta = ''" class="hover:text-red-400 transition-colors shrink-0">
+                </template>
+                <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                  {{ loadingRutas ? t('servicios.changingRoute') : t('servicios.placeholderRoute') }}
+                </span>
+              </div>
+              <div 
+                class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                :class="[
+                  panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                  { 'rotate-180': panelActivo === 'rutas' }
+                ]"
+              >
+                <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
+              </div>
+            </button>
+            <span v-if="getError('id_ruta')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('id_ruta') }}</span>
+          </div>
+
+          <!-- Fila 1: Fecha y Hora -->
+          <div>
+            <AppDateTimePicker
+              v-model="fechaHoraInicio"
+              :label="t('servicios.labelDateTime')"
+              :placeholder="t('servicios.placeholderDateTime')"
+              disable-past
+            />
+            <span v-if="getError('fecha_hora_inicio')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_inicio') }}</span>
+          </div>
+
+          <!-- Fila 2: Modo Fin -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            <div>
+              <AppSelect
+                v-model="formData.modo_fin"
+                :label="t('servicios.labelEndMode')"
+                :placeholder="t('servicios.placeholderEndMode')"
+                :icon="Clock01Icon"
+                :options="modoFinOptions"
+              />
+              <span v-if="getError('modo_fin')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('modo_fin') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
+        <div class="pt-6 border-t border-white/5 space-y-5">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
+              <HugeiconsIcon :icon="Car01Icon" :size="20" class="drop-shadow-sm" />
+            </div>
+            <div>
+              <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('servicios.vehiclesAssignmentTitle') }}</h3>
+              <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('servicios.vehiclesAssignmentDesc') }}</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1">
+            <!-- VEHÍCULOS -->
+            <div class="space-y-2">
+              <label
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+              >
+                {{ t('servicios.labelVehicles') }}
+              </label>
+              <button
+                ref="btnVehiculos"
+                type="button"
+                @click="abrirPanel('vehiculos')"
+                :disabled="loadingVehiculos"
+                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
+                :class="[
+                  loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
+                  panelActivo === 'vehiculos' ? 'panel-on' : '',
+                  getError('vehiculos_id') ? '!border-red-500/50' : ''
+                ]"
+              >
+                <!-- Borde superior brillante -->
+                <div 
+                  class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
+                  :class="{ 'opacity-100 left-2 right-2': panelActivo === 'vehiculos' }"
+                ></div>
+
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                  :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                >
+                  <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" />
+                </div>
+                <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
+                  <template v-if="selectedVehiculosIds.length > 0">
+                    <template v-if="selectedVehiculosIds.length <= 2">
+                      <div
+                        v-for="id in selectedVehiculosIds"
+                        :key="id"
+                        class="badge-recurso"
+                      >
+                        <span class="truncate max-w-[80px]">{{ getVehiculoLabel(id) }}</span>
+                        <button type="button" @click.stop="selectVehiculo(id)" class="hover:text-red-400 transition-colors shrink-0">
                           <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
                         </button>
                       </div>
                     </template>
-                    <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
-                      {{ loadingRutas ? 'Cargando...' : 'Seleccione una ruta de destino' }}
-                    </span>
-                  </div>
-                  <div 
-                    class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
-                    :class="[
-                      panelActivo === 'rutas' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
-                      { 'rotate-180': panelActivo === 'rutas' }
-                    ]"
-                  >
-                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
-                  </div>
-                </button>
-                <span v-if="getError('id_ruta')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('id_ruta') }}</span>
-              </div>
-
-              <!-- Fila 1: Fecha y Hora -->
-              <div>
-                <AppDateTimePicker
-                  v-model="fechaHoraInicio"
-                  label="Fecha y Hora de Inicio"
-                  placeholder="Seleccione fecha y hora"
-                  disable-past
-                />
-                <span v-if="getError('fecha_hora_inicio')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_inicio') }}</span>
-              </div>
-
-              <!-- Fila 2: Modo Fin -->
-              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                <div>
-                  <AppSelect
-                    v-model="formData.modo_fin"
-                    label="Modo Fin"
-                    placeholder="Modo de Finalización"
-                    :icon="Clock01Icon"
-                    :options="modoFinOptions"
-                  />
-                  <span v-if="getError('modo_fin')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('modo_fin') }}</span>
+                    <template v-else>
+                      <div class="badge-recurso">
+                        <span>{{ t('servicios.selectedVehiclesCount', { count: selectedVehiculosIds.length }) }}</span>
+                        <button type="button" @click.stop="clearVehiculos" class="hover:text-red-400 transition-colors shrink-0">
+                          <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
+                        </button>
+                      </div>
+                    </template>
+                  </template>
+                  <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                    {{ loadingVehiculos ? t('servicios.changingRoute') : t('servicios.placeholderVehicles') }}
+                  </span>
                 </div>
-              </div>
-            </div>            <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
-            <div class="pt-6 border-t border-white/5 space-y-5">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
-                  <HugeiconsIcon :icon="Car01Icon" :size="20" class="drop-shadow-sm" />
+                <div 
+                  class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                  :class="[
+                    panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                    { 'rotate-180': panelActivo === 'vehiculos' }
+                  ]"
+                >
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
                 </div>
-                <div>
-                  <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">Asignación de Vehículos</h3>
-                  <p class="text-[11px] text-slate-400 font-medium mt-0.5">Asociar vehículos de la flota disponible para este servicio.</p>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1">
-                <!-- VEHÍCULOS -->
-                <div class="space-y-2">
-                  <label
-                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                  >
-                    Vehículos Disponibles
-                  </label>
-                  <button
-                    ref="btnVehiculos"
-                    type="button"
-                    @click="abrirPanel('vehiculos')"
-                    :disabled="loadingVehiculos"
-                    class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
-                    :class="[
-                      loadingVehiculos ? 'opacity-60 cursor-not-allowed' : '',
-                      panelActivo === 'vehiculos' ? 'panel-on' : '',
-                      getError('vehiculos_id') ? '!border-red-500/50' : ''
-                    ]"
-                  >
-                    <!-- Borde superior brillante -->
-                    <div 
-                      class="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-[#3b82f6]/50 to-transparent opacity-0 transition-all duration-300 animate-none pointer-events-none"
-                      :class="{ 'opacity-100 left-2 right-2': panelActivo === 'vehiculos' }"
-                    ></div>
-
-                    <div 
-                      class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
-                      :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
-                    >
-                      <HugeiconsIcon :icon="Car01Icon" :size="18" :stroke-width="1.8" />
-                    </div>
-                    <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
-                      <template v-if="selectedVehiculosIds.length > 0">
-                        <template v-if="selectedVehiculosIds.length <= 2">
-                          <div
-                            v-for="id in selectedVehiculosIds"
-                            :key="id"
-                            class="badge-recurso"
-                          >
-                            <span class="truncate max-w-[80px]">{{ getVehiculoLabel(id) }}</span>
-                            <button type="button" @click.stop="selectVehiculo(id)" class="hover:text-red-400 transition-colors shrink-0">
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                            </button>
-                          </div>
-                        </template>
-                        <template v-else>
-                          <div class="badge-recurso">
-                            <span>{{ selectedVehiculosIds.length }} vehículos</span>
-                            <button type="button" @click.stop="clearVehiculos" class="hover:text-red-400 transition-colors shrink-0">
-                              <HugeiconsIcon :icon="Cancel01Icon" :size="9" :stroke-width="3" />
-                            </button>
-                          </div>
-                        </template>
-                      </template>
-                      <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
-                        {{ loadingVehiculos ? 'Cargando...' : 'Seleccione vehículos' }}
-                      </span>
-                    </div>
-                    <div 
-                      class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
-                      :class="[
-                        panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
-                        { 'rotate-180': panelActivo === 'vehiculos' }
-                      ]"
-                    >
-                      <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
-                    </div>
-                  </button>
-                  <span v-if="getError('vehiculos_id')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('vehiculos_id') }}</span>
-                </div>
-              </div>
+              </button>
+              <span v-if="getError('vehiculos_id')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('vehiculos_id') }}</span>
             </div>
           </div>
+        </div>
+      </div>
     </div>
   </AppModal>
 
@@ -592,13 +596,13 @@ const handleClose = () => {
             </div>
             <div>
               <h4 class="text-[12px] font-black text-slate-800 dark:text-white tracking-tight">
-                {{ panelActivo === 'rutas' ? 'Rutas disponibles' : 'Vehículos disponibles' }}
+                {{ panelActivo === 'rutas' ? t('servicios.availableRoutesTitle') : t('servicios.availableVehiclesPanelTitle') }}
               </h4>
               <p class="text-[10px] text-slate-400 dark:text-slate-500 font-medium leading-none mt-0.5">
                 {{
                   panelActivo === 'rutas'
-                    ? `${filteredRutas.length} rutas`
-                    : `${filteredVehiculos.length} en flota`
+                    ? t('servicios.routesCount', { count: filteredRutas.length })
+                    : t('servicios.fleetCount', { count: filteredVehiculos.length })
                 }}
               </p>
             </div>
@@ -620,7 +624,7 @@ const handleClose = () => {
               v-if="panelActivo === 'rutas'"
               v-model="searchRutasQuery"
               type="text"
-              :placeholder="t('common.search') || 'Buscar ruta...'"
+              :placeholder="t('servicios.searchRoutesPlaceholder')"
               class="panel-search-input"
               @click.stop
             />
@@ -628,7 +632,7 @@ const handleClose = () => {
               v-else
               v-model="searchQuery"
               type="text"
-              :placeholder="t('common.search') || 'Nombre, placa o tipo...'"
+              :placeholder="t('servicios.searchNamePlateOrType')"
               class="panel-search-input"
               @click.stop
             />
@@ -646,7 +650,7 @@ const handleClose = () => {
         <!-- ========== BARRA CONTROL ========== -->
         <div class="px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-slate-100 dark:border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-500 dark:text-blue-400">
-            {{ selectedVehiculosIds.length }} seleccionados
+            {{ t('servicios.selectedCount', { count: selectedVehiculosIds.length }) }}
           </span>
           <div class="flex items-center gap-3 text-[10px] font-semibold">
             <button
@@ -654,7 +658,7 @@ const handleClose = () => {
               @click.stop="selectAllVehiculos()"
               class="text-slate-400 hover:text-[#5da6fc] transition-colors"
             >
-              Todos
+              {{ t('servicios.btnSelectAll') }}
             </button>
             <span class="w-px h-3 bg-slate-200 dark:bg-white/10"></span>
             <button
@@ -662,7 +666,7 @@ const handleClose = () => {
               @click.stop="clearVehiculos()"
               class="text-slate-400 hover:text-red-400 transition-colors"
             >
-              Limpiar
+              {{ t('servicios.btnClearAll') }}
             </button>
           </div>
         </div>
@@ -691,7 +695,7 @@ const handleClose = () => {
             </button>
             <div v-if="filteredRutas.length === 0" class="panel-empty">
               <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-30 mb-2" />
-              <span>{{ searchRutasQuery ? 'No se encontraron rutas.' : 'Sin rutas disponibles' }}</span>
+              <span>{{ searchRutasQuery ? t('servicios.noRoutesFound') : t('servicios.noRouteAssigned') }}</span>
             </div>
           </template>
 
@@ -732,7 +736,7 @@ const handleClose = () => {
             </button>
             <div v-if="filteredVehiculos.length === 0" class="panel-empty">
               <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
-              <span>{{ searchQuery ? 'No se encontraron vehículos.' : 'Sin vehículos disponibles' }}</span>
+              <span>{{ searchQuery ? t('servicios.noVehiclesFound') : t('servicios.noVehiclesAssigned') }}</span>
             </div>
           </template>
         </div>
@@ -745,7 +749,7 @@ const handleClose = () => {
             class="panel-confirm-btn"
           >
             <HugeiconsIcon :icon="Tick01Icon" :size="14" />
-            {{ panelActivo === 'rutas' ? 'Confirmar Ruta' : 'Confirmar Selección' }}
+            {{ panelActivo === 'rutas' ? t('servicios.btnConfirmRoute') : t('servicios.btnConfirmSelection') }}
             <template v-if="panelActivo === 'rutas' && formData.id_ruta">(1)</template>
             <template v-else-if="panelActivo === 'vehiculos'">({{ selectedVehiculosIds.length }})</template>
           </button>

@@ -30,6 +30,8 @@ import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
 
+import { loadModuleMessages } from '../../../i18n'
+
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
@@ -111,11 +113,12 @@ const loadVehicle = async () => {
     }
   } catch (error) {
     console.error('Error loading vehicle:', error)
-    showMessage('No se pudo cargar el vehículo.', 'error')
+    showMessage(t('vehiculos.loadError'), 'error')
   }
 }
 
 onMounted(async () => {
+  loadModuleMessages('vehiculos')
   await fetchTypes()
   await loadVehicle()
 })
@@ -139,25 +142,25 @@ const handleSubmit = async () => {
     if (isEditMode.value && route.params.id) {
       const data = await updateVehiculoApi({ ...payload, id_vehiculo: String(route.params.id) })
       if (data.done) {
-        showMessage(t('vehiculos.alertSuccessUpdate', 'Vehículo actualizado correctamente.'), 'success')
+        showMessage(t('vehiculos.alertSuccessUpdate'), 'success')
         setTimeout(() => router.push('/vehiculos'), 1500)
       } else {
-        showMessage(data.message || t('vehiculos.alertErrorUpdate', 'Error al actualizar.'), 'error')
+        showMessage(data.message || t('vehiculos.alertErrorUpdate'), 'error')
       }
     } else {
       const data = await createVehiculoApi(payload)
       if (data.done) {
-        showMessage(t('vehiculos.alertSuccessCreate', 'Vehículo creado correctamente.'), 'success')
+        showMessage(t('vehiculos.alertSuccessCreate'), 'success')
         setTimeout(() => router.push('/vehiculos'), 1500)
       } else {
-        showMessage(data.message || t('vehiculos.alertErrorCreate', 'Error al crear.'), 'error')
+        showMessage(data.message || t('vehiculos.alertErrorCreate'), 'error')
       }
     }
   } catch (error) {
     if (error instanceof ApiError) {
       showMessage(getErrorMessage(error.code), 'error')
     } else {
-      showMessage('Error de red al procesar la solicitud.', 'error')
+      showMessage(t('vehiculos.netError'), 'error')
     }
   } finally {
     saving.value = false
@@ -167,16 +170,16 @@ const handleSubmit = async () => {
 
 <template>
   <AppDataLayout
-    :title="isEditMode ? t('vehiculos.editTitle', 'Editar Vehículo') : t('vehiculos.newTitle', 'Nuevo Vehículo')"
-    :subtitle="isEditMode ? t('vehiculos.editSubtitle', 'Modifica los datos del vehículo') : t('vehiculos.newSubtitle', 'Registra un nuevo vehículo en el sistema')"
+    :title="isEditMode ? t('vehiculos.editTitle') : t('vehiculos.newTitle')"
+    :subtitle="isEditMode ? t('vehiculos.editSubtitle') : t('vehiculos.newSubtitle')"
     allow-overflow
   >
     <template #actions>
       <AppButton variant="secondary" :icon="ArrowLeft01Icon" @click="router.push('/vehiculos')">
-        <span>{{ t('common.back', 'Volver') }}</span>
+        <span>{{ t('common.back') }}</span>
       </AppButton>
       <AppButton variant="primary" :icon="FloppyDiskIcon" :loading="saving" @click="handleSubmit">
-        <span>{{ isEditMode ? t('vehiculos.btnSave', 'Guardar Cambios') : t('vehiculos.btnRegister', 'Registrar') }}</span>
+        <span>{{ isEditMode ? t('vehiculos.btnSave') : t('vehiculos.btnRegister') }}</span>
       </AppButton>
     </template>
 
@@ -204,8 +207,8 @@ const handleSubmit = async () => {
         <!-- Nombre -->
         <AppFormInput
           v-model="formData.nombre"
-          :label="t('vehiculos.labelName', 'Nombre del Vehículo')"
-          :placeholder="t('vehiculos.placeholderName', 'Ej. Camión Principal')"
+          :label="t('vehiculos.labelName')"
+          :placeholder="t('vehiculos.placeholderName')"
           :icon="LicenseIcon"
           :error="getError('nombre') ?? undefined"
           required
@@ -215,16 +218,16 @@ const handleSubmit = async () => {
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <AppFormInput
             v-model="formData.placa"
-            :label="t('vehiculos.labelPlate', 'Placa')"
-            :placeholder="t('vehiculos.placeholderPlate', 'Ej. ABC-123')"
+            :label="t('vehiculos.labelPlate')"
+            :placeholder="t('vehiculos.placeholderPlate')"
             :icon="LicenseIcon"
             :error="getError('placa') ?? undefined"
             required
           />
           <AppFormInput
             v-model="formData.serial"
-            :label="t('vehiculos.labelSerial', 'Serial / VIN')"
-            :placeholder="t('vehiculos.placeholderSerial', 'Ej. 1HGBH41JXMN109186')"
+            :label="t('vehiculos.labelSerial')"
+            :placeholder="t('vehiculos.placeholderSerial')"
             :icon="FingerPrintIcon"
             :error="getError('serial') ?? undefined"
           />
@@ -233,7 +236,7 @@ const handleSubmit = async () => {
         <!-- Tipo de vehículo Personalizado -->
         <div class="space-y-2 relative">
           <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">
-            {{ t('vehiculos.labelType', 'Tipo de Vehículo') }}
+            {{ t('vehiculos.labelType') }}
           </label>
 
           <div
@@ -244,7 +247,7 @@ const handleSubmit = async () => {
             <div class="flex items-center gap-3">
               <HugeiconsIcon :icon="TruckIcon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
               <span class="text-[13px] font-bold" :class="formData.tipo ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
-                {{ selectedTypeLabel || t('vehiculos.placeholderType', 'Seleccionar tipo') }}
+                {{ selectedTypeLabel || t('vehiculos.placeholderType') }}
               </span>
             </div>
             <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" class="transition-all text-slate-400 group-hover/input:text-[#3b82f6]" :class="isTypeOpen ? 'rotate-90' : '-rotate-90'" />
@@ -261,7 +264,7 @@ const handleSubmit = async () => {
                   <input
                     v-model="typeSearch"
                     type="text"
-                    :placeholder="t('common.search', 'Buscar...')"
+                    :placeholder="t('common.search')"
                     class="w-full pl-11 pr-4 py-3 bg-slate-100/60 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-[#1A1D24]/80 rounded-[14px] text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 dark:focus:ring-[#5da6fc]/30 transition-all shadow-inner"
                     @click.stop
                     autocomplete="off"

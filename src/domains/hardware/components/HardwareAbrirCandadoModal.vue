@@ -14,6 +14,7 @@ import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import { useToast } from 'primevue/usetoast'
+import { useI18n } from 'vue-i18n'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 
@@ -24,6 +25,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['update:isOpen', 'updated'])
 
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const toast = useToast()
@@ -59,8 +61,8 @@ const handleAbrirCandado = async () => {
   if (!isValidClave.value) {
     toast.add({
       severity: 'warn',
-      summary: 'Clave inválida',
-      detail: 'La clave debe tener exactamente 6 dígitos numéricos.',
+      summary: t('hardware.invalidPasswordTitle'),
+      detail: t('hardware.invalidPasswordDetail'),
       life: 4000
     })
     return
@@ -79,8 +81,8 @@ const handleAbrirCandado = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: 'Candado abierto',
-        detail: data.message || `Se ha enviado la orden de apertura al dispositivo ${props.hardware.nombre}.`,
+        summary: t('hardware.lockOpenTitle'),
+        detail: data.message || `${t('hardware.lockOpenTitle')}: ${props.hardware.nombre}`,
         life: 4000
       })
       emit('updated')
@@ -88,8 +90,8 @@ const handleAbrirCandado = async () => {
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error al abrir candado',
-        detail: data.message || 'No se pudo abrir el candado. Intente nuevamente.',
+        summary: t('hardware.lockOpenErrorTitle'),
+        detail: data.message || t('hardware.lockOpenErrorDetail'),
         life: 4000
       })
     }
@@ -97,8 +99,8 @@ const handleAbrirCandado = async () => {
     console.error('Error en abrirCandadoHardwareApi:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error?.message || 'Error de conexión con el servidor.',
+      summary: t('hardware.serverError'),
+      detail: error?.message || t('hardware.serverConnectionError'),
       life: 4000
     })
   } finally {
@@ -118,8 +120,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleAbrirCandado"
-    title="Abrir Candado"
-    confirm-text="Enviar Apertura"
+    :title="t('hardware.openLockModalTitle')"
+    :confirm-text="t('hardware.btnSendOpen')"
     size="md"
     :show-footer="!isLoading && hasPermission"
   >
@@ -137,7 +139,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Enviando Apertura...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('hardware.sendingOpen') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -156,8 +158,8 @@ const handleClose = () => {
       <div v-if="!isLoading && !hasPermission" class="flex items-start gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
         <HugeiconsIcon :icon="Alert01Icon" :size="18" class="shrink-0 mt-0.5" />
         <div>
-          <p class="font-bold">Sin permisos</p>
-          <p class="text-[12px] font-medium opacity-80 mt-0.5">No tienes permisos para enviar comandos al hardware.</p>
+          <p class="font-bold">{{ t('hardware.noPermission') }}</p>
+          <p class="text-[12px] font-medium opacity-80 mt-0.5">{{ t('hardware.noPermissionCommandsDetail') }}</p>
         </div>
       </div>
 
@@ -165,7 +167,7 @@ const handleClose = () => {
         <div v-if="!isLoading && hasPermission" class="animate-fade-in space-y-5">
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-              Dispositivo
+              {{ t('hardware.device') }}
             </label>
             <div class="bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]">
               <div class="flex items-center gap-3 px-4 py-3.5">
@@ -206,7 +208,7 @@ const handleClose = () => {
 
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-              Modo de Apertura
+              {{ t('hardware.openMode') }}
             </label>
             <div class="grid grid-cols-1 gap-2">
               <div class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 bg-[#3b82f6]/10 border-[#3b82f6]/40 text-[#3b82f6] dark:bg-[#3b82f6]/15 dark:border-[#5da6fc]/40 dark:text-[#5da6fc]">
@@ -224,13 +226,13 @@ const handleClose = () => {
               :model-value="clave"
               @update:model-value="handleClaveInput"
               type="password"
-              label="Clave del Hardware"
-              placeholder="6 dígitos numéricos"
+              :label="t('hardware.hardwarePassword')"
+              :placeholder="t('hardware.hardwarePasswordPlaceholder')"
               :icon="LockKeyIcon"
               :disabled="saving"
             />
             <p class="text-[10.5px] text-slate-400 dark:text-slate-500 ml-1">
-              {{ clave.length }}/6 dígitos. Solo se admiten números.
+              {{ t('hardware.digitsHint', { count: clave.length }) }}
             </p>
           </div>
         </div>
@@ -262,6 +264,16 @@ const handleClose = () => {
   opacity: 1;
   transform: scale(1);
   backdrop-filter: blur(12px);
+}
+
+.message-fade-enter-from,
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s ease;
 }
 
 .fade-slide-enter-active, .fade-slide-leave-active {

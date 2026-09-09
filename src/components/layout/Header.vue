@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../i18n'
 import { toggleMobileSidebar } from '../../composables/useSidebar'
 import { useGroupStore } from '../../stores/group.store'
 import { useAuthStore } from '../../stores/auth.store'
@@ -9,11 +10,11 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Menu01Icon, 
   ArrowDown01Icon, 
-  UserGroupIcon,
-  Tick01Icon,
-  RefreshIcon,
-  Search01Icon,
-  MapsIcon
+  UserGroupIcon, 
+  Tick01Icon, 
+  RefreshIcon, 
+  Search01Icon, 
+  MapsIcon 
 } from '@hugeicons/core-free-icons'
 
 interface Group {
@@ -21,6 +22,8 @@ interface Group {
   nombre: string
   logo?: string
 }
+
+loadModuleMessages('header')
 
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
@@ -115,6 +118,7 @@ const sincronizarGrupoSeleccionado = () => {
 }
 
 onMounted(async () => {
+  loadModuleMessages('header')
   window.addEventListener('click', handleOutsideClick)
 
   if (authStore.isSuperAdmin) {
@@ -233,8 +237,8 @@ const refreshPage = async () => {
     <!-- Left: Greeting -->
     <div class="flex items-center animate-fade-in">
       <div>
-        <p class="text-sm font-black text-slate-800 dark:text-white/80 tracking-tight leading-none mb-0.5">Hola, {{ authStore.userData.nombre }}</p>
-        <p class="text-[11px] font-medium text-slate-500 dark:text-white/40 tracking-tight leading-none">{{ t('header.workToday') || '¿En qué deseas trabajar hoy?' }}</p>
+        <p class="text-sm font-black text-slate-800 dark:text-white/80 tracking-tight leading-none mb-0.5">{{ t('header.hello') }}, {{ authStore.userData.nombre }}</p>
+        <p class="text-[11px] font-medium text-slate-500 dark:text-white/40 tracking-tight leading-none">{{ t('header.workToday') }}</p>
       </div>
     </div>
     
@@ -322,7 +326,7 @@ const refreshPage = async () => {
                     <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 dark:text-white/20">
                       <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="1.5" />
                     </div>
-                    <p class="text-[11px] font-medium text-slate-400 dark:text-white/30">{{ t('header.noResults') || 'Sin resultados' }}</p>
+                    <p class="text-[11px] font-medium text-slate-400 dark:text-white/30">{{ t('header.noResults') }}</p>
                   </div>
                 </template>
 
@@ -383,7 +387,7 @@ const refreshPage = async () => {
       <div class="flex items-center gap-1.5">
         <button 
           @click="openTrackingWindow"
-          title="Mapa"
+          :title="t('header.map')"
           class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >
           <HugeiconsIcon :icon="MapsIcon" :size="17" :stroke-width="2" class="text-slate-500 dark:text-white/60 group-hover:text-[#3b82f6] dark:group-hover:text-[#5da6fc] transition-colors" />

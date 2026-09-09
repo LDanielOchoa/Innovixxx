@@ -235,8 +235,8 @@ const selectVehiculo = (id: string) => {
     const estadoTxt = getVehiculoEstadoTexto(v)
     toast.add({
       severity: 'warn',
-      summary: 'Vehículo No Disponible',
-      detail: `Este vehículo no está disponible (${estadoTxt}). Solo se pueden seleccionar vehículos en estado DISPONIBLE.`,
+      summary: t('escoltas.vehicleUnavailableTitle'),
+      detail: t('escoltas.vehicleUnavailableDetail', { state: estadoTxt }),
       life: 4000
     })
     return
@@ -267,8 +267,8 @@ const selectHardware = (id: string) => {
     const estadoTxt = getHardwareEstadoTexto(h)
     toast.add({
       severity: 'warn',
-      summary: 'Hardware No Disponible',
-      detail: `Este dispositivo no está disponible (${estadoTxt}). Solo se pueden seleccionar dispositivos en estado DISPONIBLE.`,
+      summary: t('escoltas.hardwareUnavailableTitle'),
+      detail: t('escoltas.hardwareUnavailableDetail', { state: estadoTxt }),
       life: 4000
     })
     return
@@ -458,7 +458,7 @@ const handleGuardar = async () => {
   modalMessage.value = null
 
   if (!groupStore.selectedGroup?.id) {
-    showMessage(t('escoltas.alertNoGroup') || 'Seleccione un grupo válido', 'error')
+    showMessage(t('escoltas.alertNoGroup'), 'error')
     return
   }
 
@@ -478,14 +478,11 @@ const handleGuardar = async () => {
     pase_vence: formatFecha(formData.pase_vence)
   }
 
-  console.log('[DEBUG EscoltaCreateModal] Validando payload:', payload)
-
   if (!validate(payload, formId.value)) {
     saving.value = false
     const firstErr = getFirstError(formId.value)
-    console.warn('[DEBUG EscoltaCreateModal] Error de validación Zod:', firstErr)
     showMessage(
-      firstErr || t('escoltas.alertValidation', 'Por favor complete todos los campos obligatorios.'),
+      firstErr || t('escoltas.alertValidation'),
       'error'
     )
     return
@@ -497,22 +494,22 @@ const handleGuardar = async () => {
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('escoltas.alertSuccessUpdateTitle', 'Escolta Actualizado'),
-          detail: data.message || t('escoltas.alertSuccessUpdateDetail', 'El escolta ha sido modificado exitosamente.'),
+          summary: t('escoltas.alertSuccessUpdateTitle'),
+          detail: data.message || t('escoltas.alertSuccessUpdateDetail'),
           life: 4000
         })
         emit('updated')
         handleClose()
       } else {
-        showMessage(data.message || (t('escoltas.alertErrorUpdate') || 'Error al actualizar'), 'error')
+        showMessage(data.message || t('escoltas.alertErrorUpdate'), 'error')
       }
     } else {
       const data = await createEscoltaApi(payload)
       if (data.done) {
         toast.add({
           severity: 'success',
-          summary: t('escoltas.alertSuccessCreateTitle', 'Escolta Registrado'),
-          detail: data.message || t('escoltas.alertSuccessCreateDetail', 'El escolta ha sido registrado exitosamente.'),
+          summary: t('escoltas.alertSuccessCreateTitle'),
+          detail: data.message || t('escoltas.alertSuccessCreateDetail'),
           life: 4000
         })
         emit('created')
@@ -524,7 +521,7 @@ const handleGuardar = async () => {
         resetErrors(formId.value)
         clearErrors()
       } else {
-        showMessage(data.message || (t('escoltas.alertErrorCreate') || 'Error al registrar'), 'error')
+        showMessage(data.message || t('escoltas.alertErrorCreate'), 'error')
       }
     }
   } catch (error: any) {
@@ -539,7 +536,7 @@ const handleGuardar = async () => {
       }
       showMessage(msg, 'error')
     } else {
-      showMessage(error.message || (t('escoltas.alertNetError') || 'Error de conexión'), 'error')
+      showMessage(error.message || t('escoltas.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -567,8 +564,8 @@ const formatFecha = (date: Date | null): string => {
     @close="handleClose"
     @confirm="handleGuardar"
     :close-on-click-outside="!saving"
-    :title="esModoEdicion ? t('escoltas.modalTitleEdit', 'Editar Escolta') : t('escoltas.modalTitleCreate', 'Nuevo Escolta')"
-    :confirm-text="esModoEdicion ? t('escoltas.btnSave', 'Guardar Cambios') : t('escoltas.btnRegister', 'Registrar Escolta')"
+    :title="esModoEdicion ? t('escoltas.modalTitleEdit') : t('escoltas.modalTitleCreate')"
+    :confirm-text="esModoEdicion ? t('escoltas.btnSave') : t('escoltas.btnRegister')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -587,7 +584,7 @@ const formatFecha = (date: Date | null): string => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ esModoEdicion ? 'Actualizando Escolta...' : 'Registrando Escolta...' }}</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ esModoEdicion ? t('escoltas.updatingEscolta') : t('escoltas.registeringEscolta') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -647,177 +644,177 @@ const formatFecha = (date: Date | null): string => {
         <div class="space-y-5">
           <AppInput
             v-model="formData.nombre"
-            :label="t('escoltas.labelName', 'Nombre Completo')"
-            :placeholder="t('escoltas.placeholderName', 'Ej: Pepito Pérez')"
+            :label="t('escoltas.labelName')"
+            :placeholder="t('escoltas.placeholderName')"
             :icon="User02Icon"
             :disabled="saving"
           />
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <AppInput
-                v-model="formData.cedula"
-                :label="t('escoltas.labelDoc', 'Documento (Cédula)')"
-                :placeholder="t('escoltas.placeholderDoc', 'Ej: 79065744')"
-                :icon="ContactBookIcon"
-                :disabled="saving"
-              />
-              <AppInput
-                v-model="formData.celular"
-                :label="t('escoltas.labelMobile', 'Celular')"
-                :placeholder="t('escoltas.placeholderMobile', 'Ej: 3023014514')"
-                :icon="SmartPhone01Icon"
-                :disabled="saving"
-              />
-            </div>
-
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <AppInput
-              v-model="formData.email"
-              :label="t('escoltas.labelEmail', 'Correo Electrónico')"
-              :placeholder="t('escoltas.placeholderEmail')"
-              :icon="Mail01Icon"
-              type="email"
+              v-model="formData.cedula"
+              :label="t('escoltas.labelDoc')"
+              :placeholder="t('escoltas.placeholderDoc')"
+              :icon="ContactBookIcon"
               :disabled="saving"
             />
+            <AppInput
+              v-model="formData.celular"
+              :label="t('escoltas.labelMobile')"
+              :placeholder="t('escoltas.placeholderMobile')"
+              :icon="SmartPhone01Icon"
+              :disabled="saving"
+            />
+          </div>
 
-            <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <!-- Servicio -->
-                <div class="space-y-2">
-                  <label
-                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                  >
-                    {{ t('escoltas.labelService', 'Servicio') }}
-                  </label>
-                  <button
-                    ref="btnServicios"
-                    type="button"
-                    @click="abrirPanel('servicios')"
-                    :disabled="loadingServicios || saving"
-                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
-                    :class="[
-                      (loadingServicios || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                      panelActivo === 'servicios' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
-                    ]"
-                  >
-                    <HugeiconsIcon :icon="Route01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_servicio ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                      {{ formData.id_servicio ? getServicioLabel(formData.id_servicio) : (loadingServicios ? 'Cargando...' : t('escoltas.placeholderService', 'Seleccione un servicio')) }}
-                    </span>
-                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'servicios' }" />
-                  </button>
-                </div>
+          <AppInput
+            v-model="formData.email"
+            :label="t('escoltas.labelEmail')"
+            :placeholder="t('escoltas.placeholderEmail')"
+            :icon="Mail01Icon"
+            type="email"
+            :disabled="saving"
+          />
 
-                <!-- Vehículo -->
-                <div class="space-y-2">
-                  <label
-                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                  >
-                    {{ t('escoltas.labelVehicle', 'Vehículo') }}
-                  </label>
-                  <button
-                    ref="btnVehiculos"
-                    type="button"
-                    @click="abrirPanel('vehiculos')"
-                    :disabled="loadingVehiculosServicio || saving"
-                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
-                    :class="[
-                      (loadingVehiculosServicio || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                      panelActivo === 'vehiculos' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
-                    ]"
-                  >
-                    <HugeiconsIcon :icon="Car01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_vehiculo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                      {{ formData.id_vehiculo ? getVehiculoLabel(formData.id_vehiculo) : (loadingVehiculosServicio ? 'Cargando...' : t('escoltas.placeholderVehicle', 'Seleccione un vehículo')) }}
-                    </span>
-                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }" />
-                  </button>
-                </div>
-
-                <!-- Hardware -->
-                <div class="space-y-2">
-                  <label
-                    class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                    :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                  >
-                    {{ t('escoltas.labelHardware', 'Dispositivo Hardware') }}
-                  </label>
-                  <button
-                    ref="btnHardware"
-                    type="button"
-                    @click="abrirPanel('hardware')"
-                    :disabled="loadingHardware || saving"
-                    class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
-                    :class="[
-                      (loadingHardware || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                      panelActivo === 'hardware' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
-                    ]"
-                  >
-                    <HugeiconsIcon :icon="CpuIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                    <span class="flex-1 text-sm font-medium truncate" :class="formData.id_hardware ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                      {{ formData.id_hardware ? getHardwareLabel(formData.id_hardware) : (loadingHardware ? 'Cargando...' : t('escoltas.placeholderHardware', 'Seleccione un dispositivo')) }}
-                    </span>
-                    <span
-                      v-if="formData.id_hardware && getHardwareSeleccionado()?.bateria !== undefined && getHardwareSeleccionado()?.bateria !== null && getHardwareSeleccionado()?.bateria !== ''"
-                      class="inline-flex items-center gap-1 text-[11px] font-bold mr-2 shrink-0"
-                      :class="getBatteryClass(getHardwareSeleccionado()?.bateria)"
-                    >
-                      <HugeiconsIcon :icon="getBatteryIcon(getHardwareSeleccionado()?.bateria)" :size="13" />
-                      {{ getHardwareSeleccionado()?.bateria }}%
-                    </span>
-                    <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'hardware' }" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
+          <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- Tipo de Pase -->
+              <!-- Servicio -->
               <div class="space-y-2">
                 <label
                   class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                  :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                  :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
                 >
-                  {{ t('escoltas.labelPassType', 'Tipo de Pase') }}
+                  {{ t('escoltas.labelService') }}
                 </label>
                 <button
-                  ref="btnTipoPase"
+                  ref="btnServicios"
                   type="button"
-                  @click="abrirPanel('tipoPase')"
-                  :disabled="saving"
+                  @click="abrirPanel('servicios')"
+                  :disabled="loadingServicios || saving"
                   class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
                   :class="[
-                    saving ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                    panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                    (loadingServicios || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                    panelActivo === 'servicios' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
                   ]"
                 >
-                  <HugeiconsIcon :icon="LicenseIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                  <span class="flex-1 text-sm font-medium truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                    {{ formData.tipo_pase || t('escoltas.placeholderPassType', 'Seleccione tipo de pase') }}
+                  <HugeiconsIcon :icon="Route01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                  <span class="flex-1 text-sm font-medium truncate" :class="formData.id_servicio ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                    {{ formData.id_servicio ? getServicioLabel(formData.id_servicio) : (loadingServicios ? t('escoltas.loading') : t('escoltas.placeholderService')) }}
                   </span>
-                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'tipoPase' }" />
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'servicios' }" />
                 </button>
               </div>
-              <AppInput
-                v-model="formData.pase"
-                :label="t('escoltas.labelPass', 'Número de Pase')"
-                :placeholder="t('escoltas.placeholderPass', 'Ej: 79065744')"
-                :icon="ContactBookIcon"
-                :disabled="saving"
-              />
-              <AppDateTimePicker
-                v-model="formData.pase_vence"
-                :label="t('escoltas.labelPassExpiry', 'Vencimiento del Pase')"
-                :placeholder="t('escoltas.placeholderPassExpiry', 'Seleccione fecha')"
-                :disabled="saving"
-                only-date
-                disable-past
-              />
+
+              <!-- Vehículo -->
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                  :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ t('escoltas.labelVehicle') }}
+                </label>
+                <button
+                  ref="btnVehiculos"
+                  type="button"
+                  @click="abrirPanel('vehiculos')"
+                  :disabled="loadingVehiculosServicio || saving"
+                  class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                  :class="[
+                    (loadingVehiculosServicio || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                    panelActivo === 'vehiculos' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                  ]"
+                >
+                  <HugeiconsIcon :icon="Car01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                  <span class="flex-1 text-sm font-medium truncate" :class="formData.id_vehiculo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                    {{ formData.id_vehiculo ? getVehiculoLabel(formData.id_vehiculo) : (loadingVehiculosServicio ? t('escoltas.loading') : t('escoltas.placeholderVehicle')) }}
+                  </span>
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'vehiculos' }" />
+                </button>
+              </div>
+
+              <!-- Hardware -->
+              <div class="space-y-2">
+                <label
+                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                  :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ t('escoltas.labelHardware') }}
+                </label>
+                <button
+                  ref="btnHardware"
+                  type="button"
+                  @click="abrirPanel('hardware')"
+                  :disabled="loadingHardware || saving"
+                  class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                  :class="[
+                    (loadingHardware || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                    panelActivo === 'hardware' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                  ]"
+                >
+                  <HugeiconsIcon :icon="CpuIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'hardware' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                  <span class="flex-1 text-sm font-medium truncate" :class="formData.id_hardware ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                    {{ formData.id_hardware ? getHardwareLabel(formData.id_hardware) : (loadingHardware ? t('escoltas.loading') : t('escoltas.placeholderHardware')) }}
+                  </span>
+                  <span
+                    v-if="formData.id_hardware && getHardwareSeleccionado()?.bateria !== undefined && getHardwareSeleccionado()?.bateria !== null && getHardwareSeleccionado()?.bateria !== ''"
+                    class="inline-flex items-center gap-1 text-[11px] font-bold mr-2 shrink-0"
+                    :class="getBatteryClass(getHardwareSeleccionado()?.bateria)"
+                  >
+                    <HugeiconsIcon :icon="getBatteryIcon(getHardwareSeleccionado()?.bateria)" :size="13" />
+                    {{ getHardwareSeleccionado()?.bateria }}%
+                  </span>
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'hardware' }" />
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Tipo de Pase -->
+            <div class="space-y-2">
+              <label
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+              >
+                {{ t('escoltas.labelPassType') }}
+              </label>
+              <button
+                ref="btnTipoPase"
+                type="button"
+                @click="abrirPanel('tipoPase')"
+                :disabled="saving"
+                class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                :class="[
+                  saving ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
+                  panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                ]"
+              >
+                <HugeiconsIcon :icon="LicenseIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
+                <span class="flex-1 text-sm font-medium truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                  {{ formData.tipo_pase || t('escoltas.placeholderPassType') }}
+                </span>
+                <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'tipoPase' }" />
+              </button>
+            </div>
+            <AppInput
+              v-model="formData.pase"
+              :label="t('escoltas.labelPass')"
+              :placeholder="t('escoltas.placeholderPass')"
+              :icon="ContactBookIcon"
+              :disabled="saving"
+            />
+            <AppDateTimePicker
+              v-model="formData.pase_vence"
+              :label="t('escoltas.labelPassExpiry')"
+              :placeholder="t('escoltas.placeholderPassExpiry')"
+              :disabled="saving"
+              only-date
+              disable-past
+            />
           </div>
         </div>
       </div>
+    </div>
 
     <template #footer>
       <div class="flex flex-col sm:flex-row w-full gap-3 justify-end">
@@ -827,7 +824,7 @@ const formatFecha = (date: Date | null): string => {
           @click="handleClose"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ t('common.cancel', 'Cancelar') }}
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
@@ -835,7 +832,7 @@ const formatFecha = (date: Date | null): string => {
           @click="handleGuardar"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >
-          {{ esModoEdicion ? t('escoltas.btnSave', 'Guardar Cambios') : t('escoltas.btnRegister', 'Registrar Escolta') }}
+          {{ esModoEdicion ? t('escoltas.btnSave') : t('escoltas.btnRegister') }}
         </button>
       </div>
     </template>
@@ -866,14 +863,14 @@ const formatFecha = (date: Date | null): string => {
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ panelActivo === 'servicios' ? 'Servicios disponibles' : panelActivo === 'vehiculos' ? 'Vehículos disponibles' : panelActivo === 'hardware' ? 'Hardware disponible' : 'Tipos de Pase' }}
+                {{ panelActivo === 'servicios' ? t('escoltas.panelServicesTitle') : panelActivo === 'vehiculos' ? t('escoltas.panelVehiclesTitle') : panelActivo === 'hardware' ? t('escoltas.panelHardwareTitle') : t('escoltas.panelPassTypesTitle') }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
                 {{
-                  panelActivo === 'servicios' ? `${filteredServicios.length} servicios` :
-                  panelActivo === 'vehiculos' ? `${filteredVehiculos.length} vehículos` :
-                  panelActivo === 'hardware' ? `${filteredHardware.length} dispositivos` :
-                  `${filteredTipoPase.length} opciones`
+                  panelActivo === 'servicios' ? t('escoltas.panelServicesCount', { count: filteredServicios.length }) :
+                  panelActivo === 'vehiculos' ? t('escoltas.panelVehiclesCount', { count: filteredVehiculos.length }) :
+                  panelActivo === 'hardware' ? t('escoltas.panelHardwareCount', { count: filteredHardware.length }) :
+                  t('escoltas.panelPassTypesCount', { count: filteredTipoPase.length })
                 }}
               </p>
             </div>
@@ -890,7 +887,7 @@ const formatFecha = (date: Date | null): string => {
               v-if="panelActivo === 'servicios'"
               v-model="searchServiciosQuery"
               type="text"
-              placeholder="Buscar servicio..."
+              :placeholder="t('escoltas.searchServicePlaceholder')"
               class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
               @click.stop
             />
@@ -898,7 +895,7 @@ const formatFecha = (date: Date | null): string => {
               v-else-if="panelActivo === 'vehiculos'"
               v-model="searchVehiculosQuery"
               type="text"
-              placeholder="Buscar por placa o tipo..."
+              :placeholder="t('escoltas.searchVehiclePlaceholder')"
               class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
               @click.stop
             />
@@ -906,7 +903,7 @@ const formatFecha = (date: Date | null): string => {
               v-else-if="panelActivo === 'hardware'"
               v-model="searchHardwareQuery"
               type="text"
-              placeholder="Buscar hardware..."
+              :placeholder="t('escoltas.searchHardwarePlaceholder')"
               class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
               @click.stop
             />
@@ -914,7 +911,7 @@ const formatFecha = (date: Date | null): string => {
               v-else-if="panelActivo === 'tipoPase'"
               v-model="searchTipoPaseQuery"
               type="text"
-              placeholder="Buscar tipo..."
+              :placeholder="t('escoltas.searchPassTypePlaceholder')"
               class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
               @click.stop
             />
@@ -931,17 +928,17 @@ const formatFecha = (date: Date | null): string => {
 
         <div class="bg-[#1A1D24] px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-400">
-            {{ panelActivo === 'servicios' ? (formData.id_servicio ? '1 seleccionado' : 'Sin seleccionar') :
-               panelActivo === 'vehiculos' ? (formData.id_vehiculo ? '1 seleccionado' : 'Sin seleccionar') :
-               panelActivo === 'hardware' ? (formData.id_hardware ? '1 seleccionado' : 'Sin seleccionar') :
-               (formData.tipo_pase ? '1 seleccionado' : 'Sin seleccionar') }}
+            {{ panelActivo === 'servicios' ? (formData.id_servicio ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
+               panelActivo === 'vehiculos' ? (formData.id_vehiculo ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
+               panelActivo === 'hardware' ? (formData.id_hardware ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
+               (formData.tipo_pase ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) }}
           </span>
           <button
             type="button"
             @click.stop="panelActivo === 'servicios' ? formData.id_servicio = '' : panelActivo === 'vehiculos' ? formData.id_vehiculo = '' : panelActivo === 'hardware' ? formData.id_hardware = '' : formData.tipo_pase = ''"
             class="text-[10px] font-semibold text-slate-400 hover:text-red-400 transition-colors"
           >
-            Limpiar
+            {{ t('escoltas.btnClear') }}
           </button>
         </div>
 
@@ -979,7 +976,7 @@ const formatFecha = (date: Date | null): string => {
             </button>
             <div v-if="filteredServicios.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
               <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-30 mb-2" />
-              <span class="text-sm">Sin servicios disponibles</span>
+              <span class="text-sm">{{ t('escoltas.noServicesAvailable') }}</span>
             </div>
           </template>
 
@@ -1021,7 +1018,7 @@ const formatFecha = (date: Date | null): string => {
             </button>
             <div v-if="filteredVehiculos.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
               <HugeiconsIcon :icon="Car01Icon" :size="24" class="opacity-30 mb-2" />
-              <span class="text-sm">Sin vehículos disponibles</span>
+              <span class="text-sm">{{ t('escoltas.noVehiclesAvailable') }}</span>
             </div>
           </template>
 
@@ -1057,7 +1054,7 @@ const formatFecha = (date: Date | null): string => {
                   </span>
                 </div>
                 <div class="flex justify-between items-center text-[10px] text-slate-400 mt-0.5 gap-2">
-                  <span class="truncate">{{ h.familia || 'Sin familia' }}</span>
+                  <span class="truncate">{{ h.familia || t('escoltas.noFamily') }}</span>
                   <span
                     v-if="h.bateria !== undefined && h.bateria !== null && h.bateria !== ''"
                     class="inline-flex items-center gap-1 font-semibold shrink-0"
@@ -1071,25 +1068,25 @@ const formatFecha = (date: Date | null): string => {
             </button>
             <div v-if="filteredHardware.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
               <HugeiconsIcon :icon="CpuIcon" :size="24" class="opacity-30 mb-2" />
-              <span class="text-sm">Sin hardware disponible</span>
+              <span class="text-sm">{{ t('escoltas.noHardwareAvailable') }}</span>
             </div>
           </template>
 
           <!-- Tipo de Pase -->
           <template v-else-if="panelActivo === 'tipoPase'">
             <button
-              v-for="t in filteredTipoPase"
-              :key="t.value"
+              v-for="tPase in filteredTipoPase"
+              :key="tPase.value"
               type="button"
-              @click="selectTipoPase(t.value)"
+              @click="selectTipoPase(tPase.value)"
               class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-              :class="formData.tipo_pase === t.value ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
+              :class="formData.tipo_pase === tPase.value ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
             >
               <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-                :class="formData.tipo_pase === t.value ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
-                <HugeiconsIcon v-if="formData.tipo_pase === t.value" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
+                :class="formData.tipo_pase === tPase.value ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
+                <HugeiconsIcon v-if="formData.tipo_pase === tPase.value" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
               </div>
-              <span class="text-[12px] font-semibold">{{ t.label }}</span>
+              <span class="text-[12px] font-semibold">{{ tPase.label }}</span>
             </button>
           </template>
         </div>

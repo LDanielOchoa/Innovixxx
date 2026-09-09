@@ -26,6 +26,7 @@ import BaseModal from '../common/BaseModal.vue'
 import { apiClient } from '../../utils/api-client'
 import { ApiError, getErrorMessage } from '../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../i18n'
 import { useToast } from 'primevue/usetoast'
 import AppLoader from '../common/AppLoader.vue'
 
@@ -40,90 +41,90 @@ const getPermissionMeta = (desc?: string) => {
   if (text.includes('crear') || text.includes('create')) {
     return {
       icon: markRaw(Add01Icon),
-      badgeText: 'Crear',
+      badgeText: t('roles.badgeCreate'),
       badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     }
   }
   if (text.includes('edit') || text.includes('actualizar') || text.includes('update')) {
     return {
       icon: markRaw(PencilEdit01Icon),
-      badgeText: 'Editar',
+      badgeText: t('roles.badgeEdit'),
       badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     }
   }
   if (text.includes('borrar') || text.includes('eliminar') || text.includes('delete')) {
     return {
       icon: markRaw(Delete02Icon),
-      badgeText: 'Borrar',
+      badgeText: t('roles.badgeDelete'),
       badgeClass: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
     }
   }
   if (text.includes('ejecutar') || text.includes('elecutar') || text.includes('execute')) {
     return {
       icon: markRaw(PlayIcon),
-      badgeText: 'Ejecutar',
+      badgeText: t('roles.badgeExecute'),
       badgeClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
     }
   }
   if (text.includes('solventar')) {
     return {
       icon: markRaw(CheckmarkCircle01Icon),
-      badgeText: 'Solventar',
+      badgeText: t('roles.badgeSolve'),
       badgeClass: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
     }
   }
   if (text.includes('foto')) {
     return {
       icon: markRaw(Image01Icon),
-      badgeText: 'Fotos',
+      badgeText: t('roles.badgePhotos'),
       badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
     }
   }
   if (text.includes('candado') || text.includes('abrir')) {
     return {
       icon: markRaw(SquareUnlock01Icon),
-      badgeText: 'Abrir',
+      badgeText: t('roles.badgeOpen'),
       badgeClass: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
     }
   }
   if (text.includes('validar') || text.includes('validate')) {
     return {
       icon: markRaw(Shield01Icon),
-      badgeText: 'Validar',
+      badgeText: t('roles.badgeValidate'),
       badgeClass: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20'
     }
   }
   if (text.includes('listar') || text.includes('list')) {
     return {
       icon: markRaw(ViewIcon),
-      badgeText: 'Listar',
+      badgeText: t('roles.badgeList'),
       badgeClass: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
     }
   }
   if (text.includes('asignar') || text.includes('assign')) {
     return {
       icon: markRaw(Key01Icon),
-      badgeText: 'Asignar',
+      badgeText: t('roles.badgeAssign'),
       badgeClass: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
     }
   }
   if (text.includes('estado') || text.includes('status')) {
     return {
       icon: markRaw(Settings04Icon),
-      badgeText: 'Estado',
+      badgeText: t('roles.badgeStatus'),
       badgeClass: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
     }
   }
   if (text.includes('historial') || text.includes('detalles') || text.includes('detail') || text.includes('posiciones') || text.includes('mapa')) {
     return {
       icon: markRaw(Clock01Icon),
-      badgeText: 'Detalles',
+      badgeText: t('roles.badgeDetails'),
       badgeClass: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
     }
   }
   return {
     icon: markRaw(ViewIcon),
-    badgeText: 'General',
+    badgeText: t('roles.badgeGeneral'),
     badgeClass: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20'
   }
 }
@@ -331,12 +332,12 @@ const savePermissions = async () => {
   modalMessage.value = null
 
   if (!internalRole.value || !props.groupId) {
-    showModalMessage('Falta seleccionar grupo o rol', 'error')
+    showModalMessage(t('roles.selectGroupOrRoleFirst'), 'error')
     return
   }
 
   if (selectedPermissions.value.length === 0) {
-    showModalMessage('Selecciona al menos un permiso antes de guardar', 'warning')
+    showModalMessage(t('roles.selectAtLeastOnePermission'), 'warning')
     return
   }
 
@@ -355,15 +356,15 @@ const savePermissions = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: t('roles.alertSuccessPermissionsTitle', 'Permisos Asignados'),
-        detail: t('roles.alertSuccessPermissionsDetail', 'Los permisos han sido asignados exitosamente.'),
+        summary: t('roles.alertSuccessPermissionsTitle'),
+        detail: t('roles.alertSuccessPermissionsDetail'),
         life: 4000
       })
       emit('saved')
       return
     }
 
-    showModalMessage(data.message || 'Error al asignar permisos', 'error')
+    showModalMessage(data.message || t('roles.alertErrorAssignPermissions'), 'error')
   } catch (error: any) {
     console.error('Error al asignar permisos:', error)
     if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
@@ -376,7 +377,7 @@ const savePermissions = async () => {
       }
       showModalMessage(msg, 'error')
     } else {
-      showModalMessage('Error de red al asignar permisos', 'error')
+      showModalMessage(t('roles.alertNetErrorAssignPermissions'), 'error')
     }
   } finally {
     loadingPermissions.value = false
@@ -389,7 +390,7 @@ watch(() => props.role, (newRole) => {
 
 watch(() => props.isOpen, async (open) => {
   if (!open) return
-  
+  loadModuleMessages('roles')
   if (props.role) internalRole.value = props.role
   
   selectedPermissions.value = []
@@ -421,9 +422,9 @@ watch(() => props.role?.id_role, () => {
 <template>
   <BaseModal
     :isOpen="isOpen"
-    :title="t('roles.modalPermissionsTitle', 'Asignar Permisos')"
-    :confirmText="t('roles.btnSavePermissions', 'GUARDAR PERMISOS')"
-    :cancelText="t('common.cancel', 'Cancelar')"
+    :title="t('roles.modalPermissionsTitle')"
+    :confirmText="t('roles.btnSavePermissions')"
+    :cancelText="t('common.cancel')"
     size="xl"
     @confirm="savePermissions"
     @close="closeModal"
@@ -446,7 +447,7 @@ watch(() => props.role?.id_role, () => {
           </div>
           <div class="mt-4 flex flex-col items-center">
             <span class="text-[11px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">
-              {{ t('roles.assigning', 'Guardando cambios...') }}
+              {{ t('roles.assigning') }}
             </span>
             <div class="flex gap-1.5 mt-1">
               <span class="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -480,7 +481,7 @@ watch(() => props.role?.id_role, () => {
           </div>
           <div>
             <p class="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">
-              {{ t('roles.selectedRole', 'Rol Seleccionado') }}
+              {{ t('roles.selectedRole') }}
             </p>
             <h3 class="text-base font-extrabold text-slate-800 dark:text-white leading-none tracking-tight">
               {{ internalRole.nombre }}
@@ -496,13 +497,13 @@ watch(() => props.role?.id_role, () => {
             class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 flex items-center gap-1.5 bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-blue-500/40 text-slate-700 dark:text-slate-200 hover:text-blue-600 dark:hover:text-blue-400 shadow-sm active:scale-95"
           >
             <HugeiconsIcon :icon="TickDouble02Icon" :size="14" />
-            <span>{{ selectedPermissions.length === permissions.length ? 'Desmarcar Todos' : 'Marcar Todos' }}</span>
+            <span>{{ selectedPermissions.length === permissions.length ? t('roles.uncheckAll') : t('roles.checkAll') }}</span>
           </button>
 
           <!-- Counter Badge -->
           <div class="bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 px-3 py-1.5 rounded-xl">
             <span class="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-wide">
-              {{ selectedPermissionsCount }} / {{ totalPermissionsCount }} {{ t('roles.permissions', 'Permisos') }}
+              {{ selectedPermissionsCount }} / {{ totalPermissionsCount }} {{ t('roles.permissions') }}
             </span>
           </div>
         </div>
@@ -516,7 +517,7 @@ watch(() => props.role?.id_role, () => {
           <input 
             v-model="searchQuery"
             type="text" 
-            placeholder="Buscar permiso por nombre o acción..."
+            :placeholder="t('roles.searchPermissionsPlaceholder')"
             class="w-full bg-slate-100/70 dark:bg-[#15181E] border border-slate-200/80 dark:border-white/10 focus:border-blue-500 dark:focus:border-blue-500 rounded-xl pl-9 pr-8 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition-all duration-200"
           />
           <button 
@@ -535,7 +536,7 @@ watch(() => props.role?.id_role, () => {
             class="w-full appearance-none bg-slate-100/70 dark:bg-[#15181E] border border-slate-200/80 dark:border-white/10 focus:border-blue-500 dark:focus:border-blue-500 rounded-xl px-3.5 py-2 pr-8 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none cursor-pointer transition-all duration-200"
           >
             <option value="ALL" class="bg-white dark:bg-[#1A1D24] text-slate-800 dark:text-slate-200">
-              Todas las categorías ({{ permissions.length }})
+              {{ t('roles.allCategories', { count: permissions.length }) }}
             </option>
             <option 
               v-for="cat in allCategories" 
@@ -558,15 +559,15 @@ watch(() => props.role?.id_role, () => {
       <div class="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-0">
         <Transition name="fade" mode="out-in">
           <div v-if="loadingList" class="h-full min-h-[200px] flex items-center justify-center">
-            <AppLoader :text="t('common.loading', 'Cargando permisos...')" />
+            <AppLoader :text="t('roles.loadingPermissions')" />
           </div>
 
           <div v-else-if="filteredPermissions.length === 0" class="h-full min-h-[220px] flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-200 dark:border-white/5 rounded-2xl">
             <HugeiconsIcon :icon="Alert01Icon" :size="36" class="text-slate-300 dark:text-slate-600 mb-2" />
             <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-              {{ searchQuery ? 'No se encontraron permisos' : t('roles.noPermissions', 'Sin permisos disponibles') }}
+              {{ searchQuery ? t('roles.noPermissionsFound') : t('roles.noPermissions') }}
             </p>
-            <p v-if="searchQuery" class="text-xs text-slate-400 dark:text-slate-500 mt-1">Intenta buscar con otros términos</p>
+            <p v-if="searchQuery" class="text-xs text-slate-400 dark:text-slate-500 mt-1">{{ t('roles.tryOtherSearchTerms') }}</p>
           </div>
 
           <div v-else class="space-y-4 pb-2">
@@ -592,7 +593,7 @@ watch(() => props.role?.id_role, () => {
                   @click="toggleCategorySelection(categoryPermissions)"
                   class="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                 >
-                  {{ isCategoryFullySelected(categoryPermissions) ? 'Desmarcar sección' : 'Seleccionar sección' }}
+                  {{ isCategoryFullySelected(categoryPermissions) ? t('roles.uncheckSection') : t('roles.selectSection') }}
                 </button>
               </div>
 

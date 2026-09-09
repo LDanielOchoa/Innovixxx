@@ -90,7 +90,7 @@ watch(() => props.isOpen, async (isOpen) => {
         vehiculosList.value = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
       } catch (error) {
         console.error('Error cargando vehículos:', error)
-        showMessage('Error al cargar vehículos', 'error')
+        showMessage(t('escoltas.errorLoadingVehicles'), 'error')
       } finally {
         loadingVehiculos.value = false
       }
@@ -128,8 +128,8 @@ const selectVehiculo = (id: string) => {
     const estadoTxt = getVehiculoEstadoTexto(v)
     toast.add({
       severity: 'warn',
-      summary: 'Vehículo No Disponible',
-      detail: `Este vehículo no está disponible (${estadoTxt}). Solo se pueden seleccionar vehículos en estado DISPONIBLE.`,
+      summary: t('escoltas.vehicleUnavailableTitle'),
+      detail: t('escoltas.vehicleUnavailableDetail', { state: estadoTxt }),
       life: 4000
     })
     return
@@ -140,11 +140,11 @@ const selectVehiculo = (id: string) => {
 const handleAsignar = async () => {
   if (asignando.value) return
   if (!props.escolta?.id_escolta || !groupStore.selectedGroup?.id) {
-    showMessage('Datos del escolta inválidos', 'error')
+    showMessage(t('escoltas.invalidEscoltaData'), 'error')
     return
   }
   if (!selectedVehiculoId.value) {
-    showMessage('Debe seleccionar un vehículo', 'error')
+    showMessage(t('escoltas.selectVehicleRequired'), 'error')
     return
   }
 
@@ -160,18 +160,18 @@ const handleAsignar = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: t('escoltas.alertSuccessAssignVehicleTitle', 'Vehículo Asignado'),
-        detail: data.message || t('escoltas.alertSuccessAssignVehicleDetail', 'El vehículo ha sido asignado exitosamente al escolta.'),
+        summary: t('escoltas.alertSuccessAssignVehicleTitle'),
+        detail: data.message || t('escoltas.alertSuccessAssignVehicleDetail'),
         life: 4000
       })
       emit('assigned')
       handleClose()
     } else {
-      showMessage(data.message || 'Error al asignar vehículo', 'error')
+      showMessage(data.message || t('escoltas.errorAssignVehicle'), 'error')
     }
   } catch (error: any) {
     console.error('Error asignando vehículo:', error)
-    showMessage(error.message || 'Error de conexión', 'error')
+    showMessage(error.message || t('escoltas.errorConn'), 'error')
   } finally {
     asignando.value = false
   }
@@ -190,8 +190,8 @@ const handleClose = () => {
     @close="handleClose"
     @confirm="handleAsignar"
     :close-on-click-outside="!asignando"
-    title="Asignar Vehículo al Escolta"
-    :confirm-text="'Confirmar Asignación'"
+    :title="t('escoltas.modalTitleAssignVehicle')"
+    :confirm-text="t('escoltas.btnConfirmSelection')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -209,7 +209,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Asignando Vehículo...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('escoltas.assigningVehicle') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -251,14 +251,14 @@ const handleClose = () => {
               <HugeiconsIcon :icon="User02Icon" :size="18" />
             </div>
             <div>
-              <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Escolta</span>
+              <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">{{ t('escoltas.labelEscolta') }}</span>
               <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ escolta?.nombre || '---' }}</p>
             </div>
           </div>
 
           <div class="space-y-3">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-              Vehículo
+              {{ t('escoltas.labelVehicle') }}
             </label>
             <div class="relative">
               <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2" :class="{ 'opacity-60 cursor-not-allowed': asignando }">
@@ -266,7 +266,7 @@ const handleClose = () => {
                 <input
                   v-model="vehiculoSearchQuery"
                   type="text"
-                  placeholder="Buscar por placa, tipo o escolta..."
+                  :placeholder="t('escoltas.searchVehiclePlaceholderList')"
                   :disabled="asignando"
                   class="flex-1 bg-transparent border-none text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none disabled:cursor-not-allowed"
                 />
@@ -286,7 +286,7 @@ const handleClose = () => {
           <div class="space-y-3">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5 animate-none shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
-              Vehículo Asignado
+              {{ t('escoltas.assignedVehicleTitle') }}
             </span>
             <div v-if="vehiculoAsignado" class="flex flex-wrap gap-2.5 items-start bg-slate-900/5 dark:bg-[#12141c]/30 border border-slate-200 dark:border-white/5 p-4 rounded-2xl shrink-0">
               <div
@@ -304,7 +304,7 @@ const handleClose = () => {
                   type="button"
                   @click.stop="selectedVehiculoId = null"
                   class="abs-close-btn flex items-center justify-center rounded-full bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500 transition-all !w-4 !h-4 !min-w-[16px] !min-h-[16px] !p-0"
-                  title="Quitar vehículo"
+                  :title="t('escoltas.removeVehicleTitle')"
                 >
                   <span class="text-[8px] font-black leading-none">✕</span>
                 </button>
@@ -312,14 +312,14 @@ const handleClose = () => {
             </div>
             <div v-else class="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl bg-slate-900/5 dark:bg-[#12141c]/10 text-xs text-slate-500 shrink-0">
               <HugeiconsIcon :icon="Car01Icon" :size="20" class="opacity-20 mb-1" />
-              <span>Sin vehículo asignado. Seleccione uno de la lista de abajo.</span>
+              <span>{{ t('escoltas.noVehicleAssigned') }}</span>
             </div>
           </div>
 
           <!-- VEHÍCULOS DISPONIBLES (ABAJO) -->
           <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-col">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500 shrink-0">
-              Vehículos Disponibles (Flota)
+              {{ t('escoltas.availableVehiclesFleet') }}
             </span>
             
             <div class="max-h-56 overflow-y-auto pr-1 custom-scrollbar">
@@ -352,7 +352,7 @@ const handleClose = () => {
               </div>
               <div v-if="vehiculosDisponiblesList.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
                 <HugeiconsIcon :icon="Car01Icon" :size="32" class="opacity-30 mb-2" />
-                <span class="text-[12px] font-medium">Sin vehículos disponibles</span>
+                <span class="text-[12px] font-medium">{{ t('escoltas.noVehiclesAvailable') }}</span>
               </div>
             </div>
           </div>
@@ -368,7 +368,7 @@ const handleClose = () => {
           @click="handleClose"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancelar
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
@@ -376,7 +376,7 @@ const handleClose = () => {
           @click="handleAsignar"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >
-          Confirmar Asignación
+          {{ t('escoltas.btnConfirmSelection') }}
         </button>
       </div>
     </template>

@@ -18,6 +18,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { createGrupoApi, fetchGruposApi } from '../services/grupos.api'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useFormValidator } from '../../../composables/useFormValidator'
@@ -42,6 +43,7 @@ const { validate, getFirstError, resetErrors } = useFormValidator(activeSchema a
 const { getError, clearErrors } = useFormError('grupo-form')
 
 onMounted(async () => {
+  loadModuleMessages('grupos')
   if (isEditMode.value && route.params.id) {
     try {
       const grupos = await fetchGruposApi()
@@ -228,8 +230,8 @@ const saveGrupo = async () => {
     if (result?.done !== false) {
       toast.add({
         severity: 'success',
-        summary: isEditMode.value ? t('grupos.alertSuccessUpdateTitle', 'Grupo Actualizado') : t('grupos.alertSuccessCreateTitle', 'Grupo Creado'),
-        detail: result?.message || (isEditMode.value ? t('grupos.alertSuccessUpdateDetail', 'El grupo ha sido modificado exitosamente.') : t('grupos.alertSuccessCreateDetail', 'El grupo ha sido registrado exitosamente.')),
+        summary: isEditMode.value ? t('grupos.alertSuccessUpdateTitle') : t('grupos.alertSuccessCreateTitle'),
+        detail: result?.message || (isEditMode.value ? t('grupos.alertSuccessUpdateDetail') : t('grupos.alertSuccessCreateDetail')),
         life: 4000
       })
       
@@ -248,7 +250,7 @@ const saveGrupo = async () => {
         resetErrors('grupo-form')
       }
     } else {
-      showMessage(result?.message || t('grupos.alertErrorCreate', 'Error al procesar el grupo'), 'error')
+      showMessage(result?.message || t('grupos.alertErrorCreate'), 'error')
     }
   } catch (error: any) {
     if (error instanceof ApiError || (error && typeof error === 'object' && ('code' in error || error.name === 'ApiError'))) {
@@ -261,7 +263,7 @@ const saveGrupo = async () => {
       }
       showMessage(msg, 'error')
     } else {
-      showMessage(error?.message || t('grupos.alertNetError', 'Error de conexión'), 'error')
+      showMessage(error?.message || t('grupos.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -272,8 +274,8 @@ const saveGrupo = async () => {
 <template>
   <AppDataLayout
     class="theme-sync"
-    :title="isEditMode ? t('grupos.modalEditTitle', 'Editar Grupo') : t('grupos.modalCreateTitle', 'Nuevo Grupo')"
-    :subtitle="isEditMode ? 'Actualiza la configuración del grupo' : 'Configura un nuevo grupo para el sistema'"
+    :title="isEditMode ? t('grupos.modalEditTitle') : t('grupos.modalCreateTitle')"
+    :subtitle="isEditMode ? t('grupos.subtitleEdit') : t('grupos.subtitleCreate')"
     allow-overflow
   >
     <template #actions>
@@ -283,7 +285,7 @@ const saveGrupo = async () => {
         @click="router.push('/grupos')"
         :disabled="saving"
       >
-        <span>{{ t('common.cancel', 'Cancelar') }}</span>
+        <span>{{ t('common.cancel') }}</span>
       </AppButton>
 
       <AppButton
@@ -293,7 +295,7 @@ const saveGrupo = async () => {
         :disabled="saving"
         @click="saveGrupo"
       >
-        <span>{{ saving ? (isEditMode ? 'Actualizando...' : 'Guardando...') : (isEditMode ? t('grupos.btnUpdate', 'Actualizar') : t('grupos.btnSave', 'Guardar')) }}</span>
+        <span>{{ saving ? (isEditMode ? t('grupos.updating') : t('grupos.saving')) : (isEditMode ? t('grupos.btnUpdate') : t('grupos.btnSave')) }}</span>
       </AppButton>
     </template>
 
@@ -329,15 +331,15 @@ const saveGrupo = async () => {
               <!-- Upload Overlay Glass -->
               <div class="absolute inset-0 bg-[#3b82f6]/40 dark:bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all duration-300 backdrop-blur-sm">
                  <HugeiconsIcon :icon="Camera01Icon" :size="28" class="text-white mb-2" />
-                 <span class="text-[10px] font-black text-white uppercase tracking-widest">{{ t('grupos.changePhoto', 'Cambiar Foto') }}</span>
+                 <span class="text-[10px] font-black text-white uppercase tracking-widest">{{ t('grupos.changePhoto') }}</span>
               </div>
             </label>
             <input id="grupoPhotoUpload" type="file" accept="image/*" class="hidden" @change="handleFileUpload" />
           </div>
           
           <div class="text-center space-y-1 mt-2">
-            <h3 class="text-sm font-extrabold text-slate-800 dark:text-white">{{ formData.nombre || 'Nuevo Grupo' }}</h3>
-            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Logo Principal</p>
+            <h3 class="text-sm font-extrabold text-slate-800 dark:text-white">{{ formData.nombre || t('grupos.newGroupDefault') }}</h3>
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">{{ t('grupos.mainLogo') }}</p>
           </div>
         </div>
 
@@ -352,7 +354,7 @@ const saveGrupo = async () => {
               </div>
               <div class="mt-5 flex flex-col items-center">
                 <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-                  {{ isEditMode ? 'Actualizando...' : 'Guardando...' }}
+                  {{ isEditMode ? t('grupos.updating') : t('grupos.saving') }}
                 </span>
                 <div class="flex gap-1">
                   <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -366,8 +368,8 @@ const saveGrupo = async () => {
             <!-- Nombre del Grupo -->
             <AppFormInput
               v-model="formData.nombre"
-              :label="t('grupos.formName', 'Nombre del Grupo')"
-              :placeholder="t('grupos.formNamePlaceholder', 'Ej. Grupo Principal')"
+              :label="t('grupos.formName')"
+              :placeholder="t('grupos.formNamePlaceholder')"
               :icon="UserGroupIcon"
               :error="getError('nombre')"
               :disabled="saving"
@@ -376,7 +378,7 @@ const saveGrupo = async () => {
             <!-- Zona Horaria -->
             <div class="space-y-2 relative">
               <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">
-                {{ t('grupos.formTimeZone', 'Zona Horaria') }}
+                {{ t('grupos.formTimeZone') }}
               </label>
               <div
                 @click="saving ? null : (isTimezoneOpen = !isTimezoneOpen)"
@@ -389,7 +391,7 @@ const saveGrupo = async () => {
                 <div class="flex items-center gap-3">
                   <HugeiconsIcon :icon="Clock01Icon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
                   <span class="text-[13px] font-bold" :class="formData.time_zone ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
-                    {{ selectedTimezoneLabel || t('grupos.formTimeZonePlaceholder', 'Seleccionar Zona Horaria') }}
+                    {{ selectedTimezoneLabel || t('grupos.formTimeZonePlaceholder') }}
                   </span>
                 </div>
                 <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" class="transition-all text-slate-400 group-hover/input:text-[#3b82f6]" :class="isTimezoneOpen ? 'rotate-90' : '-rotate-90'" />
@@ -405,7 +407,7 @@ const saveGrupo = async () => {
                       <input
                         v-model="timezoneSearch"
                         type="text"
-                        :placeholder="t('grupos.searchTimeZone', 'Buscar zona horaria...')"
+                        :placeholder="t('grupos.searchTimeZone')"
                         class="w-full pl-11 pr-4 py-3 bg-slate-100/60 dark:bg-white/5 border border-transparent focus:bg-white dark:focus:bg-[#1A1D24]/80 rounded-[14px] text-[13px] font-bold text-slate-700 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/30 dark:focus:ring-[#5da6fc]/30 transition-all shadow-inner"
                         @click.stop
                         autocomplete="off"
@@ -432,7 +434,7 @@ const saveGrupo = async () => {
             <!-- Idioma -->
             <div class="space-y-2 relative">
               <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">
-                {{ t('grupos.formLang', 'Idioma') }}
+                {{ t('grupos.formLang') }}
               </label>
               <div
                 @click="saving ? null : (isLangOpen = !isLangOpen)"
@@ -445,7 +447,7 @@ const saveGrupo = async () => {
                 <div class="flex items-center gap-3">
                   <HugeiconsIcon :icon="LanguageCircleIcon" :size="18" :stroke-width="2.2" class="text-slate-400 dark:text-slate-600 group-hover/input:text-[#3b82f6] transition-colors" />
                   <span class="text-[13px] font-bold" :class="formData.i18n ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-700'">
-                    {{ langOptions.find(l => l.value === formData.i18n)?.label || t('grupos.formLangPlaceholder', 'Seleccionar Idioma') }}
+                    {{ langOptions.find(l => l.value === formData.i18n)?.label || t('grupos.formLangPlaceholder') }}
                   </span>
                 </div>
                 <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" class="transition-all text-slate-400 group-hover/input:text-[#3b82f6]" :class="isLangOpen ? 'rotate-90' : '-rotate-90'" />
@@ -479,11 +481,11 @@ const saveGrupo = async () => {
   <BaseModal
     :isOpen="isCropping"
     @update:isOpen="isCropping = $event"
-    :title="t('grupos.editPhoto', 'Editar Foto')"
+    :title="t('grupos.editPhoto')"
     size="lg"
     @confirm="applyCrop"
     @close="cancelCrop"
-    :confirmText="t('common.apply', 'Aplicar')"
+    :confirmText="t('common.apply')"
   >
     <template #icon>
       <HugeiconsIcon :icon="Camera01Icon" :size="20" class="text-[#3b82f6]" />
@@ -511,7 +513,7 @@ const saveGrupo = async () => {
         <button 
           @click="rotate(-90)"
           class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
-          title="Rotar a la izquierda"
+          :title="t('grupos.rotateLeft')"
           type="button"
         >
           <HugeiconsIcon :icon="RotateLeft01Icon" :size="20" />
@@ -519,7 +521,7 @@ const saveGrupo = async () => {
         <button 
           @click="rotate(90)"
           class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center"
-          title="Rotar a la derecha"
+          :title="t('grupos.rotateRight')"
           type="button"
         >
           <HugeiconsIcon :icon="RotateRight01Icon" :size="20" />
@@ -530,7 +532,7 @@ const saveGrupo = async () => {
     <div class="mt-4 flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
       <HugeiconsIcon :icon="Alert01Icon" :size="18" class="text-[#3b82f6]" />
       <p class="text-[12px] font-bold text-slate-600 dark:text-slate-400">
-        {{ t('grupos.adjustImageInfo', 'Ajusta el círculo para centrar la foto. Solo lo que esté dentro del círculo será visible.') }}
+        {{ t('grupos.adjustImageInfo') }}
       </p>
     </div>
   </BaseModal>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   CommandLineIcon,
@@ -20,6 +21,8 @@ import AppInput from '../../../components/ui/AppInput.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   isOpen: boolean
@@ -116,17 +119,17 @@ const validarFormulario = (): boolean => {
   formErrors.value = { id_familia: '', nombre: '', texto: '' }
 
   if (!formData.value.nombre.trim()) {
-    formErrors.value.nombre = 'El nombre es obligatorio'
+    formErrors.value.nombre = t('comandos.errorNameRequired')
     valido = false
   }
 
   if (!formData.value.id_familia) {
-    formErrors.value.id_familia = 'Debe seleccionar una familia'
+    formErrors.value.id_familia = t('comandos.errorFamilyRequired')
     valido = false
   }
 
   if (!formData.value.texto.trim()) {
-    formErrors.value.texto = 'El texto o instrucción del comando es obligatorio'
+    formErrors.value.texto = t('comandos.errorTextRequired')
     valido = false
   }
 
@@ -135,7 +138,7 @@ const validarFormulario = (): boolean => {
 
 const handleGuardar = async () => {
   if (!groupStore.selectedGroup?.id) {
-    showModalMessage('No hay un grupo seleccionado', 'error')
+    showModalMessage(t('comandos.noGroupSelected'), 'error')
     return
   }
 
@@ -167,20 +170,20 @@ const handleGuardar = async () => {
     if (respuesta.done) {
       toast.add({
         severity: 'success',
-        summary: isEditMode.value ? 'Comando actualizado' : 'Comando creado',
-        detail: respuesta.message || (isEditMode.value ? 'El comando ha sido actualizado' : 'El comando ha sido registrado'),
+        summary: isEditMode.value ? t('comandos.alertSuccessUpdateTitle') : t('comandos.alertSuccessCreateTitle'),
+        detail: respuesta.message || (isEditMode.value ? t('comandos.alertSuccessUpdateDetail') : t('comandos.alertSuccessCreateDetail')),
         life: 3000
       })
       emit('saved')
       emit('update:isOpen', false)
     } else {
-      showModalMessage(respuesta.message || 'No fue posible guardar el comando', 'error')
+      showModalMessage(respuesta.message || t('comandos.alertErrorSave'), 'error')
     }
   } catch (error) {
     if (error instanceof ApiError) {
       showModalMessage(getErrorMessage(error.code), 'error')
     } else {
-      showModalMessage('Error de conexión al guardar el comando', 'error')
+      showModalMessage(t('comandos.alertNetError'), 'error')
     }
   } finally {
     saving.value = false
@@ -195,8 +198,8 @@ const handleGuardar = async () => {
     @close="$emit('update:isOpen', false)"
     @confirm="handleGuardar"
     :close-on-click-outside="!saving"
-    :title="isEditMode ? 'Editar Comando' : 'Nuevo Comando'"
-    :confirm-text="isEditMode ? 'Guardar Cambios' : 'Registrar Comando'"
+    :title="isEditMode ? t('comandos.modalTitleEdit') : t('comandos.modalTitleCreate')"
+    :confirm-text="isEditMode ? t('comandos.btnSave') : t('comandos.btnRegister')"
     size="lg"
     :show-footer="false"
   >
@@ -216,7 +219,7 @@ const handleGuardar = async () => {
           </div>
           <div class="mt-5 flex flex-col items-center">
             <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">
-              {{ isEditMode ? 'Actualizando Comando...' : 'Registrando Comando...' }}
+              {{ isEditMode ? t('comandos.updatingTitle') : t('comandos.registeringTitle') }}
             </span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
@@ -253,8 +256,8 @@ const handleGuardar = async () => {
             <!-- Nombre del comando -->
             <AppInput
               v-model="formData.nombre"
-              label="Nombre del Comando"
-              placeholder="Ej: comando prueba 5"
+              :label="t('comandos.labelName')"
+              :placeholder="t('comandos.placeholderName')"
               :icon="Tag01Icon"
               :error="formErrors.nombre"
               :disabled="saving"
@@ -263,8 +266,8 @@ const handleGuardar = async () => {
             <!-- Selección de Familia (desplegable) -->
             <AppSelect
               v-model="formData.id_familia"
-              label="Familia de Hardware"
-              placeholder="Selecciona la familia..."
+              :label="t('comandos.labelFamily')"
+              :placeholder="t('comandos.placeholderFamily')"
               :options="opcionesFamilias"
               :icon="CpuIcon"
               :disabled="loadingFamilias || saving"
@@ -274,8 +277,8 @@ const handleGuardar = async () => {
           <!-- Texto del comando -->
           <AppInput
             v-model="formData.texto"
-            label="Texto / Instrucción del Comando"
-            placeholder="Ej: XCF( UU )"
+            :label="t('comandos.labelText')"
+            :placeholder="t('comandos.placeholderText')"
             :icon="FileCodeIcon"
             :error="formErrors.texto"
             :disabled="saving"
@@ -290,7 +293,7 @@ const handleGuardar = async () => {
             @click="$emit('update:isOpen', false)"
             class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Cancelar
+            {{ t('common.cancel') }}
           </button>
 
           <button
@@ -299,7 +302,7 @@ const handleGuardar = async () => {
             class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none cursor-pointer"
           >
             <HugeiconsIcon v-if="saving" :icon="Loading03Icon" :size="16" class="animate-spin" />
-            <span>{{ saving ? (isEditMode ? 'Guardando...' : 'Registrando...') : (isEditMode ? 'Guardar Cambios' : 'Registrar Comando') }}</span>
+            <span>{{ saving ? (isEditMode ? t('comandos.saving') : t('comandos.registering')) : (isEditMode ? t('comandos.btnSave') : t('comandos.btnRegister')) }}</span>
           </button>
         </div>
       </form>

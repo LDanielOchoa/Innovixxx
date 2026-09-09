@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Clock01Icon,
@@ -18,6 +20,8 @@ import { verHistorialServicioApi } from '../services/servicios.api'
 import type { Servicio, ServicioHistorialItem } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 
+loadModuleMessages('servicios')
+const { t } = useI18n()
 const groupStore = useGroupStore()
 
 const props = defineProps<{
@@ -33,15 +37,18 @@ const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' }
 
 type IconType = typeof Clock01Icon
 
-const eventoLabels: Record<number, string> = {
-  1: 'Servicio creado',
-  2: 'Recursos asignados',
-  3: 'Ruta modificada',
-  4: 'Hardware actualizado',
-  5: 'Vehículo actualizado',
-  6: 'Escolta actualizado',
-  7: 'Escolta agregado',
-  8: 'Estado actualizado'
+const getEventoLabel = (evento: number): string => {
+  const map: Record<number, string> = {
+    1: t('servicios.eventServiceCreated'),
+    2: t('servicios.eventResourcesAssigned'),
+    3: t('servicios.eventRouteModified'),
+    4: t('servicios.eventHardwareUpdated'),
+    5: t('servicios.eventVehicleUpdated'),
+    6: t('servicios.eventEscortUpdated'),
+    7: t('servicios.eventEscortAdded'),
+    8: t('servicios.eventStatusUpdated')
+  }
+  return map[evento] || t('servicios.eventGeneric', { id: evento })
 }
 
 const eventoBadgeColors: Record<number, string> = {
@@ -106,11 +113,11 @@ watch(() => props.isOpen, async (isOpen) => {
       if (data.done) {
         historial.value = data.data || []
       } else {
-        modalMessage.value = { text: data.message || 'Error al cargar el historial.', type: 'error' }
+        modalMessage.value = { text: data.message || t('servicios.toastError'), type: 'error' }
       }
     } catch (error) {
       console.error('Error al cargar historial:', error)
-      modalMessage.value = { text: 'Error de conexión con el servidor.', type: 'error' }
+      modalMessage.value = { text: t('servicios.toastConnectionError'), type: 'error' }
     } finally {
       isLoading.value = false
     }
@@ -177,8 +184,8 @@ const handleClose = () => {
     :is-open="isOpen"
     @update:is-open="handleClose"
     @close="handleClose"
-    title="Historial del Servicio"
-    confirm-text="Cerrar"
+    :title="t('servicios.modalTitleHistory')"
+    :confirm-text="t('servicios.btnClear')"
     size="md"
     :show-footer="true"
   >
@@ -217,7 +224,7 @@ const handleClose = () => {
 
       <!-- Empty State -->
       <div v-if="!isLoading && historial.length === 0 && !modalMessage" class="py-10 text-center">
-        <p class="text-xs font-medium text-slate-400 dark:text-slate-500">No hay registros de historial para este servicio.</p>
+        <p class="text-xs font-medium text-slate-400 dark:text-slate-500">{{ t('servicios.noHistoryFound') }}</p>
       </div>
 
       <!-- Lista de Historial -->
@@ -256,7 +263,7 @@ const handleClose = () => {
                   eventoBadgeColors[item.evento] || 'bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-white/10'
                 ]"
               >
-                {{ eventoLabels[item.evento] || `Evento ${item.evento}` }}
+                {{ getEventoLabel(item.evento) }}
               </span>
 
               <span class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">

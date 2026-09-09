@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Calendar01Icon,
@@ -23,11 +25,14 @@ import {
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { registrarServicioEventoApi, fetchServiciosDropdownApi } from '../services/servicios.api'
-import { SERVICIO_EVENTO_TIPOS, SERVICIO_EVENTO_TIPOS_LABELS, SERVICIO_ESTADOS_LABELS } from '../types/servicio'
+import { SERVICIO_EVENTO_TIPOS } from '../types/servicio'
 import type { Servicio } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
+
+loadModuleMessages('servicios')
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -63,13 +68,13 @@ const formData = reactive({
   observacion: ''
 })
 
-const visibilidadConfig = [
-  { value: true, label: 'Visible', icon: EyeIcon, colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
-  { value: false, label: 'No Visible', icon: ViewOffIcon, colorClass: 'text-slate-500 bg-slate-500/10 border-slate-500/20' }
-]
+const visibilidadConfig = computed(() => [
+  { value: true, label: t('servicios.visibleOption'), icon: EyeIcon, colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' },
+  { value: false, label: t('servicios.hiddenOption'), icon: ViewOffIcon, colorClass: 'text-slate-500 bg-slate-500/10 border-slate-500/20' }
+])
 
 const selectedVisibilidadConfig = computed(() => {
-  return visibilidadConfig.find(v => v.value === formData.visible) || visibilidadConfig[0]
+  return visibilidadConfig.value.find(v => v.value === formData.visible) || visibilidadConfig.value[0]
 })
 
 const selectVisibilidad = (val: boolean) => {
@@ -91,13 +96,13 @@ const images = reactive<[ImageFileSlot, ImageFileSlot, ImageFileSlot]>([
   { file: null, previewUrl: null, name: '', size: '' }
 ])
 
-const eventTypeConfig = [
-  { value: SERVICIO_EVENTO_TIPOS.TIPO_REVISION_RUTINARIA, label: 'Revisión Rutinaria', icon: CheckmarkCircle01Icon, colorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
-  { value: SERVICIO_EVENTO_TIPOS.TIPO_PARADA, label: 'Parada', icon: Alert01Icon, colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
-]
+const eventTypeConfig = computed(() => [
+  { value: SERVICIO_EVENTO_TIPOS.TIPO_REVISION_RUTINARIA, label: t('servicios.eventTypeRoutineReview'), icon: CheckmarkCircle01Icon, colorClass: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
+  { value: SERVICIO_EVENTO_TIPOS.TIPO_PARADA, label: t('servicios.eventTypeStop'), icon: Alert01Icon, colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
+])
 
 const selectedTipoConfig = computed(() => {
-  return eventTypeConfig.find(e => e.value === formData.tipo_evento) || eventTypeConfig[0]
+  return eventTypeConfig.value.find(e => e.value === formData.tipo_evento) || eventTypeConfig.value[0]
 })
 
 const selectedServicioObj = computed(() => {
@@ -105,13 +110,21 @@ const selectedServicioObj = computed(() => {
 })
 
 const getEstadoLabel = (estado: any): string => {
+  const map: Record<number, string> = {
+    1: t('servicios.statePreload'),
+    2: t('servicios.stateWaiting'),
+    3: t('servicios.stateExecOk'),
+    4: t('servicios.stateExecFail'),
+    5: t('servicios.stateFinished'),
+    6: t('servicios.stateCancelled')
+  }
   if (typeof estado === 'number') {
-    return SERVICIO_ESTADOS_LABELS[estado] || String(estado)
+    return map[estado] || String(estado)
   }
   if (typeof estado === 'string') {
     const num = Number(estado)
-    if (!isNaN(num) && SERVICIO_ESTADOS_LABELS[num]) {
-      return SERVICIO_ESTADOS_LABELS[num]
+    if (!isNaN(num) && map[num]) {
+      return map[num]
     }
     return estado
   }
@@ -119,7 +132,7 @@ const getEstadoLabel = (estado: any): string => {
 }
 
 const getEstadoBadgeClass = (estado: any): string => {
-  const lbl = getEstadoLabel(estado).toUpperCase().replace(/\s+/g, '_')
+  const lbl = String(estado).toUpperCase().replace(/\s+/g, '_')
   if (lbl.includes('PRERCARGA') || lbl === '1') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
   if (lbl.includes('ESPERA') || lbl === '2') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
   if (lbl.includes('OK') || lbl.includes('EJECUCION_OK') || lbl === '3') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
@@ -234,17 +247,17 @@ const isFormValid = computed(() => {
 
 const handleSubmit = async () => {
   if (!selectedGroup.value?.id) {
-    modalMessage.value = { text: 'Debes tener una empresa o grupo activo seleccionado.', type: 'error' }
+    modalMessage.value = { text: t('servicios.groupRequiredError'), type: 'error' }
     return
   }
 
   if (!formData.id_servicio.trim()) {
-    modalMessage.value = { text: 'Selecciona un servicio.', type: 'error' }
+    modalMessage.value = { text: t('servicios.selectServiceError'), type: 'error' }
     return
   }
 
   if (!formData.observacion.trim()) {
-    modalMessage.value = { text: 'La observación del evento es obligatoria.', type: 'error' }
+    modalMessage.value = { text: t('servicios.obsRequiredError'), type: 'error' }
     return
   }
 
@@ -264,18 +277,18 @@ const handleSubmit = async () => {
     })
 
     if (res && res.done !== false) {
-      modalMessage.value = { text: 'Evento registrado exitosamente.', type: 'success' }
+      modalMessage.value = { text: t('servicios.toastEventCreatedDetail'), type: 'success' }
       setTimeout(() => {
         emit('created')
         emit('update:isOpen', false)
       }, 900)
     } else {
-      modalMessage.value = { text: res?.message || 'Error al registrar el evento.', type: 'error' }
+      modalMessage.value = { text: res?.message || t('servicios.toastError'), type: 'error' }
     }
   } catch (error: any) {
     console.error('Error al registrar evento de servicio:', error)
     modalMessage.value = {
-      text: error?.message || 'Error de conexión con el servidor.',
+      text: error?.message || t('servicios.toastConnectionError'),
       type: 'error'
     }
   } finally {
@@ -317,7 +330,7 @@ onUnmounted(() => {
 <template>
   <AppModal
     :isOpen="isOpen"
-    title="Registrar Evento de Servicio"
+    :title="t('servicios.modalTitleCreateEvent')"
     maxWidth="max-w-2xl"
     @update:isOpen="emit('update:isOpen', $event)"
   >
@@ -345,7 +358,7 @@ onUnmounted(() => {
         <!-- Desplegable Servicio -->
         <div ref="servicioDropdownModalRef" class="relative">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
-            Servicio <span class="text-rose-500">*</span>
+            {{ t('servicios.filterService') }} <span class="text-rose-500">*</span>
           </label>
 
           <!-- Trigger del Dropdown Servicio -->
@@ -365,7 +378,7 @@ onUnmounted(() => {
                     {{ selectedServicioObj?.id_servicio || formData.id_servicio }}
                   </span>
                   <span v-if="selectedServicioObj?.id_ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                    • Ruta: {{ selectedServicioObj.id_ruta }}
+                    {{ t('servicios.routeLabel', { route: selectedServicioObj.id_ruta }) }}
                   </span>
                   <span
                     v-if="selectedServicioObj?.estado"
@@ -377,7 +390,7 @@ onUnmounted(() => {
                 </div>
               </template>
               <span v-else class="text-slate-400 font-normal">
-                Seleccionar servicio...
+                {{ t('servicios.selectServicePrompt') }}
               </span>
             </div>
 
@@ -408,7 +421,7 @@ onUnmounted(() => {
                     :key="serv.id_servicio"
                     type="button"
                     @click="selectServicio(serv.id_servicio)"
-                    class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                    class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                     :class="formData.id_servicio === serv.id_servicio ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
                   >
                     <div class="flex flex-col gap-1 min-w-0 flex-1 pr-2">
@@ -419,7 +432,7 @@ onUnmounted(() => {
                             {{ serv.id_servicio }}
                           </span>
                           <span v-if="serv.id_ruta" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                            • Ruta: {{ serv.id_ruta }}
+                            {{ t('servicios.routeLabel', { route: serv.id_ruta }) }}
                           </span>
                         </div>
                         <span
@@ -453,7 +466,7 @@ onUnmounted(() => {
                   </button>
                 </template>
                 <div v-else class="px-3.5 py-4 text-center text-xs text-slate-400">
-                  {{ isLoadingServicios ? 'Cargando servicios...' : 'No hay servicios disponibles' }}
+                  {{ isLoadingServicios ? t('servicios.loadingMap') : t('servicios.noServicesAvailable') }}
                 </div>
               </div>
             </div>
@@ -463,7 +476,7 @@ onUnmounted(() => {
         <!-- Desplegable Tipo de Evento -->
         <div ref="tipoDropdownModalRef" class="relative">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
-            Tipo de Evento <span class="text-rose-500">*</span>
+            {{ t('servicios.eventTypeLabel') }} <span class="text-rose-500">*</span>
           </label>
 
           <!-- Trigger del Dropdown Tipo de Evento -->
@@ -508,7 +521,7 @@ onUnmounted(() => {
                 :key="op.value"
                 type="button"
                 @click="selectTipo(op.value)"
-                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 :class="formData.tipo_evento === op.value ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
               >
                 <div class="flex items-center gap-2.5">
@@ -538,7 +551,7 @@ onUnmounted(() => {
         <!-- Desplegable Visibilidad -->
         <div ref="visibilidadDropdownModalRef" class="relative">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-200 mb-1.5">
-            Visibilidad <span class="text-rose-500">*</span>
+            {{ t('servicios.visibilityLabel') }} <span class="text-rose-500">*</span>
           </label>
 
           <!-- Trigger Visibilidad -->
@@ -580,10 +593,10 @@ onUnmounted(() => {
             >
               <button
                 v-for="op in visibilidadConfig"
-                :key="op.value"
+                :key="op.value ? 'true' : 'false'"
                 type="button"
                 @click="selectVisibilidad(op.value)"
-                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                 :class="formData.visible === op.value ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'"
               >
                 <div class="flex items-center gap-2.5">
@@ -615,16 +628,16 @@ onUnmounted(() => {
       <div>
         <div class="flex items-center justify-between mb-1.5">
           <label class="block text-xs font-bold text-slate-700 dark:text-slate-200">
-            Observación <span class="text-rose-500">*</span>
+            {{ t('servicios.obsLabel') }} <span class="text-rose-500">*</span>
           </label>
           <span class="text-[11px] text-slate-400 font-mono">
-            {{ formData.observacion.length }} caracteres
+            {{ t('servicios.charactersCount', { count: formData.observacion.length }) }}
           </span>
         </div>
         <textarea
           v-model="formData.observacion"
           rows="3"
-          placeholder="Escribe los detalles y observaciones del evento..."
+          :placeholder="t('servicios.obsPlaceholder')"
           class="w-full px-3.5 py-2.5 bg-slate-50/80 dark:bg-[#13161C]/80 border border-slate-200/80 dark:border-white/[0.08] rounded-xl text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 focus:bg-white dark:focus:bg-[#13161C] transition-all resize-none leading-relaxed"
         ></textarea>
       </div>
@@ -633,8 +646,8 @@ onUnmounted(() => {
       <div>
         <div class="flex items-center justify-between mb-2.5">
           <label class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-            <span>Evidencia Fotográfica</span>
-            <span class="text-[11px] font-normal text-slate-400">(Hasta 3 imágenes opcionales)</span>
+            <span>{{ t('servicios.photographicEvidence') }}</span>
+            <span class="text-[11px] font-normal text-slate-400">{{ t('servicios.photographicEvidenceHint') }}</span>
           </label>
           <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400">
             PNG, JPG, BMP
@@ -662,7 +675,7 @@ onUnmounted(() => {
                   <button
                     type="button"
                     @click="removeImage(idx)"
-                    title="Eliminar imagen"
+                    :title="t('servicios.deleteImage')"
                     class="p-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white shadow-lg transition-all active:scale-95 cursor-pointer"
                   >
                     <HugeiconsIcon :icon="Cancel01Icon" :size="14" />
@@ -671,7 +684,7 @@ onUnmounted(() => {
               </div>
               <div class="w-full text-center">
                 <span class="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate block">
-                  Foto {{ idx + 1 }}
+                  {{ t('servicios.photoIndex', { index: idx + 1 }) }}
                 </span>
                 <span class="text-[10px] text-slate-400 font-mono block">{{ slot.size }}</span>
               </div>
@@ -690,9 +703,9 @@ onUnmounted(() => {
                   <HugeiconsIcon :icon="Upload04Icon" :size="17" />
                 </div>
                 <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 group-hover:text-blue-500 transition-colors">
-                  Foto {{ idx + 1 }}
+                  {{ t('servicios.photoIndex', { index: idx + 1 }) }}
                 </span>
-                <span class="text-[10px] text-slate-400 font-medium mt-0.5">Click para subir</span>
+                <span class="text-[10px] text-slate-400 font-medium mt-0.5">{{ t('servicios.clickToUpload') }}</span>
               </label>
             </template>
           </div>
@@ -709,7 +722,7 @@ onUnmounted(() => {
           :disabled="isSaving"
           @click="emit('update:isOpen', false)"
         >
-          Cancelar
+          {{ t('servicios.btnCancel') }}
         </AppButton>
 
         <AppButton
@@ -720,7 +733,7 @@ onUnmounted(() => {
           :disabled="!isFormValid || isSaving"
           @click="handleSubmit"
         >
-          Guardar Evento
+          {{ t('servicios.saveEvent') }}
         </AppButton>
       </div>
     </template>

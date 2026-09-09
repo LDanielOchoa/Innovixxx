@@ -128,7 +128,7 @@ watch(() => props.isOpen, async (isOpen) => {
         hardwareList.value = await fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0)
       } catch (error) {
         console.error('Error cargando hardware:', error)
-        showMessage('Error al cargar dispositivos de hardware', 'error')
+        showMessage(t('escoltas.errorLoadingHardware'), 'error')
       } finally {
         loadingHardware.value = false
       }
@@ -147,8 +147,8 @@ const selectHardware = (id: string) => {
     const estadoTxt = getHardwareEstadoTexto(h)
     toast.add({
       severity: 'warn',
-      summary: 'Hardware No Disponible',
-      detail: `Este dispositivo no está disponible (${estadoTxt}). Solo se pueden seleccionar dispositivos en estado DISPONIBLE.`,
+      summary: t('escoltas.hardwareUnavailableTitle'),
+      detail: t('escoltas.hardwareUnavailableDetail', { state: estadoTxt }),
       life: 4000
     })
     return
@@ -159,7 +159,7 @@ const selectHardware = (id: string) => {
 const handleAsignar = async () => {
   if (asignando.value) return
   if (!props.escolta?.id_escolta || !groupStore.selectedGroup?.id) {
-    showMessage('Datos del escolta inválidos', 'error')
+    showMessage(t('escoltas.invalidEscoltaData'), 'error')
     return
   }
 
@@ -176,21 +176,21 @@ const handleAsignar = async () => {
       toast.add({
         severity: 'success',
         summary: selectedHardwareId.value
-          ? t('escoltas.alertSuccessAssignHardwareTitle', 'Hardware Asignado')
-          : 'Hardware Removido',
+          ? t('escoltas.alertSuccessAssignHardwareTitle')
+          : t('escoltas.alertSuccessRemoveHardwareTitle'),
         detail: data.message || (selectedHardwareId.value
-          ? t('escoltas.alertSuccessAssignHardwareDetail', 'El dispositivo de hardware ha sido asignado exitosamente al escolta.')
-          : 'El dispositivo de hardware ha sido removido exitosamente del escolta.'),
+          ? t('escoltas.alertSuccessAssignHardwareDetail')
+          : t('escoltas.alertSuccessRemoveHardwareDetail')),
         life: 4000
       })
       emit('assigned')
       handleClose()
     } else {
-      showMessage(data.message || 'Error al asignar hardware', 'error')
+      showMessage(data.message || t('escoltas.errorAssignHardware'), 'error')
     }
   } catch (error: any) {
     console.error('Error asignando hardware:', error)
-    showMessage(error.message || 'Error de conexión', 'error')
+    showMessage(error.message || t('escoltas.errorConn'), 'error')
   } finally {
     asignando.value = false
   }
@@ -209,8 +209,8 @@ const handleClose = () => {
     @close="handleClose"
     @confirm="handleAsignar"
     :close-on-click-outside="!asignando"
-    title="Asignar Hardware al Escolta"
-    :confirm-text="'Confirmar Asignación'"
+    :title="t('escoltas.modalTitleAssignHardware')"
+    :confirm-text="t('escoltas.btnConfirmSelection')"
     size="xl"
     :show-footer="!isInitializing"
   >
@@ -228,7 +228,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Asignando Hardware...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('escoltas.assigningHardware') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -270,14 +270,14 @@ const handleClose = () => {
               <HugeiconsIcon :icon="User02Icon" :size="18" />
             </div>
             <div>
-              <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">Escolta</span>
+              <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400">{{ t('escoltas.labelEscolta') }}</span>
               <p class="text-[14px] font-semibold text-slate-800 dark:text-white">{{ escolta?.nombre || '---' }}</p>
             </div>
           </div>
 
           <div class="space-y-3">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500">
-              Dispositivo de Hardware
+              {{ t('escoltas.labelHardware') }}
             </label>
             <div class="relative">
               <div class="flex items-center gap-2 bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-3 py-2" :class="{ 'opacity-60 cursor-not-allowed': asignando }">
@@ -285,7 +285,7 @@ const handleClose = () => {
                 <input
                   v-model="hardwareSearchQuery"
                   type="text"
-                  placeholder="Buscar por nombre o familia..."
+                  :placeholder="t('escoltas.searchHardwarePlaceholderList')"
                   :disabled="asignando"
                   class="flex-1 bg-transparent border-none text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 outline-none disabled:cursor-not-allowed"
                 />
@@ -305,7 +305,7 @@ const handleClose = () => {
           <div class="space-y-3">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-[#3b82f6] dark:text-[#60a5fa] flex items-center gap-1.5 animate-none shrink-0">
               <span class="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse"></span>
-              Hardware Asignado
+              {{ t('escoltas.assignedHardwareTitle') }}
             </span>
             <div v-if="hardwareAsignado" class="flex flex-wrap gap-2.5 items-start bg-slate-900/5 dark:bg-[#12141c]/30 border border-slate-200 dark:border-white/5 p-4 rounded-2xl shrink-0">
               <div
@@ -316,7 +316,7 @@ const handleClose = () => {
                   <span class="text-xs font-semibold truncate max-w-[120px]">{{ hardwareAsignado.nombre }}</span>
                 </div>
                 <div class="flex justify-between items-center mt-0.5 w-full text-[9px] gap-2">
-                  <span class="font-mono opacity-80 truncate">{{ hardwareAsignado.familia || 'Sin familia' }}</span>
+                  <span class="font-mono opacity-80 truncate">{{ hardwareAsignado.familia || t('escoltas.noFamily') }}</span>
                   <span v-if="hardwareAsignado.bateria !== undefined && hardwareAsignado.bateria !== null && hardwareAsignado.bateria !== ''" class="inline-flex items-center gap-1 font-bold shrink-0 opacity-95">
                     <HugeiconsIcon :icon="getBatteryIcon(hardwareAsignado.bateria)" :size="11" />
                     {{ hardwareAsignado.bateria }}%
@@ -327,7 +327,7 @@ const handleClose = () => {
                   type="button"
                   @click.stop="selectedHardwareId = null"
                   class="abs-close-btn flex items-center justify-center rounded-full bg-slate-900/80 hover:bg-red-600 text-white dark:bg-slate-950 dark:hover:bg-red-500 transition-all !w-4 !h-4 !min-w-[16px] !min-h-[16px] !p-0"
-                  title="Quitar hardware"
+                  :title="t('escoltas.removeHardwareTitle')"
                 >
                   <span class="text-[8px] font-black leading-none">✕</span>
                 </button>
@@ -335,14 +335,14 @@ const handleClose = () => {
             </div>
             <div v-else class="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 dark:border-white/5 rounded-2xl bg-slate-900/5 dark:bg-[#12141c]/10 text-xs text-slate-500 shrink-0">
               <HugeiconsIcon :icon="CpuIcon" :size="20" class="opacity-20 mb-1" />
-              <span>Sin hardware asignado. Seleccione uno de la lista de abajo.</span>
+              <span>{{ t('escoltas.noHardwareAssigned') }}</span>
             </div>
           </div>
 
           <!-- HARDWARE DISPONIBLES (ABAJO) -->
           <div class="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/[0.06] flex flex-col">
             <span class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 text-slate-400 dark:text-slate-500 shrink-0">
-              Dispositivos Disponibles
+              {{ t('escoltas.availableDevices') }}
             </span>
             
             <div class="max-h-56 overflow-y-auto pr-1 custom-scrollbar">
@@ -369,7 +369,7 @@ const handleClose = () => {
                     </span>
                   </div>
                   <div class="flex justify-between items-center mt-0.5 w-full text-[9px] gap-2">
-                    <span class="font-mono opacity-60 truncate">{{ h.familia || 'Sin familia' }}</span>
+                    <span class="font-mono opacity-60 truncate">{{ h.familia || t('escoltas.noFamily') }}</span>
                     <span v-if="h.bateria !== undefined && h.bateria !== null && h.bateria !== ''" class="inline-flex items-center gap-1 font-semibold shrink-0" :class="getBatteryClass(h.bateria)">
                       <HugeiconsIcon :icon="getBatteryIcon(h.bateria)" :size="11" />
                       {{ h.bateria }}%
@@ -379,7 +379,7 @@ const handleClose = () => {
               </div>
               <div v-if="hardwareDisponiblesList.length === 0" class="flex flex-col items-center justify-center py-12 text-slate-400">
                 <HugeiconsIcon :icon="CpuIcon" :size="32" class="opacity-30 mb-2" />
-                <span class="text-[12px] font-medium">Sin dispositivos disponibles</span>
+                <span class="text-[12px] font-medium">{{ t('escoltas.noHardwareAvailable') }}</span>
               </div>
             </div>
           </div>
@@ -395,7 +395,7 @@ const handleClose = () => {
           @click="handleClose"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl border border-slate-200 dark:border-white/10 px-6 py-3 bg-white dark:bg-[#1A1D24] text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] focus:outline-none transition-all duration-300 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Cancelar
+          {{ t('common.cancel') }}
         </button>
         <button
           type="button"
@@ -403,7 +403,7 @@ const handleClose = () => {
           @click="handleAsignar"
           class="flex-1 sm:flex-none inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] dark:from-[#5da6fc] dark:to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] dark:hover:from-[#3b82f6] dark:hover:to-[#2563eb] px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.4)] dark:shadow-[0_4px_0_#1d4ed8,0_8px_20px_rgba(93,166,252,0.2)] active:translate-y-[4px] active:shadow-[0_0px_0_#2563eb,0_4px_10px_rgba(59,130,246,0.4)] dark:active:shadow-[0_0px_0_#1d4ed8,0_4px_10px_rgba(93,166,252,0.2)] focus:outline-none transition-all duration-200 border border-[#2563eb] dark:border-[#1d4ed8] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
         >
-          Confirmar Asignación
+          {{ t('escoltas.btnConfirmSelection') }}
         </button>
       </div>
     </template>

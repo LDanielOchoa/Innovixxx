@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   ArrowRight01Icon,
@@ -11,7 +13,6 @@ import { useGroupStore } from '../../../stores/group.store'
 import { cambiarEstadoServicioApi } from '../services/servicios.api'
 import type { ServicioDashboard } from '../types/servicio'
 import {
-  SERVICIO_ESTADOS_LABELS,
   SERVICIO_ESTADOS_VALID_NEXT_PROD,
   SERVICIO_ESTADOS_VALID_NEXT_DEV
 } from '../types/servicio'
@@ -22,6 +23,8 @@ import { useFormError } from '../../../composables/useFormError'
 import { servicioCambiarEstadoSchema } from '../../../schemas/servicios.schema'
 import { useToast } from 'primevue/usetoast'
 
+loadModuleMessages('servicios')
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const toast = useToast()
 
@@ -35,7 +38,6 @@ const emit = defineEmits(['update:isOpen', 'updated'])
 const isLoading = ref(true)
 const saving = ref(false)
 const estadoDesconocido = ref(false)
-
 
 const { validate, getFirstError } = useFormValidator(servicioCambiarEstadoSchema)
 const { getError, clearErrors } = useFormError('servicio-cambiar-estado')
@@ -51,8 +53,20 @@ const validNextStates = computed(() => {
   return map[estadoActual.value] || []
 })
 
+const getEstadoLabel = (estadoId: number): string => {
+  const map: Record<number, string> = {
+    1: t('servicios.statePreload'),
+    2: t('servicios.stateWaiting'),
+    3: t('servicios.stateExecOk'),
+    4: t('servicios.stateExecFail'),
+    5: t('servicios.stateFinished'),
+    6: t('servicios.stateCancelled')
+  }
+  return map[estadoId] || t('servicios.noStatus')
+}
+
 const estadoActualLabel = computed(() => {
-  return SERVICIO_ESTADOS_LABELS[estadoActual.value] || 'Sin estado'
+  return getEstadoLabel(estadoActual.value)
 })
 
 const estadoActualColor = computed(() => {
@@ -124,8 +138,8 @@ const handleCambiarEstado = async () => {
   if (estadoDesconocido.value) {
     toast.add({
       severity: 'warn',
-      summary: 'Estado no reconocido',
-      detail: 'No se puede cambiar el estado porque el estado actual es desconocido.',
+      summary: t('servicios.statusUnrecognizedTitle'),
+      detail: t('servicios.unknownCurrentStateWarning'),
       life: 4000
     })
     return
@@ -145,7 +159,7 @@ const handleCambiarEstado = async () => {
     if (firstErr) {
       toast.add({
         severity: 'warn',
-        summary: 'Validación',
+        summary: t('servicios.toastValidation'),
         detail: firstErr,
         life: 4000
       })
@@ -163,15 +177,15 @@ const handleCambiarEstado = async () => {
       emit('updated')
       toast.add({
         severity: 'success',
-        summary: 'Estado Actualizado',
-        detail: data.message || 'El estado del servicio ha sido cambiado exitosamente.',
+        summary: t('servicios.toastStatusUpdatedSuccess'),
+        detail: data.message || t('servicios.toastStatusChangedSuccess'),
         life: 4000
       })
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: data.message || 'Error al cambiar el estado.',
+        summary: t('servicios.toastError'),
+        detail: data.message || t('servicios.toastStatusChangedError'),
         life: 4000
       })
     }
@@ -179,8 +193,8 @@ const handleCambiarEstado = async () => {
     console.error('Error en cambiarEstadoServicioApi:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: error.message || 'Error de conexión con el servidor.',
+      summary: t('servicios.toastError'),
+      detail: error.message || t('servicios.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -199,8 +213,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleCambiarEstado"
-    title="Cambiar Estado del Servicio"
-    confirm-text="Confirmar Cambio"
+    :title="t('servicios.modalTitleChangeStatus')"
+    :confirm-text="t('servicios.btnConfirmChange')"
     size="md"
     :show-footer="!isLoading && !estadoDesconocido"
   >
@@ -218,7 +232,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cambiando Estado...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('servicios.changingStatus') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -244,8 +258,8 @@ const handleClose = () => {
       <div v-if="!isLoading && estadoDesconocido" class="flex items-start gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
         <HugeiconsIcon :icon="Alert01Icon" :size="18" class="shrink-0 mt-0.5" />
         <div>
-          <p class="font-bold">Estado no reconocido</p>
-          <p class="text-[12px] font-medium opacity-80 mt-0.5">El estado actual del servicio (código: {{ props.servicio?.estado }}) no está dentro del catálogo válido. No es posible continuar.</p>
+          <p class="font-bold">{{ t('servicios.statusUnrecognizedTitle') }}</p>
+          <p class="text-[12px] font-medium opacity-80 mt-0.5">{{ t('servicios.statusUnrecognizedDetail', { code: props.servicio?.estado }) }}</p>
         </div>
       </div>
 
@@ -256,7 +270,7 @@ const handleClose = () => {
             <!-- ESTADO ACTUAL -->
             <div class="space-y-2">
               <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-                Estado Actual
+                {{ t('servicios.currentState') }}
               </label>
               <div class="bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]">
                 <div class="flex items-center gap-3 px-4 py-3.5">
@@ -284,7 +298,7 @@ const handleClose = () => {
              <!-- NUEVO ESTADO -->
             <div class="space-y-2">
               <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-                Nuevo Estado
+                {{ t('servicios.nextState') }}
               </label>
               <div class="grid grid-cols-2 gap-2">
                 <button
@@ -292,7 +306,7 @@ const handleClose = () => {
                   :key="estadoId"
                   type="button"
                   @click="nuevoEstado = estadoId"
-                  class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-bold uppercase tracking-wider transition-all duration-200"
+                  class="flex items-center justify-center gap-2 px-4 py-3 rounded-xl border text-[12px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer"
                   :class="[
                     nuevoEstado === estadoId
                       ? 'bg-[#3b82f6]/10 border-[#3b82f6]/40 text-[#3b82f6] dark:bg-[#3b82f6]/15 dark:border-[#5da6fc]/40 dark:text-[#5da6fc]'
@@ -300,24 +314,24 @@ const handleClose = () => {
                     getError('new_state') ? '!border-red-500/50' : ''
                   ]"
                 >
-                  {{ SERVICIO_ESTADOS_LABELS[estadoId] }}
+                  {{ getEstadoLabel(estadoId) }}
                 </button>
               </div>
               <span v-if="getError('new_state')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('new_state') }}</span>
               <div v-if="validNextStates.length === 0" class="text-[12px] text-amber-500 ml-1">
-                No hay transiciones disponibles desde el estado actual.
+                {{ t('servicios.noTransitionsAvailable') }}
               </div>
             </div>
 
             <!-- DESCRIPCION -->
             <div class="space-y-2">
               <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-                Descripción (opcional)
+                {{ t('servicios.descriptionOptional') }}
               </label>
               <textarea
                 v-model="descripcion"
                 rows="3"
-                placeholder="Agregue una descripción del cambio de estado..."
+                :placeholder="t('servicios.descriptionPlaceholder')"
                 class="w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200/60 dark:border-white/5 rounded-xl py-3 px-4 text-[13px] font-medium text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:border-[#3b82f6]/40 dark:focus:border-[#5da6fc]/40 focus:ring-4 focus:ring-[#3b82f6]/5 transition-all duration-300 resize-none"
                 :class="getError('descripcion') ? '!border-red-500/50' : ''"
               />

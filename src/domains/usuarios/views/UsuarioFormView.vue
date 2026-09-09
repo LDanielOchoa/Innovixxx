@@ -32,6 +32,8 @@ import AppDataLayout from '../../../components/ui/AppDataLayout.vue'
 import AppButton from '../../../components/ui/AppButton.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
 
+import { loadModuleMessages } from '../../../i18n'
+
 const route = useRoute()
 const router = useRouter()
 const groupStore = useGroupStore()
@@ -163,11 +165,11 @@ const initData = async () => {
         await fetchRolesForCreate(formData.value.id_grupo)
         formData.value.id_role = targetUser.id_role // restaurar despues del fetch
       } else {
-        showMessage('No se pudo cargar la información del usuario.', 'error')
+        showMessage(t('users.alertUserNotFound'), 'error')
       }
     } catch (e) {
       console.error(e)
-      showMessage('Error al cargar datos del usuario', 'error')
+      showMessage(t('users.alertLoadUserError'), 'error')
     } finally {
       loadingInit.value = false
     }
@@ -180,6 +182,7 @@ const initData = async () => {
 }
 
 onMounted(() => {
+  loadModuleMessages('users')
   initData()
 })
 
@@ -199,7 +202,7 @@ const saveUsuario = async () => {
   try {
     if (!isEditMode.value) {
       if (!formData.value.id_grupo) {
-        showMessage(t('users.alertNoGroup', 'No hay un grupo válido asignado.'), 'error')
+        showMessage(t('users.alertNoGroup'), 'error')
         saving.value = false
         return
       }
@@ -220,7 +223,7 @@ const saveUsuario = async () => {
       })
 
       if (data.done) {
-        showMessage(t('users.alertSuccessCreate', 'Usuario creado exitosamente'), 'success')
+        showMessage(t('users.alertSuccessCreate'), 'success')
         setTimeout(() => {
           router.push('/usuarios')
         }, 1500)
@@ -229,7 +232,7 @@ const saveUsuario = async () => {
       }
     } else {
       if (!authStore.hasPermission(PERMISSIONS.USERS_EDIT)) {
-        showMessage(t('users.alertErrorUpdate') || 'No tienes permiso para editar usuarios', 'error')
+        showMessage(t('users.alertNoPermissionEdit'), 'error')
         saving.value = false
         return
       }
@@ -261,7 +264,7 @@ const saveUsuario = async () => {
       const { data } = await updateUsuarioApi(updatePayload)
 
       if (data.done) {
-        showMessage(t('users.alertSuccessUpdate', 'Usuario actualizado exitosamente'), 'success')
+        showMessage(t('users.alertSuccessUpdate'), 'success')
         setTimeout(() => {
           router.push('/usuarios')
         }, 1500)
@@ -284,8 +287,8 @@ const saveUsuario = async () => {
 <template>
   <AppDataLayout 
     class="theme-sync" 
-    :title="isEditMode ? t('users.modalEditTitle', 'Editar Usuario') : t('users.modalCreateTitle', 'Nuevo Usuario')" 
-    :subtitle="isEditMode ? 'Actualiza los datos del usuario seleccionado' : 'Configura un nuevo usuario para el sistema'"
+    :title="isEditMode ? t('users.modalEditTitle') : t('users.modalCreateTitle')" 
+    :subtitle="isEditMode ? t('users.subtitleEdit') : t('users.subtitleCreate')"
   >
     <template #actions>
       <AppButton 
@@ -293,17 +296,17 @@ const saveUsuario = async () => {
         :icon="ArrowLeft01Icon"
         @click="router.push('/usuarios')" 
       >
-        <span>{{ t('common.cancel', 'Cancelar') }}</span>
+        <span>{{ t('common.cancel') }}</span>
       </AppButton>
 
       <AppButton 
         variant="primary" 
-        :icon="isEditMode ? FloppyDiskIcon : FloppyDiskIcon"
+        :icon="FloppyDiskIcon"
         :loading="saving"
         :disabled="loadingInit"
         @click="saveUsuario" 
       >
-        <span>{{ isEditMode ? t('users.btnUpdate', 'Actualizar') : t('users.btnSave', 'Guardar') }}</span>
+        <span>{{ isEditMode ? t('users.btnUpdate') : t('users.btnSave') }}</span>
       </AppButton>
     </template>
 
@@ -347,16 +350,16 @@ const saveUsuario = async () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <AppFormInput 
                 v-model="formData.nombre"
-                label="Nombre Completo"
-                placeholder="Ej. Juan Pérez"
+                :label="t('users.formName')"
+                :placeholder="t('users.formNamePlaceholder')"
                 :icon="User02Icon"
                 :error="getError('nombre')"
               />
 
               <AppFormInput 
                 v-model="formData.email"
-                label="Correo Electrónico"
-                placeholder="ejemplo@empresa.com"
+                :label="t('users.formEmail')"
+                :placeholder="t('users.formEmailPlaceholder')"
                 :icon="Mail01Icon"
                 type="email"
                 :error="getError('email')"
@@ -368,7 +371,7 @@ const saveUsuario = async () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
               <!-- Custom Role Dropdown -->
               <div class="space-y-2 relative">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Rol de Usuario</label>
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ t('users.formRole') }}</label>
                 <div
                   @click="toggleRoleDropdown"
                   class="relative flex items-center justify-between group/input bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 dark:hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24] select-none"
@@ -380,7 +383,7 @@ const saveUsuario = async () => {
                       <HugeiconsIcon :icon="Shield02Icon" :size="14" :stroke-width="2.2" />
                     </div>
                     <span class="text-[13px] font-bold" :class="formData.id_role ? 'text-slate-700 dark:text-white' : 'text-slate-400 dark:text-slate-600'">
-                      {{ rolesForCreate.find(r => r.id_role === formData.id_role)?.nombre || 'Seleccionar Rol' }}
+                      {{ rolesForCreate.find(r => r.id_role === formData.id_role)?.nombre || t('users.selectRole') }}
                     </span>
                   </div>
                   <HugeiconsIcon v-if="loadingRoles" :icon="Loading01Icon" :size="16" class="animate-spin text-[#3b82f6]" />
@@ -392,11 +395,11 @@ const saveUsuario = async () => {
                   <!-- Header decorativo -->
                   <div class="relative px-4 pt-3 pb-2 border-b border-slate-100 dark:border-white/[0.05] overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.05] via-transparent to-transparent pointer-events-none"></div>
-                    <span class="relative text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Seleccionar Rol</span>
+                    <span class="relative text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{{ t('users.selectRole') }}</span>
                   </div>
                   <div class="p-2 space-y-1">
                     <div v-if="rolesForCreate.length === 0" class="py-6 text-center">
-                      <p class="text-[12px] font-black text-slate-400 dark:text-slate-500">No hay roles disponibles</p>
+                      <p class="text-[12px] font-black text-slate-400 dark:text-slate-500">{{ t('users.formNoRoles') }}</p>
                     </div>
                     <button
                       v-for="role in rolesForCreate"
@@ -422,7 +425,7 @@ const saveUsuario = async () => {
 
               <!-- Idioma Selector Personalizado -->
               <div class="space-y-2 relative">
-                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">Idioma Preferido</label>
+                <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1.5">{{ t('users.formLang') }}</label>
                 <div
                   @click="toggleLangDropdown"
                   class="relative flex items-center justify-between group/input bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border border-slate-200 dark:border-white/10 rounded-[16px] px-4 py-3.5 cursor-pointer hover:border-[#3b82f6]/40 dark:hover:border-[#3b82f6]/30 transition-all duration-300 shadow-[0_3px_0_#e2e8f0,0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_3px_0_#1D1D24,0_2px_10px_rgba(0,0,0,0.3)] active:translate-y-[3px] active:shadow-[0_0px_0_#e2e8f0] dark:active:shadow-[0_0px_0_#1D1D24] select-none"
@@ -445,7 +448,7 @@ const saveUsuario = async () => {
                   <!-- Header decorativo -->
                   <div class="relative px-4 pt-3 pb-2 border-b border-slate-100 dark:border-white/[0.05] overflow-hidden">
                     <div class="absolute inset-0 bg-gradient-to-br from-[#3b82f6]/[0.05] via-transparent to-transparent pointer-events-none"></div>
-                    <span class="relative text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Seleccionar Idioma</span>
+                    <span class="relative text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">{{ t('users.selectLang') }}</span>
                   </div>
                   <div class="p-2 space-y-1">
                     <button
@@ -477,13 +480,13 @@ const saveUsuario = async () => {
             <div class="pt-6 border-t border-slate-100 dark:border-white/5">
               <AppFormInput 
                 v-model="formData.pass"
-                :label="isEditMode ? 'Restablecer Contraseña' : 'Crear Contraseña'"
-                :placeholder="isEditMode ? '••••••••' : 'Mínimo 8 caracteres'"
+                :label="isEditMode ? t('users.formPasswordReset') : t('users.formPasswordCreate')"
+                :placeholder="isEditMode ? t('users.formPasswordPlaceholderEdit') : t('users.formPasswordPlaceholderCreate')"
                 :icon="LockPasswordIcon"
                 type="password"
               />
               <p v-if="isEditMode" class="text-[11px] text-slate-400 dark:text-slate-600 mt-2 pl-1 font-medium italic">
-                Dejar en blanco si no deseas cambiar la clave actual.
+                {{ t('users.formPasswordHelpEdit') }}
               </p>
             </div>
           </div>

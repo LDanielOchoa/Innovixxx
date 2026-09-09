@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Alert01Icon,
@@ -21,6 +23,9 @@ import type { ServicioDashboard, ServicioAlertaItem } from '../types/servicio'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import { useToast } from 'primevue/usetoast'
+
+loadModuleMessages('servicios')
+const { t } = useI18n()
 
 const MAP_KEY = 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
 
@@ -151,9 +156,9 @@ const zoomOut = () => {
 
 const modalTitle = computed(() => {
   if (activeView.value === 'map' && selectedAlertaForMap.value) {
-    return `Ubicación de Alarma: ${selectedAlertaForMap.value.tipo_alerta}`
+    return t('servicios.modalTitleAlarmLocation', { type: selectedAlertaForMap.value.tipo_alerta })
   }
-  return 'Historial de Alarmas'
+  return t('servicios.modalTitleAlarms')
 })
 
 const formatDate = (dateStr: string): string => {
@@ -192,11 +197,11 @@ const fetchAlertas = async () => {
     if (res.done) {
       alertas.value = res.data || []
     } else {
-      modalMessage.value = { text: res.message || 'Error al obtener el historial de alarmas.', type: 'error' }
+      modalMessage.value = { text: res.message || t('servicios.toastError'), type: 'error' }
     }
   } catch (error) {
     console.error('Error al cargar alarmas:', error)
-    modalMessage.value = { text: 'Error de conexión con el servidor.', type: 'error' }
+    modalMessage.value = { text: t('servicios.toastConnectionError'), type: 'error' }
   } finally {
     isLoading.value = false
   }
@@ -232,13 +237,13 @@ const handleSolventar = async (alerta: ServicioAlertaItem, visible: boolean = tr
   try {
     const res = await solventarAlertaApi({ token: alerta.token, visible })
     if (res.done) {
-      toast.add({ severity: 'success', summary: 'Éxito', detail: 'Alarma solventada correctamente', life: 3000 })
+      toast.add({ severity: 'success', summary: t('servicios.toastSuccess'), detail: t('servicios.toastAlarmSolvedSuccess'), life: 3000 })
       await fetchAlertas()
     } else {
-      toast.add({ severity: 'error', summary: 'Error', detail: res.message || 'No se pudo solventar la alarma', life: 3000 })
+      toast.add({ severity: 'error', summary: t('servicios.toastError'), detail: res.message || t('servicios.toastAlarmSolvedError'), life: 3000 })
     }
   } catch (error) {
-    toast.add({ severity: 'error', summary: 'Error', detail: 'Error de conexión al solventar alarma', life: 3000 })
+    toast.add({ severity: 'error', summary: t('servicios.toastError'), detail: t('servicios.toastAlarmSolvedNetworkError'), life: 3000 })
   } finally {
     solventandoToken.value = null
   }
@@ -268,7 +273,7 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     :title="modalTitle"
-    cancel-text="Cerrar"
+    :cancel-text="t('servicios.btnClear')"
     :show-footer="false"
     size="xl"
   >
@@ -292,13 +297,13 @@ const handleClose = () => {
             class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-[#1A1D24] hover:bg-slate-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/10 transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
           >
             <HugeiconsIcon :icon="ArrowLeft02Icon" :size="16" />
-            <span>Volver al historial</span>
+            <span>{{ t('servicios.backToHistory') }}</span>
           </button>
 
           <div v-if="selectedAlertaForMap" class="flex items-center gap-3 text-xs flex-wrap">
             <div class="flex items-center gap-2 bg-slate-200/60 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-white/5">
               <HugeiconsIcon :icon="HardDriveIcon" :size="14" class="text-slate-400" />
-              <span class="font-medium text-slate-400 dark:text-slate-500">Hardware:</span>
+              <span class="font-medium text-slate-400 dark:text-slate-500">{{ t('servicios.thHardware') }}:</span>
               <span class="font-bold text-slate-800 dark:text-slate-100">{{ selectedAlertaForMap.hardware }}</span>
             </div>
 
@@ -309,7 +314,7 @@ const handleClose = () => {
               class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer"
             >
               <HugeiconsIcon :icon="MapsIcon" :size="14" />
-              <span>Abrir en Google Maps</span>
+              <span>{{ t('servicios.openInGoogleMaps') }}</span>
             </a>
           </div>
         </div>
@@ -319,7 +324,7 @@ const handleClose = () => {
           <!-- Spinner Loader mientras carga la foto -->
           <div v-if="isMapImageLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 dark:bg-[#13161C]/90 backdrop-blur-sm">
             <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-blue-500 animate-spin" />
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ t('servicios.loadingMap') }}</span>
           </div>
 
           <!-- Imagen Estática de Google Maps con Marcador -->
@@ -339,7 +344,7 @@ const handleClose = () => {
               @click="zoomIn"
               :disabled="mapZoom >= 20"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Acercar (+)"
+              :title="t('servicios.zoomInTitle')"
             >
               +
             </button>
@@ -348,7 +353,7 @@ const handleClose = () => {
               @click="zoomOut"
               :disabled="mapZoom <= 10"
               class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-              title="Alejar (-)"
+              :title="t('servicios.zoomOutTitle')"
             >
               −
             </button>
@@ -388,8 +393,8 @@ const handleClose = () => {
           <div class="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 flex items-center justify-center mb-4 shadow-sm">
             <HugeiconsIcon :icon="Alert01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
           </div>
-          <h3 class="text-base font-bold text-slate-700 dark:text-slate-200">Sin alarmas registradas</h3>
-          <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">Este servicio no cuenta con alertas de seguridad registradas.</p>
+          <h3 class="text-base font-bold text-slate-700 dark:text-slate-200">{{ t('servicios.noAlarmsRegistered') }}</h3>
+          <p class="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-xs">{{ t('servicios.noAlarmsRegisteredHint') }}</p>
         </div>
 
         <!-- Lista Tarjetas de Alertas -->
@@ -418,7 +423,7 @@ const handleClose = () => {
                 <template v-if="item.solventada">
                   <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]">
                     <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="14" />
-                    Solventada
+                    {{ t('servicios.alarmSolved') }}
                   </span>
                 </template>
                 <template v-else>
@@ -429,7 +434,7 @@ const handleClose = () => {
                     :class="{ 'ring-2 ring-amber-500/40': openSolventarMenuToken === item.token }"
                   >
                     <HugeiconsIcon :icon="solventandoToken === item.token ? Loading02Icon : Tick02Icon" :size="14" :class="{ 'animate-spin': solventandoToken === item.token }" />
-                    <span>{{ solventandoToken === item.token ? 'Solventando...' : 'Solventar' }}</span>
+                    <span>{{ solventandoToken === item.token ? t('servicios.solving') : t('servicios.btnSolveAlarm') }}</span>
                   </button>
                 </template>
               </div>
@@ -440,13 +445,13 @@ const handleClose = () => {
               <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
                 <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <HugeiconsIcon :icon="HardDriveIcon" :size="15" class="text-slate-400 shrink-0" />
-                  <span class="font-medium text-slate-400 dark:text-slate-400">Hardware:</span>
+                  <span class="font-medium text-slate-400 dark:text-slate-400">{{ t('servicios.thHardware') }}:</span>
                   <span class="font-bold text-slate-800 dark:text-slate-200">{{ item.hardware || '---' }}</span>
                 </div>
 
                 <div v-if="item.solventada_por" class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
                   <HugeiconsIcon :icon="User02Icon" :size="15" class="text-slate-400 shrink-0" />
-                  <span class="font-medium text-slate-400 dark:text-slate-400">Solventada por:</span>
+                  <span class="font-medium text-slate-400 dark:text-slate-400">{{ t('servicios.solvedBy') }}</span>
                   <span class="font-bold text-slate-800 dark:text-slate-200">{{ item.solventada_por }}</span>
                 </div>
               </div>
@@ -457,7 +462,7 @@ const handleClose = () => {
                   class="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/30 transition-all duration-200 flex items-center gap-1.5 active:scale-95 shadow-sm hover:shadow-[#3b82f6]/10 cursor-pointer"
                 >
                   <HugeiconsIcon :icon="MapsIcon" :size="14" />
-                  <span>Ver en mapa</span>
+                  <span>{{ t('servicios.viewOnMap') }}</span>
                 </button>
               </div>
             </div>
@@ -486,7 +491,7 @@ const handleClose = () => {
         @click.stop
       >
         <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-          Visibilidad
+          {{ t('servicios.thVisibility') }}
         </div>
 
         <!-- Opción: Visible -->
@@ -499,7 +504,7 @@ const handleClose = () => {
           class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
         >
           <HugeiconsIcon :icon="EyeIcon" :size="15" />
-          <span>Visible</span>
+          <span>{{ t('servicios.visibleOption') }}</span>
         </button>
 
         <!-- Opción: No Visible -->
@@ -512,7 +517,7 @@ const handleClose = () => {
           class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
         >
           <HugeiconsIcon :icon="ViewOffIcon" :size="15" />
-          <span>No Visible</span>
+          <span>{{ t('servicios.hiddenOption') }}</span>
         </button>
       </div>
     </Transition>
@@ -579,4 +584,3 @@ const handleClose = () => {
   transform: translateY(-4px) scale(0.97);
 }
 </style>
-

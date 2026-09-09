@@ -314,15 +314,15 @@ const paginatedRutas = computed(() => {
 
 const exportToExcel = () => {
   const dataToExport = filteredRutas.value.map(u => ({
-    'ID': u.id_ruta,
-    'Nombre': u.nombre,
-    'Descripción': u.descripcion,
-    'Estado': u.estado
+    [t('rutas.idRoute')]: u.id_ruta,
+    [t('rutas.colRoute')]: u.nombre,
+    [t('rutas.colDesc')]: u.descripcion,
+    [t('rutas.colStatus')]: u.estado === 'Habilitada' ? t('rutas.statusEnabled') : t('rutas.statusDisabled')
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Rutas')
-  XLSX.writeFile(workbook, 'Listado_Rutas.xlsx')
+  XLSX.utils.book_append_sheet(workbook, worksheet, t('rutas.title'))
+  XLSX.writeFile(workbook, `${t('rutas.title')}.xlsx`)
 }
 
 const openCreateModal = () => {
@@ -392,7 +392,7 @@ const openGpsModal = async () => {
     hardwareList.value = response || []
   } catch (error) {
     console.error('Error al obtener hardware simple:', error)
-    showModalMessage('Error al cargar dispositivos GPS', 'error')
+    showModalMessage(t('rutas.errorLoadingDevices'), 'error')
   } finally {
     loadingHardware.value = false
   }
@@ -400,7 +400,7 @@ const openGpsModal = async () => {
 
 const trazarRutaGps = async () => {
   if (!selectedHardwareId.value || !fechaDesde.value || !fechaHasta.value) {
-    showModalMessage('Por favor completa todos los campos requeridos', 'warning')
+    showModalMessage(t('rutas.errorRequiredFields'), 'warning')
     return
   }
   
@@ -431,11 +431,11 @@ const trazarRutaGps = async () => {
       isGpsModalOpen.value = false
       router.push('/rutas/nueva?gps=true')
     } else {
-      showModalMessage('No hay puntos de ruta para el rango seleccionado para ese dispositivo', 'warning')
+      showModalMessage(t('rutas.noGpsPointsInRange'), 'warning')
     }
   } catch (error) {
     console.error('Error al obtener posiciones GPS:', error)
-    showModalMessage('Error al consultar el historial GPS', 'error')
+    showModalMessage(t('rutas.errorQueryingGps'), 'error')
   } finally {
     trazandoGps.value = false
   }
@@ -461,7 +461,7 @@ const trazarRutaGps = async () => {
         >
           <div class="flex flex-col items-center gap-4">
             <div class="w-14 h-14 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
-            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando mapa...</p>
+            <p class="text-xs font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">{{ t('rutas.loadingMap') }}</p>
           </div>
         </div>
       </Transition>
@@ -476,8 +476,8 @@ const trazarRutaGps = async () => {
             <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
               <HugeiconsIcon :icon="Alert01Icon" :size="28" class="text-red-500" />
             </div>
-            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">Error al cargar el mapa</p>
-            <p class="text-xs text-slate-400">Verifica tu conexión a internet</p>
+            <p class="text-sm font-bold text-slate-600 dark:text-slate-300">{{ t('rutas.errorLoadingMap') }}</p>
+            <p class="text-xs text-slate-400">{{ t('rutas.checkInternet') }}</p>
           </div>
         </div>
       </Transition>
@@ -495,7 +495,7 @@ const trazarRutaGps = async () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Cargando Trayectoria...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('rutas.loadingTrajectory') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -513,7 +513,7 @@ const trazarRutaGps = async () => {
           style="bottom:24px;right:24px;"
         >
           <div class="bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-xl px-4 py-3 rounded-xl border border-white/20 dark:border-white/5 shadow-[0_15px_35px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_45px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.05)] flex items-center gap-3">
-            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">Selecciona una ruta para ver su trayectoria</p>
+            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400">{{ t('rutas.hintSelectRoute') }}</p>
           </div>
         </div>
       </Transition>
@@ -531,9 +531,9 @@ const trazarRutaGps = async () => {
                   <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
                 </div>
                 <div>
-                  <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ $t('rutas.title') }}</h1>
+                  <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('rutas.title') }}</h1>
                   <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5">
-                    {{ filteredRutas.length }} rutas activas
+                    {{ t('rutas.activeRoutesCount', { count: filteredRutas.length }) }}
                   </p>
                 </div>
               </div>
@@ -542,13 +542,13 @@ const trazarRutaGps = async () => {
                 <!-- Botón Exportar Plano -->
                 <button @click="exportToExcel"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
-                  title="Exportar">
+                  :title="t('rutas.btnExport')">
                   <HugeiconsIcon :icon="Download01Icon" :size="14" :stroke-width="2" />
                 </button>
                 <!-- Botón Nueva Ruta Plano -->
                 <button v-if="authStore.hasPermission(PERMISSIONS.RUTAS_CREATE)" @click="openCreateModal"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97] transition-all duration-200"
-                  title="Nueva Ruta">
+                  :title="t('rutas.btnNew')">
                   <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" />
                 </button>
               </div>
@@ -557,12 +557,12 @@ const trazarRutaGps = async () => {
             <!-- Search -->
             <div class="relative mt-4 flex items-center gap-2">
               <div class="relative flex-1">
-                <AppInput v-model="searchQuery" :placeholder="$t('rutas.searchPlaceholder')" :icon="Search01Icon" />
+                <AppInput v-model="searchQuery" :placeholder="t('rutas.searchPlaceholder')" :icon="Search01Icon" />
               </div>
               <button 
                 @click="fetchRutas"
                 :disabled="loading"
-                :title="t('common.reload', 'Recargar')"
+                :title="t('common.reload')"
                 class="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center"
               >
                 <HugeiconsIcon 
@@ -580,7 +580,7 @@ const trazarRutaGps = async () => {
             <!-- Loading -->
             <div v-if="loading" class="flex flex-col items-center justify-center py-12 gap-4">
               <div class="w-10 h-10 border-[3px] border-[#3b82f6]/15 border-t-[#3b82f6] rounded-full animate-spin"></div>
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Cargando...</p>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">{{ t('common.loading') }}</p>
             </div>
             
             <!-- Empty -->
@@ -589,8 +589,8 @@ const trazarRutaGps = async () => {
                 <HugeiconsIcon :icon="Search01Icon" :size="28" :stroke-width="1.5" />
               </div>
               <div class="space-y-1">
-                <p class="text-[13px] font-black text-slate-600 dark:text-slate-300">Sin resultados</p>
-                <p class="text-[11px] font-medium text-slate-400 dark:text-slate-500">Prueba con otro término</p>
+                <p class="text-[13px] font-black text-slate-600 dark:text-slate-300">{{ t('rutas.noRoutes') }}</p>
+                <p class="text-[11px] font-medium text-slate-400 dark:text-slate-500">{{ t('rutas.trySearch') }}</p>
               </div>
             </div>
             
@@ -628,11 +628,11 @@ const trazarRutaGps = async () => {
                           ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                           : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'"
                       >
-                        {{ ruta.estado === 'Habilitada' ? 'Activo' : 'Inactiva' }}
+                        {{ ruta.estado === 'Habilitada' ? t('rutas.statusEnabled') : t('rutas.statusDisabled') }}
                       </span>
                     </div>
                     <p class="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-1">
-                      {{ ruta.descripcion || 'Sin descripción' }}
+                      {{ ruta.descripcion || t('rutas.noDescription') }}
                     </p>
                   </div>
                 </div>
@@ -669,7 +669,7 @@ const trazarRutaGps = async () => {
                         class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
                       >
                         <HugeiconsIcon :icon="Edit02Icon" :size="12" class="text-slate-400" />
-                        Editar
+                        {{ t('common.edit') }}
                       </button>
 
                       <button
@@ -678,7 +678,7 @@ const trazarRutaGps = async () => {
                         class="w-full px-3 py-1.5 text-left text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors flex items-center gap-2"
                       >
                         <HugeiconsIcon :icon="Settings02Icon" :size="12" class="text-slate-400" />
-                        {{ ruta.estado === 'Habilitada' ? 'Deshabilitar' : 'Habilitar' }}
+                        {{ ruta.estado === 'Habilitada' ? t('rutas.actionDisable') : t('rutas.actionEnable') }}
                       </button>
                     </div>
                   </Transition>
@@ -699,7 +699,7 @@ const trazarRutaGps = async () => {
           <!-- Info footer -->
           <div class="shrink-0 px-5 py-3 border-t border-slate-100 dark:border-white/[0.05] flex items-center justify-between">
             <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              {{ filteredRutas.length > 0 ? `Mostrando ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredRutas.length)}–${Math.min(currentPage * itemsPerPage, filteredRutas.length)} de ${filteredRutas.length}` : 'Sin rutas' }}
+              {{ filteredRutas.length > 0 ? t('rutas.showingCount', { from: Math.min((currentPage - 1) * itemsPerPage + 1, filteredRutas.length), to: Math.min(currentPage * itemsPerPage, filteredRutas.length), total: filteredRutas.length }) : t('rutas.noRoutesFound') }}
             </p>
           </div>
         </div>
@@ -709,10 +709,10 @@ const trazarRutaGps = async () => {
     <!-- Modal Confirmación Estado -->
     <AppModal
       v-model:isOpen="isConfirmStatusModalOpen"
-      :title="statusConfirmData.nuevoEstado ? $t('rutas.modalEnableTitle') : $t('rutas.modalDisableTitle')"
-      :confirmText="statusConfirmData.nuevoEstado ? $t('rutas.btnEnable') : $t('rutas.btnDisable')"
+      :title="statusConfirmData.nuevoEstado ? t('rutas.modalEnableTitle') : t('rutas.modalDisableTitle')"
+      :confirmText="statusConfirmData.nuevoEstado ? t('rutas.btnEnable') : t('rutas.btnDisable')"
       :confirmButtonClass="statusConfirmData.nuevoEstado ? 'inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#047857,0_8px_20px_rgba(16,185,129,0.4)] active:translate-y-[4px] active:shadow-[0_0px_0_#047857,0_4px_10px_rgba(16,185,129,0.4)] transition-all duration-200 border border-emerald-600' : 'inline-flex justify-center items-center gap-2 rounded-xl bg-gradient-to-b from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 px-6 py-3 text-[13px] font-bold text-white shadow-[0_4px_0_#b91c1c,0_8px_20px_rgba(239,68,68,0.4)] active:translate-y-[4px] active:shadow-[0_0px_0_#b91c1c,0_4px_10px_rgba(239,68,68,0.4)] transition-all duration-200 border border-red-600'"
-      :cancelText="$t('rutas.btnCancel')"
+      :cancelText="t('rutas.btnCancel')"
       @confirm="processToggleEstado"
     >
       <template #icon>
@@ -722,7 +722,7 @@ const trazarRutaGps = async () => {
       </template>
       <div class="py-4 flex flex-col items-center text-center gap-6">
         <p class="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-[280px]">
-          {{ $t('rutas.confirmStatusChange', { action: statusConfirmData.nuevoEstado ? $t('rutas.actionEnable') : $t('rutas.actionDisable') }) }}
+          {{ t('rutas.confirmStatusChange', { action: statusConfirmData.nuevoEstado ? t('rutas.actionEnable') : t('rutas.actionDisable') }) }}
         </p>
         <div class="px-5 py-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl shadow-sm">
           <span class="text-sm font-black text-slate-800 dark:text-white uppercase tracking-tight">{{ statusConfirmData.ruta?.nombre }}</span>
@@ -733,9 +733,9 @@ const trazarRutaGps = async () => {
     <!-- Modal Registrar por GPS -->
     <AppModal
       v-model:isOpen="isGpsModalOpen"
-      title="Registrar Ruta por GPS"
-      confirmText="Trazar Ruta"
-      cancelText="Cancelar"
+      :title="t('rutas.modalGpsTitle')"
+      :confirmText="t('rutas.btnTraceRoute')"
+      :cancelText="t('common.cancel')"
       @confirm="trazarRutaGps"
     >
       <template #icon>
@@ -749,7 +749,7 @@ const trazarRutaGps = async () => {
         <Transition name="fade-overlay">
           <div v-if="trazandoGps" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
             <div class="w-10 h-10 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
-            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
+            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">{{ t('rutas.gettingPositions') }}</p>
           </div>
         </Transition>
 
@@ -768,8 +768,8 @@ const trazarRutaGps = async () => {
         <!-- Dispositivo GPS -->
         <AppSelect
           v-model="selectedHardwareId"
-          label="Dispositivo GPS"
-          placeholder="Seleccione un dispositivo"
+          :label="t('rutas.gpsDevice')"
+          :placeholder="t('rutas.selectDevicePlaceholder')"
           :disabled="loadingHardware"
           :icon="CpuIcon"
           :options="hardwareOptions"
@@ -780,15 +780,15 @@ const trazarRutaGps = async () => {
           <!-- Desde -->
           <AppDateTimePicker
             v-model="fechaDesde"
-            label="Desde"
-            placeholder="Seleccione fecha desde"
+            :label="t('rutas.dateFrom')"
+            :placeholder="t('rutas.selectDateFrom')"
           />
 
           <!-- Hasta -->
           <AppDateTimePicker
             v-model="fechaHasta"
-            label="Hasta"
-            placeholder="Seleccione fecha hasta"
+            :label="t('rutas.dateTo')"
+            :placeholder="t('rutas.selectDateTo')"
           />
         </div>
       </div>

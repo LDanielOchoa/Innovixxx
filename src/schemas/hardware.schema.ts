@@ -12,7 +12,8 @@ export const createHardwareSchema = z.object({
   id_ruta: z.union([z.number(), z.string()]).optional(),
   numero_sms: z.string().optional().or(z.literal('')),
   id_binario: z.string().optional().or(z.literal('')),
-  clave_open: z.string().optional().or(z.literal(''))
+  clave_open: z.string().optional().or(z.literal('')),
+  isdn: z.union([z.string(), z.number()]).optional().nullable().or(z.literal(''))
 })
 
 export const updateHardwareSchema = createHardwareSchema.extend({

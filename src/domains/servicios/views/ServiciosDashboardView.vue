@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, onUnmounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Route01Icon,
@@ -22,6 +24,7 @@ import {
 import type { ServicioDashboard, VehiculoSimple, HardwareSimple, RutaSimple, EscoltaSimple } from '../types/servicio'
 import ServicioCard from '../components/ServicioCard.vue'
 
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
 
@@ -168,6 +171,9 @@ const ocultarTooltip = () => {
 const estadoFiltroActual = computed(() => ESTADOS_INFO.find(e => e.id === selectedEstadoFilter.value))
 
 watch(selectedGroup, () => fetchDatos(), { immediate: true })
+onMounted(() => {
+  loadModuleMessages('servicios')
+})
 onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
 </script>
 
@@ -185,7 +191,7 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
             <HugeiconsIcon :icon="GridViewIcon" :size="18" :stroke-width="2" />
           </div>
           <div>
-            <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Dashboard de Servicios</h1>
+            <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('servicios.titleDashboard') }}</h1>
           </div>
         </div>
       </div>
@@ -270,8 +276,8 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
         class="flex flex-col items-center justify-center py-16 text-center select-none"
       >
         <HugeiconsIcon :icon="AlertCircleIcon" :size="32" class="text-slate-350 dark:text-slate-655 opacity-60 mb-3" />
-        <p class="text-[12px] font-bold text-slate-500 dark:text-slate-400">Sin servicios</p>
-        <p class="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">No hay servicios registrados en este estado</p>
+        <p class="text-[12px] font-bold text-slate-500 dark:text-slate-400">{{ t('servicios.noServicesCard') }}</p>
+        <p class="text-[10px] text-slate-400 dark:text-slate-600 mt-0.5">{{ t('servicios.noServicesInStatusCard') }}</p>
       </div>
 
       <!-- ══════ GRID DE SERVICIOS ══════ -->
@@ -311,7 +317,7 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
                 class="text-[#3b82f6] dark:text-[#5da6fc]"
               />
               <span class="text-[8px] font-bold uppercase tracking-[0.15em] text-[#3b82f6] dark:text-[#5da6fc]">
-                {{ tooltipTipo === 'ubicacion' ? 'Rutas' : tooltipTipo === 'bus' ? 'Vehículos' : tooltipTipo === 'hardware' ? 'Hardware' : 'Escoltas' }}
+                {{ tooltipTipo === 'ubicacion' ? t('servicios.thRoutes') : tooltipTipo === 'bus' ? t('servicios.thVehicles') : tooltipTipo === 'hardware' ? t('servicios.thHardware') : t('servicios.thEscorts') }}
               </span>
             </div>
 
@@ -327,7 +333,7 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
                 <div class="w-1.5 h-1.5 rounded-full bg-[#5da6fc] shrink-0" style="box-shadow:0 0 6px rgba(93,166,252,0.6)"></div>
                 <span class="truncate text-slate-700 dark:text-slate-300 text-[10px] font-bold">{{ obtenerNombreRuta(tooltipData.id_ruta) }}</span>
               </div>
-              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sin ruta asignada</div>
+              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('servicios.noRouteAssigned') }}</div>
             </div>
 
             <!-- Vehículos -->
@@ -338,7 +344,7 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
                   <span class="truncate text-slate-700 dark:text-slate-300 text-[10px] font-bold">{{ obtenerNombreVehiculo(String(vId)) }}</span>
                 </div>
               </template>
-              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sin vehículos</div>
+              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('servicios.noVehiclesAssigned') }}</div>
             </div>
 
             <!-- Hardware -->
@@ -351,11 +357,11 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
                       <span class="w-1 h-1 rounded-full bg-[#5da6fc]"></span>
                       <span class="truncate text-[9.5px] font-bold text-slate-700 dark:text-slate-300">{{ obtenerNombreHardware(hwId) }}</span>
                     </div>
-                    <div v-if="!(hwIds as string[]).length" class="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sin hardware</div>
+                    <div v-if="!(hwIds as string[]).length" class="text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('servicios.noHardwareAssigned') }}</div>
                   </div>
                 </div>
               </template>
-              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sin hardware</div>
+              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('servicios.noHardwareAssigned') }}</div>
             </div>
 
             <!-- Escoltas -->
@@ -369,7 +375,7 @@ onUnmounted(() => { if (tooltipTimer) clearTimeout(tooltipTimer) })
                   </div>
                 </div>
               </template>
-              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">Sin escoltas</div>
+              <div v-else class="py-3 text-center text-[8px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('servicios.noEscortsAssigned') }}</div>
             </div>
           </div>
         </div>

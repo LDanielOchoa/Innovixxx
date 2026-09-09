@@ -165,23 +165,23 @@ const displayedMenuItems = computed(() => {
     {
       id: 'item-admin',
       icon: markRaw(Settings02Icon),
-      text: t('sidebar.menu.administration') || 'Administración',
+      text: t('sidebar.menu.administration'),
       children: [
         {
           icon: markRaw(User02Icon),
-          text: t('sidebar.menu.users') || 'Usuarios',
+          text: t('sidebar.menu.users'),
           route: '/usuarios',
           permissionId: PERMISSIONS.USERS_LIST
         },
         {
           icon: markRaw(Shield01Icon),
-          text: t('sidebar.menu.roles') || 'Roles y Permisos',
+          text: t('sidebar.menu.roles'),
           route: '/roles',
           permissionId: PERMISSIONS.ROLES_LIST
         },
         {
           icon: markRaw(UserGroupIcon),
-          text: t('sidebar.menu.groups') || 'Grupos',
+          text: t('sidebar.menu.groups'),
           route: '/grupos',
           adminOnly: true,
           soloGrupoMain: true
@@ -191,29 +191,29 @@ const displayedMenuItems = computed(() => {
 
     { id: 'sep-dashboard', separator: true },
 
-    { id: 'item-dashboard', icon: markRaw(Layout01Icon), text: t('sidebar.menu.dashboard') || 'Dashboard', route: '/dashboard' },
+    { id: 'item-dashboard', icon: markRaw(Layout01Icon), text: t('sidebar.menu.dashboard'), route: '/dashboard' },
 
     { id: 'sep-vehicles', separator: true },
 
-    { id: 'item-vehicles', icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles') || 'Vehículos', route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
-    { id: 'item-escort-vehicles', icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles') || 'Vehículos de Escolta', route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
+    { id: 'item-vehicles', icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles'), route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
+    { id: 'item-escort-vehicles', icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles'), route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
 
     { id: 'sep-devices', separator: true },
 
     {
       id: 'item-devices',
       icon: markRaw(CpuIcon),
-      text: t('sidebar.menu.devices') || 'Dispositivos',
+      text: t('sidebar.menu.devices'),
       children: [
         {
           icon: markRaw(CpuIcon),
-          text: t('sidebar.menu.hardware') || 'Hardware',
+          text: t('sidebar.menu.hardware'),
           route: '/hardware',
           permissionId: PERMISSIONS.HARDWARE_LIST
         },
         {
           icon: markRaw(CommandLineIcon),
-          text: t('sidebar.menu.commands') || 'Comandos',
+          text: t('sidebar.menu.commands'),
           route: '/comandos',
           permissionId: PERMISSIONS.COMMAND_LIST,
           soloGrupoMain: true
@@ -223,33 +223,33 @@ const displayedMenuItems = computed(() => {
 
     { id: 'sep-tracking', separator: true },
 
-    { id: 'item-bodyguards', icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards') || 'Escoltas', route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
-    { id: 'item-routes', icon: markRaw(Route01Icon), text: t('sidebar.menu.routes') || 'Rutas', route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
-    { id: 'item-geofences', icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences') || 'Geocercas', route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
+    { id: 'item-bodyguards', icon: markRaw(Shield02Icon), text: t('sidebar.menu.bodyguards'), route: '/escoltas', permissionId: PERMISSIONS.ESCOLTA_LIST },
+    { id: 'item-routes', icon: markRaw(Route01Icon), text: t('sidebar.menu.routes'), route: '/rutas', permissionId: PERMISSIONS.RUTAS_LIST },
+    { id: 'item-geofences', icon: markRaw(MapsIcon), text: t('sidebar.menu.geofences'), route: '/geocercas', permissionId: PERMISSIONS.GEOCERCAS_LIST },
 
     { id: 'sep-services', separator: true },
 
     {
       id: 'item-services',
       icon: markRaw(ServiceIcon),
-      text: t('sidebar.menu.services') || 'Servicios',
+      text: t('sidebar.menu.services'),
       children: [
         {
           icon: markRaw(ServiceIcon),
-          text: 'Gestión de Servicios',
+          text: t('sidebar.menu.servicesManagement'),
           route: '/servicios',
           permissionId: PERMISSIONS.SERVICE_LIST_TABLE
         },
         {
           icon: markRaw(Alert01Icon),
-          text: 'Alertas Servicios',
+          text: t('sidebar.menu.servicesAlerts'),
           route: '/servicios/alertas',
           permissionId: PERMISSIONS.ALERT_HISTORIAL,
           soloGrupoMain: true
         },
         {
           icon: markRaw(Calendar01Icon),
-          text: 'Eventos Servicios',
+          text: t('sidebar.menu.servicesEvents'),
           route: '/servicios/eventos',
           permissionId: PERMISSIONS.EVENT_LIST,
           soloGrupoMain: true
@@ -581,7 +581,7 @@ const cerrarSesion = () => {
               <img :src="authStore.userAvatar" class="w-full h-full object-cover" alt="Avatar" />
             </div>
             <div class="flex-1 overflow-hidden">
-              <p class="text-[14px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+              <p class="text-[14px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || t('sidebar.defaultUser') }}</p>
               <p class="text-[12px] text-[#3b82f6] dark:text-[#5da6fc] font-semibold truncate">{{ authStore.userData.email || groupStore.selectedGroup.nombre }}</p>
             </div>
           </div>
@@ -619,7 +619,7 @@ const cerrarSesion = () => {
           </div>
           
           <div class="flex-1 overflow-hidden transition-all duration-500" :class="isExpanded ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0'">
-            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate">{{ authStore.userData.nombre || $t('sidebar.defaultUser') }}</p>
+            <p class="text-[13px] font-bold text-slate-800 dark:text-white truncate">{{ authStore.userData.nombre || t('sidebar.defaultUser') }}</p>
             <p class="text-[11px] text-slate-400 dark:text-slate-500 truncate">{{ authStore.userData.email }}</p>
           </div>
 

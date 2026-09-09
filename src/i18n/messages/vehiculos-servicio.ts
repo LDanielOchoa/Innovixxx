@@ -1,10 +1,13 @@
 export const vehiculosServicioMessages = {
   es: {
+    // Títulos y navegación
     title: 'Vehículos de Escolta',
     subtitle: 'Gestión de vehículos de escolta para el grupo',
     btnNew: 'Nuevo Vehículo',
     btnExport: 'Exportar Excel',
     searchPlaceholder: 'Buscar por placa, marca o referencia...',
+
+    // Tabla
     thPlate: 'Placa / Serial',
     thBrand: 'Marca / Referencia',
     thType: 'Tipo',
@@ -14,14 +17,28 @@ export const vehiculosServicioMessages = {
     thSoat: 'SOAT',
     thTecnomecanica: 'Tecnomecánica',
     thStatus: 'Estado',
+    thActions: 'Acciones',
     noResults: 'No se encontraron vehículos de escolta.',
     noResultsHint: 'Intenta cambiar el grupo seleccionado o ajusta tu búsqueda.',
+
+    // Modal y Formulario
     newTitle: 'Nuevo Vehículo de Escolta',
     newSubtitle: 'Registra un nuevo vehículo de escolta en el sistema',
     editTitle: 'Editar Vehículo de Escolta',
     editSubtitle: 'Modifica los datos del vehículo de escolta',
     btnRegister: 'Registrar Vehículo',
     btnSave: 'Guardar Cambios',
+    updating: 'Actualizando...',
+    saving: 'Guardando...',
+    updatingProgress: 'Guardando cambios...',
+    registeringProgress: 'Registrando vehículo...',
+    otherColors: 'Otros',
+
+    // Tipos de vehículos
+    typeCar: 'Carro',
+    typeMotorcycle: 'Motocicleta',
+
+    // Campos
     labelPlate: 'Placa',
     placeholderPlate: 'Ej: ABC-456',
     labelSerial: 'Serial de Chasis',
@@ -39,16 +56,22 @@ export const vehiculosServicioMessages = {
     labelSoat: 'SOAT',
     placeholderSoat: 'Ej: J456789',
     labelSoatVence: 'Vencimiento SOAT',
+    placeholderSoatVence: 'Seleccione fecha',
     labelTecnomecanica: 'Tecnomecánica',
     placeholderTecnomecanica: 'Ej: u456790',
-    labelTecnomecanicaVence: 'Vencimiento Tecnomecánica',
+    labelTecnomecanicaVence: 'Venc. Tecnomecánica',
+    placeholderTecnomecanicaVence: 'Seleccione fecha',
     labelType: 'Tipo de Vehículo',
-    placeholderType: 'Ej: Carro',
+    placeholderType: 'Seleccione un tipo',
     sectionIdentity: 'Identificación',
     sectionDetails: 'Detalles del Vehículo',
     sectionDocuments: 'Documentos',
     statusActive: 'Activo',
     statusInactive: 'Inactivo',
+
+    // Alertas y Notificaciones
+    alertSelectGroup: 'Seleccione un grupo válido',
+    alertValidation: 'Por favor complete todos los campos obligatorios.',
     alertSuccessCreate: 'Vehículo de escolta registrado correctamente',
     alertSuccessUpdate: 'Información actualizada correctamente',
     alertSuccessCreateTitle: 'Vehículo de Escolta Registrado',
@@ -57,16 +80,22 @@ export const vehiculosServicioMessages = {
     alertSuccessUpdateDetail: 'El vehículo de escolta ha sido modificado exitosamente.',
     alertErrorCreate: 'Error al registrar el vehículo',
     alertErrorUpdate: 'Error al actualizar el vehículo',
+    deleteSuccess: 'Vehículo de escolta eliminado correctamente',
+    deleteError: 'Error al eliminar el vehículo',
+    netError: 'Error de red al procesar la solicitud.',
     confirmDelete: '¿Está seguro de que desea eliminar este vehículo de escolta? Esta acción no se puede deshacer.',
     expired: 'Vencido',
     valid: 'Vigente'
   },
   en: {
+    // Titles and navigation
     title: 'Service Vehicles',
     subtitle: 'Service vehicle management for group',
     btnNew: 'New Vehicle',
     btnExport: 'Export Excel',
     searchPlaceholder: 'Search by plate, brand or reference...',
+
+    // Table
     thPlate: 'Plate / Serial',
     thBrand: 'Brand / Reference',
     thType: 'Type',
@@ -76,14 +105,28 @@ export const vehiculosServicioMessages = {
     thSoat: 'SOAT',
     thTecnomecanica: 'Tech-Mechanical',
     thStatus: 'Status',
+    thActions: 'Actions',
     noResults: 'No service vehicles found.',
     noResultsHint: 'Try changing the selected group or adjust your search.',
+
+    // Modal and Form
     newTitle: 'New Service Vehicle',
     newSubtitle: 'Register a new service vehicle in the system',
     editTitle: 'Edit Service Vehicle',
     editSubtitle: 'Modify the service vehicle details',
     btnRegister: 'Register Vehicle',
     btnSave: 'Save Changes',
+    updating: 'Updating...',
+    saving: 'Saving...',
+    updatingProgress: 'Saving changes...',
+    registeringProgress: 'Registering vehicle...',
+    otherColors: 'Others',
+
+    // Vehicle types
+    typeCar: 'Car',
+    typeMotorcycle: 'Motorcycle',
+
+    // Fields
     labelPlate: 'Plate',
     placeholderPlate: 'e.g., ABC-456',
     labelSerial: 'Chassis Serial',
@@ -101,16 +144,22 @@ export const vehiculosServicioMessages = {
     labelSoat: 'SOAT',
     placeholderSoat: 'e.g., J456789',
     labelSoatVence: 'SOAT Expiration',
+    placeholderSoatVence: 'Select date',
     labelTecnomecanica: 'Tech-Mechanical',
     placeholderTecnomecanica: 'e.g., u456790',
     labelTecnomecanicaVence: 'Tech-Mechanical Expiration',
+    placeholderTecnomecanicaVence: 'Select date',
     labelType: 'Vehicle Type',
-    placeholderType: 'e.g., Car',
+    placeholderType: 'Select a type',
     sectionIdentity: 'Identification',
     sectionDetails: 'Vehicle Details',
     sectionDocuments: 'Documents',
     statusActive: 'Active',
     statusInactive: 'Inactive',
+
+    // Alerts and Notifications
+    alertSelectGroup: 'Please select a valid group',
+    alertValidation: 'Please complete all required fields.',
     alertSuccessCreate: 'Service vehicle successfully registered',
     alertSuccessUpdate: 'Information successfully updated',
     alertSuccessCreateTitle: 'Service Vehicle Registered',
@@ -119,6 +168,9 @@ export const vehiculosServicioMessages = {
     alertSuccessUpdateDetail: 'The service vehicle has been updated successfully.',
     alertErrorCreate: 'Error registering the vehicle',
     alertErrorUpdate: 'Error updating the vehicle',
+    deleteSuccess: 'Service vehicle deleted successfully',
+    deleteError: 'Error deleting the vehicle',
+    netError: 'Network error processing the request.',
     confirmDelete: 'Are you sure you want to delete this service vehicle? This action cannot be undone.',
     expired: 'Expired',
     valid: 'Valid'

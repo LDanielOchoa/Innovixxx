@@ -62,6 +62,8 @@ import Column from 'primevue/column'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 import SearchToolbar from '../../../components/shared/SearchToolbar.vue'
 
+loadModuleMessages('escoltas')
+
 const { t } = useI18n()
 const toast = useToast()
 const groupStore = useGroupStore()
@@ -93,7 +95,7 @@ const getServicioInfo = (id: string) => {
   const s = servicios.value.find(item => item.id_servicio === id)
   if (!s) return id
   const estadoNum = parseInt(s.estado, 10)
-  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado || 'Sin estado'
+  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado || t('escoltas.noName')
   return `${s.fecha_inicio} (${estadoTexto})`
 }
 
@@ -127,7 +129,7 @@ const getHardwareItem = (id: string) => {
 const getHardwareInfo = (id: string) => {
   const h = getHardwareItem(id)
   if (!h) return id
-  return `${h.nombre} — ${h.familia || 'Sin familia'}`
+  return `${h.nombre} — ${h.familia || t('escoltas.placeholderHardware')}`
 }
 
 const cargarAsignacionesData = async () => {
@@ -220,13 +222,11 @@ const toggleMenu = (id: string, event: MouseEvent) => {
   const estimatedMenuHeight = 220
 
   if (spaceBelow < estimatedMenuHeight) {
-    // Abrir hacia arriba
     menuPosition.value = {
       bottom: `${window.innerHeight - rect.top + 8}px`,
       right: `${window.innerWidth - rect.right}px`
     }
   } else {
-    // Abrir hacia abajo
     menuPosition.value = {
       top: `${rect.bottom + 8}px`,
       right: `${window.innerWidth - rect.right}px`
@@ -270,11 +270,21 @@ const deleteEscolta = async () => {
     if (data.done) {
       await fetchEscoltas()
     } else {
-      alert(data.message || 'Error al eliminar')
+      toast.add({
+        severity: 'error',
+        summary: t('escoltas.alertErrorDelete'),
+        detail: data.message || t('escoltas.alertErrorDelete'),
+        life: 4000
+      })
     }
   } catch (error) {
     if (error instanceof ApiError) {
-      alert(getErrorMessage(error.code))
+      toast.add({
+        severity: 'error',
+        summary: t('escoltas.alertErrorDelete'),
+        detail: getErrorMessage(error.code),
+        life: 4000
+      })
     } else {
       console.error('Error deleting escolta:', error)
     }
@@ -341,7 +351,7 @@ const preValidateEscolta = async () => {
 
     if (data.done) {
       smsCodeGenerated.value = data.data?.sms_code?.toString() || '0000'
-      showValidateMessage(t('escoltas.smsSent') || 'SMS enviado. Ingresa el código recibido.', 'success')
+      showValidateMessage(t('escoltas.smsSent'), 'success')
       startCooldownTimer(60)
     } else {
       showValidateMessage(data.message || t('escoltas.alertErrorSms'), 'error')
@@ -351,7 +361,7 @@ const preValidateEscolta = async () => {
       showValidateMessage(getErrorMessage(error.code), 'error')
     } else {
       console.error('Error enviando SMS:', error)
-      showValidateMessage(t('escoltas.alertNetError') || 'Error de red', 'error')
+      showValidateMessage(t('escoltas.alertNetError'), 'error')
     }
   } finally {
     isValidating.value = false
@@ -374,8 +384,8 @@ const postValidateEscolta = async () => {
       clearCooldownTimer()
       toast.add({
         severity: 'success',
-        summary: t('escoltas.alertSuccessValidate') || '¡Validación Exitosa!',
-        detail: data.message || 'El dispositivo y número de este escolta han sido validados correctamente.',
+        summary: t('escoltas.alertSuccessValidateTitle'),
+        detail: data.message || t('escoltas.alertSuccessValidateDetail'),
         life: 4000
       })
       await fetchEscoltas()
@@ -387,7 +397,7 @@ const postValidateEscolta = async () => {
       showValidateMessage(getErrorMessage(error.code), 'error')
     } else {
       console.error('Error validando escolta:', error)
-      showValidateMessage(t('escoltas.alertNetError') || 'Error de red', 'error')
+      showValidateMessage(t('escoltas.alertNetError'), 'error')
     }
   } finally {
     isValidating.value = false
@@ -478,8 +488,8 @@ watch(filtroEstado, async () => {
         <button 
           @click="fetchEscoltas"
           :disabled="isLoading"
-          :title="t('common.reload', 'Recargar')"
-          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          :title="t('common.reload')"
+          class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0 cursor-pointer"
         >
           <HugeiconsIcon 
             :icon="RefreshIcon" 
@@ -495,26 +505,26 @@ watch(filtroEstado, async () => {
           v-model="filtroEstado"
           class="px-3.5 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 transition-colors cursor-pointer outline-none"
         >
-          <option :value="ESCOLTA_ESTADO.TODOS">Todos</option>
-          <option :value="ESCOLTA_ESTADO.DISPONIBLE">Disponible</option>
-          <option :value="ESCOLTA_ESTADO.EN_SERVICIO">En Servicio</option>
-          <option :value="ESCOLTA_ESTADO.NO_DISPONIBLE">No Disponible</option>
+          <option :value="ESCOLTA_ESTADO.TODOS">{{ t('escoltas.filterAll') }}</option>
+          <option :value="ESCOLTA_ESTADO.DISPONIBLE">{{ t('escoltas.filterAvailable') }}</option>
+          <option :value="ESCOLTA_ESTADO.EN_SERVICIO">{{ t('escoltas.filterInService') }}</option>
+          <option :value="ESCOLTA_ESTADO.NO_DISPONIBLE">{{ t('escoltas.filterUnavailable') }}</option>
         </select>
 
         <button 
           @click="exportToExcel"
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] hover:border-[#3b82f6]/25 active:scale-95 transition-all cursor-pointer"
         >
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('escoltas.btnExport') }}</span>
         </button>
 
         <button 
           v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_CREATE)"
           @click="openCreateModal"
-          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10"
+          class="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] dark:bg-[#3b82f6] dark:hover:bg-[#5da6fc] active:scale-95 text-white font-semibold text-xs transition-all shadow-sm shadow-blue-950/10 cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
@@ -538,16 +548,16 @@ watch(filtroEstado, async () => {
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <Column field="nombre" :header="t('escoltas.thName', 'Escolta')" sortable>
+        <Column field="nombre" :header="t('escoltas.thName')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
-              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || 'Sin nombre' }}</span>
+              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || t('escoltas.noName') }}</span>
               <span class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ data.cedula || '---' }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="email" :header="t('escoltas.thContact', 'Contacto')" sortable>
+        <Column field="email" :header="t('escoltas.thContact')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <span class="text-[12px] text-[#3b82f6] dark:text-[#5da6fc] font-medium">{{ data.email || '---' }}</span>
@@ -556,7 +566,7 @@ watch(filtroEstado, async () => {
           </template>
         </Column>
 
-        <Column field="pase" :header="t('escoltas.thPase', 'Pase')" sortable>
+        <Column field="pase" :header="t('escoltas.thPase')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col gap-1 py-1">
               <div class="flex items-center gap-1.5">
@@ -566,12 +576,12 @@ watch(filtroEstado, async () => {
                 >{{ data.tipo_pase }}</span>
                 <span class="text-[12px] font-semibold text-slate-700 dark:text-slate-200 font-mono">{{ data.pase || '---' }}</span>
               </div>
-              <span class="text-[10px] text-slate-400 dark:text-slate-500">Vence: {{ data.pase_vence || '---' }}</span>
+              <span class="text-[10px] text-slate-400 dark:text-slate-500">{{ t('escoltas.expires', { date: data.pase_vence || '---' }) }}</span>
             </div>
           </template>
         </Column>
 
-        <Column :header="t('escoltas.thAssignments', 'Asignaciones')">
+        <Column :header="t('escoltas.thAssignments')">
           <template #body="{ data }">
             <div class="flex items-center gap-2 py-1">
               <!-- Servicio -->
@@ -585,8 +595,8 @@ watch(filtroEstado, async () => {
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Servicio</span>
-                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : 'No asignado' }}</span>
+                    <span class="font-bold text-[#5da6fc]">{{ t('escoltas.labelService') }}</span>
+                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : t('escoltas.unassigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
@@ -604,8 +614,8 @@ watch(filtroEstado, async () => {
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Vehículo</span>
-                    <span class="font-mono text-[10px]">{{ data.id_vehiculo ? getVehiculoInfo(data.id_vehiculo) : 'No asignado' }}</span>
+                    <span class="font-bold text-[#5da6fc]">{{ t('escoltas.labelVehicle') }}</span>
+                    <span class="font-mono text-[10px]">{{ data.id_vehiculo ? getVehiculoInfo(data.id_vehiculo) : t('escoltas.unassigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
@@ -624,7 +634,7 @@ watch(filtroEstado, async () => {
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
                     <div class="flex items-center justify-between gap-3">
-                      <span class="font-bold text-[#5da6fc]">Hardware</span>
+                      <span class="font-bold text-[#5da6fc]">{{ t('escoltas.labelHardware') }}</span>
                       <span 
                         v-if="data.id_hardware && getHardwareItem(data.id_hardware)?.bateria !== undefined && getHardwareItem(data.id_hardware)?.bateria !== null && getHardwareItem(data.id_hardware)?.bateria !== ''"
                         class="inline-flex items-center gap-1 text-[10px] font-bold"
@@ -634,7 +644,7 @@ watch(filtroEstado, async () => {
                         {{ getHardwareItem(data.id_hardware)?.bateria }}%
                       </span>
                     </div>
-                    <span class="font-mono text-[10px]">{{ data.id_hardware ? getHardwareInfo(data.id_hardware) : 'No asignado' }}</span>
+                    <span class="font-mono text-[10px]">{{ data.id_hardware ? getHardwareInfo(data.id_hardware) : t('escoltas.unassigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
@@ -644,7 +654,7 @@ watch(filtroEstado, async () => {
           </template>
         </Column>
 
-        <Column field="estado" :header="t('escoltas.thEstado', 'Estado')" sortable>
+        <Column field="estado" :header="t('escoltas.thEstado')" sortable>
           <template #body="{ data }">
             <span
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide"
@@ -667,12 +677,13 @@ watch(filtroEstado, async () => {
           </template>
         </Column>
 
-        <Column :header="t('escoltas.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('escoltas.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
                 @click.stop="toggleMenu(data.id_escolta, $event)"
-                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200"
+                :title="t('escoltas.thActions')"
+                class="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all duration-200 cursor-pointer"
               >
                 <HugeiconsIcon :icon="MoreHorizontalIcon" :size="18" />
               </button>
@@ -695,42 +706,42 @@ watch(filtroEstado, async () => {
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_VALIDATE)"
               @click="openValidateModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('escoltas.btnValidate', 'Validar') }}</span>
+              <span>{{ t('escoltas.btnValidate') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_UPDATE)"
               @click="openEditModal(escoltas.find(e => e.id_escolta === openMenuId)!)"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_ASSIGN_HARDWARE)"
               @click="openAsignarHardwareModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Asignar Hardware</span>
+              <span>{{ t('escoltas.btnAssignHardware') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_ASSIGN_VEHICLE)"
               @click="openAsignarVehiculoModal(escoltas.find(e => e.id_escolta === openMenuId)!); openMenuId = null"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>Asignar Vehículo</span>
+              <span>{{ t('escoltas.btnAssignVehicle') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.ESCOLTA_DELETE)"
               @click="confirmDelete(escoltas.find(e => e.id_escolta === openMenuId)!.id_escolta); openMenuId = null"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" class="text-red-500" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -778,8 +789,8 @@ watch(filtroEstado, async () => {
     <!-- Validación Modal -->
     <AppModal 
       v-model:is-open="isValidatingModalOpen"
-      :title="t('escoltas.modalTitleValidate') || 'Validar Escolta'"
-      :confirm-text="t('escoltas.btnValidateCode') || 'Validar Código'"
+      :title="t('escoltas.modalTitleValidate')"
+      :confirm-text="t('escoltas.btnValidateCode')"
       @confirm="postValidateEscolta"
     >
       <template #icon>
@@ -799,7 +810,7 @@ watch(filtroEstado, async () => {
             </div>
             <div class="mt-4 flex flex-col items-center">
               <span class="text-[11px] font-black text-[#3b82f6] uppercase tracking-[0.2em] mb-1">
-                {{ smsCodeGenerated ? 'Validando código...' : 'Enviando SMS automático...' }}
+                {{ smsCodeGenerated ? t('escoltas.validatingCode') : t('escoltas.autoSendingSms') }}
               </span>
             </div>
           </div>
@@ -823,7 +834,7 @@ watch(filtroEstado, async () => {
         <!-- Resumen Escolta y Celular -->
         <div class="p-3.5 rounded-xl bg-slate-50/80 dark:bg-[#1E222B]/50 border border-slate-200/60 dark:border-white/5 flex items-center justify-between">
           <div class="flex flex-col min-w-0 pr-2">
-            <span class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">Escolta</span>
+            <span class="text-[10px] font-black uppercase text-slate-400 dark:text-slate-500">{{ t('escoltas.labelEscolta') }}</span>
             <span class="text-xs font-bold text-slate-800 dark:text-white uppercase truncate">{{ currentValidateEscolta.nombre }}</span>
           </div>
           <span class="text-[11px] font-mono font-bold text-[#3b82f6] px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 shrink-0">
@@ -835,9 +846,9 @@ watch(filtroEstado, async () => {
         <div class="space-y-3">
           <AppFormInput 
             v-model="smsCodeInput"
-            label="Código SMS"
+            :label="t('escoltas.smsCode')"
             :icon="MessageQuestionIcon"
-            placeholder="Ej: 5579"
+            :placeholder="t('escoltas.smsCodePlaceholder')"
             maxlength="6"
             class="font-mono tracking-widest text-center text-lg"
             autofocus
@@ -848,10 +859,10 @@ watch(filtroEstado, async () => {
               type="button" 
               @click="resendCooldown === 0 ? preValidateEscolta() : null"
               :disabled="resendCooldown > 0 || isValidating"
-              class="font-bold text-[#3b82f6] hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed transition-all"
+              class="font-bold text-[#3b82f6] hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed transition-all cursor-pointer"
             >
-              <span v-if="resendCooldown > 0">Reenviar SMS ({{ resendCooldown }}s)</span>
-              <span v-else>Reenviar SMS</span>
+              <span v-if="resendCooldown > 0">{{ t('escoltas.btnResendSmsCooldown', { seconds: resendCooldown }) }}</span>
+              <span v-else>{{ t('escoltas.btnResendSms') }}</span>
             </button>
           </div>
         </div>

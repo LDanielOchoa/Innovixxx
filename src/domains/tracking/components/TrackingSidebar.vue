@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import {
@@ -11,9 +13,19 @@ import {
   Search01Icon,
   BatteryCharging01Icon,
   MapsIcon,
-  Loading03Icon
+  Loading03Icon,
+  Cancel01Icon,
+  Alert02Icon,
+  ArrowRight01Icon,
+  Tick01Icon
 } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
+import { solventarAlertaApi } from '../../servicios/services/servicios.api'
+import { useToast } from 'primevue/usetoast'
+
+loadModuleMessages('tracking')
+const { t } = useI18n()
+const toast = useToast()
 
 interface Props {
   activeTab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'
@@ -77,18 +89,6 @@ const filteredItems = computed(() => {
   return []
 })
 
-import { ref } from 'vue'
-import {
-  Cancel01Icon,
-  Alert02Icon,
-  ArrowRight01Icon,
-  Tick01Icon,
-  Loading03Icon
-} from '@hugeicons/core-free-icons'
-import { solventarAlertaApi } from '../../servicios/services/servicios.api'
-import { useToast } from 'primevue/usetoast'
-
-const toast = useToast()
 const solvingToken = ref<string | null>(null)
 
 const handleSolventarAlerta = async (alerta: any) => {
@@ -100,8 +100,8 @@ const handleSolventarAlerta = async (alerta: any) => {
     if (res?.done !== false) {
       toast.add({
         severity: 'success',
-        summary: 'Alerta solventada',
-        detail: 'La alerta ha sido solventada exitosamente',
+        summary: t('tracking.toastAlertSolvedSuccess'),
+        detail: t('tracking.toastAlertSolvedDetail'),
         life: 3000
       })
       // Remover la alerta localmente y notificar globalmente a todas las pestañas
@@ -114,8 +114,8 @@ const handleSolventarAlerta = async (alerta: any) => {
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
-        detail: res?.msg || res?.message || 'No se pudo solventar la alerta',
+        summary: t('tracking.toastError'),
+        detail: res?.msg || res?.message || t('tracking.toastAlertSolvedError'),
         life: 4000
       })
     }
@@ -123,8 +123,8 @@ const handleSolventarAlerta = async (alerta: any) => {
     console.error('Error al solventar alerta:', err)
     toast.add({
       severity: 'error',
-      summary: 'Error',
-      detail: err?.message || 'Error de conexión al solventar la alerta',
+      summary: t('tracking.toastError'),
+      detail: err?.message || t('tracking.toastConnectionError'),
       life: 4000
     })
   } finally {
@@ -133,26 +133,25 @@ const handleSolventarAlerta = async (alerta: any) => {
 }
 
 const showRecursosDrawer = ref(false)
-
 const hoveredRecursosItem = ref<any | null>(null)
 const recursosModalTop = ref<number>(80)
 
 const getAlertInfo = (tipo: number) => {
   switch (tipo) {
     case 1:
-      return { label: 'Exceso de velocidad', colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
+      return { label: t('tracking.alertOverSpeed'), colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
     case 2:
-      return { label: 'SOS / Emergencia', colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20' }
+      return { label: t('tracking.alertSos'), colorClass: 'text-rose-500 bg-rose-500/10 border-rose-500/20' }
     case 3:
-      return { label: 'Salida de ruta', colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
+      return { label: t('tracking.alertRouteExit'), colorClass: 'text-amber-500 bg-amber-500/10 border-amber-500/20' }
     case 4:
-      return { label: 'Candado abierto', colorClass: 'text-orange-500 bg-orange-500/10 border-orange-500/20' }
+      return { label: t('tracking.alertLockOpen'), colorClass: 'text-orange-500 bg-orange-500/10 border-orange-500/20' }
     case 5:
-      return { label: 'Candado cerrado', colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' }
+      return { label: t('tracking.alertLockClosed'), colorClass: 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20' }
     case 6:
-      return { label: 'Retorno Ruta', colorClass: 'text-teal-400 bg-teal-500/10 border-teal-500/20' }
+      return { label: t('tracking.alertRouteReturn'), colorClass: 'text-teal-400 bg-teal-500/10 border-teal-500/20' }
     default:
-      return { label: `Alerta tipo ${tipo}`, colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
+      return { label: t('tracking.alertGeneric', { type: tipo }), colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
   }
 }
 
@@ -175,7 +174,6 @@ const hardwareDelServicio = computed(() => {
 
   const mapHw = new Map<string, any>()
 
-  // Helper para obtener una clave única canonical del hardware
   const getCanonicalKey = (idOrSerial: string) => {
     if (!idOrSerial) return ''
     const foundRef = props.refHardware?.find(r => r.id_hardware === idOrSerial || r.serial === idOrSerial)
@@ -183,7 +181,6 @@ const hardwareDelServicio = computed(() => {
     return foundRef?.id_hardware || foundWs?.id_hardware || foundRef?.serial || foundWs?.serial || idOrSerial
   }
 
-  // 1. Hardware proveniente de la lista en vivo de tracking (WebSocket / HardwareWs)
   props.hardwareList.forEach(h => {
     if (String(h.id_servicio || '').trim().toLowerCase() === servId) {
       const canonicalKey = getCanonicalKey(h.id_hardware || h.serial)
@@ -193,7 +190,6 @@ const hardwareDelServicio = computed(() => {
     }
   })
 
-  // 2. Si el servicio trae un arreglo de vehículos o hardware asignados
   const vehiculosItem = activeItem.vehiculos || activeItem.hardware || activeItem.vehiculos_id || []
   if (Array.isArray(vehiculosItem)) {
     vehiculosItem.forEach((v: any) => {
@@ -231,16 +227,6 @@ const hardwareDelServicio = computed(() => {
   return Array.from(mapHw.values())
 })
 
-const getNombreHardware = (hw: any) => {
-  if (!hw) return 'Hardware'
-  if (hw.nombre && hw.nombre !== hw.id_hardware) return hw.nombre
-  const foundWs = props.hardwareList.find(h => h.id_hardware === hw.id_hardware || h.serial === hw.serial)
-  const foundRefHw = props.refHardware?.find(r => r.id_hardware === hw.id_hardware || r.serial === hw.serial)
-  const foundRefVeh = props.refVehiculos?.find(r => r.id_hardware === hw.id_hardware || r.serial === hw.serial)
-  const resolved = foundWs?.nombre || foundRefHw?.nombre || foundRefVeh?.nombre || foundRefVeh?.placa
-  return (resolved && resolved !== hw.id_hardware) ? resolved : (hw.nombre || hw.id_hardware || 'Hardware')
-}
-
 const vehiculosDelServicio = computed(() => {
   const activeItem = hoveredRecursosItem.value || props.selectedItem
   if (!activeItem) return []
@@ -249,7 +235,6 @@ const vehiculosDelServicio = computed(() => {
 
   const mapVeh = new Map<string, any>()
 
-  // 1. Buscar en vehiculosList y refVehiculos por id_servicio
   props.refVehiculos?.forEach(v => {
     if (String(v.id_servicio || '').trim().toLowerCase() === servId) {
       const key = v.id_vehiculo || v.placa || v.id_hardware
@@ -263,7 +248,6 @@ const vehiculosDelServicio = computed(() => {
     }
   })
 
-  // 2. Resolver desde la propiedad `vehiculos` o `vehiculo` o `vehiculos_id` del objeto servicio
   const vehiculosItem = activeItem.vehiculos || activeItem.vehiculo || activeItem.vehiculos_id || []
   const arrayVeh = Array.isArray(vehiculosItem) ? vehiculosItem : [vehiculosItem]
 
@@ -307,7 +291,6 @@ const escoltasDelServicio = computed(() => {
 
   const mapEsc = new Map<string, any>()
 
-  // 1. Escoltas en vivo desde la lista de tracking
   props.escoltasList.forEach(e => {
     if (String(e.id_servicio || '').trim().toLowerCase() === servId) {
       const key = e.id_escolta || e.identificacion || e.nombre
@@ -315,7 +298,6 @@ const escoltasDelServicio = computed(() => {
     }
   })
 
-  // 2. Resolver desde la lista de referencia refEscoltas o escoltas del item
   const escoltasItem = activeItem.escoltas || activeItem.escolta || activeItem.escoltas_id || []
   const arrayEsc = Array.isArray(escoltasItem) ? escoltasItem : [escoltasItem]
 
@@ -363,7 +345,6 @@ const alertasModalTop = ref<number>(80)
 
 let leaveTimeout: any = null
 
-// Controladores para el botón "Ver Recursos"
 const onRecursosButtonHover = (event: MouseEvent, item: any) => {
   if (props.activeTab !== 'SERVICIOS') return
   if (leaveTimeout) clearTimeout(leaveTimeout)
@@ -391,7 +372,6 @@ const onModalMouseLeave = () => {
   onRecursosButtonLeave()
 }
 
-// Controladores para el botón "Alertas"
 const onAlertasBadgeHover = (event: MouseEvent, item: any) => {
   if (props.activeTab !== 'SERVICIOS') return
   if (leaveTimeout) clearTimeout(leaveTimeout)
@@ -453,9 +433,11 @@ const isItemSelected = (item: any) => {
             <HugeiconsIcon v-else :icon="UserGroupIcon" :size="16" />
           </div>
           <div>
-            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight capitalize">{{ activeTab.toLowerCase() }}</h2>
+            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight capitalize">
+              {{ activeTab === 'SERVICIOS' ? t('tracking.services') : (activeTab === 'HARDWARE' ? t('tracking.devices') : t('tracking.escorts')) }}
+            </h2>
             <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 uppercase tracking-wider block mt-0.5">
-              {{ filteredItems.length }} {{ filteredItems.length === 1 ? 'elemento' : 'elementos' }}
+              {{ t('tracking.elementsCount', { count: filteredItems.length }) }}
             </span>
           </div>
         </div>
@@ -465,7 +447,7 @@ const isItemSelected = (item: any) => {
       <div class="relative flex items-center gap-2">
         <AppInput 
           v-model="localSearchQuery"
-          placeholder="Buscar..."
+          :placeholder="t('tracking.searchPlaceholder')"
           :icon="Search01Icon"
           class="w-full"
         />
@@ -477,22 +459,19 @@ const isItemSelected = (item: any) => {
       <!-- Error de sesión / credenciales -->
       <div v-if="wsError && activeTab === 'HARDWARE'" class="mx-1 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-2">
         <p class="text-[10px] font-bold text-rose-400">{{ wsError }}</p>
-        <button @click="emit('reconnect')" class="text-[9px] font-black uppercase tracking-wider text-emerald-400 hover:underline self-start">
-          Reintentar
+        <button @click="emit('reconnect')" class="text-[9px] font-black uppercase tracking-wider text-emerald-400 hover:underline self-start cursor-pointer">
+          {{ t('tracking.btnRetry') }}
         </button>
       </div>
 
-      <!-- Skeletons de Carga (Diseño limpio y fluido) -->
+      <!-- Skeletons de Carga -->
       <div v-if="isLoadingSecondary || (activeTab === 'HARDWARE' && wsStatus === 'connecting' && hardwareList.length === 0)" class="space-y-2">
         <div 
           v-for="i in 5" 
           :key="i" 
           class="w-full p-3 rounded-xl border border-slate-100 dark:border-white/[0.04] flex items-center gap-3 bg-white/40 dark:bg-white/[0.02] animate-pulse"
         >
-          <!-- Icon Circle Skeleton -->
           <div class="w-8 h-8 rounded-lg bg-slate-200/50 dark:bg-white/[0.06] shrink-0"></div>
-
-          <!-- Text lines -->
           <div class="flex-1 space-y-1.5 min-w-0">
             <div class="h-3.5 bg-slate-200/50 dark:bg-white/[0.06] rounded-md w-3/5"></div>
             <div class="h-2.5 bg-slate-100 dark:bg-white/[0.03] rounded-md w-2/5"></div>
@@ -505,7 +484,7 @@ const isItemSelected = (item: any) => {
         <div class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-white/5 flex items-center justify-center text-slate-400 dark:text-white/20">
           <HugeiconsIcon :icon="Location01Icon" :size="20" />
         </div>
-        <p class="text-[11px] font-bold text-slate-450 dark:text-white/30">No se encontraron elementos</p>
+        <p class="text-[11px] font-bold text-slate-450 dark:text-white/30">{{ t('tracking.noElementsFound') }}</p>
       </div>
 
       <!-- Elementos -->
@@ -514,7 +493,7 @@ const isItemSelected = (item: any) => {
           v-for="item in filteredItems"
           :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
           @click="emit('select', item)"
-          class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-3 relative select-none"
+          class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-3 relative select-none cursor-pointer"
           :class="[
             isItemSelected(item)
               ? (activeTab === 'SERVICIOS' 
@@ -557,23 +536,23 @@ const isItemSelected = (item: any) => {
                   : (item.sos ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-200')
               ]"
             >
-              {{ activeTab === 'SERVICIOS' ? (item.id_servicio ? `Servicio ${item.id_servicio}` : item.nombre) : (item.nombre || item.serial || item.id_hardware || item.placa) }}
+              {{ activeTab === 'SERVICIOS' ? (item.id_servicio ? t('tracking.servicePrefix', { id: item.id_servicio }) : item.nombre) : (item.nombre || item.serial || item.id_hardware || item.placa) }}
             </h3>
             
             <!-- Detalles de Servicio -->
             <template v-if="activeTab === 'SERVICIOS'">
               <p class="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate mt-0.5">
-                {{ item.nombre_ruta || item.id_ruta || 'Sin Ruta' }}
+                {{ item.nombre_ruta || item.id_ruta || t('tracking.noRoute') }}
               </p>
               <div class="flex items-center gap-1.5 mt-1 flex-wrap text-[9px] font-bold">
                 <span v-if="item.nivel_riesgo !== undefined" class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
-                  Riesgo {{ item.nivel_riesgo }}
+                  {{ t('tracking.riskLevel', { level: item.nivel_riesgo }) }}
                 </span>
                 <span v-if="item.alcance !== undefined" class="px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                  {{ item.alcance === 1 ? 'Nacional' : (item.alcance === 2 ? 'Departamental' : 'Local') }}
+                  {{ item.alcance === 1 ? t('tracking.scopeNational') : (item.alcance === 2 ? t('tracking.scopeState') : t('tracking.scopeLocal')) }}
                 </span>
                 <span v-if="item.modo_fin !== undefined" class="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                  {{ item.modo_fin === 1 ? 'Al llegar' : 'Al descargar' }}
+                  {{ item.modo_fin === 1 ? t('tracking.endModeArrival') : t('tracking.endModeUnload') }}
                 </span>
               </div>
             </template>
@@ -581,7 +560,7 @@ const isItemSelected = (item: any) => {
             <!-- Otros ítems -->
             <template v-else>
               <p class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || 'Sin descripción' }}
+                {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || t('tracking.noDescription') }}
               </p>
             </template>
           </div>
@@ -596,7 +575,7 @@ const isItemSelected = (item: any) => {
                 <HugeiconsIcon :icon="BatteryCharging01Icon" :size="10.5" class="opacity-80" />
                 {{ item.battery }}%
               </span>
-              <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="GPS Activo"></span>
+              <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" :title="t('tracking.gpsActive')"></span>
             </div>
 
             <template v-if="activeTab === 'SERVICIOS'">
@@ -608,7 +587,7 @@ const isItemSelected = (item: any) => {
                 class="px-2 py-0.5 rounded-lg bg-rose-500/15 text-rose-500 border border-rose-500/30 flex items-center gap-1 animate-pulse cursor-pointer hover:bg-rose-500/25 transition-colors text-[9.5px] font-bold shadow-sm"
               >
                 <HugeiconsIcon :icon="Alert02Icon" :size="11" />
-                {{ item.alertas.length }} {{ item.alertas.length === 1 ? 'Alerta' : 'Alertas' }}
+                {{ t('tracking.alertsBadgeCount', { count: item.alertas.length }) }}
               </span>
 
               <!-- Botón Ver Recursos (Abajo de las alertas, Hover abre modal de recursos) -->
@@ -617,7 +596,7 @@ const isItemSelected = (item: any) => {
                 @mouseleave.stop="onRecursosButtonLeave"
                 class="flex items-center gap-1 px-2 py-0.5 text-[9.5px] font-bold rounded-lg transition-colors shadow-sm bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] cursor-pointer"
               >
-                <span>Ver recursos</span>
+                <span>{{ t('tracking.btnViewResources') }}</span>
                 <HugeiconsIcon :icon="ArrowRight01Icon" :size="10" />
               </button>
             </template>
@@ -649,13 +628,13 @@ const isItemSelected = (item: any) => {
               <HugeiconsIcon :icon="ChipIcon" :size="13" />
             </div>
             <div>
-              <h3 class="text-[11px] font-bold text-slate-800 dark:text-white leading-none">Recursos</h3>
+              <h3 class="text-[11px] font-bold text-slate-800 dark:text-white leading-none">{{ t('tracking.resources') }}</h3>
               <p class="text-[9px] text-slate-400 font-mono mt-0.5">{{ activeRecursosItem?.id_servicio }}</p>
             </div>
           </div>
           <button 
             @click="showRecursosDrawer = false"
-            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="12" />
           </button>
@@ -667,11 +646,11 @@ const isItemSelected = (item: any) => {
           <div>
             <div class="flex items-center gap-1 mb-1.5 text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
               <HugeiconsIcon :icon="ChipIcon" :size="11" class="text-emerald-500" />
-              <span>Hardware ({{ hardwareDelServicio.length }})</span>
+              <span>{{ t('tracking.hardwareCount', { count: hardwareDelServicio.length }) }}</span>
             </div>
             
             <div v-if="hardwareDelServicio.length === 0" class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-center">
-              <span class="text-[9.5px] text-slate-400">Sin hardware activo</span>
+              <span class="text-[9.5px] text-slate-400">{{ t('tracking.noActiveHardware') }}</span>
             </div>
 
             <div v-else class="space-y-1">
@@ -698,11 +677,11 @@ const isItemSelected = (item: any) => {
           <div>
             <div class="flex items-center gap-1 mb-1.5 text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
               <HugeiconsIcon :icon="Car02Icon" :size="11" class="text-blue-500" />
-              <span>Vehículos ({{ vehiculosDelServicio.length }})</span>
+              <span>{{ t('tracking.vehiclesCount', { count: vehiculosDelServicio.length }) }}</span>
             </div>
 
             <div v-if="vehiculosDelServicio.length === 0" class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-center">
-              <span class="text-[9.5px] text-slate-400">Sin vehículos asignados</span>
+              <span class="text-[9.5px] text-slate-400">{{ t('tracking.noAssignedVehicles') }}</span>
             </div>
 
             <div v-else class="space-y-1">
@@ -725,11 +704,11 @@ const isItemSelected = (item: any) => {
           <div>
             <div class="flex items-center gap-1 mb-1.5 text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider">
               <HugeiconsIcon :icon="UserGroupIcon" :size="11" class="text-purple-500" />
-              <span>Escoltas ({{ escoltasDelServicio.length }})</span>
+              <span>{{ t('tracking.escortsCount', { count: escoltasDelServicio.length }) }}</span>
             </div>
 
             <div v-if="escoltasDelServicio.length === 0" class="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 text-center">
-              <span class="text-[9.5px] text-slate-400">Sin escoltas asignados</span>
+              <span class="text-[9.5px] text-slate-400">{{ t('tracking.noAssignedEscorts') }}</span>
             </div>
 
             <div v-else class="space-y-1">
@@ -742,8 +721,8 @@ const isItemSelected = (item: any) => {
                   {{ (esc.nombre || 'E').charAt(0).toUpperCase() }}
                 </div>
                 <div class="min-w-0 flex-1">
-                  <span class="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">{{ esc.nombre || 'Escolta' }}</span>
-                  <span class="text-[9px] text-slate-400 truncate block mt-0.5">{{ esc.celular || esc.identificacion || 'Sin contacto' }}</span>
+                  <span class="text-[10px] font-bold text-slate-800 dark:text-slate-200 truncate block">{{ esc.nombre || t('tracking.escort') }}</span>
+                  <span class="text-[9px] text-slate-400 truncate block mt-0.5">{{ esc.celular || esc.identificacion || t('tracking.noContact') }}</span>
                 </div>
               </div>
             </div>
@@ -775,13 +754,13 @@ const isItemSelected = (item: any) => {
               <HugeiconsIcon :icon="Alert02Icon" :size="13" />
             </div>
             <div>
-              <h3 class="text-[11px] font-bold text-slate-800 dark:text-white leading-none">Alertas del Servicio</h3>
+              <h3 class="text-[11px] font-bold text-slate-800 dark:text-white leading-none">{{ t('tracking.serviceAlerts') }}</h3>
               <p class="text-[9px] text-slate-400 font-mono mt-0.5">{{ activeAlertasItem?.id_servicio }}</p>
             </div>
           </div>
           <button 
             @click="showAlertasDrawer = false"
-            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
           >
             <HugeiconsIcon :icon="Cancel01Icon" :size="12" />
           </button>
@@ -790,7 +769,7 @@ const isItemSelected = (item: any) => {
         <!-- Lista de Alertas -->
         <div class="max-h-[340px] overflow-y-auto custom-scrollbar p-3 space-y-2">
           <div v-if="alertasDelServicio.length === 0" class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 text-center">
-            <span class="text-[9.5px] text-slate-400">Sin alertas activas</span>
+            <span class="text-[9.5px] text-slate-400">{{ t('tracking.noActiveAlerts') }}</span>
           </div>
 
           <div 
@@ -814,21 +793,21 @@ const isItemSelected = (item: any) => {
                 v-if="alerta.lat && alerta.lon"
                 type="button"
                 @click.stop="emit('focusAlert', alerta)"
-                class="inline-flex items-center gap-1 text-[9.5px] font-bold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors"
+                class="inline-flex items-center gap-1 text-[9.5px] font-bold text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-colors cursor-pointer"
               >
                 <HugeiconsIcon :icon="Location01Icon" :size="10" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span>Ver mapa</span>
+                <span>{{ t('tracking.btnViewMap') }}</span>
               </button>
 
               <button
                 type="button"
                 @click.stop="handleSolventarAlerta(alerta)"
                 :disabled="solvingToken === alerta.token"
-                class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white border border-emerald-500/25 text-[9.5px] font-bold transition-all disabled:opacity-50"
+                class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white border border-emerald-500/25 text-[9.5px] font-bold transition-all disabled:opacity-50 cursor-pointer"
               >
                 <HugeiconsIcon v-if="solvingToken === alerta.token" :icon="Loading03Icon" :size="9" class="animate-spin" />
                 <HugeiconsIcon v-else :icon="Tick01Icon" :size="9" />
-                <span>Solventar</span>
+                <span>{{ t('tracking.btnSolve') }}</span>
               </button>
             </div>
           </div>
@@ -849,4 +828,3 @@ const isItemSelected = (item: any) => {
 .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #1A1D24; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
 </style>
-

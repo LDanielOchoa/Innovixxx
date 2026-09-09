@@ -14,11 +14,11 @@
             <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
           </div>
           <div>
-            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">Gestión del trazado</h2>
+            <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('rutas.traceManagement') }}</h2>
             <p class="text-[10px] font-bold text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mt-0.5 flex items-center gap-1.5">
-              <span v-if="paradas.length === 0" class="text-slate-400 font-medium">Sin puntos asignados</span>
+              <span v-if="paradas.length === 0" class="text-slate-400 font-medium">{{ t('rutas.noPointsAssigned') }}</span>
               <template v-else>
-                <span>{{ filteredParadas.length }} {{ filteredParadas.length === 1 ? 'Novedad' : 'Novedades' }}</span>
+                <span>{{ t('rutas.novedadesCount', { count: filteredParadas.length }) }}</span>
                 <span>•</span>
                 <span>{{ totalDistanceStr }}</span>
               </template>
@@ -30,7 +30,7 @@
         <button
           @click="$emit('close')"
           class="w-8 h-8 rounded-xl flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200"
-          title="Cerrar panel"
+          :title="t('rutas.closePanel')"
         >
           <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
         </button>
@@ -43,7 +43,7 @@
           <input
             v-model="searchQuery"
             type="text"
-            placeholder="Buscar novedad..."
+            :placeholder="t('rutas.searchNovedadPlaceholder')"
             class="w-full bg-transparent border-none py-2 pl-9 pr-3 text-[11px] font-medium text-slate-700 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0"
           />
         </div>
@@ -58,8 +58,8 @@
             <HugeiconsIcon :icon="Location01Icon" :size="24" :stroke-width="1.5" />
           </div>
           <div>
-            <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300">Sin novedades</p>
-            <p class="text-[10px] text-slate-400 dark:text-slate-500">No hay puntos especiales en este trayecto</p>
+            <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ t('rutas.noNovedades') }}</p>
+            <p class="text-[10px] text-slate-400 dark:text-slate-500">{{ t('rutas.noSpecialPoints') }}</p>
           </div>
         </div>
 
@@ -98,7 +98,7 @@
                   {{ getTipoNombre(parada.tipo) }}
                 </span>
                 <span class="text-[9.5px] font-medium text-slate-400">
-                  {{ parada.originalIndex === 0 ? 'Punto Inicial' : getDistanceStr(paradas[parada.originalIndex - 1], parada) }}
+                  {{ parada.originalIndex === 0 ? t('rutas.initialPoint') : getDistanceStr(paradas[parada.originalIndex - 1], parada) }}
                 </span>
               </div>
             </div>
@@ -108,7 +108,7 @@
               v-if="selectedIndex === parada.originalIndex"
               @click.stop="$emit('delete', parada.originalIndex)"
               class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all duration-200 shrink-0"
-              title="Eliminar parada"
+              :title="t('rutas.panelDeleteStopTooltip')"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="13" />
             </button>

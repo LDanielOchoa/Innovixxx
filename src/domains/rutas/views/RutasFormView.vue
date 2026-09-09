@@ -14,7 +14,7 @@
         <div class="w-16 h-16 rounded-2xl bg-white/80 dark:bg-[#1A1D24]/80 border border-slate-200 dark:border-white/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shadow-lg animate-[float_3s_ease-in-out_infinite]">
           <HugeiconsIcon :icon="Location01Icon" :size="32" :stroke-width="1.5" />
         </div>
-        <p class="text-[11px] font-black text-slate-500 dark:text-[#5da6fc] uppercase tracking-[0.2em] animate-pulse">{{ $t('rutas.initializingMap') }}</p>
+        <p class="text-[11px] font-black text-slate-500 dark:text-[#5da6fc] uppercase tracking-[0.2em] animate-pulse">{{ t('rutas.initializingMap') }}</p>
       </div>
     </div>
 
@@ -38,9 +38,9 @@
             </div>
 
             <div class="flex-1 min-w-0">
-              <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ isEditMode ? $t('rutas.modalEditTitle') : $t('rutas.modalCreateTitle') }}</h1>
+              <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ isEditMode ? t('rutas.modalEditTitle') : t('rutas.modalCreateTitle') }}</h1>
               <p class="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5">
-                Detalles de la ruta
+                {{ t('rutas.formSubtitle') }}
               </p>
             </div>
 
@@ -49,10 +49,10 @@
               v-if="isAddingParadas && !isFormHiddenDuringMap"
               @click="isFormHiddenDuringMap = true"
               class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 transition-all duration-200 active:scale-[0.97] shrink-0 border border-slate-200 dark:border-white/15 shadow-sm"
-              title="Ocultar panel lateral"
+              :title="t('rutas.hideSidePanel')"
             >
               <HugeiconsIcon :icon="ArrowLeft01Icon" :size="15" :stroke-width="2.5" />
-              <span class="text-[11px] font-bold uppercase tracking-wider">Ocultar panel</span>
+              <span class="text-[11px] font-bold uppercase tracking-wider">{{ t('rutas.hidePanel') }}</span>
             </button>
           </div>
         </div>
@@ -81,20 +81,20 @@
                     <div class="absolute inset-0 bg-[#3b82f6]/20 blur-3xl rounded-full animate-pulse"></div>
                     <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
                   </div>
-                  <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditMode ? 'Actualizando' : 'Creando' }} Ruta</p>
+                  <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{{ isEditMode ? t('rutas.updatingRoute') : t('rutas.creating') }}</p>
                 </div>
               </div>
             </Transition>
 
             <!-- Sección: Información Básica -->
             <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-4 shadow-sm">
-              <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">Información Básica</span>
+              <span class="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 block mb-1">{{ t('rutas.basicInfo') }}</span>
               
               <div>
                 <AppInput 
                   v-model="formData.nombre"
-                  :label="$t('rutas.formName')"
-                  :placeholder="$t('rutas.formNamePlaceholder')"
+                  :label="t('rutas.formName')"
+                  :placeholder="t('rutas.formNamePlaceholder')"
                   :icon="Route01Icon"
                   required
                 />
@@ -105,8 +105,8 @@
                 <AppInput 
                   v-model="formData.descripcion"
                   type="textarea"
-                  :label="$t('rutas.formDesc')"
-                  :placeholder="$t('rutas.formDescPlaceholder')"
+                  :label="t('rutas.formDesc')"
+                  :placeholder="t('rutas.formDescPlaceholder')"
                   :rows="3"
                   required
                 />
@@ -116,7 +116,7 @@
 
             <!-- Sección: Estilo Visual -->
             <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl space-y-3 shadow-sm">
-              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">{{ $t('rutas.formColor') }}</label>
+              <label class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-wider block">{{ t('rutas.formColor') }}</label>
               <div class="flex items-center gap-2 flex-wrap">
                 <button
                   v-for="color in predefinedColors"
@@ -148,7 +148,7 @@
                       : 'bg-white dark:bg-[#1A1D24] border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A]'
                   ]"
                 >
-                  <span>Otros</span>
+                  <span>{{ t('rutas.otherColor') }}</span>
                   <span 
                     v-if="showCustomColorPicker" 
                     class="w-3.5 h-3.5 rounded-full border border-white/20 shadow-sm shrink-0" 
@@ -180,14 +180,14 @@
                     <HugeiconsIcon :icon="Location01Icon" :size="13" />
                   </div>
                   <div>
-                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ $t('rutas.strategicStops') }}</h3>
-                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">Puntos de control y trazado</p>
+                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ t('rutas.strategicStops') }}</h3>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">{{ t('rutas.controlPointsSubtitle') }}</p>
                   </div>
                 </div>
 
                 <span class="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
                       :class="paradasTemporales.length > 0 ? 'bg-[#3b82f6]/15 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20' : 'text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'">
-                  {{ paradasTemporales.length > 0 ? `${paradasTemporales.length} paradas` : 'Requerido' }}
+                  {{ paradasTemporales.length > 0 ? t('rutas.stopsCount', { count: paradasTemporales.length }) : t('rutas.required') }}
                 </span>
               </div>
 
@@ -197,13 +197,13 @@
                 class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] bg-white dark:bg-[#1E222B] border border-blue-500/30 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] dark:hover:text-white shadow-xs group"
               >
                 <HugeiconsIcon :icon="Location01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
-                <span>{{ paradasTemporales.length > 0 ? $t('rutas.btnModifyStops') : 'Trazar paradas en el mapa' }}</span>
+                <span>{{ paradasTemporales.length > 0 ? t('rutas.btnModifyStops') : t('rutas.btnTraceStops') }}</span>
               </button>
 
               <span v-if="getError('paradas')" class="text-xs text-red-500 font-bold block text-center mt-1">{{ getError('paradas') }}</span>
 
               <p v-if="paradasTemporales.length === 0" class="text-center text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                Mínimo 2 paradas · Haz clic en el mapa para añadirlas
+                {{ t('rutas.minStopsHint') }}
               </p>
             </div>
 
@@ -215,24 +215,24 @@
                     <HugeiconsIcon :icon="CpuIcon" :size="13" />
                   </div>
                   <div>
-                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Nuevos datos de GPS</h3>
-                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">Cargar recorrido desde un dispositivo</p>
+                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ t('rutas.gpsNewData') }}</h3>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">{{ t('rutas.gpsLoadFromDevice') }}</p>
                   </div>
                 </div>
 
                 <span v-if="isGpsReconstructed" class="text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Cargado
+                  {{ t('rutas.gpsLoaded') }}
                 </span>
               </div>
 
               <!-- Resumen de datos GPS seleccionados cuando está cargado -->
               <div v-if="isGpsReconstructed" class="p-2.5 rounded-xl bg-white/60 dark:bg-[#13161C]/60 border border-blue-500/10 space-y-1 text-[11px]">
                 <div class="flex items-center justify-between font-bold text-slate-700 dark:text-slate-200">
-                  <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black">Dispositivo:</span>
-                  <span>{{ selectedHardwareLabel || 'Dispositivo seleccionado' }}</span>
+                  <span class="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black">{{ t('rutas.deviceLabel') }}</span>
+                  <span>{{ selectedHardwareLabel || t('rutas.selectedDevice') }}</span>
                 </div>
                 <div v-if="fechaDesdeFormatted || fechaHastaFormatted" class="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                  <span class="text-slate-400 dark:text-slate-500 uppercase font-black text-[9.5px]">Rango:</span>
+                  <span class="text-slate-400 dark:text-slate-500 uppercase font-black text-[9.5px]">{{ t('rutas.rangeLabel') }}</span>
                   <span class="font-medium">{{ fechaDesdeFormatted }} - {{ fechaHastaFormatted }}</span>
                 </div>
               </div>
@@ -243,7 +243,7 @@
                 class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] bg-white dark:bg-[#1E222B] border border-blue-500/30 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] dark:hover:text-white shadow-xs group"
               >
                 <HugeiconsIcon :icon="Location01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
-                <span>{{ isGpsReconstructed ? 'Cambiar dispositivo o fechas GPS' : 'Cargar nuevos datos de GPS' }}</span>
+                <span>{{ isGpsReconstructed ? t('rutas.gpsChangeBtn') : t('rutas.gpsLoadBtn') }}</span>
               </button>
             </div>
           </form>
@@ -256,7 +256,7 @@
             @click="router.push('/rutas')"
             class="flex-1 px-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[12px] font-bold text-slate-600 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 uppercase tracking-wide"
           >
-            Cancelar
+            {{ t('common.cancel') }}
           </button>
           <AppButton 
             variant="primary" 
@@ -264,7 +264,7 @@
             :loading="isSubmitting" 
             class="flex-[2] !rounded-xl !py-3 !text-[12px] font-bold uppercase tracking-wide"
           >
-            <span>{{ isEditMode ? $t('rutas.btnUpdate') : $t('rutas.btnSave') }}</span>
+            <span>{{ isEditMode ? t('rutas.btnUpdate') : t('rutas.btnSave') }}</span>
           </AppButton>
         </div>
       </div>
@@ -276,10 +276,10 @@
         v-if="isAddingParadas && isFormHiddenDuringMap"
         @click="isFormHiddenDuringMap = false"
         class="absolute left-6 top-6 z-40 flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/80 dark:border-white/10 shadow-lg text-slate-700 dark:text-slate-200 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/40 active:scale-[0.97] transition-all duration-200 group"
-        title="Mostrar panel de ruta"
+        :title="t('rutas.showRoutePanel')"
       >
         <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2.5" class="text-[#3b82f6] dark:text-[#5da6fc] group-hover:translate-x-0.5 transition-transform" />
-        <span class="text-[11px] font-bold uppercase tracking-wider">Ver Panel</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider">{{ t('rutas.viewPanel') }}</span>
       </button>
     </Transition>
 
@@ -291,7 +291,7 @@
           <input 
             id="map-search-input"
             type="text" 
-            placeholder="Buscar lugar, dirección..."
+            :placeholder="t('rutas.searchPlacePlaceholder')"
             class="w-full bg-transparent border-none py-3 pl-11 pr-4 text-sm font-medium text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:ring-0"
           />
         </div>
@@ -317,7 +317,7 @@
  
     <AppModal
       v-model:isOpen="isTipoModalOpen"
-      :title="$t('rutas.modalStopTypeTitle')"
+      :title="t('rutas.modalStopTypeTitle')"
       @cancel="isTipoModalOpen = false; selectedTipoParada = null"
     >
       <template #icon>
@@ -326,7 +326,7 @@
         </div>
       </template>
       <div class="space-y-6">
-        <p class="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-relaxed">{{ $t('rutas.stopTypeDescription') }}</p>
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider leading-relaxed">{{ t('rutas.stopTypeDescription') }}</p>
  
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 mt-4">
           <button
@@ -374,7 +374,7 @@
       <template #footer>
         <div class="flex flex-col sm:flex-row gap-3 w-full">
           <button type="button" @click="isTipoModalOpen = false; selectedTipoParada = null" class="flex-1 px-6 py-3 bg-white dark:bg-[#1A1D24] border border-slate-200 dark:border-white/10 rounded-xl text-[13px] font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#2A313A] transition-all active:scale-[0.98] uppercase tracking-tight shadow-sm">
-            {{ $t('rutas.btnCancel') }}
+            {{ t('rutas.btnCancel') }}
           </button>
           <button 
             type="button" 
@@ -382,7 +382,7 @@
             :disabled="!selectedTipoParada" 
             class="flex-[2] px-6 py-3 bg-gradient-to-b from-[#60a5fa] to-[#3b82f6] hover:from-[#3b82f6] hover:to-[#2563eb] border border-[#2563eb] rounded-xl text-[13px] font-bold text-white transition-all active:scale-[0.98] disabled:opacity-50 uppercase tracking-tight shadow-[0_4px_0_#2563eb,0_8px_20px_rgba(59,130,246,0.3)] disabled:shadow-none"
           >
-            {{ $t('rutas.btnAddStops') }}
+            {{ t('rutas.btnAddStops') }}
           </button>
         </div>
       </template>
@@ -391,7 +391,7 @@
     <!-- Modal de Edición de Parada -->
     <AppModal
       v-model:isOpen="isEditParadaModalOpen"
-      :title="$t('rutas.modalEditStopTitle')"
+      :title="t('rutas.modalEditStopTitle')"
       :show-footer="false"
       :show-close-button="false"
     >
@@ -401,10 +401,10 @@
         </div>
       </template>
       <div class="space-y-6">
-        <p class="text-[13px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">{{ $t('rutas.stopNumber', { index: editingParadaIndex !== null ? editingParadaIndex + 1 : '' }) }}</p>
+        <p class="text-[13px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">{{ t('rutas.stopNumber', { index: editingParadaIndex !== null ? editingParadaIndex + 1 : '' }) }}</p>
  
         <div class="space-y-3">
-          <p class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ $t('rutas.selectNewType') }}</p>
+          <p class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1">{{ t('rutas.selectNewType') }}</p>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <button
               v-for="tipo in tiposParada"
@@ -454,9 +454,9 @@
     <!-- Modal Registrar por GPS -->
     <AppModal
       v-model:isOpen="isGpsModalOpen"
-      title="Cargar Nuevos Datos de GPS"
-      confirmText="Trazar Ruta"
-      cancelText="Cancelar"
+      :title="t('rutas.modalGpsTitle')"
+      :confirmText="t('rutas.btnTraceRoute')"
+      :cancelText="t('common.cancel')"
       @confirm="trazarRutaGps"
     >
       <template #icon>
@@ -470,7 +470,7 @@
         <Transition name="fade-overlay">
           <div v-if="trazandoGps" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
             <div class="w-10 h-10 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
-            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">Obteniendo posiciones...</p>
+            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">{{ t('rutas.gettingPositions') }}</p>
           </div>
         </Transition>
 
@@ -489,8 +489,8 @@
         <!-- Dispositivo GPS -->
         <AppSelect
           v-model="selectedHardwareId"
-          label="Dispositivo GPS"
-          placeholder="Seleccione un dispositivo"
+          :label="t('rutas.gpsDevice')"
+          :placeholder="t('rutas.selectDevicePlaceholder')"
           :disabled="loadingHardware"
           :icon="CpuIcon"
           :options="hardwareOptions"
@@ -501,15 +501,15 @@
           <!-- Desde -->
           <AppDateTimePicker
             v-model="fechaDesde"
-            label="Desde"
-            placeholder="Seleccione fecha desde"
+            :label="t('rutas.dateFrom')"
+            :placeholder="t('rutas.selectDateFrom')"
           />
 
           <!-- Hasta -->
           <AppDateTimePicker
             v-model="fechaHasta"
-            label="Hasta"
-            placeholder="Seleccione fecha hasta"
+            :label="t('rutas.dateTo')"
+            :placeholder="t('rutas.selectDateTo')"
           />
         </div>
       </div>
@@ -551,6 +551,7 @@ import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../../i18n'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
 import { createRutaSchema, updateRutaSchema } from '../../../schemas/rutas.schema'
@@ -685,7 +686,7 @@ const openGpsModal = async () => {
     hardwareList.value = response || []
   } catch (error) {
     console.error('Error al obtener hardware simple:', error)
-    showGpsModalMessage('Error al cargar dispositivos GPS', 'error')
+    showGpsModalMessage(t('rutas.errorLoadingDevices'), 'error')
   } finally {
     loadingHardware.value = false
   }
@@ -693,7 +694,7 @@ const openGpsModal = async () => {
 
 const trazarRutaGps = async () => {
   if (!selectedHardwareId.value || !fechaDesde.value || !fechaHasta.value) {
-    showGpsModalMessage('Por favor completa todos los campos requeridos', 'warning')
+    showGpsModalMessage(t('rutas.errorRequiredFields'), 'warning')
     return
   }
   
@@ -728,11 +729,11 @@ const trazarRutaGps = async () => {
       
       isGpsModalOpen.value = false
     } else {
-      showGpsModalMessage('No hay puntos de ruta para el rango seleccionado para ese dispositivo', 'warning')
+      showGpsModalMessage(t('rutas.noGpsPointsInRange'), 'warning')
     }
   } catch (error) {
     console.error('Error al obtener posiciones GPS:', error)
-    showGpsModalMessage('Error al consultar el historial GPS', 'error')
+    showGpsModalMessage(t('rutas.errorQueryingGps'), 'error')
   } finally {
     trazandoGps.value = false
   }
@@ -883,7 +884,7 @@ const handleMapInit = (googleMapsApi: any) => {
   }
 }
 
-// ── Carga de datos en modo edición ────────────────────────────
+// ── Carga de datos en modo edición ────────────────────
 const loadRouteData = async (id_ruta: string) => {
   if (!selectedGroup.value?.id) return
   isSubmitting.value = true
@@ -994,7 +995,7 @@ const saveRuta = async () => {
       toast.add({
         severity: 'success',
         summary: isEditMode.value ? t('rutas.alertSuccessUpdate') : t('rutas.alertSuccessCreate'),
-        detail: data.message || (isEditMode.value ? 'La ruta ha sido actualizada con éxito.' : 'La ruta ha sido creada con éxito.'),
+        detail: data.message || (isEditMode.value ? t('rutas.alertSuccessUpdate') : t('rutas.alertSuccessCreate')),
         life: 4000
       })
       clearMarkers()
@@ -1004,7 +1005,7 @@ const saveRuta = async () => {
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error',
+        summary: t('common.error'),
         detail: data.message || (isEditMode.value ? t('rutas.alertErrorUpdate') : t('rutas.alertErrorCreate')),
         life: 4000
       })
@@ -1013,7 +1014,7 @@ const saveRuta = async () => {
     console.error('Error saving ruta:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error',
+      summary: t('common.error'),
       detail: isEditMode.value ? t('rutas.alertNetErrorUpdate') : t('rutas.alertNetErrorCreate'),
       life: 4000
     })
@@ -1214,6 +1215,7 @@ const verificarRutaGps = async () => {
 
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(() => {
+  loadModuleMessages('rutas')
   startDarkModeObserver()
 
   loadGoogleMaps()

@@ -192,10 +192,9 @@ const deleteUsuario = async () => {
       id_usuario: String(usuario.id),
       lang: usuario.lang || 'es'
     })
-
-    if (data.done) {
+    if (data.done) {
       await fetchUsuarios()
-      showModalMessage('Usuario eliminado correctamente', 'success')
+      showModalMessage(t('users.alertDeletedSuccess'), 'success')
     } else {
       showModalMessage(data.message || t('users.alertErrorDelete'), 'error')
     }
@@ -240,7 +239,7 @@ const copiarEmail = (email: string) => {
           <input 
             v-model="searchQuery"
             type="text" 
-            :placeholder="t('users.searchPlaceholder', 'Buscar por nombre o email...')"
+            :placeholder="t('users.searchPlaceholder')"
             class="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-[#3b82f6]/50 focus:ring-4 focus:ring-[#3b82f6]/10 transition-all"
           />
           <div class="absolute left-3.5 top-3.5 text-slate-400 pointer-events-none transition-colors">
@@ -254,7 +253,7 @@ const copiarEmail = (email: string) => {
         <button 
           @click="fetchUsuarios"
           :disabled="loading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -269,7 +268,7 @@ const copiarEmail = (email: string) => {
           <AppSelect 
             v-model="selectedGroup"
             :options="grupos.map(g => ({ label: g.nombre, value: g.id }))"
-            :placeholder="t('users.filterByGroup', 'Filtrar por Grupo')"
+            :placeholder="t('users.filterByGroup')"
           />
         </div>
       </div>
@@ -283,7 +282,7 @@ const copiarEmail = (email: string) => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('users.btnExport') }}</span>
         </button>
 
         <button 
@@ -298,6 +297,7 @@ const copiarEmail = (email: string) => {
         </button>
       </div>
     </div>
+
     <!-- Contenido Principal: DataTable dentro de Card -->
     <AppTableCard>
       <AppTable 
@@ -306,14 +306,14 @@ const copiarEmail = (email: string) => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="t('users.noUsersFound', 'No se encontraron usuarios')"
+        :empty-message="t('users.noUsersFound')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
-        <template #empty-subtitle>{{ t('users.trySearch', 'Intenta ajustar tus filtros de búsqueda') }}</template>
+        <template #empty-subtitle>{{ t('users.trySearch') }}</template>
 
-        <Column field="nombre" header="Usuario" sortable>
+        <Column field="nombre" :header="t('users.colUser')" sortable>
           <template #body="{ data }">
             <div class="flex items-center gap-4 py-1">
               <AppAvatar 
@@ -328,7 +328,7 @@ const copiarEmail = (email: string) => {
           </template>
         </Column>
 
-        <Column field="email" header="Email" sortable>
+        <Column field="email" :header="t('users.colEmail')" sortable>
           <template #body="{ data }">
             <div 
               @click.stop="copiarEmail(data.email)"
@@ -343,14 +343,14 @@ const copiarEmail = (email: string) => {
               <span class="text-[13px] font-medium tracking-tight">{{ data.email }}</span>
               <Transition name="fade">
                 <span v-if="copiedEmail === data.email" class="absolute left-full ml-2 px-2 py-0.5 text-[10px] font-bold text-white bg-green-500 dark:bg-green-600 rounded shadow-sm whitespace-nowrap animate-fade-in-out">
-                  Copiado
+                  {{ t('common.copied') }}
                 </span>
               </Transition>
             </div>
           </template>
         </Column>
 
-        <Column field="lang" header="Idioma" sortable>
+        <Column field="lang" :header="t('users.colLang')" sortable>
           <template #body="{ data }">
             <AppBadge variant="glass" class="group/lang">
               <div class="flex items-center gap-2">
@@ -368,7 +368,7 @@ const copiarEmail = (email: string) => {
           </template>
         </Column>
 
-        <Column header="Acciones" class="text-right" headerStyle="width: 6rem" alignHeader="right">
+        <Column :header="t('users.colActions')" class="text-right" headerStyle="width: 6rem" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -395,7 +395,7 @@ const copiarEmail = (email: string) => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.USERS_DELETE)"
@@ -403,7 +403,7 @@ const copiarEmail = (email: string) => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -420,12 +420,12 @@ const copiarEmail = (email: string) => {
     <!-- Modal de Eliminación Premium Reutilizable -->
     <AppDeleteConfirm 
       v-model:is-open="isDeleteModalOpen"
-      :title="t('users.deleteTitle', 'Eliminar Usuario')"
+      :title="t('users.deleteTitle')"
       :item-name="itemToDelete?.nombre"
       @confirm="deleteUsuario"
     >
       <template #question>
-        {{ t('users.deleteConfirmQuestion', '¿Eliminar usuario?') }}
+        {{ t('users.deleteConfirmQuestion') }}
       </template>
     </AppDeleteConfirm>
 

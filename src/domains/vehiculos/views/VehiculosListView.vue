@@ -75,7 +75,7 @@ const estadosUnicos = computed(() => {
 })
 
 const getEstadoFiltroLabel = computed(() => {
-  if (estadoFiltro.value === 'ALL') return 'TODOS LOS ESTADOS'
+  if (estadoFiltro.value === 'ALL') return t('vehiculos.filterAllStatus')
   return estadoFiltro.value
 })
 
@@ -193,11 +193,11 @@ const deleteVehicle = async () => {
     if (data.done) {
       await fetchVehicles()
     } else {
-      alert(data.message || 'Error al eliminar')
+      console.error(data.message || t('vehiculos.deleteError'))
     }
   } catch (error) {
     if (error instanceof ApiError) {
-      alert(getErrorMessage(error.code))
+      console.error(getErrorMessage(error.code))
     } else {
       console.error('Error deleting vehicle:', error)
     }
@@ -287,7 +287,7 @@ watch(() => selectedGroup.value.id, () => {
         <button 
           @click="fetchVehicles"
           :disabled="isLoading"
-          :title="t('common.reload', 'Recargar')"
+          :title="t('common.reload')"
           class="p-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-50 dark:hover:bg-white/[0.04] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
         >
           <HugeiconsIcon 
@@ -327,7 +327,7 @@ watch(() => selectedGroup.value.id, () => {
                   ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-blue-50/50 dark:bg-blue-500/10' 
                   : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
               >
-                <span>TODOS LOS ESTADOS</span>
+                <span>{{ t('vehiculos.filterAllStatus') }}</span>
                 <span v-if="estadoFiltro === 'ALL'" class="w-1.5 h-1.5 rounded-full bg-[#3b82f6]"></span>
               </button>
 
@@ -360,7 +360,7 @@ watch(() => selectedGroup.value.id, () => {
           <svg class="w-3.5 h-3.5 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
           </svg>
-          <span>Exportar Excel</span>
+          <span>{{ t('vehiculos.btnExport') }}</span>
         </button>
 
         <button 
@@ -384,21 +384,21 @@ watch(() => selectedGroup.value.id, () => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="estadoFiltro !== 'ALL' ? `No se encontraron vehículos en estado ${estadoFiltro}` : t('vehiculos.noResults', 'No se encontraron vehículos')"
+        :empty-message="estadoFiltro !== 'ALL' ? t('vehiculos.noResultsWithStatus', { status: estadoFiltro }) : t('vehiculos.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
-        <Column field="nombre" :header="t('vehiculos.thName', 'Nombre')" sortable>
+        <Column field="nombre" :header="t('vehiculos.thName')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
-              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || 'Vehículo' }}</span>
+              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || t('vehiculos.defaultVehicleName') }}</span>
             </div>
           </template>
         </Column>
 
-        <Column field="placa" :header="t('vehiculos.thPlate', 'Placa')" sortable>
+        <Column field="placa" :header="t('vehiculos.thPlate')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
               <span class="text-[13px] font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{{ data.placa || '---' }}</span>
@@ -410,29 +410,29 @@ watch(() => selectedGroup.value.id, () => {
           </template>
         </Column>
 
-        <Column field="tipo" :header="t('vehiculos.thType', 'Tipo')" sortable>
+        <Column field="tipo" :header="t('vehiculos.thType')" sortable>
           <template #body="{ data }">
             <StatusBadge 
               variant="default"
-              :label="data.tipo || 'General'"
+              :label="data.tipo || t('vehiculos.defaultType')"
               :icon="TruckIcon"
             />
           </template>
         </Column>
 
-        <Column field="estado" :header="t('vehiculos.thStatus', 'Estado')" sortable>
+        <Column field="estado" :header="t('vehiculos.thStatus')" sortable>
           <template #body="{ data }">
             <AppBadge 
               :variant="String(data.estado).toUpperCase() === 'DISPONIBLE' ? 'success' : 'warning'"
             >
               <span class="text-[10px] font-semibold uppercase tracking-wider">
-                {{ data.estado || 'SIN ESTADO' }}
+                {{ data.estado || t('vehiculos.noStatus') }}
               </span>
             </AppBadge>
           </template>
         </Column>
 
-        <Column :header="t('vehiculos.thAssignment', 'Asignación')">
+        <Column :header="t('vehiculos.thAssignment')">
           <template #body="{ data }">
             <div class="flex items-center gap-2 py-1">
               <!-- Servicio -->
@@ -446,8 +446,8 @@ watch(() => selectedGroup.value.id, () => {
                 <!-- Tooltip -->
                 <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
                   <div class="flex flex-col gap-0.5">
-                    <span class="font-bold text-[#5da6fc]">Servicio</span>
-                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : 'No asignado' }}</span>
+                    <span class="font-bold text-[#5da6fc]">{{ t('vehiculos.service') }}</span>
+                    <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : t('vehiculos.notAssigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
@@ -457,7 +457,7 @@ watch(() => selectedGroup.value.id, () => {
           </template>
         </Column>
 
-        <Column :header="t('vehiculos.thActions', 'Acciones')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
+        <Column :header="t('vehiculos.thActions')" headerStyle="width: 6rem" class="text-right" alignHeader="right">
           <template #body="{ data }">
             <div class="flex justify-end">
               <button
@@ -484,7 +484,7 @@ watch(() => selectedGroup.value.id, () => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="Edit02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('common.edit', 'Editar') }}</span>
+              <span>{{ t('common.edit') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.VEHICULOS_DELETE)"
@@ -492,7 +492,7 @@ watch(() => selectedGroup.value.id, () => {
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
             >
               <HugeiconsIcon :icon="Delete01Icon" :size="16" />
-              <span>{{ t('common.delete', 'Eliminar') }}</span>
+              <span>{{ t('common.delete') }}</span>
             </button>
           </div>
         </Transition>
@@ -517,8 +517,8 @@ watch(() => selectedGroup.value.id, () => {
 
     <AppDeleteConfirm 
       v-model:isOpen="isDeleteModalOpen"
-      :title="$t('common.confirmDeleteTitle')"
-      :message="$t('common.confirmDeleteMsg')"
+      :title="t('common.confirmDeleteTitle')"
+      :message="t('common.confirmDeleteMsg')"
       @confirm="deleteVehicle"
     />
   </div>

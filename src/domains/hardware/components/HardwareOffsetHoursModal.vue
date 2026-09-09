@@ -4,8 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Clock01Icon,
   Loading03Icon,
-  Alert01Icon,
-  InformationCircleIcon
+  Alert01Icon
 } from '@hugeicons/core-free-icons'
 import { setOffsetHoursHardwareApi } from '../services/hardware.api'
 import type { Hardware } from '../types/hardware'
@@ -13,6 +12,7 @@ import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import { useToast } from 'primevue/usetoast'
+import { useI18n } from 'vue-i18n'
 import AppModal from '../../../components/ui/AppModal.vue'
 
 const props = defineProps<{
@@ -25,6 +25,7 @@ const emit = defineEmits<{
   (e: 'updated'): void
 }>()
 
+const { t } = useI18n()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const toast = useToast()
@@ -34,14 +35,13 @@ const saving = ref(false)
 const offsetValue = ref<string>('0')
 
 const hasPermission = computed(() => {
-  // Verificamos permisos para hardware (editar o comandos)
   return authStore.hasPermission(PERMISSIONS.HARDWARE_EDIT) || authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS)
 })
 
 const isValidOffset = computed(() => {
   if (offsetValue.value === '' || offsetValue.value === '-') return false
   const num = Number(offsetValue.value)
-  return !isNaN(num) && Number.isFinite(num)
+  return !isNaN(num) && Number.isInteger(num) && num >= -23 && num <= 23
 })
 
 watch(() => props.isOpen, (isOpen) => {
@@ -71,18 +71,22 @@ const handleOffsetInput = (event: Event) => {
 
 const adjustOffset = (amount: number) => {
   const current = Number(offsetValue.value) || 0
-  offsetValue.value = String(current + amount)
+  const next = current + amount
+  if (next >= -23 && next <= 23) {
+    offsetValue.value = String(next)
+  }
 }
 
 const handleGuardarOffset = async () => {
   if (saving.value) return
   if (!props.hardware) return
 
-  if (!isValidOffset.value) {
+  const num = Number(offsetValue.value)
+  if (!isValidOffset.value || isNaN(num) || num < -23 || num > 23) {
     toast.add({
       severity: 'warn',
-      summary: 'Valor inválido',
-      detail: 'Por favor ingresa un número válido para el offset.',
+      summary: t('hardware.valueOutOfRange'),
+      detail: t('hardware.offsetRangeError'),
       life: 4000
     })
     return
@@ -100,8 +104,8 @@ const handleGuardarOffset = async () => {
     if (data.done) {
       toast.add({
         severity: 'success',
-        summary: 'Offset actualizado',
-        detail: data.message || `Se configuró el offset de ${offsetValue.value} horas para ${props.hardware.nombre}.`,
+        summary: t('hardware.offsetUpdatedTitle'),
+        detail: data.message || `${t('hardware.offsetUpdatedTitle')} (${offsetValue.value}h): ${props.hardware.nombre}`,
         life: 4000
       })
       emit('updated')
@@ -109,8 +113,8 @@ const handleGuardarOffset = async () => {
     } else {
       toast.add({
         severity: 'error',
-        summary: 'Error al actualizar',
-        detail: data.message || 'No se pudo guardar el offset de horas. Intente de nuevo.',
+        summary: t('hardware.offsetUpdateErrorTitle'),
+        detail: data.message || t('hardware.offsetUpdateErrorDetail'),
         life: 4000
       })
     }
@@ -118,8 +122,8 @@ const handleGuardarOffset = async () => {
     console.error('Error en setOffsetHoursHardwareApi:', error)
     toast.add({
       severity: 'error',
-      summary: 'Error de servidor',
-      detail: error?.message || 'Error de conexión con el servidor.',
+      summary: t('hardware.serverError'),
+      detail: error?.message || t('hardware.serverConnectionError'),
       life: 4000
     })
   } finally {
@@ -139,8 +143,8 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleGuardarOffset"
-    title="Offset de Horas"
-    confirm-text="Guardar Offset"
+    :title="t('hardware.offsetModalTitle')"
+    :confirm-text="t('hardware.btnSaveOffset')"
     size="md"
     :show-footer="!isLoading && hasPermission"
   >
@@ -159,7 +163,7 @@ const handleClose = () => {
             <HugeiconsIcon :icon="Loading03Icon" :size="40" class="text-[#3b82f6] animate-spin relative z-10" />
           </div>
           <div class="mt-5 flex flex-col items-center">
-            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">Guardando Offset...</span>
+            <span class="text-[10px] font-black text-[#3b82f6] uppercase tracking-[0.3em] mb-1">{{ t('hardware.savingOffset') }}</span>
             <div class="flex gap-1">
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
               <span class="w-1.5 h-1.5 bg-[#3b82f6] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
@@ -178,8 +182,8 @@ const handleClose = () => {
       <div v-if="!isLoading && !hasPermission" class="flex items-start gap-3 py-3.5 px-4 rounded-xl text-sm font-semibold tracking-wide border border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400">
         <HugeiconsIcon :icon="Alert01Icon" :size="18" class="shrink-0 mt-0.5" />
         <div>
-          <p class="font-bold">Sin permisos</p>
-          <p class="text-[12px] font-medium opacity-80 mt-0.5">No tienes permisos para modificar la configuración de este hardware.</p>
+          <p class="font-bold">{{ t('hardware.noPermission') }}</p>
+          <p class="text-[12px] font-medium opacity-80 mt-0.5">{{ t('hardware.noPermissionOffsetDetail') }}</p>
         </div>
       </div>
 
@@ -188,7 +192,7 @@ const handleClose = () => {
           <!-- Dispositivo Info Card -->
           <div class="space-y-2">
             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
-              Dispositivo Seleccionado
+              {{ t('hardware.selectedDevice') }}
             </label>
             <div class="bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]">
               <div class="flex items-center gap-3 px-4 py-3.5">
@@ -208,17 +212,20 @@ const handleClose = () => {
           <div class="space-y-2">
             <div class="flex items-center justify-between ml-1">
               <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-                Valor de Offset (Horas)
+                {{ t('hardware.offsetValueLabel') }}
               </label>
+              <span class="text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                {{ t('hardware.offsetRange') }}
+              </span>
             </div>
 
             <div class="flex items-center gap-2">
               <button
                 type="button"
                 @click="adjustOffset(-1)"
-                :disabled="saving"
-                class="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-base font-bold select-none cursor-pointer shrink-0"
-                title="Restar 1 hora"
+                :disabled="saving || Number(offsetValue) <= -23"
+                class="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-base font-bold select-none cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('hardware.subtractHour')"
               >
                 -1
               </button>
@@ -230,20 +237,29 @@ const handleClose = () => {
                   type="text"
                   placeholder="Ej: -5, 0, 12"
                   :disabled="saving"
-                  class="w-full text-center px-4 py-2.5 bg-white dark:bg-[#13161C]/80 border border-slate-200 dark:border-white/10 rounded-xl text-base font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#3b82f6] focus:ring-2 focus:ring-[#3b82f6]/20 transition-all font-mono"
+                  class="w-full text-center px-4 py-2.5 bg-white dark:bg-[#13161C]/80 border rounded-xl text-base font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 transition-all font-mono"
+                  :class="[
+                    !isValidOffset && offsetValue !== '' && offsetValue !== '-'
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20'
+                      : 'border-slate-200 dark:border-white/10 focus:border-[#3b82f6] focus:ring-[#3b82f6]/20'
+                  ]"
                 />
               </div>
 
               <button
                 type="button"
                 @click="adjustOffset(1)"
-                :disabled="saving"
-                class="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-base font-bold select-none cursor-pointer shrink-0"
-                title="Sumar 1 hora"
+                :disabled="saving || Number(offsetValue) >= 23"
+                class="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/10 active:scale-95 transition-all text-base font-bold select-none cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                :title="t('hardware.addHour')"
               >
                 +1
               </button>
             </div>
+            
+            <p v-if="!isValidOffset && offsetValue !== '' && offsetValue !== '-'" class="text-[11px] text-red-500 font-medium ml-1">
+              {{ t('hardware.offsetRangeError') }}
+            </p>
           </div>
         </div>
       </Transition>
