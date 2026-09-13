@@ -252,3 +252,17 @@ export const SERVICIO_ESTADOS_VALID_NEXT_DEV: Record<number, number[]> = {
   5: [1, 2, 3, 4, 6],
   6: [1, 2, 3, 4, 5]
 }
+
+export interface ServicioCrearReportePayload {
+  id_grupo: string
+  id_servicio: string
+}
+
+export interface ServicioCrearReporteResponse {
+  message: string
+  done: boolean
+  data: {
+    url: string
+    cache?: boolean
+  }
+}

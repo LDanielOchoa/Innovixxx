@@ -1,7 +1,7 @@
-
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, watch, onUnmounted } from 'vue'
 import type { Ref } from 'vue'
 import type { ParadaPayload, TipoParada } from '../types/ruta'
+import { agruparParadasPorZoom, RADIO_AGRUPACION_PX } from '../utils/rutasCluster.util'
 
 import rutaBalanza from '../../../assets/ruta_balanza.png'
 import rutaFin from '../../../assets/ruta_fin.png'
@@ -11,30 +11,7 @@ import rutaParqueadero from '../../../assets/ruta_parqueadero.png'
 import rutaPuntoControl from '../../../assets/ruta_punto_control.png'
 import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
-// ── Helpers de geometría (sin dependencia de Google) ─────────
-
-const calcDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-  const dLat = lat2 - lat1
-  const dLon = lon2 - lon1
-  return Math.sqrt(dLat * dLat + dLon * dLon)
-}
-
-const distanceToSegment = (
-  px: number, py: number,
-  x1: number, y1: number,
-  x2: number, y2: number
-): number => {
-  const A = px - x1, B = py - y1
-  const C = x2 - x1, D = y2 - y1
-  const dot = A * C + B * D
-  const lenSq = C * C + D * D
-  const param = lenSq !== 0 ? dot / lenSq : -1
-
-  const xx = param < 0 ? x1 : param > 1 ? x2 : x1 + param * C
-  const yy = param < 0 ? y1 : param > 1 ? y2 : y1 + param * D
-
-  return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2)
-}
+// ── Helpers de geometría y tipos ──────────────────────────────
 
 const getIconUrl = (tipoId: number): string => {
   switch (tipoId) {
@@ -49,9 +26,7 @@ const getIconUrl = (tipoId: number): string => {
   }
 }
 
-// ── Loader visual que se muestra en la posición del punto mientras se elimina.
-// SVG con animación SMIL (funciona dentro de data URLs usados como <img>,
-// siempre que el Marker tenga optimized: false).
+// Loader visual que se muestra en la posición del punto mientras se elimina.
 const SPINNER_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">` +
   `<circle cx="24" cy="24" r="20" fill="#ffffff" stroke="#fecaca" stroke-width="2" opacity="0.95">` +
@@ -67,7 +42,6 @@ const SPINNER_ICON_URL = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
 const iconCache = new Map<string, string>()
 const placeholderCache = new Map<string, string>()
 
-// ── FIX: Icono placeholder síncrono con caché ──────────────────
 const createPlaceholderIcon = (strokeColor: string, isNormal: boolean): string => {
   const cacheKey = `${strokeColor}_${isNormal}`
   if (placeholderCache.has(cacheKey)) {
@@ -104,7 +78,6 @@ const createPlaceholderIcon = (strokeColor: string, isNormal: boolean): string =
   return resultDataUrl
 }
 
-// ── FIX #2: createCircularIcon con caché, cancelación y onerror ──────
 const createCircularIcon = (
   url: string,
   strokeColor: string,
@@ -160,7 +133,7 @@ const createCircularIcon = (
     callback(resultDataUrl)
   }
 
-  img.onerror = () => { /* fallback si falla la imagen */ }
+  img.onerror = () => {}
 
   img.src = url
   return cancel
@@ -184,7 +157,7 @@ const formatFecha = (fechaStr: any): string => {
   return String(fechaStr)
 }
 
-// ── Shared Single InfoWindow (Evita instanciar cientos de InfoWindows) ──
+// Shared Single InfoWindow para evitar instanciaciones masivas
 let sharedInfoWindow: any = null
 const getSharedInfoWindow = () => {
   if (!sharedInfoWindow && (window as any).google?.maps?.InfoWindow) {
@@ -193,7 +166,7 @@ const getSharedInfoWindow = () => {
   return sharedInfoWindow
 }
 
-// ── Composable ───────────────────────────────────────────────
+// ── Composable Principal ─────────────────────────────────────
 export function useParadasManager(
   map: Ref<any>,
   tiposParada: Ref<TipoParada[]>,
@@ -202,11 +175,12 @@ export function useParadasManager(
   onMarkerRightClick?: (index: number) => void | Promise<void>,
   onMarkerDragEnd?: (index: number, lat: number, lon: number) => void
 ) {
-  const paradasTemporales = ref<ParadaPayload[]>([])
+  const paradasTemporales = ref<Array<ParadaPayload & { fecha?: string }>>([])
   const paradasMarkers     = shallowRef<any[]>([])
   const paradaIconCancellers = shallowRef<Array<() => void>>([])
+  let zoomListener: any = null
 
-  const calculateInsertionIndex = (lat: number, lon: number): number => {
+  const calculateInsertionIndex = (_lat: number, _lon: number): number => {
     return paradasTemporales.value.length
   }
 
@@ -245,6 +219,8 @@ export function useParadasManager(
           }
     })
 
+    ;(marker as any)._originalIndex = index
+
     const cancelIconLoad = createCircularIcon(getIconUrl(tipoId), color, isNormal, (dataUrl) => {
       try {
         marker.setIcon({
@@ -252,14 +228,14 @@ export function useParadasManager(
           scaledSize: new (window as any).google.maps.Size(64, 64),
           anchor: new (window as any).google.maps.Point(32, 32)
         })
-      } catch (_) { }
+      } catch (_) {}
     })
     paradaIconCancellers.value.push(cancelIconLoad)
 
-    // Listener de hover usando la única instancia compartida de InfoWindow
+    // Listener de hover usando InfoWindow compartido
     marker.addListener('mouseover', () => {
-      const currentIdx = paradasMarkers.value.indexOf(marker)
-      if (currentIdx !== -1) {
+      const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
+      if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length) {
         const parada = paradasTemporales.value[currentIdx]
         const name = tiposParada.value.find(t => t.id_tipo === parada?.tipo)?.nombre || tipoNombre || 'Parada'
         let contentString = `<div style="background: #ffffff; border-radius: 10px; padding: 8px 14px; text-align: center; font-family: 'Inter', sans-serif; min-width: 140px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);">`
@@ -284,7 +260,7 @@ export function useParadasManager(
     })
 
     marker.addListener('click', () => {
-      const currentIdx = paradasMarkers.value.indexOf(marker)
+      const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
       if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length) {
         onMarkerClick(currentIdx)
       }
@@ -292,14 +268,14 @@ export function useParadasManager(
 
     marker.addListener('rightclick', (e: any) => {
       if (e?.domEvent) e.domEvent.preventDefault()
-      const currentIdx = paradasMarkers.value.indexOf(marker)
+      const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
       if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length) {
         if (onMarkerRightClick) onMarkerRightClick(currentIdx)
       }
     })
 
     marker.addListener('dragend', (e: any) => {
-      const currentIdx = paradasMarkers.value.indexOf(marker)
+      const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
       if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length && e.latLng) {
         const newLat = e.latLng.lat()
         const newLng = e.latLng.lng()
@@ -329,27 +305,68 @@ export function useParadasManager(
       try {
         m.setVisible(false)
         m.setMap(null)
-        ; (window as any).google.maps.event.clearInstanceListeners(m)
-      } catch (_) { }
+        ;(window as any).google?.maps?.event?.clearInstanceListeners(m)
+      } catch (_) {}
     })
   }
 
-  /** Redibuja todos los marcadores desde paradasTemporales */
-  const redrawMarkers = () => {
+  /** Actualiza los marcadores visibles según el nivel de zoom y agrupación espacial */
+  const updateMarkersForZoom = () => {
+    if (!map.value || paradasTemporales.value.length === 0) {
+      clearMarkers()
+      return
+    }
+
+    const zoom = map.value.getZoom() || 13
+    const visibles = agruparParadasPorZoom(paradasTemporales.value, zoom, RADIO_AGRUPACION_PX)
+
     clearMarkers()
+
     const newMarkers: any[] = []
-    paradasTemporales.value.forEach((p, idx) => {
-      const nombre = tiposParada.value.find(t => t.id_tipo === p.tipo)?.nombre || 'Parada'
-      const m = addMarker(p.lat, p.lon, nombre, idx, p.tipo, (p as any).fecha)
-      if (m) newMarkers.push(m)
+    visibles.forEach(item => {
+      const nombre = tiposParada.value.find(t => t.id_tipo === item.parada.tipo)?.nombre || 'Parada'
+      const m = addMarker(item.parada.lat, item.parada.lon, nombre, item.index, item.parada.tipo, item.parada.fecha)
+      if (m) {
+        ;(m as any)._originalIndex = item.index
+        newMarkers.push(m)
+      }
     })
     paradasMarkers.value = newMarkers
   }
 
+  /** Redibuja todos los marcadores aplicando la optimización de zoom */
+  const redrawMarkers = () => {
+    updateMarkersForZoom()
+  }
+
+  // ── Sincronización del listener de Zoom ───────────────────────
+  const setupZoomListener = () => {
+    if (zoomListener) {
+      try { (window as any).google?.maps?.event?.removeListener(zoomListener) } catch (_) {}
+      zoomListener = null
+    }
+    if (map.value && (window as any).google?.maps?.event) {
+      zoomListener = map.value.addListener('zoom_changed', () => {
+        if (paradasTemporales.value.length > 0) {
+          updateMarkersForZoom()
+        }
+      })
+    }
+  }
+
+  watch(map, (newMap) => {
+    if (newMap) {
+      setupZoomListener()
+      if (paradasTemporales.value.length > 0) {
+        updateMarkersForZoom()
+      }
+    }
+  }, { immediate: true })
+
   // ── CRUD de paradas ───────────────────────────────────────
 
   /**
-   * Inserta una nueva parada incrementalmente SIN destruir todos los marcadores anteriores.
+   * Inserta una nueva parada y actualiza la visualización optimizada.
    */
   const insertParada = (
     lat: number,
@@ -360,48 +377,24 @@ export function useParadasManager(
   ): number => {
     const newParada: ParadaPayload & { fecha?: string } = { lat, lon, tipo, fecha }
     paradasTemporales.value.splice(insertionIndex, 0, newParada)
-
-    const nombre = tiposParada.value.find(t => t.id_tipo === tipo)?.nombre || 'Parada'
-    const newMarker = addMarker(lat, lon, nombre, insertionIndex, tipo, fecha)
-
-    if (newMarker) {
-      if (insertionIndex >= paradasMarkers.value.length) {
-        paradasMarkers.value.push(newMarker)
-      } else {
-        paradasMarkers.value.splice(insertionIndex, 0, newMarker)
-      }
-
-      // Actualizar zIndex para mantener orden correcto
-      for (let i = insertionIndex; i < paradasMarkers.value.length; i++) {
-        try { paradasMarkers.value[i].setZIndex(1000 + i) } catch (_) {}
-      }
-    } else {
-      // Fallback si por alguna razón no creó el mapa
-      redrawMarkers()
-    }
-
+    updateMarkersForZoom()
     return insertionIndex
   }
 
   /**
-   * Elimina de inmediato un marcador concreto del mapa y lo saca de los arrays.
+   * Elimina de inmediato un marcador concreto del mapa.
    */
   const removeMarkerAt = (index: number) => {
-    const marker = paradasMarkers.value[index]
+    const marker = paradasMarkers.value.find(m => (m as any)._originalIndex === index) || paradasMarkers.value[index]
     if (marker) {
-      try { marker.setVisible(false) } catch (_) { }
-      try { marker.setMap(null) } catch (_) { }
-      try { (window as any).google.maps.event.clearInstanceListeners(marker) } catch (_) { }
+      try { marker.setVisible(false) } catch (_) {}
+      try { marker.setMap(null) } catch (_) {}
+      try { (window as any).google?.maps?.event?.clearInstanceListeners(marker) } catch (_) {}
     }
-    const cancel = paradaIconCancellers.value[index]
-    if (cancel) { try { cancel() } catch (_) { } }
-
-    paradasMarkers.value       = paradasMarkers.value.filter((_, i) => i !== index)
-    paradaIconCancellers.value = paradaIconCancellers.value.filter((_, i) => i !== index)
   }
 
   /**
-   * Elimina una parada por índice (borrado quirúrgico O(1)).
+   * Elimina una parada por índice y refresca la agrupación.
    */
   const deleteParada = (index: number): number => {
     if (index < 0 || index >= paradasTemporales.value.length) return -1
@@ -409,7 +402,7 @@ export function useParadasManager(
     const paradaToDelete = paradasTemporales.value[index]
 
     // 1. Mostrar spinner en la posición del punto a eliminar
-    const marker = paradasMarkers.value[index]
+    const marker = paradasMarkers.value.find(m => (m as any)._originalIndex === index)
     const currentMap = map.value
     let spinner: any = null
     if (marker && currentMap && (window as any).google) {
@@ -429,57 +422,43 @@ export function useParadasManager(
             clickable: false
           })
         }
-      } catch (_) { }
+      } catch (_) {}
     }
 
-    // 2. Borrado quirúrgico del marcador
-    removeMarkerAt(index)
-
-    // 3. Eliminar del array de datos
+    // 2. Eliminar del array de datos
     const realIndex = paradasTemporales.value.indexOf(paradaToDelete)
     if (realIndex !== -1) {
       paradasTemporales.value.splice(realIndex, 1)
     }
 
-    // 4. Actualizar zIndex de los marcadores restantes
-    paradasMarkers.value.forEach((m, i) => {
-      try { m.setZIndex(1000 + i) } catch (_) { }
-    })
+    // 3. Actualizar marcadores con agrupación
+    updateMarkersForZoom()
 
-    // 5. Quitar el spinner
+    // 4. Quitar el spinner
     if (spinner) {
       setTimeout(() => {
-        try { spinner.setMap(null) } catch (_) { }
+        try { spinner.setMap(null) } catch (_) {}
       }, 150)
     }
 
     return realIndex !== -1 ? realIndex : index
   }
 
-  /** Actualiza el tipo de una parada existente sin destruir todos los marcadores */
+  /** Actualiza el tipo de una parada existente */
   const updateParadaTipo = (index: number, tipo: number) => {
     const parada = paradasTemporales.value[index]
     if (!parada) return
     parada.tipo = tipo
-
-    const marker = paradasMarkers.value[index]
-    if (marker) {
-      const color    = routeColor.value || '#3b82f6'
-      const isNormal = tipo === 1
-      const nombre   = tiposParada.value.find(t => t.id_tipo === tipo)?.nombre || 'Parada'
-      try { marker.setTitle(nombre) } catch (_) {}
-
-      createCircularIcon(getIconUrl(tipo), color, isNormal, (dataUrl) => {
-        try {
-          marker.setIcon({
-            url: dataUrl,
-            scaledSize: new (window as any).google.maps.Size(64, 64),
-            anchor: new (window as any).google.maps.Point(32, 32)
-          })
-        } catch (_) {}
-      })
-    }
+    updateMarkersForZoom()
   }
+
+  onUnmounted(() => {
+    if (zoomListener) {
+      try { (window as any).google?.maps?.event?.removeListener(zoomListener) } catch (_) {}
+      zoomListener = null
+    }
+    clearMarkers()
+  })
 
   return {
     paradasTemporales,
@@ -488,6 +467,7 @@ export function useParadasManager(
     addMarker,
     clearMarkers,
     redrawMarkers,
+    updateMarkersForZoom,
     insertParada,
     deleteParada,
     updateParadaTipo

@@ -20,7 +20,9 @@ import type {
   ServicioEventoItem,
   ServicioEventoListPayload,
   ServicioEventoListResponse,
-  ServicioEventoCreatePayload
+  ServicioEventoCreatePayload,
+  ServicioCrearReportePayload,
+  ServicioCrearReporteResponse
 } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
@@ -267,6 +269,14 @@ export const cambiarVisibilidadServicioEventoApi = async (payload: ServicioEvent
     body: JSON.stringify(formattedPayload)
   })
 }
+
+export const crearReporteServicioApi = async (payload: ServicioCrearReportePayload): Promise<ServicioCrearReporteResponse> => {
+  return apiClient<ServicioCrearReporteResponse>('/api/v1/servicio/crear_reporte/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
 
 
 

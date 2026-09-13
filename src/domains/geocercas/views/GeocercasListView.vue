@@ -295,8 +295,6 @@ const drawAllGeocercas = async () => {
       fetchGeocercaDetallesApi(selectedGroup.value!.id, g.id_geocerca).catch(() => null)
     )
     const detalles = await Promise.all(promises)
-    const bounds = new (window as any).google.maps.LatLngBounds()
-    let hasPoints = false
 
     detalles.forEach(detalle => {
       if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
@@ -318,9 +316,7 @@ const drawAllGeocercas = async () => {
           radius
         })
         allDrawings.value.push(circle)
-        bounds.extend(center)
         centerLatLng = center
-        hasPoints = true
       } else {
         const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
         const polygon = new (window as any).google.maps.Polygon({
@@ -335,11 +331,9 @@ const drawAllGeocercas = async () => {
         allDrawings.value.push(polygon)
         const polyBounds = new (window as any).google.maps.LatLngBounds()
         paths.forEach(p => {
-          bounds.extend(p)
           polyBounds.extend(p)
         })
         centerLatLng = polyBounds.getCenter()
-        hasPoints = true
       }
 
       if (centerLatLng && map.value && CustomLabelOverlay) {
@@ -352,9 +346,6 @@ const drawAllGeocercas = async () => {
         allDrawings.value.push(labelOverlay)
       }
     })
-    if (hasPoints && map.value) {
-      map.value.fitBounds(bounds)
-    }
   } catch (e) {
     console.error(e)
   }
@@ -519,6 +510,20 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
   }
 }
 
+const openCreateModal = () => {
+  const query: Record<string, string> = {}
+  if (map.value) {
+    const center = map.value.getCenter()
+    const zoom = map.value.getZoom()
+    if (center) {
+      query.lat = String(center.lat().toFixed(6))
+      query.lng = String(center.lng().toFixed(6))
+    }
+    if (zoom !== undefined) query.zoom = String(zoom)
+  }
+  router.push({ path: '/geocercas/nueva', query })
+}
+
 const exportToExcel = () => {
   const dataToExport = filteredGeocercas.value.map(g => ({
     [t('geocercas.id')]: g.id_geocerca,
@@ -669,7 +674,7 @@ const handleDeleteGeocerca = async () => {
                   <HugeiconsIcon :icon="Download01Icon" :size="14" :stroke-width="2" />
                 </button>
                 <!-- Botón Nueva Geocerca Plano -->
-                <button v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)" @click="router.push('/geocercas/nueva')"
+                <button v-if="authStore.hasPermission(PERMISSIONS.GEOCERCAS_CREATE)" @click="openCreateModal"
                   class="w-8 h-8 rounded-[10px] flex items-center justify-center bg-[#3b82f6] hover:bg-[#2563eb] text-white active:scale-[0.97] transition-all duration-200"
                   :title="t('geocercas.newGeocerca')">
                   <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" />

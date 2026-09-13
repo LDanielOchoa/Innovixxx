@@ -104,6 +104,17 @@ const initializeMap = async (googleMapsApi: any) => {
     handleMapClick(lat, lng)
   })
 
+  // Restaurar posición del mapa desde query params si es nueva geocerca
+  if (!isEditing.value && map.value) {
+    const qLat = parseFloat(route.query.lat as string)
+    const qLng = parseFloat(route.query.lng as string)
+    const qZoom = parseInt(route.query.zoom as string, 10)
+    if (!isNaN(qLat) && !isNaN(qLng)) {
+      map.value.setCenter({ lat: qLat, lng: qLng })
+      if (!isNaN(qZoom)) map.value.setZoom(qZoom)
+    }
+  }
+
   if (map.value) {
     map.value.addListener('rightclick', (e: any) => {
       if (paradas.value.length === 0) return
@@ -495,7 +506,7 @@ const saveGeocerca = async () => {
         detail: isEditing.value ? t('geocercas.successUpdateDetail') : t('geocercas.successCreateDetail'),
         life: 4000
       })
-      setTimeout(() => router.push('/geocercas'), 1500)
+      setTimeout(() => router.back(), 1500)
     } else {
       toast.add({
         severity: 'error',
@@ -594,7 +605,7 @@ const clearParadas = () => {
           <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
             <div class="relative flex items-center gap-3">
               <!-- Botón Volver Plano -->
-              <button @click="router.push('/geocercas')"
+              <button @click="router.back()"
                 class="w-9 h-9 rounded-[12px] flex items-center justify-center bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-slate-500 dark:text-slate-400 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:bg-slate-100 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 shrink-0"
                 :title="t('common.back')">
                 <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2.2" />

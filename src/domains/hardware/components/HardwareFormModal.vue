@@ -148,6 +148,13 @@ const getFamiliaLabel = (id: number | string) => {
   return f ? f.nombre : ''
 }
 
+// Muestra clave_open solo si la familia seleccionada es GL800
+const esGL800 = computed(() => {
+  if (!formData.value.id_familia) return false
+  const f = familias.value.find(item => String(item.id_familia) === String(formData.value.id_familia))
+  return f ? f.nombre.trim().toLowerCase() === 'gl800' : false
+})
+
 const handleClickOutside = (event: MouseEvent) => {
   if (!panelActivo.value) return
   const target = event.target as HTMLElement
@@ -516,6 +523,7 @@ const handleClose = () => {
               :disabled="saving"
             />
             <AppInput
+              v-if="esGL800"
               v-model="formData.clave_open"
               :label="t('hardware.labelOpenKey')"
               :placeholder="t('hardware.placeholderOpenKey')"

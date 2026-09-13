@@ -326,7 +326,17 @@ const exportToExcel = () => {
 }
 
 const openCreateModal = () => {
-  router.push('/rutas/nueva')
+  const query: Record<string, string> = {}
+  if (map.value) {
+    const center = map.value.getCenter()
+    const zoom = map.value.getZoom()
+    if (center) {
+      query.lat = String(center.lat().toFixed(6))
+      query.lng = String(center.lng().toFixed(6))
+    }
+    if (zoom !== undefined) query.zoom = String(zoom)
+  }
+  router.push({ path: '/rutas/nueva', query })
 }
 
 const openEditModal = (ruta: Ruta) => {

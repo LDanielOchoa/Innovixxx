@@ -253,7 +253,7 @@
         <div class="px-5 py-4 border-t border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-[#11141A] shrink-0 flex items-center gap-3">
           <button 
             type="button"
-            @click="router.push('/rutas')"
+            @click="router.back()"
             class="flex-1 px-4 py-3 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-[12px] font-bold text-slate-600 dark:text-slate-450 hover:bg-slate-50 dark:hover:bg-white/10 active:scale-[0.97] transition-all duration-200 uppercase tracking-wide"
           >
             {{ t('common.cancel') }}
@@ -873,6 +873,17 @@ const handleMapInit = (googleMapsApi: any) => {
     recalculateFromIndex(insertionIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value)
   })
 
+  // Restaurar posición del mapa desde query params (cuando viene del listado)
+  if (!isEditMode.value && map.value) {
+    const qLat  = parseFloat(route.query.lat as string)
+    const qLng  = parseFloat(route.query.lng as string)
+    const qZoom = parseInt(route.query.zoom as string, 10)
+    if (!isNaN(qLat) && !isNaN(qLng)) {
+      map.value.setCenter({ lat: qLat, lng: qLng })
+      if (!isNaN(qZoom)) map.value.setZoom(qZoom)
+    }
+  }
+
   initPlacesSearch(googleMapsApi, 'map-search-input')
 
   // Si los datos de edición ya cargaron antes que el mapa, dibujar ahora
@@ -883,6 +894,7 @@ const handleMapInit = (googleMapsApi: any) => {
     }
   }
 }
+
 
 // ── Carga de datos en modo edición ────────────────────
 const loadRouteData = async (id_ruta: string) => {
@@ -1001,7 +1013,7 @@ const saveRuta = async () => {
       clearMarkers()
       clearAllRoutes()
       paradasTemporales.value = []
-      setTimeout(() => { router.push('/rutas') }, 1500)
+      setTimeout(() => { router.back() }, 1500)
     } else {
       toast.add({
         severity: 'error',

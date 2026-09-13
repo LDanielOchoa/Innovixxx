@@ -17,17 +17,21 @@ import {
   FilterIcon,
   Clock01Icon,
   Alert01Icon,
-  RefreshIcon
+  RefreshIcon,
+  Download01Icon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 import {
   fetchServicioDashboardApi,
   fetchVehiculosSimplesApi,
-  fetchHardwareSimplesApi
+  fetchHardwareSimplesApi,
+  crearReporteServicioApi
 } from '../services/servicios.api'
 import type { Servicio, ServicioDashboard, ServicioListPayload, VehiculoSimple, HardwareSimple } from '../types/servicio'
 import { SERVICIO_ESTADOS, SERVICIO_ESTADOS_LABELS } from '../types/servicio'
 import { useI18n } from 'vue-i18n'
+import { useToast } from 'primevue/usetoast'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
 import { fetchRutasApi } from '../../rutas/services/rutas.api'
 import type { Ruta } from '../../rutas/types/ruta'
 import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
@@ -53,6 +57,7 @@ import Column from 'primevue/column'
 import PageHeader from '../../../components/shared/PageHeader.vue'
 
 const { t } = useI18n()
+const toast = useToast()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -61,6 +66,7 @@ const servicios = ref<any[]>([])
 const catalogoVehiculos = ref<VehiculoSimple[]>([])
 const catalogoHardware = ref<HardwareSimple[]>([])
 const isLoading = ref(false)
+const isDownloadingReporte = ref<string | null>(null)
 const searchQuery = ref('')
 
 const obtenerNombreRuta = (id: string): string => {
@@ -254,8 +260,82 @@ const estadoOptions = computed(() => [
   { value: 1, label: t('servicios.statePreload') },
   { value: 2, label: t('servicios.stateWaiting') },
   { value: 3, label: t('servicios.stateExecOk') },
-  { value: 4, label: t('servicios.stateExecFail') }
+  { value: 4, label: t('servicios.stateExecFail') },
+  { value: 5, label: t('servicios.stateFinished') },
+  { value: 6, label: t('servicios.stateCancelled') }
 ])
+
+const isServicioFinalizado = (servicio: ServicioDashboard | null): boolean => {
+  if (!servicio) return false
+  const label = obtenerLabelEstado(servicio.estado)
+  return label === 'FINALIZADO' ||
+         Number(servicio.estado) === SERVICIO_ESTADOS.FINALIZADO ||
+         String(servicio.estado).toUpperCase() === 'FINALIZADO'
+}
+
+const descargarReporteFinal = async (servicio: ServicioDashboard) => {
+  if (!selectedGroup.value?.id || !servicio?.id_servicio) return
+  closeMenu()
+  isDownloadingReporte.value = servicio.id_servicio
+
+  try {
+    const res = await crearReporteServicioApi({
+      id_grupo: selectedGroup.value.id,
+      id_servicio: servicio.id_servicio
+    })
+
+    if (res.done && res.data?.url) {
+      const urlDescarga = obtenerUrlImagen(res.data.url)
+      const nombreArchivo = res.data.url.split('/').pop() || `informe_${servicio.id_servicio}.pdf`
+
+      try {
+        const response = await fetch(urlDescarga)
+        if (!response.ok) throw new Error('Error en descarga')
+        const blob = await response.blob()
+        const blobUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = blobUrl
+        link.download = nombreArchivo
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(blobUrl)
+      } catch {
+        const link = document.createElement('a')
+        link.href = urlDescarga
+        link.download = nombreArchivo
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+      }
+
+      toast.add({
+        severity: 'success',
+        summary: t('common.success'),
+        detail: t('servicios.finalReportSuccess'),
+        life: 3000
+      })
+    } else {
+      toast.add({
+        severity: 'error',
+        summary: t('common.error'),
+        detail: res.message || t('servicios.finalReportError'),
+        life: 4000
+      })
+    }
+  } catch (error) {
+    console.error('Error al generar reporte final:', error)
+    toast.add({
+      severity: 'error',
+      summary: t('common.error'),
+      detail: t('servicios.finalReportError'),
+      life: 4000
+    })
+  } finally {
+    isDownloadingReporte.value = null
+  }
+}
 
 // Estado del tooltip
 const tooltipVisible = ref(false)
@@ -356,7 +436,8 @@ const estadoColors: Record<string, string> = {
   EN_ESPERA: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
   EJECUCION_OK: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
   EJECUCION_FAIL: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-200 dark:border-red-500/20',
-  FINALIZADO: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-500/20'
+  FINALIZADO: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-500/20',
+  CANCELADO: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
 }
 
 const riesgoColors: Record<string, string> = {
@@ -1007,6 +1088,15 @@ onUnmounted(() => {
             >
               <HugeiconsIcon :icon="Edit01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('servicios.btnChangeStatus') }}</span>
+            </button>
+            <button
+              v-if="activeMenuServicio && isServicioFinalizado(activeMenuServicio)"
+              @click="descargarReporteFinal(activeMenuServicio)"
+              :disabled="isDownloadingReporte === activeMenuServicio?.id_servicio"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50"
+            >
+              <HugeiconsIcon :icon="Download01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('servicios.btnFinalReport') }}</span>
             </button>
           </div>
         </Transition>

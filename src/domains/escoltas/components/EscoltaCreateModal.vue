@@ -28,11 +28,9 @@ import { createEscoltaApi, updateEscoltaApi } from '../services/escoltas.api'
 import { createEscoltaSchema, updateEscoltaSchema } from '../../../schemas/escoltas.schema'
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
-import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
 import { fetchVehiculosServicioSimpleApi } from '../../vehiculos-servicio/services/vehiculos-servicio.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import type { Vehiculo } from '../../vehiculos/types/vehiculo'
-import type { Servicio } from '../../servicios/types/servicio'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import type { Escolta } from '../types/escolta'
 import AppModal from '../../../components/ui/AppModal.vue'
@@ -67,7 +65,6 @@ const formData = reactive({
   cedula: '',
   email: '',
   celular: '',
-  id_servicio: '',
   id_vehiculo: '',
   id_hardware: '',
   tipo_pase: '',
@@ -75,17 +72,14 @@ const formData = reactive({
   pase_vence: null as Date | null
 })
 
-const servicios = ref<Servicio[]>([])
 const vehiculosList = ref<any[]>([])
 const hardwareList = ref<HardwareSimple[]>([])
 
-const loadingServicios = ref(false)
 const loadingVehiculosServicio = ref(false)
 const loadingHardware = ref(false)
 
 // Panel flotante
-const panelActivo = ref<'servicios' | 'vehiculos' | 'hardware' | 'tipoPase' | null>(null)
-const btnServicios = ref<HTMLElement | null>(null)
+const panelActivo = ref<'vehiculos' | 'hardware' | 'tipoPase' | null>(null)
 const btnVehiculos = ref<HTMLElement | null>(null)
 const btnHardware = ref<HTMLElement | null>(null)
 const btnTipoPase = ref<HTMLElement | null>(null)
@@ -96,7 +90,6 @@ const panelStyle = ref<{ top: string; left: string; height: string }>({
 })
 
 // Búsqueda local
-const searchServiciosQuery = ref('')
 const searchVehiculosQuery = ref('')
 const searchHardwareQuery = ref('')
 const searchTipoPaseQuery = ref('')
@@ -113,18 +106,6 @@ const tipoPaseOptions = [
 ]
 
 // Filtrado reactivo
-const filteredServicios = computed(() => {
-  const q = searchServiciosQuery.value.toLowerCase().trim()
-  if (!q) return servicios.value
-  return servicios.value.filter(s =>
-    (s.fecha_inicio && s.fecha_inicio.toLowerCase().includes(q)) ||
-    (s.modo_fin && s.modo_fin.toLowerCase().includes(q)) ||
-    (s.alcance && s.alcance.toLowerCase().includes(q)) ||
-    (s.nivel_riesgo && s.nivel_riesgo.toLowerCase().includes(q)) ||
-    (s.estado && s.estado.toLowerCase().includes(q))
-  )
-})
-
 const filteredVehiculos = computed(() => {
   const q = searchVehiculosQuery.value.toLowerCase().trim()
   let list = [...vehiculosList.value]
@@ -188,23 +169,19 @@ const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
   panelStyle.value = { top: `${top}px`, left: `${left}px`, height: `${panelHeight}px` }
 }
 
-const abrirPanel = async (tipo: 'servicios' | 'vehiculos' | 'hardware' | 'tipoPase') => {
+const abrirPanel = async (tipo: 'vehiculos' | 'hardware' | 'tipoPase') => {
   if (panelActivo.value === tipo) {
     panelActivo.value = null
     return
   }
   panelActivo.value = tipo
   await nextTick()
-  const refMap = { servicios: btnServicios.value, vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
+  const refMap = { vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
   calcularPosicionPanel(refMap[tipo])
 }
 
 const cerrarPanel = () => {
   panelActivo.value = null
-}
-
-const selectServicio = (id: string) => {
-  formData.id_servicio = id
 }
 
 const esVehiculoDisponible = (v: any) => {
@@ -289,15 +266,6 @@ const ESTADOS_MAP: Record<number, string> = {
   6: 'CANCELADO'
 }
 
-const getServicioLabel = (id: string) => {
-  const s = servicios.value.find(item => item.id_servicio === id)
-  if (!s) return id
-  const estadoNum = parseInt(s.estado, 10)
-  const estadoTexto = ESTADOS_MAP[estadoNum] || s.estado
-  const partes = [s.fecha_inicio, estadoTexto].filter(Boolean)
-  return partes.join(' · ')
-}
-
 const getVehiculoLabel = (id: string) => {
   const v = vehiculosList.value.find(item => item.id_vehiculo === id)
   if (!v) return id
@@ -339,14 +307,14 @@ const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
   const panelEl = document.querySelector('.panel-flotante-escolta')
   if (panelEl && panelEl.contains(target)) return
-  const botones = [btnServicios.value, btnVehiculos.value, btnHardware.value, btnTipoPase.value]
+  const botones = [btnVehiculos.value, btnHardware.value, btnTipoPase.value]
   if (botones.some(btn => btn && btn.contains(target))) return
   panelActivo.value = null
 }
 
 const handleResize = () => {
   if (!panelActivo.value) return
-  const refMap = { servicios: btnServicios.value, vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
+  const refMap = { vehiculos: btnVehiculos.value, hardware: btnHardware.value, tipoPase: btnTipoPase.value }
   calcularPosicionPanel(refMap[panelActivo.value])
 }
 
@@ -367,7 +335,6 @@ watch(() => props.isOpen, async (isOpen) => {
     saving.value = false
     modalMessage.value = null
     panelActivo.value = null
-    searchServiciosQuery.value = ''
     searchVehiculosQuery.value = ''
     searchHardwareQuery.value = ''
     searchTipoPaseQuery.value = ''
@@ -385,7 +352,6 @@ watch(() => props.isOpen, async (isOpen) => {
         cedula: e.cedula || '',
         email: e.email || '',
         celular: e.celular || '',
-        id_servicio: String(e.id_servicio || ''),
         id_vehiculo: String(e.id_vehiculo || ''),
         id_hardware: String(e.id_hardware || ''),
         tipo_pase: e.tipo_pase || '',
@@ -395,25 +361,14 @@ watch(() => props.isOpen, async (isOpen) => {
     } else {
       Object.assign(formData, {
         nombre: '', cedula: '', email: '', celular: '',
-        id_servicio: '', id_vehiculo: '', id_hardware: '',
+        id_vehiculo: '', id_hardware: '',
         tipo_pase: '', pase: '', pase_vence: null
       })
     }
 
     if (groupStore.selectedGroup?.id) {
-      loadingServicios.value = true
       loadingVehiculosServicio.value = true
       loadingHardware.value = true
-
-      // Cargar independientemente para que un error no bloquee los demás
-      try {
-        const serviciosData = await fetchServiciosDropdownApi(groupStore.selectedGroup.id)
-        servicios.value = serviciosData
-      } catch (error) {
-        console.error('Error al cargar servicios:', error)
-      } finally {
-        loadingServicios.value = false
-      }
 
       try {
         const vehiculosData = await fetchVehiculosServicioSimpleApi(groupStore.selectedGroup.id)
@@ -470,7 +425,6 @@ const handleGuardar = async () => {
     email: formData.email ?? '',
     celular: formData.celular ?? '',
     id_grupo: groupStore.selectedGroup.id,
-    id_servicio: formData.id_servicio ?? '',
     id_vehiculo: formData.id_vehiculo ?? '',
     id_hardware: formData.id_hardware ?? '',
     tipo_pase: formData.tipo_pase ?? '',
@@ -515,7 +469,7 @@ const handleGuardar = async () => {
         emit('created')
         Object.assign(formData, {
           nombre: '', cedula: '', email: '', celular: '',
-          id_servicio: '', id_vehiculo: '', id_hardware: '',
+          id_vehiculo: '', id_hardware: '',
           tipo_pase: '', pase: '', pase_vence: null
         })
         resetErrors(formId.value)
@@ -677,35 +631,7 @@ const formatFecha = (date: Date | null): string => {
           />
 
           <div class="pt-4 border-t border-slate-200/60 dark:border-white/[0.06]">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <!-- Servicio -->
-              <div class="space-y-2">
-                <label
-                  class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                  :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-                >
-                  {{ t('escoltas.labelService') }}
-                </label>
-                <button
-                  ref="btnServicios"
-                  type="button"
-                  @click="abrirPanel('servicios')"
-                  :disabled="loadingServicios || saving"
-                  class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
-                  :class="[
-                    (loadingServicios || saving) ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                    panelActivo === 'servicios' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
-                  ]"
-                >
-                  <HugeiconsIcon :icon="Route01Icon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'servicios' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                  <span class="flex-1 text-sm font-medium truncate" :class="formData.id_servicio ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
-                    {{ formData.id_servicio ? getServicioLabel(formData.id_servicio) : (loadingServicios ? t('escoltas.loading') : t('escoltas.placeholderService')) }}
-                  </span>
-                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'servicios' }" />
-                </button>
-              </div>
-
-              <!-- Vehículo -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="space-y-2">
                 <label
                   class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
@@ -857,17 +783,16 @@ const formatFecha = (date: Date | null): string => {
           <div class="flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center text-[#5da6fc]">
               <HugeiconsIcon
-                :icon="panelActivo === 'servicios' ? Route01Icon : panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : LicenseIcon"
+                :icon="panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : LicenseIcon"
                 :size="17"
               />
             </div>
             <div>
               <h4 class="text-[12px] font-black text-white tracking-tight">
-                {{ panelActivo === 'servicios' ? t('escoltas.panelServicesTitle') : panelActivo === 'vehiculos' ? t('escoltas.panelVehiclesTitle') : panelActivo === 'hardware' ? t('escoltas.panelHardwareTitle') : t('escoltas.panelPassTypesTitle') }}
+                {{ panelActivo === 'vehiculos' ? t('escoltas.panelVehiclesTitle') : panelActivo === 'hardware' ? t('escoltas.panelHardwareTitle') : t('escoltas.panelPassTypesTitle') }}
               </h4>
               <p class="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
                 {{
-                  panelActivo === 'servicios' ? t('escoltas.panelServicesCount', { count: filteredServicios.length }) :
                   panelActivo === 'vehiculos' ? t('escoltas.panelVehiclesCount', { count: filteredVehiculos.length }) :
                   panelActivo === 'hardware' ? t('escoltas.panelHardwareCount', { count: filteredHardware.length }) :
                   t('escoltas.panelPassTypesCount', { count: filteredTipoPase.length })
@@ -884,15 +809,7 @@ const formatFecha = (date: Date | null): string => {
           <div class="flex items-center gap-2 bg-[#0F1115] border border-white/5 rounded-lg px-3 py-2">
             <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 shrink-0" />
             <input
-              v-if="panelActivo === 'servicios'"
-              v-model="searchServiciosQuery"
-              type="text"
-              :placeholder="t('escoltas.searchServicePlaceholder')"
-              class="flex-1 bg-transparent text-sm text-slate-200 placeholder-slate-500 outline-none"
-              @click.stop
-            />
-            <input
-              v-else-if="panelActivo === 'vehiculos'"
+              v-if="panelActivo === 'vehiculos'"
               v-model="searchVehiculosQuery"
               type="text"
               :placeholder="t('escoltas.searchVehiclePlaceholder')"
@@ -916,9 +833,9 @@ const formatFecha = (date: Date | null): string => {
               @click.stop
             />
             <button
-              v-if="searchServiciosQuery || searchVehiculosQuery || searchHardwareQuery || searchTipoPaseQuery"
+              v-if="searchVehiculosQuery || searchHardwareQuery || searchTipoPaseQuery"
               type="button"
-              @click.stop="searchServiciosQuery = ''; searchVehiculosQuery = ''; searchHardwareQuery = ''; searchTipoPaseQuery = ''"
+              @click.stop="searchVehiculosQuery = ''; searchHardwareQuery = ''; searchTipoPaseQuery = ''"
               class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
             >
               <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
@@ -928,14 +845,13 @@ const formatFecha = (date: Date | null): string => {
 
         <div class="bg-[#1A1D24] px-4 py-1.5 flex items-center justify-between shrink-0 border-y border-white/5">
           <span class="text-[10px] font-bold tabular-nums text-blue-400">
-            {{ panelActivo === 'servicios' ? (formData.id_servicio ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
-               panelActivo === 'vehiculos' ? (formData.id_vehiculo ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
+            {{ panelActivo === 'vehiculos' ? (formData.id_vehiculo ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
                panelActivo === 'hardware' ? (formData.id_hardware ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) :
                (formData.tipo_pase ? t('escoltas.selectedOne') : t('escoltas.noneSelected')) }}
           </span>
           <button
             type="button"
-            @click.stop="panelActivo === 'servicios' ? formData.id_servicio = '' : panelActivo === 'vehiculos' ? formData.id_vehiculo = '' : panelActivo === 'hardware' ? formData.id_hardware = '' : formData.tipo_pase = ''"
+            @click.stop="panelActivo === 'vehiculos' ? formData.id_vehiculo = '' : panelActivo === 'hardware' ? formData.id_hardware = '' : formData.tipo_pase = ''"
             class="text-[10px] font-semibold text-slate-400 hover:text-red-400 transition-colors"
           >
             {{ t('escoltas.btnClear') }}
@@ -943,45 +859,7 @@ const formatFecha = (date: Date | null): string => {
         </div>
 
         <div class="flex-1 overflow-y-auto bg-[#1A1D24] py-3 space-y-1 px-3">
-          <!-- Servicios -->
-          <template v-if="panelActivo === 'servicios'">
-            <button
-              v-for="s in filteredServicios"
-              :key="s.id_servicio"
-              type="button"
-              @click="selectServicio(s.id_servicio)"
-              class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors"
-              :class="formData.id_servicio === s.id_servicio ? 'bg-[#3b82f6]/10 text-[#5da6fc]' : 'text-slate-300 hover:bg-white/5'"
-            >
-              <div class="w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0"
-                :class="formData.id_servicio === s.id_servicio ? 'border-[#3b82f6] bg-[#3b82f6]' : 'border-slate-500'">
-                <HugeiconsIcon v-if="formData.id_servicio === s.id_servicio" :icon="Tick01Icon" :size="10" :stroke-width="3" class="text-white" />
-              </div>
-              <div class="flex flex-col min-w-0 gap-0.5">
-                <span class="text-[12px] font-semibold truncate">{{ s.fecha_inicio || '—' }}</span>
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <span
-                    v-if="s.estado"
-                    class="text-[9px] rounded px-1 py-0.5 font-semibold leading-none"
-                    :class="[
-                      parseInt(s.estado, 10) === 2 ? 'bg-blue-500/15 text-blue-400' :
-                      parseInt(s.estado, 10) === 3 ? 'bg-emerald-500/15 text-emerald-400' :
-                      parseInt(s.estado, 10) === 4 ? 'bg-red-500/15 text-red-400' :
-                      'bg-slate-500/15 text-slate-400'
-                    ]"
-                  >{{ ESTADOS_MAP[parseInt(s.estado, 10)] || s.estado }}</span>
-                  <span v-if="s.nivel_riesgo && s.nivel_riesgo !== 'ND'" class="text-[9px] bg-amber-500/10 text-amber-400 rounded px-1 py-0.5 font-semibold leading-none">{{ s.nivel_riesgo }}</span>
-                </div>
-              </div>
-            </button>
-            <div v-if="filteredServicios.length === 0" class="flex flex-col items-center justify-center py-10 text-slate-500">
-              <HugeiconsIcon :icon="Route01Icon" :size="24" class="opacity-30 mb-2" />
-              <span class="text-sm">{{ t('escoltas.noServicesAvailable') }}</span>
-            </div>
-          </template>
-
-          <!-- Vehículos -->
-          <template v-else-if="panelActivo === 'vehiculos'">
+          <template v-if="panelActivo === 'vehiculos'">
             <button
               v-for="v in filteredVehiculos"
               :key="v.id_vehiculo"
