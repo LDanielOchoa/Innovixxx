@@ -186,18 +186,14 @@ const handleSave = async () => {
         life: 4000
       })
       emit('saved')
-      if (isEditMode.value) {
-        handleClose()
-      } else {
-        // Clear creation form
-        formData.nombre = ''
-        formData.placa = ''
-        formData.serial = ''
-        formData.tipo = 0
-        formData.estado = 1
-        resetErrors('vehiculo-modal-form')
-        clearErrors()
-      }
+      handleClose()
+      formData.nombre = ''
+      formData.placa = ''
+      formData.serial = ''
+      formData.tipo = 0
+      formData.estado = 1
+      resetErrors('vehiculo-modal-form')
+      clearErrors()
     } else {
       showMessage(data.message || (isEditMode.value ? t('vehiculos.alertErrorUpdate') : t('vehiculos.alertErrorCreate')), 'error')
     }
@@ -249,7 +245,6 @@ onUnmounted(() => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleSave"
-    :close-on-click-outside="!saving"
     :title="isEditMode ? t('vehiculos.editTitle') : t('vehiculos.newTitle')"
     :confirm-text="isEditMode ? t('vehiculos.btnSave') : t('vehiculos.btnRegister')"
     size="xl"

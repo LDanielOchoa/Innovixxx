@@ -154,6 +154,8 @@ const onPermissionsModalToggle = (isOpen: boolean) => {
 
 const handlePermissionsSaved = async () => {
   if (selectedGroup.value?.id) await fetchRoles(selectedGroup.value.id)
+  isPermissionsModalOpen.value = false
+  currentRoleForPermissions.value = null
 }
 
 const saveRole = async () => {
@@ -191,6 +193,7 @@ const saveRole = async () => {
           detail: t('roles.alertSuccessCreateDetail'),
           life: 4000
         })
+        isModalOpen.value = false
         formData.value = { nombre: '', descripcion: '' }
         clearErrors()
         resetErrors('role-form')

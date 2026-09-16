@@ -280,20 +280,16 @@ const saveGrupo = async () => {
         life: 4000
       })
       emit('saved')
-      if (isEditMode.value) {
-        handleClose()
-      } else {
-        // Clear the form data
-        formData.value = {
-          nombre: '',
-          time_zone: '',
-          i18n: locale.value.split('-')[0] || 'es'
-        }
-        previewImage.value = null
-        selectedFile.value = null
-        clearErrors()
-        resetErrors('grupo-form')
+      handleClose()
+      formData.value = {
+        nombre: '',
+        time_zone: '',
+        i18n: locale.value.split('-')[0] || 'es'
       }
+      previewImage.value = null
+      selectedFile.value = null
+      clearErrors()
+      resetErrors('grupo-form')
     } else {
       showMessage(result?.message || t('grupos.alertErrorCreate'), 'error')
     }
@@ -322,7 +318,6 @@ const saveGrupo = async () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="saveGrupo"
-    :close-on-click-outside="!saving"
     :title="isEditMode ? t('grupos.modalEditTitle') : t('grupos.modalCreateTitle')"
     :confirm-text="isEditMode ? t('grupos.btnUpdate') : t('grupos.btnCreate')"
     size="xl"

@@ -222,18 +222,15 @@ const handleSave = async () => {
         life: 4000
       })
       emit('saved')
-      if (isEditMode.value) {
-        handleClose()
-      } else {
-        Object.assign(formData, {
-          placa: '', serial_chasis: '', marca: '', referencia: '',
-          modelo: 0, color: '#3b82f6', cilindrada: 0,
-          soat: '', soat_vence: null, tecnomecanica: '', tecnomecanica_vence: null,
-          tipo: 0
-        })
-        resetErrors('vehiculo-modal-form')
-        clearErrors()
-      }
+      handleClose()
+      Object.assign(formData, {
+        placa: '', serial_chasis: '', marca: '', referencia: '',
+        modelo: 0, color: '#3b82f6', cilindrada: 0,
+        soat: '', soat_vence: null, tecnomecanica: '', tecnomecanica_vence: null,
+        tipo: 0
+      })
+      resetErrors('vehiculo-modal-form')
+      clearErrors()
     } else {
       showMessage(data.message || (isEditMode.value ? t('vehiculosServicio.alertErrorUpdate') : t('vehiculosServicio.alertErrorCreate')), 'error')
     }
@@ -284,7 +281,6 @@ onUnmounted(() => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleSave"
-    :close-on-click-outside="!saving"
     :title="isEditMode ? t('vehiculosServicio.editTitle') : t('vehiculosServicio.newTitle')"
     :confirm-text="isEditMode ? t('vehiculosServicio.btnSave') : t('vehiculosServicio.btnRegister')"
     size="xl"

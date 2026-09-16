@@ -35,8 +35,8 @@ const isMenuOpen = ref(false)
 const groups = ref<Group[]>([])
 const searchQuery = ref('')
 
-// Referencia a la ventana de tracking actualmente abierta
-const trackingWindowRef = ref<Window | null>(null)
+// Canal de broadcast para notificar a ventanas de tracking del cambio de grupo
+const trackingChannel = new BroadcastChannel('tracking-flota')
 
 const toggleMenu = () => {
   if (groups.value.length > 1) {
@@ -91,7 +91,7 @@ const fetchGroupsApi = async () => {
 const sincronizarGrupoSeleccionado = () => {
   if (groups.value.length === 0) return
 
-  const idSeleccionado = groupStore.selectedGroup?.id?.trim() || ''
+  const idSeleccionado = groupStore.selectedGroup?.id?.trim() || localStorage.getItem('auth-grupo-id')?.trim() || ''
   const grupoPorId = idSeleccionado
     ? groups.value.find(g => g.id === idSeleccionado)
     : undefined
@@ -101,7 +101,7 @@ const sincronizarGrupoSeleccionado = () => {
     return
   }
 
-  const nombreSeleccionado = groupStore.selectedGroup?.nombre?.trim() || ''
+  const nombreSeleccionado = groupStore.selectedGroup?.nombre?.trim() || localStorage.getItem('auth-grupo')?.trim() || ''
   const grupoPorNombre = nombreSeleccionado
     ? groups.value.find(g => g.nombre === nombreSeleccionado)
     : undefined
@@ -130,6 +130,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('click', handleOutsideClick)
+  trackingChannel.close()
 })
 
 watch(() => authStore.isSuperAdmin, async (isSuper, wasSuper) => {
@@ -139,33 +140,26 @@ watch(() => authStore.isSuperAdmin, async (isSuper, wasSuper) => {
   }
 })
 
-// Abre (o enfoca) la ventana de tracking para el grupo indicado.
-// Si el navegador ya tiene una ventana con ese nombre y groupId, la trae al frente.
-const openTrackingWindow = async (grupo?: Group) => {
+// Abre una ventana de tracking independiente para el grupo indicado.
+// Permite abrir múltiples ventanas concurrentes e independientes para cualquier grupo.
+const openTrackingWindow = async (grupo?: Group | Event) => {
   const tokenWs = localStorage.getItem('auth-token-ws') || ''
-  const groupTarget = grupo ?? groupStore.selectedGroup
+  const isValidGroupObj = grupo && typeof (grupo as any).id === 'string' && (grupo as any).id.trim().length > 0
+  const groupTarget = isValidGroupObj ? (grupo as Group) : groupStore.selectedGroup
 
-  // El store de Pinia persiste el grupo en 'auth-grupo-obj' como JSON.
-  // 'auth-grupo-id' solo existe si el WS ya leyó un query param previo.
-  const grupoPersistitdo = (() => {
+  const grupoPersistido = (() => {
     try { return JSON.parse(localStorage.getItem('auth-grupo-obj') || '{}') } catch { return {} }
   })()
-  const groupId = groupTarget?.id || grupoPersistitdo?.id || localStorage.getItem('auth-grupo-id') || ''
+  const groupId = (groupTarget?.id || grupoPersistido?.id || localStorage.getItem('auth-grupo-id') || '').trim()
   const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
 
-  // Usar el groupId como nombre de ventana permite que:
-  // - El mismo grupo siempre reutilice/enfoque su ventana existente
-  // - Grupos distintos tengan ventanas independientes
-  const windowName = `TrackingWindow_${groupId}`
+  // Identificador único de ventana para permitir abrir múltiples ventanas concurrentes
+  const windowUniqueId = `${groupId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+  const windowName = `TrackingWindow_${windowUniqueId}`
 
   const abrirVentana = (features: string) => {
-    // Cerrar la ventana anterior antes de abrir la nueva
-    if (trackingWindowRef.value && !trackingWindowRef.value.closed) {
-      trackingWindowRef.value.close()
-    }
     const win = window.open(url, windowName, features)
     if (win) {
-      trackingWindowRef.value = win
       win.focus()
     }
   }
@@ -188,28 +182,19 @@ const openTrackingWindow = async (grupo?: Group) => {
     console.warn('Acceso a detalles de pantalla denegado o no soportado:', err)
   }
 
-  // Fallback: centrar en la pantalla actual
+  // Fallback: centrar en la pantalla actual con leve offset dinámico
   const width = 1200
   const height = 800
-  const left = (window.screen.width / 2) - (width / 2)
-  const top = (window.screen.height / 2) - (height / 2)
+  const left = Math.max(0, (window.screen.width / 2) - (width / 2) + Math.floor((Math.random() - 0.5) * 40))
+  const top = Math.max(0, (window.screen.height / 2) - (height / 2) + Math.floor((Math.random() - 0.5) * 40))
   abrirVentana(`width=${width},height=${height},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no`)
 }
 
 const selectGroup = (group: Group) => {
-  const grupoAnteriorId = groupStore.selectedGroup?.id
   groupStore.setGroup(group)
+  // Notificar a todas las ventanas de tracking abiertas del cambio de grupo
+  trackingChannel.postMessage({ type: 'GROUP_CHANGED', groupId: group.id })
   closeMenu()
-
-  // Si la ventana de tracking del grupo anterior está abierta, abrir una nueva para el nuevo grupo
-  if (
-    grupoAnteriorId &&
-    grupoAnteriorId !== group.id &&
-    trackingWindowRef.value &&
-    !trackingWindowRef.value.closed
-  ) {
-    openTrackingWindow(group)
-  }
 }
 
 const refreshPage = async () => {
@@ -342,7 +327,7 @@ const refreshPage = async () => {
                         : 'text-slate-600 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white/80'
                     ]"
                   >
-                    <div class="flex items-center gap-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
                       <div
                         class="w-8 h-8 shrink-0 rounded-lg flex items-center justify-center overflow-hidden"
                         :class="groupStore.selectedGroup.id === group.id
@@ -353,12 +338,24 @@ const refreshPage = async () => {
                         <HugeiconsIcon v-else :icon="UserGroupIcon" :size="14" :stroke-width="1.8" />
                       </div>
                       <span
-                        class="text-[12px] font-medium tracking-tight truncate max-w-[140px]"
+                        class="text-[12px] font-medium tracking-tight truncate max-w-[130px]"
                       >{{ group.nombre }}</span>
                     </div>
                     
-                    <div v-if="groupStore.selectedGroup.id === group.id" class="w-5 h-5 rounded bg-[#3b82f6] dark:bg-[#5da6fc] flex items-center justify-center text-white shrink-0">
-                      <HugeiconsIcon :icon="Tick01Icon" :size="10" :stroke-width="3.5" />
+                    <div class="flex items-center gap-1.5 shrink-0">
+                      <!-- Botón para abrir ventana de tracking directo para este grupo -->
+                      <button
+                        type="button"
+                        @click.stop="openTrackingWindow(group)"
+                        :title="`Abrir mapa de ${group.nombre}`"
+                        class="w-6 h-6 rounded-md flex items-center justify-center opacity-60 hover:opacity-100 hover:bg-slate-200/80 dark:hover:bg-white/10 text-slate-500 dark:text-white/60 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] transition-all"
+                      >
+                        <HugeiconsIcon :icon="MapsIcon" :size="12" :stroke-width="2" />
+                      </button>
+
+                      <div v-if="groupStore.selectedGroup.id === group.id" class="w-5 h-5 rounded bg-[#3b82f6] dark:bg-[#5da6fc] flex items-center justify-center text-white shrink-0">
+                        <HugeiconsIcon :icon="Tick01Icon" :size="10" :stroke-width="3.5" />
+                      </div>
                     </div>
                   </button>
                 </template>
@@ -386,7 +383,7 @@ const refreshPage = async () => {
       <!-- Action Buttons -->
       <div class="flex items-center gap-1.5">
         <button 
-          @click="openTrackingWindow"
+          @click="openTrackingWindow()"
           :title="t('header.map')"
           class="flex items-center justify-center w-9 h-9 rounded-[12px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10 transition-all duration-200 active:scale-95 group focus:outline-none shrink-0"
         >

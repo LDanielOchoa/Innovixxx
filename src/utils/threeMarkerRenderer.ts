@@ -83,6 +83,26 @@ function getSharedEngine(): SharedEngine | null {
   }
 }
 
+export function parseBattery(val: any): number {
+  if (val === undefined || val === null || val === '') return 100
+  const num = typeof val === 'number' ? val : parseFloat(String(val))
+  if (isNaN(num)) return 100
+
+  // Si la batería viene en escala de niveles 0-6 (frecuente en hardware GPS Concox/GT06)
+  if (num > 0 && num <= 6 && Number.isInteger(num)) {
+    return Math.round((num / 6) * 100)
+  }
+
+  // Si la batería viene en milivoltios (ej: 3400mV - 4200mV)
+  if (num > 100) {
+    if (num >= 4200) return 100
+    if (num <= 3400) return 0
+    return Math.round(((num - 3400) / (4200 - 3400)) * 100)
+  }
+
+  return Math.max(0, Math.min(100, Math.round(num)))
+}
+
 export class ThreeMarkerRenderer {
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D | null = null
@@ -124,11 +144,11 @@ export class ThreeMarkerRenderer {
   }
 
   private drawBaseTexture(battery: number, isSelected: boolean, showBatteryRing = true) {
-    const roundedBattery = Math.round(battery)
-    if (this.lastBattery === roundedBattery && this.lastSelected === isSelected && this.lastShowBatteryRing === showBatteryRing) {
+    const normalizedBattery = parseBattery(battery)
+    if (this.lastBattery === normalizedBattery && this.lastSelected === isSelected && this.lastShowBatteryRing === showBatteryRing) {
       return // Evitar procesamiento si el estado no cambió
     }
-    this.lastBattery = roundedBattery
+    this.lastBattery = normalizedBattery
     this.lastSelected = isSelected
     this.lastShowBatteryRing = showBatteryRing
 
@@ -158,24 +178,23 @@ export class ThreeMarkerRenderer {
     ctx.stroke()
 
     // 3. Anillo dinámico de batería integrado en la misma franja
-    const clampedBattery = Math.max(0, Math.min(100, battery))
     let strokeColor = '#10B981' // Verde (>50%)
-    if (clampedBattery <= 20) {
+    if (normalizedBattery <= 20) {
       strokeColor = '#EF4444' // Rojo (<20%)
-    } else if (clampedBattery <= 50) {
+    } else if (normalizedBattery <= 50) {
       strokeColor = '#F59E0B' // Naranja (20% - 50%)
     }
 
     // Un arco de 0 grados con lineCap=round se convierte en un punto grande
     // en las 12 en punto. Omitirlo evita que el aro parezca descentrado.
-    if (clampedBattery > 0) {
+    if (normalizedBattery > 0) {
       const startAngle = -Math.PI / 2
-      const endAngle = startAngle + (clampedBattery / 100) * 2 * Math.PI
+      const endAngle = startAngle + (normalizedBattery / 100) * 2 * Math.PI
 
       ctx.beginPath()
       ctx.arc(128, 128, radius, startAngle, endAngle)
       ctx.lineWidth = 14
-      ctx.lineCap = clampedBattery <= 5 ? 'butt' : 'round'
+      ctx.lineCap = normalizedBattery <= 5 ? 'butt' : 'round'
       ctx.strokeStyle = strokeColor
       ctx.stroke()
     }

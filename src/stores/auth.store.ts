@@ -230,10 +230,9 @@ export const useAuthStore = defineStore('auth', () => {
 
         const groupStore = useGroupStore()
         if (data.data.grupo) {
-          const idGrupoCrudo = typeof data.data.id_grupo === 'string' ? data.data.id_grupo.trim() : ''
-          const idGrupoValido = idGrupoCrudo.length === 8 ? idGrupoCrudo : ''
-          groupStore.setGroup({ id: idGrupoValido, nombre: data.data.grupo })
-          localStorage.setItem('auth-grupo-id', idGrupoValido)
+          const idGrupoCrudo = typeof data.data.id_grupo === 'string' ? data.data.id_grupo.trim() : (data.data.id_grupo ? String(data.data.id_grupo).trim() : '')
+          groupStore.setGroup({ id: idGrupoCrudo, nombre: data.data.grupo })
+          if (idGrupoCrudo) localStorage.setItem('auth-grupo-id', idGrupoCrudo)
           localStorage.setItem('auth-grupo', data.data.grupo)
         }
 

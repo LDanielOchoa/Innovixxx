@@ -27,7 +27,7 @@ withDefaults(defineProps<Props>(), {
         table: { class: 'w-full border-collapse' },
         thead: { class: 'border-b border-slate-200/50 dark:border-white/5' },
         tbody: { class: 'divide-y divide-slate-100 dark:divide-white/5' },
-        row: { class: 'group/row transition-colors duration-150 hover:bg-slate-50/50 dark:hover:bg-white/[0.03]' },
+        row: { class: 'group/row transition-colors duration-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]' },
         headercell: ({ context }: any) => ({
           class: [
             'px-5 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 border-b border-slate-200/50 dark:border-white/5 select-none text-left bg-transparent uppercase tracking-[0.2em]',
@@ -36,7 +36,7 @@ withDefaults(defineProps<Props>(), {
         }),
         headercontent: { class: 'flex items-center gap-1.5' },
         sortIcon: { class: 'w-3 h-3 transition-colors' }, 
-        bodycell: { class: 'px-5 py-4 text-[13px] text-slate-600 dark:text-slate-300 align-middle border-b border-slate-100 dark:border-white/5' }
+        bodycell: { class: 'px-5 py-4 text-[13px] text-slate-600 dark:text-slate-300 align-middle border-b border-slate-100 dark:border-white/5 transition-colors duration-200' }
       }"
     >
       <!-- Slot para las columnas -->
@@ -80,7 +80,17 @@ withDefaults(defineProps<Props>(), {
 }
 
 .modern-table .p-datatable-tbody > tr {
-  background: transparent !important;
+  background: transparent;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-table .p-datatable-tbody > tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+:global(.dark) .modern-table .p-datatable-tbody > tr:hover,
+.dark .modern-table .p-datatable-tbody > tr:hover {
+  background-color: rgba(255, 255, 255, 0.065) !important;
 }
 
 .modern-table .p-datatable-tbody > tr > td {

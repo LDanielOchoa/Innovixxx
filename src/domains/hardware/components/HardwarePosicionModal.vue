@@ -14,7 +14,8 @@ import {
   PauseIcon,
   ArrowLeftDoubleIcon,
   ArrowRightDoubleIcon,
-  FastWindIcon
+  FastWindIcon,
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
@@ -46,7 +47,9 @@ const {
   isLoadingMap,
   initMap,
   startDarkModeObserver,
-  isDarkMapMode
+  isDarkMapMode,
+  currentMapType,
+  setMapType
 } = useMapSetup('hardware-posicion-map-container', {
   defaultZoom: 13,
   gestureHandling: 'greedy',
@@ -315,28 +318,25 @@ const createPointMarker = (item: PosicionItem) => {
     icon: isFirst
       ? {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 7.5,
+          scale: 11,
           fillColor: '#22c55e',
           fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2
+          strokeWeight: 0
         }
       : isLast
         ? {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 7.5,
+          scale: 11,
           fillColor: '#ef4444',
           fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2
+          strokeWeight: 0
         }
       : {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 4,
+          scale: 6.5,
           fillColor: isDarkMapMode.value ? '#38bdf8' : '#3b82f6',
-          fillOpacity: 0.9,
-          strokeColor: '#ffffff',
-          strokeWeight: 1.5
+          fillOpacity: 0.95,
+          strokeWeight: 0
         }
   })
 
@@ -879,8 +879,8 @@ onUnmounted(() => {
     <div v-if="isOpen" class="fixed inset-0 z-[100] flex flex-col bg-slate-100 dark:bg-[#0F1115]">
       <div class="flex items-center justify-between px-5 py-3 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border-b border-slate-200/60 dark:border-white/5 shrink-0">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 flex items-center justify-center">
-            <HugeiconsIcon :icon="Location01Icon" :size="18" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+          <div class="w-9 h-9 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+            <HugeiconsIcon :icon="Location01Icon" :size="20" class="text-[#3b82f6] dark:text-[#5da6fc]" />
           </div>
           <div>
             <h3 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight">{{ hardware?.nombre || t('hardware.device') }}</h3>
@@ -894,6 +894,38 @@ onUnmounted(() => {
 
       <div class="flex-1 relative flex flex-col">
         <div id="hardware-posicion-map-container" class="absolute inset-0 z-0" style="width:100%;height:100%;"></div>
+
+        <!-- Selector de Tipo de Mapa Flotante en Hardware Posición -->
+        <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
+          <button
+            type="button"
+            @click="setMapType('roadmap')"
+            title="Mapa Estándar Vectorial"
+            class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+            :class="currentMapType === 'roadmap'
+              ? 'bg-[#3b82f6] text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+          >
+            <HugeiconsIcon :icon="MapsIcon" :size="13" />
+            <span>Estándar</span>
+          </button>
+          <button
+            type="button"
+            @click="setMapType('hybrid')"
+            title="Mapa Satélite con etiquetas"
+            class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+            :class="currentMapType === 'hybrid'
+              ? 'bg-[#3b82f6] text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+          >
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3.6 9h16.8M3.6 15h16.8" />
+              <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+            </svg>
+            <span>Satélite</span>
+          </button>
+        </div>
 
         <div v-if="isLoadingMap" class="absolute inset-0 z-10 flex items-center justify-center bg-slate-100/80 dark:bg-[#0F1115]/80">
           <div class="flex flex-col items-center gap-3">

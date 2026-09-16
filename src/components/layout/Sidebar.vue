@@ -23,6 +23,7 @@ import {
   Settings02Icon,
   MapsIcon,
   CommandLineIcon,
+  Clock01Icon,
   Alert01Icon,
   Calendar01Icon,
   ArrowDown01Icon
@@ -215,6 +216,13 @@ const displayedMenuItems = computed(() => {
           icon: markRaw(CommandLineIcon),
           text: t('sidebar.menu.commands'),
           route: '/comandos',
+          permissionId: PERMISSIONS.COMMAND_LIST,
+          soloGrupoMain: true
+        },
+        {
+          icon: markRaw(Clock01Icon),
+          text: t('sidebar.menu.commandHistory'),
+          route: '/comandos/historial',
           permissionId: PERMISSIONS.COMMAND_LIST,
           soloGrupoMain: true
         }

@@ -361,6 +361,7 @@ const savePermissions = async () => {
         life: 4000
       })
       emit('saved')
+      closeModal()
       return
     }
 

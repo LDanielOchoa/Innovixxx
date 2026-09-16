@@ -5,6 +5,38 @@
     <div class="absolute inset-0 z-0">
       <div id="google-map-container-form" class="absolute inset-0 z-0 bg-[#F1F4F8] dark:bg-[#0d1116]"></div>
       
+      <!-- Selector de Tipo de Mapa Flotante en Rutas Form -->
+      <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
+        <button
+          type="button"
+          @click="setMapType('roadmap')"
+          title="Mapa Estándar Vectorial"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'roadmap'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <HugeiconsIcon :icon="MapsIcon" :size="13" />
+          <span>Estándar</span>
+        </button>
+        <button
+          type="button"
+          @click="setMapType('hybrid')"
+          title="Mapa Satélite con etiquetas"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'hybrid'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3.6 9h16.8M3.6 15h16.8" />
+            <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+          </svg>
+          <span>Satélite</span>
+        </button>
+      </div>
+      
       <!-- Overlay de Carga Mapa -->
       <div 
         v-if="isLoadingMap" 
@@ -33,7 +65,7 @@
         <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
           <div class="relative flex items-center gap-3">
             <!-- Ícono plano -->
-            <div class="w-10 h-10 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
+            <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
               <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
             </div>
 
@@ -176,8 +208,8 @@
             <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-lg bg-[#3b82f6]/15 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
-                    <HugeiconsIcon :icon="Location01Icon" :size="13" />
+                  <div class="w-6 h-6 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+                    <HugeiconsIcon :icon="Location01Icon" :size="15" />
                   </div>
                   <div>
                     <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ t('rutas.strategicStops') }}</h3>
@@ -211,8 +243,8 @@
             <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                  <div class="w-6 h-6 rounded-lg bg-[#3b82f6]/15 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
-                    <HugeiconsIcon :icon="CpuIcon" :size="13" />
+                  <div class="w-6 h-6 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+                    <HugeiconsIcon :icon="CpuIcon" :size="15" />
                   </div>
                   <div>
                     <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ t('rutas.gpsNewData') }}</h3>
@@ -321,8 +353,8 @@
       @cancel="isTipoModalOpen = false; selectedTipoParada = null"
     >
       <template #icon>
-        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
-          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+          <HugeiconsIcon :icon="Location01Icon" :size="22" :stroke-width="2" />
         </div>
       </template>
       <div class="space-y-6">
@@ -340,11 +372,11 @@
           >
             <!-- Icon Badge -->
             <div 
-              class="w-9 h-9 rounded-full flex items-center justify-center bg-white dark:bg-[#1C202A] border border-slate-200/80 dark:border-white/10 shadow-sm transition-colors duration-300 shrink-0 overflow-hidden"
+              class="w-10 h-10 flex items-center justify-center shrink-0"
             >
               <img 
                 :src="getTipoImage(tipo.nombre)" 
-                class="w-6 h-6 object-contain"
+                class="w-8 h-8 object-contain"
                 alt="icono parada"
               />
             </div>
@@ -396,8 +428,8 @@
       :show-close-button="false"
     >
       <template #icon>
-        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-[#3b82f6]/20">
-          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+          <HugeiconsIcon :icon="Location01Icon" :size="22" :stroke-width="2" />
         </div>
       </template>
       <div class="space-y-6">
@@ -417,11 +449,11 @@
             >
               <!-- Icon Badge -->
               <div 
-                class="w-9 h-9 rounded-full flex items-center justify-center bg-white dark:bg-[#1C202A] border border-slate-200/80 dark:border-white/10 shadow-sm transition-colors duration-300 shrink-0 overflow-hidden"
+                class="w-10 h-10 flex items-center justify-center shrink-0"
               >
                 <img 
                   :src="getTipoImage(tipo.nombre)" 
-                  class="w-6 h-6 object-contain"
+                  class="w-8 h-8 object-contain"
                   alt="icono parada"
                 />
               </div>
@@ -460,8 +492,8 @@
       @confirm="trazarRutaGps"
     >
       <template #icon>
-        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
-          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+          <HugeiconsIcon :icon="Location01Icon" :size="22" :stroke-width="2" />
         </div>
       </template>
 
@@ -531,7 +563,8 @@ import {
   Search01Icon,
   Loading03Icon,
   Alert01Icon,
-  CpuIcon
+  CpuIcon,
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 
 import rutaBalanza from '../../../assets/ruta_balanza.png'
@@ -586,7 +619,9 @@ const {
   initMap,
   initPlacesSearch,
   startDarkModeObserver,
-  setMapTheme
+  setMapTheme,
+  currentMapType,
+  setMapType
 } = useMapSetup('google-map-container-form')
 
 const directionsService = shallowRef<any>(null)

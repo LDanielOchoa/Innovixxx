@@ -26,10 +26,13 @@ export interface MapSetupReturn {
   mapLoadError: ReturnType<typeof ref>
   activeTheme: ReturnType<typeof ref>
   isDarkMapMode: ReturnType<typeof ref>
+  currentMapType: ReturnType<typeof ref<'roadmap' | 'hybrid' | 'satellite'>>
   initMap: (googleMapsApi: any, onMapClick?: (lat: number, lng: number) => void) => void
   initPlacesSearch: (googleMapsApi: any, inputId: string) => void
   startDarkModeObserver: () => void
   setMapTheme: (themeId: string) => void
+  setMapType: (type: 'roadmap' | 'hybrid' | 'satellite') => void
+  toggleMapType: () => void
 }
 
 // ── Definición de Temas ──────────────────────────────────────
@@ -67,6 +70,74 @@ const getMapStyle = (themeId: string, isDark: boolean = true) => {
   return theme ? theme.getStyle(isDark) : []
 }
 
+// ── Estilos para Modo Satélite (Calles Grises Neutras sin tinte azulado y sin comercios) ──
+const satelliteStyles = [
+  {
+    featureType: 'poi',
+    stylers: [{ visibility: 'off' }] // Ocultar todos los comercios y puntos de interés
+  },
+  {
+    featureType: 'poi.business',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'transit',
+    stylers: [{ visibility: 'off' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'geometry',
+    stylers: [{ color: '#71717a' }, { lightness: 10 }] // Gris neutro limpio
+  },
+  {
+    featureType: 'road.highway',
+    elementType: 'geometry',
+    stylers: [{ color: '#a1a1aa' }, { weight: 1.5 }] // Gris claro para autopistas
+  },
+  {
+    featureType: 'road.arterial',
+    elementType: 'geometry',
+    stylers: [{ color: '#71717a' }] // Gris medio
+  },
+  {
+    featureType: 'road.local',
+    elementType: 'geometry',
+    stylers: [{ color: '#52525b' }] // Gris sólido para calles locales
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }]
+  },
+  {
+    featureType: 'road',
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#18181b' }, { weight: 3 }]
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'labels.text.fill',
+    stylers: [{ color: '#ffffff' }]
+  },
+  {
+    featureType: 'administrative',
+    elementType: 'labels.text.stroke',
+    stylers: [{ color: '#000000' }, { weight: 3 }]
+  }
+]
+
+const MAP_TYPE_STORAGE_KEY = 'app-map-type'
+
+const getSavedMapType = (): 'roadmap' | 'hybrid' | 'satellite' => {
+  try {
+    const saved = localStorage.getItem(MAP_TYPE_STORAGE_KEY)
+    if (saved === 'hybrid' || saved === 'satellite' || saved === 'roadmap') {
+      return saved
+    }
+  } catch (_) {}
+  return 'roadmap'
+}
+
 // ── Composable ───────────────────────────────────────────────
 export function useMapSetup(containerId: string, options: MapSetupOptions = {}) {
   const map             = shallowRef<any>(null)
@@ -86,6 +157,33 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
     mapId
   } = options
 
+  const currentMapType = ref<'roadmap' | 'hybrid' | 'satellite'>(getSavedMapType())
+
+  const setMapType = (type: 'roadmap' | 'hybrid' | 'satellite') => {
+    currentMapType.value = type
+    try {
+      localStorage.setItem(MAP_TYPE_STORAGE_KEY, type)
+    } catch (_) {}
+
+    if (map.value) {
+      map.value.setMapTypeId(type)
+      if (type === 'hybrid' || type === 'satellite') {
+        map.value.setOptions({
+          styles: satelliteStyles
+        })
+      } else {
+        map.value.setOptions({
+          styles: mapId ? [] : getMapStyle(activeTheme.value, isDarkMapMode.value)
+        })
+      }
+    }
+  }
+
+  const toggleMapType = () => {
+    const nextType = currentMapType.value === 'hybrid' ? 'roadmap' : 'hybrid'
+    setMapType(nextType)
+  }
+
   /** Inicializa el mapa de Google Maps en el contenedor dado */
   const initMap = (googleMapsApi: any, onMapClick?: (lat: number, lng: number) => void) => {
     const container = document.getElementById(containerId)
@@ -98,12 +196,17 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
       zoom: defaultZoom,
       disableDefaultUI: true,
       zoomControl: true,
+      mapTypeId: currentMapType.value
     }
 
+    // El mapId debe asignarse siempre que esté disponible (necesario para marcadores avanzados y mapa vectorial)
     if (mapId) {
-      // Mapa vectorial con Map ID — el estilo personalizado se carga automáticamente
       mapOptions.mapId = mapId
-    } else {
+    }
+
+    if (currentMapType.value === 'hybrid' || currentMapType.value === 'satellite') {
+      mapOptions.styles = satelliteStyles
+    } else if (!mapId) {
       // Fallback: mapa raster con estilos JS (sin soporte de tilt nativo)
       mapOptions.styles = getMapStyle(activeTheme.value, isDarkMapMode.value)
     }
@@ -163,9 +266,9 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
     }
   }
 
-  // Reactivo al cambio de tema oscuro/claro (solo aplica en mapas raster sin mapId)
+  // Reactivo al cambio de tema oscuro/claro (solo aplica en mapas raster sin mapId en modo roadmap)
   watch(isDarkMapMode, (isDark) => {
-    if (map.value && !mapId) {
+    if (map.value && currentMapType.value === 'roadmap' && !mapId) {
       map.value.setOptions({ styles: getMapStyle(activeTheme.value, isDark) })
     }
   })
@@ -181,9 +284,12 @@ export function useMapSetup(containerId: string, options: MapSetupOptions = {}) 
     mapLoadError,
     activeTheme,
     isDarkMapMode,
+    currentMapType,
     initMap,
     initPlacesSearch,
     startDarkModeObserver,
     setMapTheme,
+    setMapType,
+    toggleMapType
   }
 }

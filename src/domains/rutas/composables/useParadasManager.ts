@@ -57,21 +57,13 @@ const createPlaceholderIcon = (strokeColor: string, isNormal: boolean): string =
 
   const centerX = size / 2
   const centerY = size / 2
-  const radius = isNormal ? 14 : 21
+  const radius = isNormal ? 9 : 14
 
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.20)'
-  ctx.shadowBlur = 5
-  ctx.shadowOffsetY = 2
-
+  ctx.clearRect(0, 0, size, size)
   ctx.beginPath()
   ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
-  ctx.fillStyle = '#FFFFFF'
+  ctx.fillStyle = strokeColor || '#3b82f6'
   ctx.fill()
-
-  ctx.shadowColor = 'transparent'
-  ctx.lineWidth = 2.5
-  ctx.strokeStyle = strokeColor
-  ctx.stroke()
 
   const resultDataUrl = canvas.toDataURL()
   placeholderCache.set(cacheKey, resultDataUrl)
@@ -108,24 +100,9 @@ const createCircularIcon = (
 
     const centerX = size / 2
     const centerY = size / 2
-    const radius = isNormal ? 14 : 21
+    const imgSize = isNormal ? 32 : 48
 
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)'
-    ctx.shadowBlur = 6
-    ctx.shadowOffsetX = 0
-    ctx.shadowOffsetY = 3
-
-    ctx.beginPath()
-    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
-    ctx.fillStyle = '#FFFFFF'
-    ctx.fill()
-
-    ctx.shadowColor = 'transparent'
-    ctx.lineWidth = 2.5
-    ctx.strokeStyle = strokeColor
-    ctx.stroke()
-
-    const imgSize = isNormal ? 16 : 25
+    ctx.clearRect(0, 0, size, size)
     ctx.drawImage(img, centerX - imgSize / 2, centerY - imgSize / 2, imgSize, imgSize)
 
     const resultDataUrl = canvas.toDataURL()
@@ -212,10 +189,9 @@ export function useParadasManager(
         : {
             path: (window as any).google.maps.SymbolPath.CIRCLE,
             scale: isNormal ? 8 : 13,
-            fillColor: '#FFFFFF',
+            fillColor: color || '#3b82f6',
             fillOpacity: 1,
-            strokeColor: color,
-            strokeWeight: 2.5
+            strokeWeight: 0
           }
     })
 

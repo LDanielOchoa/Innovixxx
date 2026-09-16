@@ -202,7 +202,6 @@ const handleEjecutar = async () => {
     :is-open="isOpen"
     @update:is-open="$emit('update:isOpen', $event)"
     @close="$emit('update:isOpen', false)"
-    :close-on-click-outside="!ejecutando"
     :title="t('comandos.executeModalTitle')"
     size="lg"
     :show-footer="false"

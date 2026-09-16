@@ -197,7 +197,6 @@ const handleGuardar = async () => {
     @update:is-open="$emit('update:isOpen', $event)"
     @close="$emit('update:isOpen', false)"
     @confirm="handleGuardar"
-    :close-on-click-outside="!saving"
     :title="isEditMode ? t('comandos.modalTitleEdit') : t('comandos.modalTitleCreate')"
     :confirm-text="isEditMode ? t('comandos.btnSave') : t('comandos.btnRegister')"
     size="lg"

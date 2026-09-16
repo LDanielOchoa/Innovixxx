@@ -32,7 +32,8 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
         this.position = position
         this.element = document.createElement('div')
         this.element.style.position = 'absolute'
-        this.element.style.transform = 'translate(-50%, -50%) scale(1)'
+        this.element.style.transformOrigin = 'bottom center'
+        this.element.style.transform = 'translate(-50%, calc(-100% - 8px)) scale(1)'
         this.element.style.background = 'rgba(15, 23, 42, 0.9)'
         this.element.style.backdropFilter = 'blur(4px)'
         this.element.style.border = `1.5px solid ${color}`
@@ -86,7 +87,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
               opacity = 0
             }
 
-            this.element.style.transform = `translate(-50%, -50%) scale(${scale})`
+            this.element.style.transform = `translate(-50%, calc(-100% - 8px)) scale(${scale})`
             this.element.style.opacity = String(opacity)
           }
         }
@@ -156,7 +157,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
       detalles.forEach(detalle => {
         if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
         const color = detalle.color || '#3b82f6'
-        let centerLatLng: any = null
+        let bounds: any = null
 
         if (detalle.tipo === 'Circular') {
           const p = detalle.puntos[0]
@@ -174,7 +175,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
             clickable: false
           }))
           newDrawings.push(circle)
-          centerLatLng = center
+          bounds = circle.getBounds()
         } else {
           const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
           const polygon = markRaw(new (window as any).google.maps.Polygon({
@@ -191,15 +192,15 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
 
           const polyBounds = new (window as any).google.maps.LatLngBounds()
           paths.forEach(p => polyBounds.extend(p))
-          centerLatLng = polyBounds.getCenter()
+          bounds = polyBounds
         }
 
-        if (centerLatLng && mapRef.value && LabelClass) {
-          const position = new (window as any).google.maps.LatLng(
-            typeof centerLatLng.lat === 'function' ? centerLatLng.lat() : centerLatLng.lat,
-            typeof centerLatLng.lng === 'function' ? centerLatLng.lng() : centerLatLng.lng
+        if (bounds && mapRef.value && LabelClass) {
+          const topPosition = new (window as any).google.maps.LatLng(
+            bounds.getNorthEast().lat(),
+            bounds.getCenter().lng()
           )
-          const labelOverlay = markRaw(new LabelClass(position, detalle.nombre, color))
+          const labelOverlay = markRaw(new LabelClass(topPosition, detalle.nombre, color))
           labelOverlay.setMap(mapRef.value)
           newDrawings.push(labelOverlay)
         }

@@ -340,7 +340,7 @@ const saveUsuario = async () => {
           life: 4000
         })
         emit('saved')
-        await resetFormForNewCreation()
+        handleClose()
       } else {
         showMessage(data.message || t('users.alertErrorCreate'), 'error')
       }

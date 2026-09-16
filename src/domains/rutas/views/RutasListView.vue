@@ -14,7 +14,8 @@ import {
   Calendar01Icon,
   CpuIcon,
   Loading03Icon,
-  RefreshIcon
+  RefreshIcon,
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
@@ -112,7 +113,9 @@ const {
   isLoadingMap,
   mapLoadError,
   initMap,
-  startDarkModeObserver
+  startDarkModeObserver,
+  currentMapType,
+  setMapType
 } = useMapSetup('google-map-container', {
   defaultZoom: 12,
   gestureHandling: 'greedy'
@@ -463,6 +466,38 @@ const trazarRutaGps = async () => {
         style="width:100%;height:100%;"
       ></div>
 
+      <!-- Selector de Tipo de Mapa Flotante en Rutas -->
+      <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
+        <button
+          type="button"
+          @click="setMapType('roadmap')"
+          title="Mapa Estándar Vectorial"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'roadmap'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <HugeiconsIcon :icon="MapsIcon" :size="13" />
+          <span>Estándar</span>
+        </button>
+        <button
+          type="button"
+          @click="setMapType('hybrid')"
+          title="Mapa Satélite con etiquetas"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'hybrid'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3.6 9h16.8M3.6 15h16.8" />
+            <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+          </svg>
+          <span>Satélite</span>
+        </button>
+      </div>
+
       <!-- Map Loading State -->
       <Transition name="fade-overlay">
         <div 
@@ -537,8 +572,8 @@ const trazarRutaGps = async () => {
           <div class="relative px-5 py-5 border-b border-slate-200/60 dark:border-white/5 shrink-0">
             <div class="relative flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-[12px] bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
-                  <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
+                <div class="w-9 h-9 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
+                  <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
                 </div>
                 <div>
                   <h1 class="text-[15px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('rutas.title') }}</h1>
@@ -726,8 +761,8 @@ const trazarRutaGps = async () => {
       @confirm="processToggleEstado"
     >
       <template #icon>
-        <div :class="statusConfirmData.nuevoEstado ? 'text-green-500 bg-green-500/10' : 'text-red-500 bg-red-500/10'" class="w-12 h-12 rounded-2xl flex items-center justify-center transition-colors border border-current opacity-30">
-          <HugeiconsIcon :icon="Route01Icon" :size="24" />
+        <div :class="statusConfirmData.nuevoEstado ? 'text-emerald-500' : 'text-red-500'" class="w-12 h-12 flex items-center justify-center transition-colors">
+          <HugeiconsIcon :icon="Route01Icon" :size="28" />
         </div>
       </template>
       <div class="py-4 flex flex-col items-center text-center gap-6">
@@ -749,8 +784,8 @@ const trazarRutaGps = async () => {
       @confirm="trazarRutaGps"
     >
       <template #icon>
-        <div class="w-10 h-10 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
-          <HugeiconsIcon :icon="Location01Icon" :size="20" :stroke-width="2" />
+        <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+          <HugeiconsIcon :icon="Location01Icon" :size="22" :stroke-width="2" />
         </div>
       </template>
 

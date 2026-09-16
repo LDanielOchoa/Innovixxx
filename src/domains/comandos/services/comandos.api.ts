@@ -1,4 +1,13 @@
-import type { Comando, ListarComandosPayload, CrearComandoPayload, ActualizarComandoPayload, BorrarComandoPayload, EjecutarComandoPayload } from '../types/comando'
+import type {
+  Comando,
+  ListarComandosPayload,
+  CrearComandoPayload,
+  ActualizarComandoPayload,
+  BorrarComandoPayload,
+  EjecutarComandoPayload,
+  HistorialComandoItem,
+  HistorialComandosPayload
+} from '../types/comando'
 import { apiClient } from '../../../utils/api-client'
 
 interface BackendResponse<T> {
@@ -49,4 +58,23 @@ export const ejecutarComandoApi = async (payload: EjecutarComandoPayload): Promi
     body: JSON.stringify(payload)
   })
 }
+
+export const fetchHistorialComandosApi = async (payload: HistorialComandosPayload): Promise<HistorialComandoItem[]> => {
+  const requestPayload: HistorialComandosPayload = {
+    id_grupo: payload.id_grupo,
+    desde: payload.desde,
+    hasta: payload.hasta,
+    id_familia: typeof payload.id_familia === 'number' ? payload.id_familia : 0,
+    id_usuario: payload.id_usuario || ''
+  }
+  const data = await apiClient<BackendResponse<HistorialComandoItem[]>>('/api/v1/comando/historial/', {
+    method: 'POST',
+    body: JSON.stringify(requestPayload)
+  })
+  if (data.done && Array.isArray(data.data)) {
+    return data.data
+  }
+  return []
+}
+
 

@@ -10,8 +10,8 @@
       <!-- ═══ HEADER ═══ -->
       <div class="px-5 py-4 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20 shrink-0">
-            <HugeiconsIcon :icon="Route01Icon" :size="18" :stroke-width="2" />
+          <div class="w-9 h-9 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
+            <HugeiconsIcon :icon="Route01Icon" :size="20" :stroke-width="2" />
           </div>
           <div>
             <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight leading-tight">{{ t('rutas.traceManagement') }}</h2>
@@ -54,8 +54,8 @@
 
         <!-- Empty State -->
         <div v-if="filteredParadas.length === 0" class="flex flex-col items-center justify-center py-8 text-center gap-2">
-          <div class="w-12 h-12 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 flex items-center justify-center text-slate-300 dark:text-slate-600">
-            <HugeiconsIcon :icon="Location01Icon" :size="24" :stroke-width="1.5" />
+          <div class="w-12 h-12 flex items-center justify-center text-slate-300 dark:text-slate-600">
+            <HugeiconsIcon :icon="Location01Icon" :size="28" :stroke-width="1.5" />
           </div>
           <div>
             <p class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ t('rutas.noNovedades') }}</p>

@@ -28,7 +28,7 @@ withDefaults(defineProps<Props>(), {
         table: { class: 'w-full border-collapse' },
         thead: { class: 'bg-slate-50/30 dark:bg-[#0D1116]/30 border-b border-slate-200/60 dark:border-white/5' },
         tbody: { class: 'divide-y divide-slate-100/50 dark:divide-white/5' },
-        row: { class: 'group/row transition-all duration-300 hover:bg-[#3b82f6]/[0.02] dark:hover:bg-[#3b82f6]/[0.03]' },
+        row: { class: 'group/row transition-all duration-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]' },
         headercell: { class: 'px-6 py-4 text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-[0.15em] border-none select-none text-left' },
         column: { class: 'px-6 py-4' }
       }"
@@ -68,7 +68,17 @@ withDefaults(defineProps<Props>(), {
 }
 
 .modern-table .p-datatable-tbody > tr {
-  background: transparent !important;
+  background: transparent;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modern-table .p-datatable-tbody > tr:hover {
+  background-color: #f1f5f9 !important;
+}
+
+:global(.dark) .modern-table .p-datatable-tbody > tr:hover,
+.dark .modern-table .p-datatable-tbody > tr:hover {
+  background-color: rgba(255, 255, 255, 0.065) !important;
 }
 
 .modern-table .p-datatable-loading-overlay {

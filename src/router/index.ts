@@ -81,6 +81,12 @@ const router = createRouter({
           meta: { permission: PERMISSIONS.COMMAND_LIST, soloGrupoMain: true }
         },
         {
+          path: 'comandos/historial',
+          name: 'comandos-historial',
+          component: () => import('../domains/comandos/views/ComandosHistorialView.vue'),
+          meta: { permission: PERMISSIONS.COMMAND_LIST, soloGrupoMain: true }
+        },
+        {
           path: 'grupos',
           name: 'grupos',
           component: () => import('../domains/grupos/views/GruposListView.vue'),

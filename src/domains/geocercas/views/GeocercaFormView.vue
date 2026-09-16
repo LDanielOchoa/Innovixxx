@@ -91,7 +91,9 @@ const {
   map,
   isLoadingMap,
   initMap,
-  startDarkModeObserver
+  startDarkModeObserver,
+  currentMapType,
+  setMapType
 } = useMapSetup('geocerca-form-map-container', {
   defaultZoom: 12,
   gestureHandling: 'greedy'
@@ -551,6 +553,38 @@ const clearParadas = () => {
         class="absolute inset-0 z-0"
         style="width:100%;height:100%;"
       ></div>
+
+      <!-- Selector de Tipo de Mapa Flotante en Formulario de Geocercas -->
+      <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
+        <button
+          type="button"
+          @click="setMapType('roadmap')"
+          title="Mapa Estándar Vectorial"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'roadmap'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <HugeiconsIcon :icon="MapsIcon" :size="13" />
+          <span>Estándar</span>
+        </button>
+        <button
+          type="button"
+          @click="setMapType('hybrid')"
+          title="Mapa Satélite con etiquetas"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'hybrid'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3.6 9h16.8M3.6 15h16.8" />
+            <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+          </svg>
+          <span>Satélite</span>
+        </button>
+      </div>
 
       <!-- Capa de Carga del Mapa -->
       <Transition name="fade-overlay">

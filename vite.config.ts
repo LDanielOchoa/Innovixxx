@@ -26,7 +26,7 @@ export default defineConfig({
     }
   },
   server: {
-    allowedHosts: ['innovix.gfandino.xyz'],
+    allowedHosts: ['admin.innovixing.com'],
     proxy: {
       '/ws-flota': {
         target: 'ws://66.179.190.248:8901',
@@ -35,12 +35,12 @@ export default defineConfig({
         rewrite: (path: string) => path.replace(/^\/ws-flota/, '')
       },
       '/api': {
-        target: 'https://innovix.gfandino.xyz',
+        target: 'https://admin.innovixing.com',
         changeOrigin: true,
         secure: true
       },
       '/media': {
-        target: 'https://innovix.gfandino.xyz',
+        target: 'https://admin.innovixing.com',
         changeOrigin: true,
         secure: true
       }

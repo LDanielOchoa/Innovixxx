@@ -37,3 +37,21 @@ export interface EjecutarComandoPayload {
   id_hardware: string
 }
 
+export interface HistorialComandoItem {
+  id_comando: string
+  comando_nombre: string
+  id_hardware: string
+  hardware_nombre: string
+  fecha_hora: string
+  ejecutado_por: string
+}
+
+export interface HistorialComandosPayload {
+  id_grupo: string
+  desde: string
+  hasta: string
+  id_familia: number
+  id_usuario?: string
+}
+
+

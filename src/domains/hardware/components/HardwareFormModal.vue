@@ -327,6 +327,7 @@ const handleSave = async () => {
           life: 4000
         })
         emit('saved')
+        handleClose()
         formData.value = {
           nombre: '',
           descripcion: '',
@@ -376,7 +377,6 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleSave"
-    :close-on-click-outside="!saving"
     :title="isEditMode ? t('hardware.modalTitleEdit') : t('hardware.modalTitleCreate')"
     :confirm-text="isEditMode ? t('hardware.btnSave') : t('hardware.btnRegister')"
     size="xl"

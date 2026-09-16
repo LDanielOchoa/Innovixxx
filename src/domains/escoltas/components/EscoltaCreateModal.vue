@@ -474,6 +474,7 @@ const handleGuardar = async () => {
         })
         resetErrors(formId.value)
         clearErrors()
+        handleClose()
       } else {
         showMessage(data.message || t('escoltas.alertErrorCreate'), 'error')
       }
@@ -517,7 +518,6 @@ const formatFecha = (date: Date | null): string => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleGuardar"
-    :close-on-click-outside="!saving"
     :title="esModoEdicion ? t('escoltas.modalTitleEdit') : t('escoltas.modalTitleCreate')"
     :confirm-text="esModoEdicion ? t('escoltas.btnSave') : t('escoltas.btnRegister')"
     size="xl"

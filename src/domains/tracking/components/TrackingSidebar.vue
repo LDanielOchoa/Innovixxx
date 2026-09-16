@@ -421,16 +421,16 @@ const isItemSelected = (item: any) => {
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-2.5">
           <div 
-            class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            class="w-8 h-8 flex items-center justify-center transition-colors"
             :class="[
-              activeTab === 'SERVICIOS' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
-              activeTab === 'HARDWARE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
-              'bg-purple-500/10 text-purple-600 dark:text-purple-400'
+              activeTab === 'SERVICIOS' ? 'text-blue-600 dark:text-blue-400' :
+              activeTab === 'HARDWARE' ? 'text-emerald-600 dark:text-emerald-400' :
+              'text-purple-600 dark:text-purple-400'
             ]"
           >
-            <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="16" />
-            <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="16" />
-            <HugeiconsIcon v-else :icon="UserGroupIcon" :size="16" />
+            <HugeiconsIcon v-if="activeTab === 'HARDWARE'" :icon="ChipIcon" :size="18" />
+            <HugeiconsIcon v-else-if="activeTab === 'SERVICIOS'" :icon="Settings02Icon" :size="18" />
+            <HugeiconsIcon v-else :icon="UserGroupIcon" :size="18" />
           </div>
           <div>
             <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight capitalize">

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { loadModuleMessages } from '../../../i18n'
 import { useAuthStore } from '../../../stores/auth.store'
+import { useGroupStore } from '../../../stores/group.store'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -15,12 +16,19 @@ import TrackingSidebar from '../components/TrackingSidebar.vue'
 
 import { useRouteDrawer } from '../../rutas/composables/useRouteDrawer'
 import { fetchRutaDetallesApi } from '../../rutas/services/rutas.api'
-import rutaInicio from '../../../assets/ruta_inicio.png'
+import rutaBalanza from '../../../assets/ruta_balanza.png'
 import rutaFin from '../../../assets/ruta_fin.png'
+import rutaGasolinera from '../../../assets/ruta_gasolinera.png'
+import rutaInicio from '../../../assets/ruta_inicio.png'
+import rutaParqueadero from '../../../assets/ruta_parqueadero.png'
+import rutaPuntoControl from '../../../assets/ruta_punto_control.png'
+import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
 loadModuleMessages('tracking')
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
+const groupStore = useGroupStore()
 const authStore = useAuthStore()
 
 const { loadGoogleMaps } = useGoogleMaps()
@@ -72,6 +80,12 @@ const hoveredEscoltaPosition = ref({ top: 0, left: 0 })
 
 const hoveredCluster = ref<any | null>(null)
 const hoveredClusterPosition = ref({ top: 0, left: 0 })
+
+const clearHoverStates = () => {
+  hoveredItem.value = null
+  hoveredEscoltaItem.value = null
+  hoveredCluster.value = null
+}
 
 // Agrupa múltiples solicitudes de repintado en un solo frame (rAF).
 // El WebSocket puede entregar varios mensajes por segundo; sin esto
@@ -314,7 +328,9 @@ const {
   isLoadingMap,
   mapLoadError,
   initMap: initMapInstance,
-  startDarkModeObserver
+  startDarkModeObserver,
+  currentMapType,
+  setMapType
 } = useMapSetup('google-map-container', {
   defaultZoom: 13,
   gestureHandling: 'greedy',
@@ -1026,6 +1042,16 @@ const updateMarkersOnMap = () => {
     }
   })
 
+  if (hoveredItem.value && !activeSingleKeys.has(hoveredItem.value.serial)) {
+    hoveredItem.value = null
+  }
+  if (hoveredEscoltaItem.value && !activeSingleKeys.has(hoveredEscoltaItem.value.id_escolta)) {
+    hoveredEscoltaItem.value = null
+  }
+  if (hoveredCluster.value && !activeClusterKeys.has(hoveredCluster.value.id)) {
+    hoveredCluster.value = null
+  }
+
   // 3. Renderizar / actualizar marcadores de grupos (clusters)
   clusters.forEach(cluster => {
     let cMarker = clustersMap.get(cluster.id)
@@ -1043,6 +1069,7 @@ const updateMarkersOnMap = () => {
       })
 
       cMarker.addListener('click', () => {
+        clearHoverStates()
         if (map.value) {
           map.value.panTo({ lat: cluster.centerLat, lng: cluster.centerLng })
           map.value.setZoom(16)
@@ -1093,10 +1120,15 @@ watch(map, (newMap) => {
       updateMarkersOnMap()
     })
 
+    newMap.addListener('dragstart', clearHoverStates)
+
     newMap.addListener('zoom_changed', () => {
+      clearHoverStates()
       adjustMapTilt(newMap)
       updateMarkersOnMap()
     })
+
+    newMap.addListener('bounds_changed', clearHoverStates)
 
     const repaintRenderers = () => {
       const currentTilt = newMap.getTilt() || 0
@@ -1230,12 +1262,24 @@ const clearRouteEndpointMarkers = () => {
   routeEndpointMarkers.value = []
 }
 
-const createEndpointMarkerElement = (imgUrl: string, titleText: string) => {
+const getTipoImage = (tipoId?: number, tipoNombre?: string) => {
+  const norm = (tipoNombre || '').toLowerCase().trim()
+  if (tipoId === 6 || norm.includes('inicio') || norm.includes('start')) return rutaInicio
+  if (tipoId === 7 || norm.includes('fin') || norm.includes('end')) return rutaFin
+  if (tipoId === 2 || norm.includes('gasolinera') || norm.includes('gasolineria') || norm.includes('fuel')) return rutaGasolinera
+  if (tipoId === 3 || norm.includes('parqueadero') || norm.includes('parking')) return rutaParqueadero
+  if (tipoId === 4 || norm.includes('balanza') || norm.includes('escala') || norm.includes('weight')) return rutaBalanza
+  if (tipoId === 5 || norm.includes('control') || norm.includes('checkpoint')) return rutaPuntoControl
+  return rutaPuntoNormal
+}
+
+const createEndpointMarkerElement = (imgUrl: string, titleText: string, isNormal = false) => {
   const container = document.createElement('div')
   container.style.cssText = 'position: relative; width: 0; height: 0; pointer-events: auto; user-select: none;'
+  const size = isNormal ? 32 : 48
   container.innerHTML = `
     <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 50%); display: flex; flex-direction: column; align-items: center;" title="${titleText}">
-      <img src="${imgUrl}" style="width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.6));" />
+      <img src="${imgUrl}" style="width: ${size}px; height: ${size}px; object-fit: contain;" />
     </div>
   `
   return container
@@ -1249,6 +1293,7 @@ const routeParadasCache = new Map<string, any[]>()
 let routeRequestSeq = 0
 
 const selectItem = (item: any, isUserAction = true) => {
+  clearHoverStates()
   // Si el usuario hace clic sobre el mismo ítem seleccionado, deseleccionar
   if (
     isUserAction &&
@@ -1306,7 +1351,7 @@ watch(selectedItem, async (newVal, oldVal) => {
       routeId = String(servRef?.id_ruta || '').trim()
     }
 
-    const groupId = localStorage.getItem('auth-grupo-id') || ''
+    const groupId = (groupStore.selectedGroup?.id || (route.query.group_id as string) || localStorage.getItem('auth-grupo-id') || '').trim()
 
     console.log('[TrackingView] Ítem seleccionado:', newVal.id_servicio, '| id_ruta resuelto:', routeId || '(vacío)')
 
@@ -1318,15 +1363,13 @@ watch(selectedItem, async (newVal, oldVal) => {
         drawFullRoute(paradas, '#38bdf8')
 
         if (paradas.length >= 2 && map.value && (window as any).google?.maps) {
-          const firstP = paradas[0]
-          const lastP = paradas[paradas.length - 1]
-
-          const createMarker = (p: any, imgUrl: string, defaultTitle: string) => {
+          const createMarker = (p: any, imgUrl: string, defaultTitle: string, isNormal = false) => {
             const lat = Number(p.lat)
             const lon = Number(p.lon)
             if (isNaN(lat) || isNaN(lon)) return
 
             const title = p.nombre || p.descripcion || defaultTitle
+            const size = isNormal ? 32 : 48
             let marker: any
 
             if ((google.maps as any).marker?.AdvancedMarkerElement) {
@@ -1334,8 +1377,8 @@ watch(selectedItem, async (newVal, oldVal) => {
                 position: { lat, lng: lon },
                 map: map.value,
                 title,
-                content: createEndpointMarkerElement(imgUrl, title),
-                zIndex: 1600
+                content: createEndpointMarkerElement(imgUrl, title, isNormal),
+                zIndex: isNormal ? 1500 : 1600
               })
             } else {
               marker = new (window as any).google.maps.Marker({
@@ -1344,18 +1387,28 @@ watch(selectedItem, async (newVal, oldVal) => {
                 title,
                 icon: {
                   url: imgUrl,
-                  scaledSize: new (window as any).google.maps.Size(48, 48),
-                  anchor: new (window as any).google.maps.Point(24, 24)
+                  scaledSize: new (window as any).google.maps.Size(size, size),
+                  anchor: new (window as any).google.maps.Point(size / 2, size / 2)
                 },
-                zIndex: 1600
+                zIndex: isNormal ? 1500 : 1600
               })
             }
 
             routeEndpointMarkers.value.push(marker)
           }
 
-          createMarker(firstP, rutaInicio, 'Inicio de Ruta')
-          createMarker(lastP, rutaFin, 'Fin de Ruta')
+          paradas.forEach((p: any, idx: number) => {
+            if (idx === 0) {
+              createMarker(p, rutaInicio, 'Inicio de Ruta', false)
+            } else if (idx === paradas.length - 1) {
+              createMarker(p, rutaFin, 'Fin de Ruta', false)
+            } else {
+              const tipoId = Number(p.id_tipo_parada || p.tipo || 1)
+              const isNormal = tipoId === 1 || (!p.id_tipo_parada && !p.tipo)
+              const imgUrl = getTipoImage(tipoId, p.nombre || p.tipo_nombre)
+              createMarker(p, imgUrl, p.nombre || `Parada ${idx + 1}`, isNormal)
+            }
+          })
         }
       }
 
@@ -1435,15 +1488,52 @@ const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS') => {
   searchQuery.value = ''
 }
 
+// Al cambiar de grupo (desde el selector global de la app o por query params de la URL)
+watch(
+  [() => groupStore.selectedGroup.id, () => route.query.group_id],
+  ([newStoreGroupId, newQueryGroupId], [oldStoreGroupId, oldQueryGroupId]) => {
+    const newGroupId = ((newQueryGroupId as string)?.trim() || newStoreGroupId?.trim() || '').trim()
+    const oldGroupId = ((oldQueryGroupId as string)?.trim() || oldStoreGroupId?.trim() || '').trim()
+
+    if (newGroupId && newGroupId !== oldGroupId) {
+      clearAllMarkers()
+      routeParadasCache.clear()
+      clearHoverStates()
+      selectedItem.value = null
+      searchQuery.value = ''
+    }
+  }
+)
+
+// Canal para recibir notificaciones de cambio de grupo desde la ventana principal
+let trackingGroupChannel: BroadcastChannel | null = null
+
 onMounted(() => {
   // Los datos y las descargas ya se iniciaron en el setup; aquí solo
   // queda instanciar el mapa (requiere el contenedor del DOM).
   initMap()
+
+  // Escuchar cambios de grupo emitidos desde la ventana principal (Header.vue)
+  trackingGroupChannel = new BroadcastChannel('tracking-flota')
+  trackingGroupChannel.onmessage = (event) => {
+    if (event.data?.type === 'GROUP_CHANGED' && event.data?.groupId) {
+      const newGroupId = String(event.data.groupId).trim()
+      if (newGroupId && newGroupId !== route.query.group_id) {
+        console.log(`%c[Tracking] Grupo cambiado por broadcast: ${newGroupId}`, 'color: #a78bfa; font-weight: bold;')
+        // Actualizar el query param group_id — el watcher en useTrackingWebSocket.ts
+        // se encarga de limpiar el estado y reconectar con el nuevo grupo,
+        // preservando activeTab (y por tanto el modo del WebSocket).
+        router.replace({ query: { ...route.query, group_id: newGroupId } })
+      }
+    }
+  }
 })
 
 onUnmounted(() => {
   disconnectWebSocket()
   clearAllMarkers()
+  trackingGroupChannel?.close()
+  trackingGroupChannel = null
 })
 
 const formatServiceDateTime = (fechaStr: string | undefined) => {
@@ -1729,7 +1819,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     </div>
 
     <!-- Pestañas Superiores -->
-    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[540px] z-20">
+    <div class="absolute top-0 left-[340px] md:left-[370px] lg:left-1/2 lg:-translate-x-1/2 lg:w-[670px] z-20">
       <div class="flex items-center gap-1.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl border-x border-b border-slate-200 dark:border-slate-800 rounded-b-xl p-1.5 shadow-md transition-all duration-300">
         
         <!-- Tab: SERVICIOS -->
@@ -1789,6 +1879,41 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
           <HugeiconsIcon v-else :icon="MapsIcon" :size="14" />
           <span>{{ t('tracking.geofences') }}</span>
         </button>
+
+        <!-- Separador sutil -->
+        <div class="h-4 w-px bg-slate-200 dark:bg-slate-800 shrink-0 mx-0.5"></div>
+
+        <!-- Selector de Tipo de Mapa (Estándar vs Satélite) -->
+        <div class="flex items-center p-0.5 bg-slate-100/80 dark:bg-white/5 rounded-lg border border-slate-200/80 dark:border-white/5 shrink-0">
+          <button
+            type="button"
+            @click="setMapType('roadmap')"
+            title="Mapa Estándar Vectorial"
+            class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1"
+            :class="currentMapType === 'roadmap'
+              ? 'bg-[#3b82f6] text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+          >
+            <HugeiconsIcon :icon="MapsIcon" :size="12" />
+            <span>Estándar</span>
+          </button>
+          <button
+            type="button"
+            @click="setMapType('hybrid')"
+            title="Mapa Satélite con nombres de calles"
+            class="px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1"
+            :class="currentMapType === 'hybrid'
+              ? 'bg-[#3b82f6] text-white shadow-sm'
+              : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+          >
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3.6 9h16.8M3.6 15h16.8" />
+              <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+            </svg>
+            <span>Satélite</span>
+          </button>
+        </div>
       </div>
     </div>
 

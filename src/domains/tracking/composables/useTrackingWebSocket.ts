@@ -1,11 +1,21 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { apiClient } from '../../../utils/api-client'
+import { useGroupStore } from '../../../stores/group.store'
 import type { HardwareWs } from '../types/tracking'
+import { parseBattery } from '../../../utils/threeMarkerRenderer'
 
 export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>>, selectedItem: ReturnType<typeof ref<any | null>>, onDataUpdated: () => void) {
   const router = useRouter()
   const route = useRoute()
+  const groupStore = useGroupStore()
+
+  const getActiveGroupId = () => {
+    const queryGroupId = (route?.query?.group_id as string | undefined)?.trim()
+    if (queryGroupId) return queryGroupId
+    if (groupStore.selectedGroup?.id?.trim()) return groupStore.selectedGroup.id.trim()
+    return (localStorage.getItem('auth-grupo-id') || '').trim()
+  }
 
   const hardwareList = ref<HardwareWs[]>([])
   const serviciosList = ref<any[]>([])
@@ -78,7 +88,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   }
 
   const loadAllReferenceData = async () => {
-    const groupId = localStorage.getItem('auth-grupo-id') || ''
+    const groupId = getActiveGroupId()
     if (!groupId) return
     // Mostrar el skeleton de la pestaña SERVICIOS mientras no haya datos
     const showLoading = activeTab.value === 'SERVICIOS' && serviciosList.value.length === 0
@@ -155,7 +165,8 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   }
 
   const loadSecondaryData = async () => {
-    const groupId = localStorage.getItem('auth-grupo-id') || ''
+    const groupId = getActiveGroupId()
+    if (!groupId) return
     isLoadingSecondary.value = true
     try {
       if (activeTab.value === 'SERVICIOS') {
@@ -233,10 +244,15 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     const queryGroupId = route?.query?.group_id as string | undefined
 
     if (queryToken) localStorage.setItem('auth-token-ws', queryToken.trim())
-    if (queryGroupId) localStorage.setItem('auth-grupo-id', queryGroupId.trim())
+    if (queryGroupId) {
+      localStorage.setItem('auth-grupo-id', queryGroupId.trim())
+      if (groupStore.selectedGroup.id !== queryGroupId.trim()) {
+        groupStore.setGroup({ id: queryGroupId.trim(), nombre: groupStore.selectedGroup.nombre || '' })
+      }
+    }
 
     const tokenWs = localStorage.getItem('auth-token-ws') || ''
-    const groupId = localStorage.getItem('auth-grupo-id') || ''
+    const groupId = getActiveGroupId()
 
     if (!tokenWs || !groupId) {
       wsStatus.value = 'disconnected'
@@ -392,7 +408,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                           time_fx: a.fecha_hora || Date.now(),
                           speed: 0,
                           course: 0,
-                          battery: 0,
+                          battery: parseBattery(a.battery),
                           status_lock: ''
                         })
                       }
@@ -546,6 +562,36 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
       disconnectWebSocket()
     }
   })
+
+  // Reacción dinámica cuando cambia el grupo seleccionado en la aplicación o en la URL
+  watch(
+    [() => groupStore.selectedGroup.id, () => route.query.group_id],
+    ([newStoreGroupId, newQueryGroupId], [oldStoreGroupId, oldQueryGroupId]) => {
+      const newGroupId = ((newQueryGroupId as string)?.trim() || newStoreGroupId?.trim() || '').trim()
+      const oldGroupId = ((oldQueryGroupId as string)?.trim() || oldStoreGroupId?.trim() || '').trim()
+
+      if (newGroupId && newGroupId !== oldGroupId) {
+        console.log(`%c[WebSocket GRUPO CAMBIADO] De "${oldGroupId}" a "${newGroupId}"`, 'color: #8b5cf6; font-weight: bold;')
+        localStorage.setItem('auth-grupo-id', newGroupId)
+
+        // Limpiar listas anteriores para evitar mezclar datos de grupos
+        hardwareList.value = []
+        serviciosList.value = []
+        escoltasList.value = []
+        vehiculosList.value = []
+        refServicios.value = []
+        refEscoltas.value = []
+        refVehiculos.value = []
+        refRutas.value = []
+        refHardware.value = []
+        selectedItem.value = null
+
+        // Reconectar WS y recargar datos de referencia para el nuevo grupo
+        connectWebSocket(true)
+        loadAllReferenceData()
+      }
+    }
+  )
 
   onUnmounted(() => {
     disconnectWebSocket()

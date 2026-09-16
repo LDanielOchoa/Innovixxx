@@ -30,10 +30,10 @@ import { CookieAuth } from '../../utils/cookie-auth'
 import { obtenerUrlImagen } from '../../utils/imagenes'
 import { loadModuleMessages } from '../../i18n'
 
-// Components
 import BaseModal from '../common/BaseModal.vue'
 import AppInput from '../ui/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
+import { useToast } from 'primevue/usetoast'
 
 // ==========================================
 // COMPONENT SETUP (PROPS & EMITS)
@@ -68,6 +68,7 @@ const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
+const toast = useToast()
 
 // ==========================================
 // REACTIVE STATE
@@ -237,16 +238,15 @@ const handleSaveProfile = async () => {
         }
       }
 
-      modalMessage.value = { text: response.message || t('common.successUpdate'), type: 'success' }
+      toast.add({
+        severity: 'success',
+        summary: t('common.success', 'Éxito'),
+        detail: response.message || t('common.successUpdate'),
+        life: 4000
+      })
       
       emit('profileUpdated')
-      
-      // Autoclear success message after 5 seconds
-      setTimeout(() => {
-        if (modalMessage.value?.type === 'success') {
-          modalMessage.value = null
-        }
-      }, 5000)
+      emit('update:isOpen', false)
     } else {
       modalMessage.value = { text: response.message || t('common.error'), type: 'error' }
     }

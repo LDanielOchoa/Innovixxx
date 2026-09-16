@@ -208,7 +208,6 @@ const handleClose = () => {
     @update:is-open="handleClose"
     @close="handleClose"
     @confirm="handleAsignar"
-    :close-on-click-outside="!asignando"
     :title="t('escoltas.modalTitleAssignHardware')"
     :confirm-text="t('escoltas.btnConfirmSelection')"
     size="xl"

@@ -100,7 +100,9 @@ const {
   isLoadingMap,
   mapLoadError,
   initMap,
-  startDarkModeObserver
+  startDarkModeObserver,
+  currentMapType,
+  setMapType
 } = useMapSetup('geocercas-map-container', {
   defaultZoom: 12,
   gestureHandling: 'greedy'
@@ -122,7 +124,8 @@ const initializeMap = async (googleMapsApi: any) => {
       this.position = position
       this.element = document.createElement('div')
       this.element.style.position = 'absolute'
-      this.element.style.transform = 'translate(-50%, -50%) scale(1)'
+      this.element.style.transformOrigin = 'bottom center'
+      this.element.style.transform = 'translate(-50%, calc(-100% - 8px)) scale(1)'
       this.element.style.background = 'rgba(15, 23, 42, 0.9)'
       this.element.style.backdropFilter = 'blur(4px)'
       this.element.style.border = `1.5px solid ${color}`
@@ -176,7 +179,7 @@ const initializeMap = async (googleMapsApi: any) => {
             opacity = 0
           }
 
-          this.element.style.transform = `translate(-50%, -50%) scale(${scale})`
+          this.element.style.transform = `translate(-50%, calc(-100% - 8px)) scale(${scale})`
           this.element.style.opacity = String(opacity)
         }
       }
@@ -299,7 +302,7 @@ const drawAllGeocercas = async () => {
     detalles.forEach(detalle => {
       if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
       const color = detalle.color || '#3b82f6'
-      let centerLatLng: any = null
+      let bounds: any = null
 
       if (detalle.tipo === 'Circular') {
         const p = detalle.puntos[0]
@@ -316,7 +319,7 @@ const drawAllGeocercas = async () => {
           radius
         })
         allDrawings.value.push(circle)
-        centerLatLng = center
+        bounds = circle.getBounds()
       } else {
         const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
         const polygon = new (window as any).google.maps.Polygon({
@@ -330,24 +333,32 @@ const drawAllGeocercas = async () => {
         })
         allDrawings.value.push(polygon)
         const polyBounds = new (window as any).google.maps.LatLngBounds()
-        paths.forEach(p => {
-          polyBounds.extend(p)
-        })
-        centerLatLng = polyBounds.getCenter()
+        paths.forEach(p => polyBounds.extend(p))
+        bounds = polyBounds
       }
 
-      if (centerLatLng && map.value && CustomLabelOverlay) {
-        const position = new (window as any).google.maps.LatLng(
-          typeof centerLatLng.lat === 'function' ? centerLatLng.lat() : centerLatLng.lat,
-          typeof centerLatLng.lng === 'function' ? centerLatLng.lng() : centerLatLng.lng
+      if (bounds && map.value && CustomLabelOverlay) {
+        const topPosition = new (window as any).google.maps.LatLng(
+          bounds.getNorthEast().lat(),
+          bounds.getCenter().lng()
         )
-        const labelOverlay = new CustomLabelOverlay(position, detalle.nombre, color)
+        const labelOverlay = new CustomLabelOverlay(topPosition, detalle.nombre, color)
         labelOverlay.setMap(map.value)
         allDrawings.value.push(labelOverlay)
       }
     })
   } catch (e) {
     console.error(e)
+  }
+}
+
+const getMapPadding = () => {
+  const isDesktop = window.innerWidth >= 768
+  return {
+    top: 120,
+    right: 80,
+    bottom: 120,
+    left: isDesktop ? 440 : 60
   }
 }
 
@@ -362,8 +373,14 @@ const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number 
     if (dist < 2000 && startZoom >= 13) {
       mapInstance.panTo(targetLatLng)
       setTimeout(() => {
-        if (bounds) mapInstance.fitBounds(bounds)
-        else mapInstance.setZoom(targetZoom)
+        if (bounds) {
+          mapInstance.fitBounds(bounds, getMapPadding())
+          if (mapInstance.getZoom() > 15) {
+            mapInstance.setZoom(15)
+          }
+        } else if (targetZoom) {
+          mapInstance.setZoom(targetZoom)
+        }
         resolve()
       }, 500)
       return
@@ -412,7 +429,10 @@ const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number 
       } else {
         mapInstance.setCenter(targetLatLng)
         if (bounds) {
-          mapInstance.fitBounds(bounds)
+          mapInstance.fitBounds(bounds, getMapPadding())
+          if (mapInstance.getZoom() > 15) {
+            mapInstance.setZoom(15)
+          }
         } else if (targetZoom) {
           mapInstance.setZoom(targetZoom)
         }
@@ -450,7 +470,7 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
       const radius = parseFloat(p.radio || '0')
       
       // 1. Dibujar la figura primero
-      currentDrawing.value = new (window as any).google.maps.Circle({
+      const circle = new (window as any).google.maps.Circle({
         strokeColor: color,
         strokeOpacity: 0.8,
         strokeWeight: 2,
@@ -460,17 +480,22 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         center: center,
         radius: radius
       })
+      currentDrawing.value = circle
+      const bounds = circle.getBounds()
 
-      // Dibujar etiqueta
-      if (CustomLabelOverlay) {
-        const position = new (window as any).google.maps.LatLng(center.lat, center.lng)
-        selectedLabelOverlay.value = new CustomLabelOverlay(position, detalle.nombre, color)
+      // Dibujar etiqueta arriba del trazo
+      if (CustomLabelOverlay && bounds) {
+        const topPosition = new (window as any).google.maps.LatLng(
+          bounds.getNorthEast().lat(),
+          bounds.getCenter().lng()
+        )
+        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
         selectedLabelOverlay.value.setMap(map.value)
       }
       
-      // 2. Vuelo parabólico personalizado
+      // 2. Vuelo parabólico personalizado con bounds
       const targetLatLng = new (window as any).google.maps.LatLng(center.lat, center.lng)
-      await flyToMap(map.value, targetLatLng, 15)
+      await flyToMap(map.value, targetLatLng, 15, bounds)
       
     } else if (detalle.tipo === 'Poligonal' && detalle.puntos && detalle.puntos.length > 0) {
       const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
@@ -488,18 +513,18 @@ const onGeocercaClick = async (geocerca: Geocerca) => {
         map: map.value
       })
 
-      // Dibujar etiqueta
-      const center = bounds.getCenter()
+      // Dibujar etiqueta arriba del trazo
       if (CustomLabelOverlay) {
-        const position = new (window as any).google.maps.LatLng(
-          typeof center.lat === 'function' ? center.lat() : center.lat,
-          typeof center.lng === 'function' ? center.lng() : center.lng
+        const topPosition = new (window as any).google.maps.LatLng(
+          bounds.getNorthEast().lat(),
+          bounds.getCenter().lng()
         )
-        selectedLabelOverlay.value = new CustomLabelOverlay(position, detalle.nombre, color)
+        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
         selectedLabelOverlay.value.setMap(map.value)
       }
       
       // 2. Vuelo parabólico hacia el centro del polígono
+      const center = bounds.getCenter()
       await flyToMap(map.value, center, 15, bounds)
     }
     
@@ -582,6 +607,38 @@ const handleDeleteGeocerca = async () => {
         class="absolute inset-0 z-0"
         style="width:100%;height:100%;"
       ></div>
+
+      <!-- Selector de Tipo de Mapa Flotante en Geocercas -->
+      <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
+        <button
+          type="button"
+          @click="setMapType('roadmap')"
+          title="Mapa Estándar Vectorial"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'roadmap'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <HugeiconsIcon :icon="MapsIcon" :size="13" />
+          <span>Estándar</span>
+        </button>
+        <button
+          type="button"
+          @click="setMapType('hybrid')"
+          title="Mapa Satélite con etiquetas"
+          class="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+          :class="currentMapType === 'hybrid'
+            ? 'bg-[#3b82f6] text-white shadow-sm'
+            : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'"
+        >
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3.6 9h16.8M3.6 15h16.8" />
+            <path d="M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18" />
+          </svg>
+          <span>Satélite</span>
+        </button>
+      </div>
 
       <!-- Map Loading State -->
       <Transition name="fade-overlay">
