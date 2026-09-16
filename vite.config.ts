@@ -40,7 +40,7 @@ export default defineConfig({
         secure: true
       },
       '/media': {
-        target: 'https://innovix.gfandino.xyz',
+        target: 'https://admin.innovixing.com',
         changeOrigin: true,
         secure: true
       }
