@@ -130,6 +130,7 @@ export const serviciosMessages = {
 
     // Acciones y botones
     btnAssign: 'Asignar Recursos',
+    btnAssignProvisional: 'Asignar Recursos Provisional',
     btnChangeRoute: 'Cambiar Ruta',
     btnUpdateEscort: 'Actualizar Escolta',
     btnUpdateVehicles: 'Actualizar Vehículos',
@@ -157,6 +158,7 @@ export const serviciosMessages = {
     btnConfirmSelection: 'Confirmar Selección',
     btnConfirmRoute: 'Confirmar Ruta',
     btnConfirmAssignment: 'Confirmar Asignación',
+    btnConfirmProvisionalAssignment: 'Confirmar Asignación Provisional',
     btnSelectAll: 'Todos',
     btnClearAll: 'Limpiar',
     viewPhotos: 'Ver fotos',
@@ -168,6 +170,20 @@ export const serviciosMessages = {
     enlarge: 'Ampliar',
     download: 'Descargar',
     downloadPhoto: 'Descargar fotografía',
+
+    // Modal Asignar Recursos Provisional
+    modalTitleAssignProvisional: 'Asignación Provisional de Recursos',
+    assigningProvisionalResources: 'Asignando Recursos Provisionales...',
+    provisionalAssignmentDesc: 'Asigna directamente hardware y escoltas al servicio de manera provisional.',
+    provisionalInfoBanner: 'Preasigna dispositivos GPS y escoltas al servicio en estado precarga antes de su despacho definitivo.',
+    provisionalHardwareSubtitle: 'Dispositivos de hardware asociados provisionalmente.',
+    provisionalEscortsSubtitle: 'Personal de escolta asignado provisionalmente.',
+    availableHardwareCount: '{count} dispositivos seleccionados',
+    availableEscortsCount: '{count} escoltas seleccionados',
+    provisionalRequiredError: 'Debes seleccionar al menos un dispositivo de hardware o un escolta.',
+    badgePreassigned: 'Preasignado',
+    toastAssignedProvisionalSuccess: 'Asignación Provisional Exitosa',
+    toastAssignedProvisionalDetail: 'Los recursos provisionales han sido asignados al servicio exitosamente.',
 
     // Modal Crear Servicio
     modalTitleCreate: 'Registrar Servicio',
@@ -544,6 +560,7 @@ export const serviciosMessages = {
 
     // Actions and buttons
     btnAssign: 'Assign Resources',
+    btnAssignProvisional: 'Assign Provisional Resources',
     btnChangeRoute: 'Change Route',
     btnUpdateEscort: 'Update Escort',
     btnUpdateVehicles: 'Update Vehicles',
@@ -571,6 +588,7 @@ export const serviciosMessages = {
     btnConfirmSelection: 'Confirm Selection',
     btnConfirmRoute: 'Confirm Route',
     btnConfirmAssignment: 'Confirm Assignment',
+    btnConfirmProvisionalAssignment: 'Confirm Provisional Assignment',
     btnSelectAll: 'All',
     btnClearAll: 'Clear',
     viewPhotos: 'View photos',
@@ -582,6 +600,20 @@ export const serviciosMessages = {
     enlarge: 'Enlarge',
     download: 'Download',
     downloadPhoto: 'Download photo',
+
+    // Modal Assign Provisional Resources
+    modalTitleAssignProvisional: 'Provisional Resource Assignment',
+    assigningProvisionalResources: 'Assigning Provisional Resources...',
+    provisionalAssignmentDesc: 'Directly assign hardware and escorts to the service on a provisional basis.',
+    provisionalInfoBanner: 'Pre-assign GPS devices and escorts to the service in preload status prior to final dispatch.',
+    provisionalHardwareSubtitle: 'Hardware devices provisionally associated.',
+    provisionalEscortsSubtitle: 'Escort personnel provisionally assigned.',
+    availableHardwareCount: '{count} devices selected',
+    availableEscortsCount: '{count} escorts selected',
+    provisionalRequiredError: 'You must select at least one hardware device or escort.',
+    badgePreassigned: 'Pre-assigned',
+    toastAssignedProvisionalSuccess: 'Provisional Assignment Successful',
+    toastAssignedProvisionalDetail: 'Provisional resources have been assigned to the service successfully.',
 
     // Modal Create Service
     modalTitleCreate: 'Register Service',

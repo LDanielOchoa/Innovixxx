@@ -1,4 +1,4 @@
-import type { Ruta, RutaCreatePayload, RutaUpdatePayload, TipoParada, RutaDetalle } from '../types/ruta'
+import type { Ruta, RutaCreatePayload, RutaUpdatePayload, RutaHeredarTrazadoPayload, TipoParada, RutaDetalle } from '../types/ruta'
 import { apiClient } from '../../../utils/api-client'
 
 interface BackendResponse<T> {
@@ -51,6 +51,14 @@ export const setRutaEstadoApi = async (id_grupo: string, id_ruta: string, habili
 
 export const updateRutaApi = async (payload: RutaUpdatePayload): Promise<{ done: boolean; message?: string }> => {
   const data = await apiClient<BackendResponse<null>>('/api/v1/ruta/actualizar/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  return { done: Boolean(data?.done), message: data?.message }
+}
+
+export const heredarTrazadoRutaApi = async (payload: RutaHeredarTrazadoPayload): Promise<{ done: boolean; message?: string }> => {
+  const data = await apiClient<BackendResponse<null>>('/api/v1/ruta/heredar_trazado/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })

@@ -35,7 +35,7 @@ export default defineConfig({
         rewrite: (path: string) => path.replace(/^\/ws-flota/, '')
       },
       '/api': {
-        target: 'https://innovix.gfandino.xyz',
+        target: 'https://admin.innovixing.com',
         changeOrigin: true,
         secure: true
       },

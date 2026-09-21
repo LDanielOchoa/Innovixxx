@@ -22,7 +22,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 import {
-  fetchServicioDashboardApi,
+  fetchServiciosApi,
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
   crearReporteServicioApi
@@ -44,6 +44,7 @@ import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
 import ServicioCreateModal from '../components/ServicioCreateModal.vue'
 import ServicioAsignarRecursosModal from '../components/ServicioAsignarRecursosModal.vue'
+import ServicioAsignarRecursosProvisionalModal from '../components/ServicioAsignarRecursosProvisionalModal.vue'
 import ServicioCambiarRutaModal from '../components/ServicioCambiarRutaModal.vue'
 import ServicioActualizarEscoltaModal from '../components/ServicioActualizarEscoltaModal.vue'
 import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVehiculosModal.vue'
@@ -132,8 +133,8 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 
 // Modales consolidados
-const activeModal = ref<'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | null>(null)
-const selectedServicio = ref<ServicioDashboard | null>(null)
+const activeModal = ref<'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | null>(null)
+const selectedServicio = ref<Servicio | ServicioDashboard | null>(null)
 
 const isCreateModalOpen = computed({
   get: () => activeModal.value === 'create',
@@ -141,6 +142,10 @@ const isCreateModalOpen = computed({
 })
 const isAsignarModalOpen = computed({
   get: () => activeModal.value === 'assign',
+  set: (val) => { if (!val) activeModal.value = null }
+})
+const isProvisionalModalOpen = computed({
+  get: () => activeModal.value === 'provisional',
   set: (val) => { if (!val) activeModal.value = null }
 })
 const isCambiarRutaModalOpen = computed({
@@ -168,7 +173,7 @@ const isCambiarEstadoModalOpen = computed({
   set: (val) => { if (!val) activeModal.value = null }
 })
 
-const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status', servicio: ServicioDashboard | null = null) => {
+const openModal = (tipo: 'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status', servicio: Servicio | ServicioDashboard | null = null) => {
   closeMenu()
   selectedServicio.value = servicio
   activeModal.value = tipo
@@ -176,10 +181,10 @@ const openModal = (tipo: 'create' | 'assign' | 'route' | 'escort' | 'vehicles' |
 
 // Menú de acciones
 const openMenuId = ref<string | null>(null)
-const activeMenuServicio = ref<ServicioDashboard | null>(null)
+const activeMenuServicio = ref<Servicio | ServicioDashboard | null>(null)
 const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
 
-const toggleMenu = (servicio: ServicioDashboard, event: MouseEvent) => {
+const toggleMenu = (servicio: Servicio | ServicioDashboard, event: MouseEvent) => {
   if (openMenuId.value === servicio.id_servicio) {
     closeMenu()
     return
@@ -251,12 +256,12 @@ const getEscoltaLabel = (): string => {
 }
 
 const getEstadoLabel = (): string => {
-  if (!filtros.value.estado) return t('servicios.selectStatePrompt')
+  if (filtros.value.estado === 0) return t('servicios.stateAll')
   return SERVICIO_ESTADOS_LABELS[filtros.value.estado] || t('servicios.selectStatePrompt')
 }
 
 const estadoOptions = computed(() => [
-  { value: 0, label: t('servicios.selectStatePrompt') },
+  { value: 0, label: t('servicios.stateAll') },
   { value: 1, label: t('servicios.statePreload') },
   { value: 2, label: t('servicios.stateWaiting') },
   { value: 3, label: t('servicios.stateExecOk') },
@@ -265,7 +270,7 @@ const estadoOptions = computed(() => [
   { value: 6, label: t('servicios.stateCancelled') }
 ])
 
-const isServicioFinalizado = (servicio: ServicioDashboard | null): boolean => {
+const isServicioFinalizado = (servicio: Servicio | ServicioDashboard | null): boolean => {
   if (!servicio) return false
   const label = obtenerLabelEstado(servicio.estado)
   return label === 'FINALIZADO' ||
@@ -273,7 +278,16 @@ const isServicioFinalizado = (servicio: ServicioDashboard | null): boolean => {
          String(servicio.estado).toUpperCase() === 'FINALIZADO'
 }
 
-const descargarReporteFinal = async (servicio: ServicioDashboard) => {
+const esServicioPrerecarga = (servicio: Servicio | ServicioDashboard | null): boolean => {
+  if (!servicio) return false
+  const label = obtenerLabelEstado(servicio.estado)
+  return label === 'PRERCARGA' ||
+         Number(servicio.estado) === SERVICIO_ESTADOS.PRERCARGA ||
+         String(servicio.estado).toUpperCase() === 'PRERCARGA' ||
+         String(servicio.estado) === '1'
+}
+
+const descargarReporteFinal = async (servicio: Servicio | ServicioDashboard) => {
   if (!selectedGroup.value?.id || !servicio?.id_servicio) return
   closeMenu()
   isDownloadingReporte.value = servicio.id_servicio
@@ -455,27 +469,21 @@ const fetchServicios = async () => {
     return
   }
 
-  if (!filtros.value.estado) {
-    servicios.value = []
-    isLoading.value = false
-    return
-  }
-
   isLoading.value = true
   try {
-    const payload = {
+    const payload: ServicioListPayload = {
       id_grupo: selectedGroup.value.id,
-      id_servicio: 'all',
-      estado: filtros.value.estado
+      estado: filtros.value.estado,
+      fecha_registro_inicial: filtros.value.fecha_registro_inicial,
+      fecha_registro_final: filtros.value.fecha_registro_final,
+      id_ruta: filtros.value.id_ruta,
+      id_escolta: filtros.value.id_escolta
     }
-    const respuesta = await fetchServicioDashboardApi(payload)
-    if (respuesta.done && respuesta.data?.servicios) {
-      servicios.value = respuesta.data.servicios
-    } else {
-      servicios.value = []
-    }
+    const respuesta = await fetchServiciosApi(payload)
+    servicios.value = Array.isArray(respuesta) ? respuesta : []
   } catch (error) {
     console.error('Error al cargar servicios:', error)
+    servicios.value = []
   } finally {
     isLoading.value = false
   }
@@ -749,7 +757,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Estado Dropdown -->
-        <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[140px] flex-1 sm:flex-initial">
+        <div ref="estadoDropdownRef" class="relative w-full sm:w-auto min-w-[150px] flex-1 sm:flex-initial">
           <button
             @click.stop="toggleDropdown('estado')"
             class="w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#13161C]/70 border border-slate-200/70 dark:border-white/[0.08] text-xs font-semibold text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-all h-[38px] cursor-pointer select-none"
@@ -766,7 +774,7 @@ onUnmounted(() => {
           <Transition name="custom-dropdown">
             <div
               v-if="activeDropdown === 'estado'"
-              class="absolute left-0 right-0 z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden max-h-[220px] overflow-y-auto custom-scrollbar"
+              class="absolute left-0 right-0 sm:min-w-[160px] z-50 mt-1.5 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
             >
               <button
                 v-for="opt in estadoOptions"
@@ -828,7 +836,7 @@ onUnmounted(() => {
         :rows="itemsPerPage"
         :first="(currentPage - 1) * itemsPerPage"
         removableSort
-        :empty-message="filtros.estado !== 0 ? `${t('servicios.noServicesInState')} ${getEstadoLabel()}` : t('servicios.selectStatePrompt')"
+        :empty-message="filtros.estado !== 0 ? `${t('servicios.noServicesInState')} ${getEstadoLabel()}` : t('servicios.noResults')"
       >
         <template #empty-icon>
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
@@ -1034,12 +1042,20 @@ onUnmounted(() => {
             }"
           >
             <button
-              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES)"
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
               @click="openModal('assign', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('servicios.btnAssign') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
+              @click="openModal('provisional', activeMenuServicio)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-amber-500 dark:text-amber-400" />
+              <span>{{ t('servicios.btnAssignProvisional') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_ROUTE)"
@@ -1117,6 +1133,12 @@ onUnmounted(() => {
 
     <ServicioAsignarRecursosModal
       v-model:is-open="isAsignarModalOpen"
+      :servicio="selectedServicio"
+      @assigned="fetchServicios"
+    />
+
+    <ServicioAsignarRecursosProvisionalModal
+      v-model:is-open="isProvisionalModalOpen"
       :servicio="selectedServicio"
       @assigned="fetchServicios"
     />

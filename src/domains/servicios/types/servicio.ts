@@ -6,6 +6,9 @@ export interface Servicio {
   nivel_riesgo: string
   estado: string
   id_ruta: string
+  rutas?: string[]
+  vehiculos?: ServicioDashboardVehiculo | Record<string, string[]>
+  escoltas?: string[]
 }
 
 export interface ServicioListPayload {
@@ -266,3 +269,27 @@ export interface ServicioCrearReporteResponse {
     cache?: boolean
   }
 }
+
+export interface ServicioAsignarRecursosProvisionalPayload {
+  id_grupo: string
+  id_servicio: string
+  hardware: string[]
+  escoltas: string[]
+}
+
+export interface ServicioVerRecursosProvisionalesPayload {
+  id_grupo: string
+  id_servicio: string
+}
+
+export interface ServicioVerRecursosProvisionalesData {
+  hardware: string[]
+  escoltas: string[]
+}
+
+export interface ServicioVerRecursosProvisionalesResponse {
+  message: string
+  done: boolean
+  data: ServicioVerRecursosProvisionalesData
+}
+

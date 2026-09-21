@@ -46,6 +46,7 @@ import {
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
   fetchEscoltasSimplesApi,
+  fetchRecursosProvisionalesServicioApi,
   asignarRecursosServicioApi
 } from '../services/servicios.api'
 import type {
@@ -109,9 +110,11 @@ const selectedVehiculosIds = ref<string[]>([])
 const inicialesVehiculosIds = ref<string[]>([])
 const vehiculosHardware = ref<Record<string, string[]>>({})
 const inicialesHardwareIds = ref<string[]>([])
+const preasignadosHardwareIds = ref<string[]>([])
 const vehiculoAsignandoHardware = ref<string | null>(null)
 const selectedEscoltasIds = ref<string[]>([])
 const inicialesEscoltasIds = ref<string[]>([])
+const preasignadosEscoltasIds = ref<string[]>([])
 
 // Panel activo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null
 const panelActivo = ref<'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null>(null)
@@ -178,24 +181,40 @@ const filteredVehiculos = computed(() => {
   )
 })
 
-// Filtrado reactivo de hardware por búsqueda
+// Filtrado reactivo de hardware por búsqueda ordenando preasignados primero
 const filteredHardware = computed(() => {
   const q = searchHardwareQuery.value.toLowerCase().trim()
-  if (!q) return hardware.value
-  return hardware.value.filter(h =>
-    h.nombre.toLowerCase().includes(q) ||
-    h.familia.toLowerCase().includes(q)
-  )
+  let list = hardware.value
+  if (q) {
+    list = list.filter(h =>
+      (h.nombre && h.nombre.toLowerCase().includes(q)) ||
+      (h.familia && h.familia.toLowerCase().includes(q)) ||
+      h.id_hardware.toLowerCase().includes(q)
+    )
+  }
+  return [...list].sort((a, b) => {
+    const aPre = preasignadosHardwareIds.value.includes(a.id_hardware) ? 1 : 0
+    const bPre = preasignadosHardwareIds.value.includes(b.id_hardware) ? 1 : 0
+    return bPre - aPre
+  })
 })
 
-// Filtrado reactivo de escoltas por búsqueda
+// Filtrado reactivo de escoltas por búsqueda ordenando preasignados primero
 const filteredEscoltas = computed(() => {
   const q = searchEscoltasQuery.value.toLowerCase().trim()
-  if (!q) return escoltas.value
-  return escoltas.value.filter(e =>
-    e.nombre.toLowerCase().includes(q) ||
-    e.celular.toLowerCase().includes(q)
-  )
+  let list = escoltas.value
+  if (q) {
+    list = list.filter(e =>
+      (e.nombre && e.nombre.toLowerCase().includes(q)) ||
+      (e.celular && e.celular.toLowerCase().includes(q)) ||
+      e.id_escolta.toLowerCase().includes(q)
+    )
+  }
+  return [...list].sort((a, b) => {
+    const aPre = preasignadosEscoltasIds.value.includes(a.id_escolta) ? 1 : 0
+    const bPre = preasignadosEscoltasIds.value.includes(b.id_escolta) ? 1 : 0
+    return bPre - aPre
+  })
 })
 
 // Calcula la posición del panel al lado derecho del modal usando el botón disparador
@@ -333,7 +352,10 @@ watch(() => props.isOpen, async (isOpen) => {
       }
     }
 
-    // Carga paralela de todos los recursos simples necesarios
+    // Carga paralela de todos los recursos simples necesarios y preasignaciones
+    preasignadosHardwareIds.value = []
+    preasignadosEscoltasIds.value = []
+
     if (groupStore.selectedGroup?.id) {
       loadingRutas.value = true
       loadingVehiculos.value = true
@@ -341,16 +363,31 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingEscoltas.value = true
 
       try {
-        const resultados = await Promise.allSettled([
+        const promesas: Promise<any>[] = [
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
           fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
           fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
-        ])
+        ]
+
+        if (props.servicio?.id_servicio) {
+          promesas.push(
+            fetchRecursosProvisionalesServicioApi({
+              id_grupo: groupStore.selectedGroup.id,
+              id_servicio: props.servicio.id_servicio
+            })
+          )
+        }
+
+        const resultados = await Promise.allSettled(promesas)
         if (resultados[0].status === 'fulfilled') rutas.value = resultados[0].value
         if (resultados[1].status === 'fulfilled') vehiculos.value = resultados[1].value
         if (resultados[2].status === 'fulfilled') hardware.value = resultados[2].value
         if (resultados[3].status === 'fulfilled') escoltas.value = resultados[3].value
+        if (resultados[4] && resultados[4].status === 'fulfilled' && resultados[4].value?.data) {
+          preasignadosHardwareIds.value = resultados[4].value.data.hardware || []
+          preasignadosEscoltasIds.value = resultados[4].value.data.escoltas || []
+        }
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
       } finally {
@@ -1339,21 +1376,33 @@ const formatFechaHora = (date: Date | null): string => {
               class="panel-row group/row"
               :class="[
                 currentHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off',
-                (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+                (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : '',
+                !currentHardwareIds.includes(h.id_hardware) && preasignadosHardwareIds.includes(h.id_hardware) ? '!border-amber-500/40 bg-amber-500/[0.04]' : ''
               ]"
             >
               <div
                 class="panel-row-dot shrink-0"
                 :class="[
                   currentHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                  (obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))) && !currentHardwareIds.includes(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : '',
+                  !currentHardwareIds.includes(h.id_hardware) && preasignadosHardwareIds.includes(h.id_hardware) ? '!border-amber-500/50' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="currentHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
                 <HugeiconsIcon v-else-if="obtenerVehiculoAsociadoAHardware(h.id_hardware) || (h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware))" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+                <div v-else-if="preasignadosHardwareIds.includes(h.id_hardware)" class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
-                <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="text-[12px] font-semibold truncate leading-snug">{{ h.nombre }}</span>
+                  <span
+                    v-if="preasignadosHardwareIds.includes(h.id_hardware)"
+                    class="inline-flex items-center gap-1 font-bold text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0"
+                  >
+                    <HugeiconsIcon :icon="CpuIcon" :size="9" />
+                    {{ t('servicios.badgePreassigned') }}
+                  </span>
+                </div>
                 <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1 gap-1">
                   <span class="text-slate-400 dark:text-slate-500 flex items-center gap-1.5 min-w-0 truncate">
                     <span class="truncate">{{ h.familia || t('servicios.noHardwareAssigned') }}</span>
@@ -1387,21 +1436,33 @@ const formatFechaHora = (date: Date | null): string => {
               class="panel-row group/row"
               :class="[
                 selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row--on' : 'panel-row--off',
-                e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? 'opacity-50 cursor-not-allowed' : ''
+                e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? 'opacity-50 cursor-not-allowed' : '',
+                !selectedEscoltasIds.includes(e.id_escolta) && preasignadosEscoltasIds.includes(e.id_escolta) ? '!border-amber-500/40 bg-amber-500/[0.04]' : ''
               ]"
             >
               <div
                 class="panel-row-dot shrink-0"
                 :class="[
                   selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                  e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? '!bg-amber-500/20 !border-amber-500/30' : '',
+                  !selectedEscoltasIds.includes(e.id_escolta) && preasignadosEscoltasIds.includes(e.id_escolta) ? '!border-amber-500/50' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="selectedEscoltasIds.includes(e.id_escolta)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
                 <HugeiconsIcon v-else-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+                <div v-else-if="preasignadosEscoltasIds.includes(e.id_escolta)" class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
-                <span class="text-[12px] font-semibold truncate leading-snug">{{ e.nombre }}</span>
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="text-[12px] font-semibold truncate leading-snug">{{ e.nombre }}</span>
+                  <span
+                    v-if="preasignadosEscoltasIds.includes(e.id_escolta)"
+                    class="inline-flex items-center gap-1 font-bold text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-500 dark:text-amber-400 border border-amber-500/30 shrink-0"
+                  >
+                    <HugeiconsIcon :icon="User02Icon" :size="9" />
+                    {{ t('servicios.badgePreassigned') }}
+                  </span>
+                </div>
                 <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1">
                   <span
                     class="font-mono transition-colors duration-200"

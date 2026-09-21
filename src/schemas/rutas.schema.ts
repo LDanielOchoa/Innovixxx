@@ -11,6 +11,7 @@ export const createRutaSchema = z.object({
   nombre: z.string().min(2, 'El nombre es requerido').max(100),
   descripcion: z.string().min(2, 'La descripción es requerida').max(500),
   color: z.string().default('#3b82f6'),
+  optimizar: z.boolean().optional(),
   paradas: z.array(puntoSchema).min(2, 'La ruta debe tener al menos 2 paradas')
 })
 
@@ -20,6 +21,7 @@ export const updateRutaSchema = z.object({
   nombre: z.string().min(2, 'El nombre es requerido').max(100),
   descripcion: z.string().min(2, 'La descripción es requerida').max(500),
   color: z.string(),
+  optimizar: z.boolean().optional(),
   paradas: z.array(puntoSchema).min(2, 'La ruta debe tener al menos 2 paradas')
 })
 

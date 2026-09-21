@@ -34,6 +34,7 @@ export interface RutaDetalle {
   created_at: string
   updated_at: string
   is_active: boolean
+  optimizar?: boolean
   paradas: ParadaDetalle[]
 }
 
@@ -42,6 +43,7 @@ export interface RutaCreatePayload {
   nombre: string
   descripcion: string
   color?: string
+  optimizar?: boolean
   paradas?: ParadaPayload[]
 }
 
@@ -51,5 +53,13 @@ export interface RutaUpdatePayload {
   nombre: string
   descripcion: string
   color: string
+  optimizar?: boolean
   paradas: ParadaPayload[]
 }
+
+export interface RutaHeredarTrazadoPayload {
+  id_grupo: string
+  id_ruta_origen: string
+  id_ruta_destino: string
+}
+

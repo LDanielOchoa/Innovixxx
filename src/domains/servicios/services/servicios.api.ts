@@ -22,7 +22,10 @@ import type {
   ServicioEventoListResponse,
   ServicioEventoCreatePayload,
   ServicioCrearReportePayload,
-  ServicioCrearReporteResponse
+  ServicioCrearReporteResponse,
+  ServicioAsignarRecursosProvisionalPayload,
+  ServicioVerRecursosProvisionalesPayload,
+  ServicioVerRecursosProvisionalesResponse
 } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
@@ -276,6 +279,21 @@ export const crearReporteServicioApi = async (payload: ServicioCrearReportePaylo
     body: JSON.stringify(payload)
   })
 }
+
+export const asignarRecursosProvisionalServicioApi = async (payload: ServicioAsignarRecursosProvisionalPayload): Promise<any> => {
+  return apiClient('/api/v1/servicio/asignar_src/provisional/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const fetchRecursosProvisionalesServicioApi = async (payload: ServicioVerRecursosProvisionalesPayload): Promise<ServicioVerRecursosProvisionalesResponse> => {
+  return apiClient<ServicioVerRecursosProvisionalesResponse>('/api/v1/servicio/asignar_src/provisional/ver/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
 
 
 

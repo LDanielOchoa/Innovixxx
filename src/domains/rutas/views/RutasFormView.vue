@@ -204,6 +204,41 @@
               </div>
             </div>
 
+            <!-- Sección: Optimización de Ruta -->
+            <div class="p-4 bg-slate-50/50 dark:bg-[#1E222B]/20 border border-slate-200/50 dark:border-white/[0.03] rounded-2xl shadow-sm transition-all duration-200">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc] shrink-0">
+                    <HugeiconsIcon :icon="Settings02Icon" :size="16" :stroke-width="2" />
+                  </div>
+                  <div>
+                    <label class="text-[11px] font-bold text-slate-700 dark:text-slate-200 uppercase tracking-tight cursor-pointer select-none block" @click="formData.optimizar = !formData.optimizar">
+                      {{ t('rutas.optimizeRoute') }}
+                    </label>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500 leading-tight mt-0.5">
+                      {{ t('rutas.optimizeRouteDesc') }}
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Switch toggle -->
+                <button
+                  type="button"
+                  role="switch"
+                  :aria-checked="formData.optimizar"
+                  @click="formData.optimizar = !formData.optimizar"
+                  class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                  :class="formData.optimizar ? 'bg-[#3b82f6]' : 'bg-slate-200 dark:bg-white/10'"
+                >
+                  <span
+                    aria-hidden="true"
+                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out"
+                    :class="formData.optimizar ? 'translate-x-5' : 'translate-x-0'"
+                  />
+                </button>
+              </div>
+            </div>
+
             <!-- Sección: Paradas Estratégicas -->
             <div class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
               <div class="flex items-center justify-between">
@@ -276,6 +311,30 @@
               >
                 <HugeiconsIcon :icon="Location01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
                 <span>{{ isGpsReconstructed ? t('rutas.gpsChangeBtn') : t('rutas.gpsLoadBtn') }}</span>
+              </button>
+            </div>
+
+            <!-- Sección: Heredar Trazado (Solo en modo edición) -->
+            <div v-if="isEditMode" class="relative overflow-hidden p-4 rounded-2xl border border-blue-500/20 dark:border-blue-500/15 bg-gradient-to-br from-blue-500/[0.04] via-indigo-500/[0.02] to-transparent dark:from-blue-500/[0.08] dark:via-transparent space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+                    <HugeiconsIcon :icon="Route01Icon" :size="15" />
+                  </div>
+                  <div>
+                    <h3 class="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">{{ t('rutas.inheritRouteTitle') }}</h3>
+                    <p class="text-[9.5px] font-medium text-slate-400 dark:text-slate-500">{{ t('rutas.inheritRouteSubtitle') }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                @click="openHeredarModal"
+                class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-[11px] uppercase tracking-wide transition-all duration-200 active:scale-[0.97] bg-white dark:bg-[#1E222B] border border-blue-500/30 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6] hover:text-white dark:hover:bg-[#3b82f6] dark:hover:text-white shadow-xs group"
+              >
+                <HugeiconsIcon :icon="Route01Icon" :size="14" class="group-hover:scale-110 transition-transform" />
+                <span>{{ t('rutas.btnInheritRoute') }}</span>
               </button>
             </div>
           </form>
@@ -546,6 +605,58 @@
         </div>
       </div>
     </AppModal>
+
+    <!-- Modal Heredar Trazado -->
+    <AppModal
+      v-model:isOpen="isHeredarModalOpen"
+      :title="t('rutas.modalInheritTitle')"
+      :confirmText="t('rutas.btnConfirmInherit')"
+      :cancelText="t('common.cancel')"
+      :disabled="!selectedRutaOrigenId || heredandoTrazado"
+      @confirm="ejecutarHeredarTrazado"
+    >
+      <template #icon>
+        <div class="w-10 h-10 flex items-center justify-center text-[#3b82f6] dark:text-[#5da6fc]">
+          <HugeiconsIcon :icon="Route01Icon" :size="22" :stroke-width="2" />
+        </div>
+      </template>
+
+      <div class="flex flex-col gap-5 p-1 relative select-none">
+        <!-- Overlay de carga al heredar -->
+        <Transition name="fade-overlay">
+          <div v-if="heredandoTrazado" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-slate-50/80 dark:bg-[#1A1D24]/80 backdrop-blur-sm rounded-xl">
+            <div class="w-10 h-10 border-[3px] border-[#3b82f6]/20 border-t-[#3b82f6] rounded-full animate-spin"></div>
+            <p class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-[0.2em] mt-3 animate-pulse">{{ t('rutas.inheritingTrajectory') }}</p>
+          </div>
+        </Transition>
+
+        <!-- Mensaje -->
+        <div v-if="heredarModalMessage"
+             class="flex items-center gap-2.5 p-3 px-4 rounded-xl border text-[11px] font-bold transition-all duration-300"
+             :class="{
+               'text-red-500 bg-red-500/10 border-red-500/20': heredarModalMessage.type === 'error',
+               'text-amber-500 bg-amber-500/10 border-amber-500/20': heredarModalMessage.type === 'warning',
+               'text-[#3b82f6] bg-[#3b82f6]/10 border-[#3b82f6]/20': heredarModalMessage.type === 'success'
+             }">
+          <HugeiconsIcon v-if="heredarModalMessage.type === 'error' || heredarModalMessage.type === 'warning'" :icon="Alert01Icon" :size="18" />
+          {{ heredarModalMessage.text }}
+        </div>
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+          {{ t('rutas.modalInheritDesc') }}
+        </p>
+
+        <!-- Selector de Ruta de Origen -->
+        <AppSelect
+          v-model="selectedRutaOrigenId"
+          :label="t('rutas.sourceRouteLabel')"
+          :placeholder="t('rutas.selectSourceRoutePlaceholder')"
+          :disabled="loadingRutasDisponibles || heredandoTrazado"
+          :icon="Route01Icon"
+          :options="rutasOrigenOptions"
+        />
+      </div>
+    </AppModal>
   </div>
 </template>
 
@@ -564,7 +675,8 @@ import {
   Loading03Icon,
   Alert01Icon,
   CpuIcon,
-  MapsIcon
+  MapsIcon,
+  Settings02Icon
 } from '@hugeicons/core-free-icons'
 
 import rutaBalanza from '../../../assets/ruta_balanza.png'
@@ -575,10 +687,10 @@ import rutaParqueadero from '../../../assets/ruta_parqueadero.png'
 import rutaPuntoControl from '../../../assets/ruta_punto_control.png'
 import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
-import { createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi } from '../services/rutas.api'
+import { createRutaApi, updateRutaApi, fetchTiposParadaApi, fetchRutaDetallesApi, fetchRutasApi, heredarTrazadoRutaApi } from '../services/rutas.api'
 import { fetchHardwareSimplesApi } from '../../servicios/services/servicios.api'
 import { fetchMapPositionsApi } from '../../hardware/services/hardware.api'
-import type { TipoParada, ParadaPayload, RutaUpdatePayload } from '../types/ruta'
+import type { TipoParada, ParadaPayload, RutaUpdatePayload, Ruta } from '../types/ruta'
 import type { HardwareSimple } from '../../servicios/types/servicio'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
@@ -634,7 +746,7 @@ const { selectedGroup } = storeToRefs(groupStore)
 // ── Form State ───────────────────────────────────────────────
 const isSubmitting  = ref(false)
 const modalMessage  = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
-const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa' })
+const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa', optimizar: false })
 const isEditMode    = ref(false)
 const editingRutaId = ref<string | null>(null)
 const isGpsRoute    = computed(() => route.query.gps === 'true' || isGpsReconstructed.value)
@@ -771,6 +883,85 @@ const trazarRutaGps = async () => {
     showGpsModalMessage(t('rutas.errorQueryingGps'), 'error')
   } finally {
     trazandoGps.value = false
+  }
+}
+
+// ── Lógica de Heredar Trazado ─────────────────────────────────
+const isHeredarModalOpen = ref(false)
+const rutasDisponibles = ref<Ruta[]>([])
+const selectedRutaOrigenId = ref('')
+const loadingRutasDisponibles = ref(false)
+const heredandoTrazado = ref(false)
+const heredarModalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+const showHeredarModalMessage = (text: string, type: 'success' | 'error' | 'warning' = 'error') => {
+  heredarModalMessage.value = { text, type }
+  if (type === 'success') {
+    setTimeout(() => {
+      if (heredarModalMessage.value?.text === text) heredarModalMessage.value = null
+    }, 4000)
+  }
+}
+
+const rutasOrigenOptions = computed(() => {
+  return rutasDisponibles.value
+    .filter(r => r.id_ruta !== editingRutaId.value)
+    .map(r => ({
+      value: r.id_ruta,
+      label: r.nombre
+    }))
+})
+
+const openHeredarModal = async () => {
+  isHeredarModalOpen.value = true
+  selectedRutaOrigenId.value = ''
+  heredarModalMessage.value = null
+  if (!selectedGroup.value?.id) return
+
+  loadingRutasDisponibles.value = true
+  try {
+    const list = await fetchRutasApi(selectedGroup.value.id)
+    rutasDisponibles.value = list || []
+  } catch (error) {
+    console.error('Error al cargar rutas disponibles:', error)
+    showHeredarModalMessage(t('rutas.errorLoadingRoutes'), 'error')
+  } finally {
+    loadingRutasDisponibles.value = false
+  }
+}
+
+const ejecutarHeredarTrazado = async () => {
+  if (!selectedGroup.value?.id || !editingRutaId.value || !selectedRutaOrigenId.value) {
+    showHeredarModalMessage(t('rutas.errorRequiredFields'), 'warning')
+    return
+  }
+
+  heredandoTrazado.value = true
+  try {
+    const payload = {
+      id_grupo: selectedGroup.value.id,
+      id_ruta_origen: selectedRutaOrigenId.value,
+      id_ruta_destino: editingRutaId.value
+    }
+
+    const res = await heredarTrazadoRutaApi(payload)
+    if (res.done) {
+      toast.add({
+        severity: 'success',
+        summary: t('rutas.inheritSuccessTitle'),
+        detail: res.message || t('rutas.inheritSuccessDesc'),
+        life: 4000
+      })
+      isHeredarModalOpen.value = false
+      await loadRouteData(editingRutaId.value)
+    } else {
+      showHeredarModalMessage(res.message || t('rutas.inheritErrorDesc'), 'error')
+    }
+  } catch (error: any) {
+    console.error('Error al heredar trazado:', error)
+    showHeredarModalMessage(error?.message || t('rutas.inheritErrorDesc'), 'error')
+  } finally {
+    heredandoTrazado.value = false
   }
 }
 
@@ -944,7 +1135,8 @@ const loadRouteData = async (id_ruta: string) => {
     formData.value = {
       nombre:      detalle.nombre,
       descripcion: detalle.descripcion,
-      color:       detalle.color || '#60a5fa'
+      color:       detalle.color || '#60a5fa',
+      optimizar:   Boolean(detalle.optimizar)
     }
 
     if (detalle.color) {
@@ -1013,6 +1205,7 @@ const saveRuta = async () => {
         nombre:      formData.value.nombre,
         descripcion: formData.value.descripcion || '',
         color:       formData.value.color,
+        optimizar:   formData.value.optimizar,
         paradas:     paradasTemporales.value
       }
     : {
@@ -1020,6 +1213,7 @@ const saveRuta = async () => {
         nombre:      formData.value.nombre,
         descripcion: formData.value.descripcion || '',
         color:       formData.value.color,
+        optimizar:   formData.value.optimizar,
         paradas:     paradasTemporales.value
       }
 
