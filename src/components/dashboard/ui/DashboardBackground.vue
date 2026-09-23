@@ -24,12 +24,15 @@ interface AlertaDetalle {
 
 const props = withDefaults(defineProps<{
   alertasDetalle?: AlertaDetalle[]
+  alertaEnfocada?: AlertaDetalle | null
 }>(), {
-  alertasDetalle: () => []
+  alertasDetalle: () => [],
+  alertaEnfocada: null
 })
 
 const emit = defineEmits<{
   (e: 'selectAlert', alerta: AlertaDetalle): void
+  (e: 'enfocarAlerta', alerta: AlertaDetalle): void
 }>()
 
 const getNombreTipoAlerta = (tipo: number): string => {
@@ -61,13 +64,30 @@ const isDark = ref(document.documentElement.classList.contains('dark'))
 const markers = ref<any[]>([])
 const { t, locale } = useI18n()
 
-// Toma exclusivamente la última alerta recibida según su fecha_hora para mantener 1 solo marcador enfocado
+// Toma la alerta enfocada manualmente o la última recibida
 const alarmLocations = computed(() => {
   if (!props.alertasDetalle || props.alertasDetalle.length === 0) {
     return []
   }
 
-  // Ordenar de más antigua a más reciente para tomar la última cronológica
+  // Si hay una alerta enfocada por el usuario (mediante click derecho), se prioriza
+  if (props.alertaEnfocada) {
+    const lat = parseFloat(props.alertaEnfocada.lat)
+    const lng = parseFloat(props.alertaEnfocada.lon)
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return [{
+        name: `Hardware #${props.alertaEnfocada.id_hardware}`,
+        lat: lat,
+        lng: lng,
+        alarm: getNombreTipoAlerta(props.alertaEnfocada.tipo),
+        fecha_hora: props.alertaEnfocada.fecha_hora || '',
+        alerta: props.alertaEnfocada,
+        esEnfocada: true
+      }]
+    }
+  }
+
+  // De lo contrario, tomar la última alerta cronológicamente
   const ordenadas = [...props.alertasDetalle].sort((a, b) => {
     const fechaA = new Date(a.fecha_hora).getTime()
     const fechaB = new Date(b.fecha_hora).getTime()
@@ -86,12 +106,13 @@ const alarmLocations = computed(() => {
   if (isNaN(lat) || isNaN(lng)) return []
 
   return [{
-    name: getNombreTipoAlerta(ultimaAlerta.tipo),
+    name: `Hardware #${ultimaAlerta.id_hardware}`,
     lat: lat,
     lng: lng,
     alarm: getNombreTipoAlerta(ultimaAlerta.tipo),
     fecha_hora: ultimaAlerta.fecha_hora || '',
-    alerta: ultimaAlerta
+    alerta: ultimaAlerta,
+    esEnfocada: false
   }]
 })
 
@@ -245,13 +266,16 @@ const createAlarmMarkers = () => {
 
       onAdd() {
         this.div = document.createElement('div')
-        this.div.className = 'alarm-label'
+        this.div.className = `alarm-label ${location.esEnfocada ? 'alarm-label--focused' : ''}`
         this.div.style.pointerEvents = 'auto'
         this.div.style.cursor = 'pointer'
         this.div.innerHTML = `
           <div class="alarm-label__dot"></div>
           <div class="alarm-label__text">
-            <span class="alarm-label__alarm">${location.alarm}</span>
+            <div class="alarm-label__header">
+              <span class="alarm-label__alarm">${location.alarm}</span>
+              ${location.esEnfocada ? '<span class="alarm-label__badge">Enfocada</span>' : ''}
+            </div>
             <span class="alarm-label__city">${location.name}</span>
             ${location.fecha_hora ? `<span class="alarm-label__time">${location.fecha_hora}</span>` : ''}
           </div>
@@ -317,12 +341,13 @@ watch(alarmLocations, (newLocs) => {
     markers.value.forEach(m => m.setMap(null))
     markers.value = []
 
-    // Recrear marcador de la última alerta
+    // Recrear marcador de la alerta enfocada o última recibida
     createAlarmMarkers()
 
     if (newLocs.length > 0 && newLocs[0]) {
+      const zoomNivel = newLocs[0].esEnfocada ? 15 : 13
       mapInstance.value.panTo({ lat: newLocs[0].lat, lng: newLocs[0].lng })
-      mapInstance.value.setZoom(13)
+      mapInstance.value.setZoom(zoomNivel)
     }
   }
 }, { deep: true, immediate: true })
@@ -545,6 +570,12 @@ function spawnCardForAlert(alerta: AlertaDetalle, index: number) {
   card.addEventListener('click', (e: Event) => {
     e.stopPropagation()
     emit('selectAlert', alerta)
+  })
+
+  card.addEventListener('contextmenu', (e: MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    emit('enfocarAlerta', alerta)
   })
   
   containerRef.value.appendChild(card)
@@ -1023,6 +1054,88 @@ onUnmounted(() => {
 
 :deep(.alarm-label--active) .alarm-label__city {
   color: #a8a29e;
+}
+
+/* Estado enfocado / seleccionado mediante click derecho (Color Cian Neón Táctico Diferenciado) */
+:deep(.alarm-label--focused) {
+  z-index: 2000 !important;
+}
+
+:deep(.alarm-label--focused) .alarm-label__dot {
+  background: #00f0ff;
+  box-shadow:
+    0 0 0 3px rgba(0, 240, 255, 0.35),
+    0 0 0 7px rgba(0, 240, 255, 0.18),
+    0 0 25px rgba(0, 240, 255, 0.85);
+  animation: pulse-ring-focused 1.4s ease-out infinite;
+}
+
+:deep(.alarm-label--focused) .alarm-label__dot::after {
+  background: repeating-linear-gradient(
+    to right,
+    rgba(0, 240, 255, 0.9) 0px,
+    rgba(0, 240, 255, 0.9) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+:deep(.alarm-label--focused) .alarm-label__text {
+  background: rgba(8, 18, 36, 0.92);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  border-radius: 9px;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.5),
+    0 0 22px rgba(0, 240, 255, 0.22),
+    0 0 0 1px rgba(0, 240, 255, 0.25);
+}
+
+:deep(.alarm-label--focused) .alarm-label__text::before {
+  border-right-color: rgba(0, 240, 255, 0.5);
+}
+
+:deep(.alarm-label--focused) .alarm-label__text::after {
+  border-right-color: rgba(8, 18, 36, 0.92);
+}
+
+:deep(.alarm-label--focused) .alarm-label__alarm {
+  color: #00f0ff;
+  font-weight: 800;
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+}
+
+:deep(.alarm-label__header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+:deep(.alarm-label__badge) {
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+@keyframes pulse-ring-focused {
+  0%, 100% {
+    box-shadow:
+      0 0 0 3px rgba(0, 240, 255, 0.35),
+      0 0 0 6px rgba(0, 240, 255, 0.15),
+      0 0 25px rgba(0, 240, 255, 0.7);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(0, 240, 255, 0.45),
+      0 0 0 12px rgba(0, 240, 255, 0.2),
+      0 0 38px rgba(0, 240, 255, 1);
+  }
 }
 
 @keyframes pulse-active {

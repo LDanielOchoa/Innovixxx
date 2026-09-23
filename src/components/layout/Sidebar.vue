@@ -147,6 +147,7 @@ type SubMenuItem = {
   permissionId?: string
   adminOnly?: boolean
   soloGrupoMain?: boolean
+  permitirAdminEnSubgrupos?: boolean
 }
 
 type MenuItem = {
@@ -157,6 +158,7 @@ type MenuItem = {
   route?: string
   adminOnly?: boolean
   soloGrupoMain?: boolean
+  permitirAdminEnSubgrupos?: boolean
   permissionId?: string
   children?: SubMenuItem[]
 }
@@ -253,73 +255,60 @@ const displayedMenuItems = computed(() => {
           text: t('sidebar.menu.servicesAlerts'),
           route: '/servicios/alertas',
           permissionId: PERMISSIONS.ALERT_HISTORIAL,
-          soloGrupoMain: true
+          soloGrupoMain: true,
+          permitirAdminEnSubgrupos: true
         },
         {
           icon: markRaw(Calendar01Icon),
           text: t('sidebar.menu.servicesEvents'),
           route: '/servicios/eventos',
           permissionId: PERMISSIONS.EVENT_LIST,
-          soloGrupoMain: true
+          soloGrupoMain: true,
+          permitirAdminEnSubgrupos: true
         }
       ]
     }
   ]
 
-  if (authStore.isSuperAdmin) {
-    const allowedItems = menuItems
-      .map(item => {
-        if (item.separator) return item
-        if (item.adminOnly && !authStore.isAdmin) return null
-        if (item.soloGrupoMain && !groupStore.esGrupoMain) return null
+  const esAdmin = authStore.isSuperAdmin || authStore.isAdmin || authStore.userData?.isAdmin || authStore.userData?.isSuperAdmin
 
-        if (item.children && item.children.length > 0) {
-          const allowedChildren = item.children.filter(child => {
-            if (child.adminOnly && !authStore.isAdmin) return false
-            if (child.soloGrupoMain && !groupStore.esGrupoMain) return false
-            return true
-          })
-          if (allowedChildren.length === 0) return null
-          return {
-            ...item,
-            children: allowedChildren
-          }
-        }
+  const puedeVerItem = (item: {
+    separator?: boolean
+    adminOnly?: boolean
+    soloGrupoMain?: boolean
+    permitirAdminEnSubgrupos?: boolean
+    permissionId?: string
+  }): boolean => {
+    if (item.separator) return true
 
-        return item
-      })
-      .filter((item): item is MenuItem => item !== null)
+    // 1. Exclusivo para administradores
+    if (item.adminOnly && !esAdmin) return false
 
-    const finalItems: MenuItem[] = []
-    for (let i = 0; i < allowedItems.length; i++) {
-      const item = allowedItems[i]
-      if (!item) continue
-      if (item.separator) {
-        if (finalItems.length === 0) continue
-        if (finalItems[finalItems.length - 1]?.separator) continue
-        const hasValidItemAfter = allowedItems.slice(i + 1).some(x => !x?.separator)
-        if (!hasValidItemAfter) continue
+    // 2. Restricción de Grupo Main (si no estamos en grupo main, solo se permite si el ítem autoriza admin en subgrupos)
+    if (item.soloGrupoMain && !groupStore.esGrupoMain) {
+      if (!(item.permitirAdminEnSubgrupos && esAdmin)) {
+        return false
       }
-      finalItems.push(item)
     }
-    return finalItems
+
+    // 3. Verificación de permisos para usuarios regulares
+    if (!authStore.isSuperAdmin && item.permissionId && !esAdmin) {
+      if (!authStore.hasPermission(item.permissionId)) {
+        return false
+      }
+    }
+
+    return true
   }
 
-  // Usuario normal: filtrar por permisos de "List", grupo main y validar submenús hijos
   const allowedItems = menuItems
     .map(item => {
       if (item.separator) return item
-      if (item.adminOnly) return null
-      if (item.soloGrupoMain && !groupStore.esGrupoMain) return null
+      if (!puedeVerItem(item)) return null
 
-      // Si tiene hijos (como Administración o Servicios)
+      // Si tiene submenús (children)
       if (item.children && item.children.length > 0) {
-        const allowedChildren = item.children.filter(child => {
-          if (child.adminOnly) return false
-          if (child.soloGrupoMain && !groupStore.esGrupoMain) return false
-          if (!child.permissionId) return true
-          return authStore.hasPermission(child.permissionId)
-        })
+        const allowedChildren = item.children.filter(child => puedeVerItem(child))
         if (allowedChildren.length === 0) return null
         return {
           ...item,
@@ -327,7 +316,6 @@ const displayedMenuItems = computed(() => {
         }
       }
 
-      if (item.permissionId && !authStore.hasPermission(item.permissionId)) return null
       return item
     })
     .filter((item): item is MenuItem => item !== null)

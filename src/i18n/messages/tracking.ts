@@ -34,6 +34,7 @@ export const trackingMessages = {
     start: 'Inicio',
     phone: 'Celular',
     gpsActive: 'GPS Activo',
+    lastReport: 'Último reporte',
     lockClosed: 'CERRADO',
     lockOpen: 'ABIERTO',
 
@@ -129,6 +130,7 @@ export const trackingMessages = {
     start: 'Start',
     phone: 'Phone',
     gpsActive: 'Active GPS',
+    lastReport: 'Last report',
     lockClosed: 'CLOSED',
     lockOpen: 'OPEN',
 

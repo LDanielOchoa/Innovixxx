@@ -22,11 +22,12 @@ import {
   ServiceIcon,
   EyeIcon,
   ViewOffIcon,
-  FilterIcon
+  FilterIcon,
+  Comment01Icon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import { useToast } from 'primevue/usetoast'
-import { fetchAlertasListadoApi, solventarAlertaApi } from '../services/servicios.api'
+import { fetchAlertasListadoApi } from '../services/servicios.api'
 import type { AlertaServicioGlobalItem } from '../services/servicios.api'
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
@@ -35,6 +36,7 @@ import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import PageHeader from '../../../components/shared/PageHeader.vue'
+import SolventarAlertaModal from '../components/SolventarAlertaModal.vue'
 
 const MAP_KEY = 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
 
@@ -86,7 +88,6 @@ const fechaRango = ref({
 
 const currentPage = ref(1)
 const itemsPerPage = 10
-const solventandoToken = ref<string | null>(null)
 
 // Control de apertura de desplegables de filtro
 const toggleFilterDropdown = (name: 'tipo' | 'visibilidad' | 'solventada') => {
@@ -150,88 +151,12 @@ const getSolventadaLabel = (): string => {
   return t('servicios.filterOnlyPending')
 }
 
-// Estado del Mini Menú Desplegable Flotante al lado del botón Solventar
-const openSolventarMenuToken = ref<string | null>(null)
-const solventarMenuPosition = ref<{ top?: string; bottom?: string; left?: string; right?: string }>({})
+// Estado del Modal para Solventar Alerta
+const selectedAlertaForSolve = ref<AlertaServicioGlobalItem | null>(null)
 
-const solventarMenuStyle = computed(() => {
-  const style: Record<string, string> = {}
-  if (solventarMenuPosition.value.top) style.top = solventarMenuPosition.value.top
-  if (solventarMenuPosition.value.bottom) style.bottom = solventarMenuPosition.value.bottom
-  if (solventarMenuPosition.value.left) style.left = solventarMenuPosition.value.left
-  if (solventarMenuPosition.value.right) style.right = solventarMenuPosition.value.right
-  return style
-})
-
-const toggleSolventarMenu = (token: string, event: MouseEvent) => {
-  event.stopPropagation()
-  if (openSolventarMenuToken.value === token) {
-    openSolventarMenuToken.value = null
-    return
-  }
-  const button = event.currentTarget as HTMLElement
-  const rect = button.getBoundingClientRect()
-  const spaceBelow = window.innerHeight - rect.bottom
-  const menuHeight = 115
-
-  const pos: { top?: string; bottom?: string; left?: string; right?: string } = {}
-
-  if (spaceBelow < menuHeight && rect.top > menuHeight) {
-    pos.bottom = `${window.innerHeight - rect.top + 6}px`
-  } else {
-    pos.top = `${rect.bottom + 6}px`
-  }
-
-  if (rect.left + 180 > window.innerWidth) {
-    pos.right = `${window.innerWidth - rect.right}px`
-  } else {
-    pos.left = `${rect.left}px`
-  }
-
-  solventarMenuPosition.value = pos
-  openSolventarMenuToken.value = token
-}
-
-const closeSolventarMenu = () => {
-  openSolventarMenuToken.value = null
-}
-
-const ejecutarSolventar = async (token: string, visible: boolean) => {
-  const alerta = alertasList.value.find(a => a.token === token)
-  if (!alerta || solventandoToken.value) return
-
-  solventandoToken.value = token
-  openSolventarMenuToken.value = null
-
-  try {
-    const res = await solventarAlertaApi({ token, visible })
-    if (res?.done !== false) {
-      toast.add({
-        severity: 'success',
-        summary: t('servicios.toastSuccess'),
-        detail: t('servicios.toastAlarmSolvedDetail'),
-        life: 3000
-      })
-      await cargarAlertas()
-    } else {
-      toast.add({
-        severity: 'error',
-        summary: t('servicios.toastError'),
-        detail: res?.msg || res?.message || t('servicios.toastConnectionError'),
-        life: 4000
-      })
-    }
-  } catch (error: any) {
-    console.error('Error al solventar alerta:', error)
-    toast.add({
-      severity: 'error',
-      summary: t('servicios.toastError'),
-      detail: error?.message || t('servicios.toastConnectionError'),
-      life: 4000
-    })
-  } finally {
-    solventandoToken.value = null
-  }
+const onAlertaSolventada = async () => {
+  selectedAlertaForSolve.value = null
+  await cargarAlertas()
 }
 
 // Estado del Modal de Mapa
@@ -349,8 +274,6 @@ const recargar = () => {
 }
 
 const handleDocumentClick = (e: MouseEvent) => {
-  closeSolventarMenu()
-
   if (activeFilterDropdown.value) {
     const refMap: Record<string, HTMLElement | null> = {
       tipo: tipoDropdownRef.value,
@@ -365,7 +288,6 @@ const handleDocumentClick = (e: MouseEvent) => {
 }
 
 const handleScroll = () => {
-  closeSolventarMenu()
   if (activeFilterDropdown.value) {
     activeFilterDropdown.value = null
   }
@@ -418,6 +340,7 @@ const filteredItems = computed(() => {
         item.hardware?.toLowerCase().includes(query) ||
         item.tipo_alerta?.toLowerCase().includes(query) ||
         item.solventada_por?.toLowerCase().includes(query) ||
+        item.comentario?.toLowerCase().includes(query) ||
         item.token?.toLowerCase().includes(query)
       )
     })
@@ -730,7 +653,7 @@ const formatDate = (dateStr: string) => {
         </template>
 
         <!-- Columna ID Servicio -->
-        <Column field="id_servicio" :header="t('servicios.thId')" sortable headerStyle="width: 140px">
+        <Column field="id_servicio" :header="t('servicios.thId')" sortable headerStyle="width: 120px">
           <template #body="{ data }">
             <AppBadge variant="primary">
               <span class="font-mono font-bold text-[11px]">
@@ -741,48 +664,50 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Fecha y Hora -->
-        <Column field="fecha_hora" :header="t('servicios.thDate')" sortable headerStyle="width: 170px">
+        <Column field="fecha_hora" :header="t('servicios.thDate')" sortable headerStyle="width: 160px">
           <template #body="{ data }">
-            <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-mono text-xs">
-              <HugeiconsIcon :icon="Clock01Icon" :size="14" class="text-slate-400" />
+            <div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300 font-mono text-xs">
+              <HugeiconsIcon :icon="Clock01Icon" :size="13" class="text-slate-400 shrink-0" />
               <span>{{ formatDate(data.fecha_hora) }}</span>
             </div>
           </template>
         </Column>
 
         <!-- Columna Hardware -->
-        <Column field="hardware" :header="t('servicios.thHardware')" sortable>
+        <Column field="hardware" :header="t('servicios.thHardware')" sortable headerStyle="min-width: 170px">
           <template #body="{ data }">
-            <span class="text-xs font-semibold text-slate-700 dark:text-slate-200">
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200">
               {{ data.hardware || '---' }}
             </span>
           </template>
         </Column>
 
         <!-- Columna Tipo Alerta -->
-        <Column field="tipo_alerta" :header="t('servicios.thAlerts')" sortable>
+        <Column field="tipo_alerta" :header="t('servicios.thAlerts')" sortable headerStyle="min-width: 140px">
           <template #body="{ data }">
             <span 
-              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider"
-              :class="data.tipo_alerta === 'SOS' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'"
+              class="whitespace-nowrap inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
+              :class="data.tipo_alerta === 'SOS' || data.tipo_alerta?.toLowerCase().includes('sos')
+                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' 
+                : 'bg-blue-500/10 text-[#3b82f6] dark:text-[#5da6fc] border border-blue-500/20'"
             >
-              <HugeiconsIcon :icon="Alert01Icon" :size="13" />
+              <HugeiconsIcon :icon="Alert01Icon" :size="12" />
               {{ data.tipo_alerta }}
             </span>
           </template>
         </Column>
 
         <!-- Columna Ubicación / Mapa -->
-        <Column :header="t('servicios.btnViewMap')" headerStyle="width: 80px" class="text-center">
+        <Column :header="t('servicios.btnViewMap')" headerStyle="width: 70px" class="text-center">
           <template #body="{ data }">
             <div class="flex items-center justify-center">
               <button
                 v-if="hasValidCoordinates(data.latitud, data.longitud)"
                 @click="openMapModal(data)"
                 :title="t('servicios.btnViewMap')"
-                class="w-8 h-8 rounded-lg flex items-center justify-center border bg-blue-500/10 text-blue-600 dark:text-[#5da6fc] border-blue-500/20 hover:bg-blue-500/20 transition-all active:scale-95 cursor-pointer shadow-sm"
+                class="w-6 h-6 rounded-md flex items-center justify-center bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] hover:bg-[#3b82f6]/20 transition-all active:scale-95 cursor-pointer"
               >
-                <HugeiconsIcon :icon="MapsIcon" :size="16" />
+                <HugeiconsIcon :icon="MapsIcon" :size="13" />
               </button>
               <span v-else class="text-slate-400 dark:text-slate-600 text-xs font-mono">---</span>
             </div>
@@ -790,60 +715,43 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Visibilidad -->
-        <Column field="visible" :header="t('servicios.thVisibility')" sortable headerStyle="width: 120px">
+        <Column field="visible" :header="t('servicios.thVisibility')" sortable headerStyle="width: 105px; min-width: 100px">
           <template #body="{ data }">
             <span
-              class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
-              :class="data.visible ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10'"
+              class="whitespace-nowrap inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold"
+              :class="data.visible 
+                ? 'text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 border border-[#3b82f6]/20' 
+                : 'text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/[0.04] border border-slate-200/50 dark:border-white/[0.06]'"
             >
-              <HugeiconsIcon :icon="data.visible ? EyeIcon : ViewOffIcon" :size="13" />
+              <HugeiconsIcon :icon="data.visible ? EyeIcon : ViewOffIcon" :size="11" />
               {{ data.visible ? t('servicios.visibleStatus') : t('servicios.hiddenStatus') }}
             </span>
           </template>
         </Column>
 
-        <!-- Columna Atendida -->
-        <Column field="atendida" :header="t('servicios.thSolved')" sortable headerStyle="width: 110px">
-          <template #body="{ data }">
-            <span
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold"
-              :class="data.atendida ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-100 dark:bg-white/5'"
-            >
-              <HugeiconsIcon :icon="data.atendida ? CheckmarkCircle01Icon : Cancel01Icon" :size="13" />
-              {{ data.atendida ? t('common.yes') : t('common.no') }}
-            </span>
-          </template>
-        </Column>
-
-        <!-- Columna Solventada / Desplegable Rápido de Visibilidad -->
-        <Column field="solventada" :header="t('servicios.thSolved')" sortable headerStyle="width: 140px">
+        <!-- Columna Solventada / Botón Solventar -->
+        <Column field="solventada" :header="t('servicios.thSolved')" sortable headerStyle="width: 125px; min-width: 120px">
           <template #body="{ data }">
             <div class="flex items-center">
-              <!-- Si ya está solventada: Badge verde -->
+              <!-- Si ya está solventada: Badge sutil -->
               <span
                 v-if="data.solventada"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shadow-sm"
+                class="whitespace-nowrap inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/[0.06]"
               >
-                <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="13" />
+                <HugeiconsIcon :icon="CheckmarkCircle01Icon" :size="11" class="text-[#3b82f6]" />
                 <span>{{ t('servicios.alarmSolved') }}</span>
               </span>
 
-              <!-- Si NO está solventada: Botón que despliega el mini menú de visibilidad al lado -->
+              <!-- Si NO está solventada: Botón solventar unificado -->
               <button
                 v-else-if="authStore.hasPermission(PERMISSIONS.ALERT_SOLVENTAR)"
                 type="button"
-                @click.stop="toggleSolventarMenu(data.token, $event)"
-                :disabled="solventandoToken === data.token"
-                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all duration-200 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm"
-                :class="{ 'ring-2 ring-emerald-500/40 bg-emerald-700': openSolventarMenuToken === data.token }"
-                :title="t('servicios.btnSolveOptions')"
+                @click.stop="selectedAlertaForSolve = data"
+                class="whitespace-nowrap inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[10.5px] font-bold transition-all duration-150 active:scale-95 cursor-pointer shadow-sm shadow-blue-500/15"
+                :title="t('servicios.btnSolveAlarm')"
               >
-                <HugeiconsIcon
-                  :icon="solventandoToken === data.token ? Loading02Icon : Tick02Icon"
-                  :size="13"
-                  :class="{ 'animate-spin': solventandoToken === data.token }"
-                />
-                <span>{{ solventandoToken === data.token ? t('common.loading') : t('servicios.btnSolveAlarm') }}</span>
+                <HugeiconsIcon :icon="Tick02Icon" :size="11" />
+                <span>{{ t('servicios.btnSolveAlarm') }}</span>
               </button>
 
               <span v-else class="text-xs text-slate-400 font-medium">---</span>
@@ -852,11 +760,24 @@ const formatDate = (dateStr: string) => {
         </Column>
 
         <!-- Columna Solventada Por -->
-        <Column field="solventada_por" :header="t('servicios.thAuthor')">
+        <Column field="solventada_por" :header="t('servicios.thAuthor')" sortable headerStyle="width: 140px">
           <template #body="{ data }">
-            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">
               {{ data.solventada && data.solventada_por && data.solventada_por !== 'Desconocido' ? data.solventada_por : '---' }}
             </span>
+          </template>
+        </Column>
+
+        <!-- Columna Comentario -->
+        <Column field="comentario" :header="t('servicios.thComment')" sortable headerStyle="min-width: 170px">
+          <template #body="{ data }">
+            <div v-if="data.comentario && data.comentario.trim()" class="flex items-start gap-1.5 max-w-[240px]">
+              <HugeiconsIcon :icon="Comment01Icon" :size="13" class="text-[#3b82f6] shrink-0 mt-0.5 opacity-80" />
+              <span class="text-xs text-slate-700 dark:text-slate-200 font-medium line-clamp-2" :title="data.comentario">
+                {{ data.comentario }}
+              </span>
+            </div>
+            <span v-else class="text-xs text-slate-400 dark:text-slate-500 font-mono">---</span>
           </template>
         </Column>
       </AppTable>
@@ -871,41 +792,13 @@ const formatDate = (dateStr: string) => {
       </div>
     </AppTableCard>
 
-    <!-- Mini Desplegable Flotante de Visibilidad junto al botón Solventar -->
-    <Teleport to="body">
-      <Transition name="dropdown-popover">
-        <div
-          v-if="openSolventarMenuToken"
-          class="fixed z-[99999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/80 dark:border-white/10 rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.18)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.6)] overflow-hidden p-1.5 space-y-1"
-          :style="solventarMenuStyle"
-          @click.stop
-        >
-          <div class="px-2.5 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-            {{ t('servicios.filterVisibility') }}
-          </div>
-
-          <!-- Opción: Visible -->
-          <button
-            type="button"
-            @click="ejecutarSolventar(openSolventarMenuToken, true)"
-            class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
-          >
-            <HugeiconsIcon :icon="EyeIcon" :size="15" />
-            <span>{{ t('servicios.visibleStatus') }}</span>
-          </button>
-
-          <!-- Opción: No Visible -->
-          <button
-            type="button"
-            @click="ejecutarSolventar(openSolventarMenuToken, false)"
-            class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <HugeiconsIcon :icon="ViewOffIcon" :size="15" />
-            <span>{{ t('servicios.hiddenStatus') }}</span>
-          </button>
-        </div>
-      </Transition>
-    </Teleport>
+    <!-- Modal Unificado de Solventar Alerta -->
+    <SolventarAlertaModal
+      :is-open="!!selectedAlertaForSolve"
+      :alerta="selectedAlertaForSolve"
+      @close="selectedAlertaForSolve = null"
+      @solventada="onAlertaSolventada"
+    />
 
     <!-- Modal Ubicación en Mapa -->
     <AppModal

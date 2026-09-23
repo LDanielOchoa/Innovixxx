@@ -20,7 +20,7 @@ import {
   Tick01Icon
 } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
-import { solventarAlertaApi } from '../../servicios/services/servicios.api'
+import SolventarAlertaModal from '../../servicios/components/SolventarAlertaModal.vue'
 import { useToast } from 'primevue/usetoast'
 
 loadModuleMessages('tracking')
@@ -89,47 +89,27 @@ const filteredItems = computed(() => {
   return []
 })
 
-const solvingToken = ref<string | null>(null)
+// Modal para Solventar Alerta
+const selectedAlertaForSolve = ref<any | null>(null)
 
-const handleSolventarAlerta = async (alerta: any) => {
-  if (!alerta?.token || solvingToken.value === alerta.token) return
-
-  solvingToken.value = alerta.token
-  try {
-    const res = await solventarAlertaApi(alerta.token)
-    if (res?.done !== false) {
-      toast.add({
-        severity: 'success',
-        summary: t('tracking.toastAlertSolvedSuccess'),
-        detail: t('tracking.toastAlertSolvedDetail'),
-        life: 3000
-      })
-      // Remover la alerta localmente y notificar globalmente a todas las pestañas
-      if (activeAlertasItem.value && Array.isArray(activeAlertasItem.value.alertas)) {
-        activeAlertasItem.value.alertas = activeAlertasItem.value.alertas.filter(
-          (a: any) => a.token !== alerta.token
-        )
-      }
-      emit('solveAlert', alerta.token)
-    } else {
-      toast.add({
-        severity: 'error',
-        summary: t('tracking.toastError'),
-        detail: res?.msg || res?.message || t('tracking.toastAlertSolvedError'),
-        life: 4000
-      })
-    }
-  } catch (err: any) {
-    console.error('Error al solventar alerta:', err)
-    toast.add({
-      severity: 'error',
-      summary: t('tracking.toastError'),
-      detail: err?.message || t('tracking.toastConnectionError'),
-      life: 4000
-    })
-  } finally {
-    solvingToken.value = null
+const handleAbrirSolventar = (alerta: any) => {
+  // Asegurar que lleve el id_servicio asociado si no lo tiene directamente
+  const servId = activeAlertasItem.value?.id_servicio || props.selectedItem?.id_servicio
+  selectedAlertaForSolve.value = {
+    ...alerta,
+    id_servicio: alerta.id_servicio || servId
   }
+}
+
+const onAlertaSolventada = (token: string) => {
+  // Remover la alerta localmente y notificar globalmente a todas las pestañas
+  if (activeAlertasItem.value && Array.isArray(activeAlertasItem.value.alertas)) {
+    activeAlertasItem.value.alertas = activeAlertasItem.value.alertas.filter(
+      (a: any) => a.token !== token
+    )
+  }
+  emit('solveAlert', token)
+  selectedAlertaForSolve.value = null
 }
 
 const showRecursosDrawer = ref(false)
@@ -801,12 +781,10 @@ const isItemSelected = (item: any) => {
 
               <button
                 type="button"
-                @click.stop="handleSolventarAlerta(alerta)"
-                :disabled="solvingToken === alerta.token"
-                class="ml-auto inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 hover:bg-emerald-500 text-emerald-600 dark:text-emerald-400 hover:text-white dark:hover:text-white border border-emerald-500/25 text-[9.5px] font-bold transition-all disabled:opacity-50 cursor-pointer"
+                @click.stop="handleAbrirSolventar(alerta)"
+                class="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[9.5px] font-bold transition-all active:scale-95 cursor-pointer shadow-sm shadow-blue-500/15"
               >
-                <HugeiconsIcon v-if="solvingToken === alerta.token" :icon="Loading03Icon" :size="9" class="animate-spin" />
-                <HugeiconsIcon v-else :icon="Tick01Icon" :size="9" />
+                <HugeiconsIcon :icon="Tick01Icon" :size="10" />
                 <span>{{ t('tracking.btnSolve') }}</span>
               </button>
             </div>
@@ -814,6 +792,15 @@ const isItemSelected = (item: any) => {
         </div>
       </div>
     </Transition>
+
+    <!-- Modal Unificado para Solventar Alerta -->
+    <SolventarAlertaModal
+      :is-open="!!selectedAlertaForSolve"
+      :alerta="selectedAlertaForSolve"
+      :hardware-list="hardwareList"
+      @close="selectedAlertaForSolve = null"
+      @solventada="onAlertaSolventada"
+    />
   </div>
 </template>
 

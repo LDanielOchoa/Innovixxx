@@ -74,6 +74,28 @@ export const dashboard = {
         system: 'SISTEMA',
         sos: 'SOS'
       }
+    },
+    solveAlarm: {
+      title: 'Solventar Alerta de Seguridad',
+      mapTitle: 'Ubicación de Alarma: {type}',
+      back: 'Volver',
+      openInMaps: 'Abrir en Maps',
+      loadingMap: 'Cargando mapa...',
+      viewMap: 'Ver mapa',
+      comment: 'Comentario',
+      commentPlaceholder: 'Escriba el motivo o comentario de la resolución...',
+      commentRequired: 'El comentario es obligatorio para solventar la alarma.',
+      commentRequiredToast: 'Por favor, ingrese un comentario o justificación.',
+      commentRequiredSummary: 'Comentario requerido',
+      visibility: 'Visibilidad:',
+      visible: 'Visible',
+      hidden: 'No Visible',
+      solveBtn: 'Solventar Alarma',
+      solvingBtn: 'Solventando...',
+      successToast: 'Alarma solventada correctamente',
+      errorToast: 'No se pudo solventar la alarma',
+      networkErrorToast: 'Error de conexión al solventar la alerta',
+      hardwareLabel: 'Hardware:'
     }
   },
   en: {
@@ -120,16 +142,20 @@ export const dashboard = {
         alarmTypes: {
           overspeed: 'Overspeed',
           sos: 'S.O.S Active',
-          routeDeviation: 'Route Out',
-          lockOpen: 'Lock Open'
+          routeDeviation: 'Route Deviation',
+          lockOpen: 'Lock Open',
+          lockClose: 'Lock Closed',
+          routeReturn: 'Route Return'
         }
       }
     },
     tacticalMap: {
       overspeed: 'Speeding',
       sos: 'S.O.S Active',
-      routeDeviation: 'Route Out',
-      lockOpen: 'Lock Open'
+      routeDeviation: 'Route Deviation',
+      lockOpen: 'Lock Open',
+      lockClose: 'Lock Closed',
+      routeReturn: 'Route Return'
     },
     vortex: {
       tags: {
@@ -140,6 +166,28 @@ export const dashboard = {
         system: 'SYSTEM',
         sos: 'SOS'
       }
+    },
+    solveAlarm: {
+      title: 'Solve Security Alert',
+      mapTitle: 'Alarm Location: {type}',
+      back: 'Back',
+      openInMaps: 'Open in Maps',
+      loadingMap: 'Loading map...',
+      viewMap: 'View map',
+      comment: 'Comment',
+      commentPlaceholder: 'Enter the reason or comment for resolving this alarm...',
+      commentRequired: 'Comment is required to solve the alarm.',
+      commentRequiredToast: 'Please enter a comment or justification.',
+      commentRequiredSummary: 'Comment required',
+      visibility: 'Visibility:',
+      visible: 'Visible',
+      hidden: 'Not Visible',
+      solveBtn: 'Solve Alarm',
+      solvingBtn: 'Solving...',
+      successToast: 'Alarm solved successfully',
+      errorToast: 'Could not solve the alarm',
+      networkErrorToast: 'Connection error while solving the alert',
+      hardwareLabel: 'Hardware:'
     }
   }
 }

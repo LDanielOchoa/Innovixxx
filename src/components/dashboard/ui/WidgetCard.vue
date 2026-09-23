@@ -64,19 +64,20 @@ const handleMouseUp = () => {
       transition: isPressed ? 'transform 0.1s ease-out' : 'transform 0.3s ease-out'
     }"
   >
-    <div class="relative z-10">
+    <div class="relative z-10 flex flex-col h-full min-h-0">
       <!-- Header -->
-      <div class="px-5 pt-4 pb-1 flex items-center justify-between">
+      <div class="px-5 pt-4 pb-1 flex items-center justify-between shrink-0">
         <div class="flex items-center gap-3">
           <div v-if="icon" class="w-7 h-7 rounded-lg bg-blue-50/50 dark:bg-[#3b82f6]/10 flex items-center justify-center text-[#3b82f6] border border-blue-100/50 dark:border-blue-500/20 group-hover/widget:scale-110 transition-transform duration-500">
              <HugeiconsIcon :icon="icon" :size="14" :stroke-width="2.5" />
           </div>
           <h3 class="text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.25em]">{{ title }}</h3>
         </div>
+        <slot name="header-right"></slot>
       </div>
 
       <!-- Content -->
-      <div class="px-5 pb-5 pt-2">
+      <div class="px-5 pb-5 pt-2 flex-1 min-h-0 flex flex-col">
         <div v-if="loading" class="animate-pulse space-y-4">
           <div class="h-12 bg-slate-100 dark:bg-white/5 rounded-2xl w-full"></div>
           <div class="grid grid-cols-2 gap-3">
@@ -84,7 +85,7 @@ const handleMouseUp = () => {
             <div class="h-16 bg-slate-100 dark:bg-white/5 rounded-2xl"></div>
           </div>
         </div>
-        <div v-else class="animate-fade-in">
+        <div v-else class="animate-fade-in flex-1 min-h-0 flex flex-col">
           <slot></slot>
         </div>
       </div>

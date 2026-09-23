@@ -13,9 +13,13 @@ import WidgetVehiculosTotal from './widgets/WidgetVehiculosTotal.vue'
 import WidgetRutasTotal from './widgets/WidgetRutasTotal.vue'
 import { useAuthStore } from '../../stores/auth.store'
 import AppModal from '../ui/AppModal.vue'
-import { solventarAlertaApi, fetchHardwareSimplesApi } from '../../domains/servicios/services/servicios.api'
+import SolventarAlertaModal from '../../domains/servicios/components/SolventarAlertaModal.vue'
+import { fetchHardwareSimplesApi } from '../../domains/servicios/services/servicios.api'
 import type { HardwareSimple } from '../../domains/servicios/types/servicio'
 import { useToast } from 'primevue/usetoast'
+import { useI18n } from 'vue-i18n'
+import { loadModuleMessages } from '../../i18n'
+import { useSintesisVoz } from '../../composables/useSintesisVoz'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import {
   Alert01Icon,
@@ -28,8 +32,12 @@ import {
   ArrowLeft02Icon,
   Loading02Icon,
   EyeIcon,
-  ViewOffIcon
+  ViewOffIcon,
+  Comment01Icon
 } from '@hugeicons/core-free-icons'
+
+loadModuleMessages('dashboard')
+const { t, locale } = useI18n()
 
 const router = useRouter()
 const route = useRoute()
@@ -39,13 +47,29 @@ const authStore = useAuthStore()
 const toast = useToast()
 const { selectedGroup } = storeToRefs(groupStore)
 
-// Estado para resolución de alarmas y mapa
+// Estado para resolución de alarmas
 const selectedAlertaForSolve = ref<any | null>(null)
-const selectedVisibilidadForSolve = ref<boolean>(true)
-const isSolventandoAlerta = ref(false)
-const modalActiveView = ref<'list' | 'map'>('list')
-const mapZoom = ref(16)
-const isMapImageLoading = ref(true)
+
+// Alarma enfocada manualmente mediante click derecho
+const alertaEnfocada = ref<any | null>(null)
+
+// Obtener idioma activo configurado en el perfil del usuario (/me) o selector de idioma
+const obtenerIdiomaUsuario = (): 'es' | 'en' => {
+  const idioma = (locale.value || authStore.userData?.idioma || localStorage.getItem('app-locale') || 'es').toLowerCase()
+  return idioma.startsWith('en') ? 'en' : 'es'
+}
+
+const handleEnfocarAlerta = (alerta: any) => {
+  if (!alerta) return
+  alertaEnfocada.value = alerta
+  const idiomaActual = obtenerIdiomaUsuario()
+  toast.add({
+    severity: 'info',
+    summary: idiomaActual === 'en' ? 'Alert Focused on Map' : 'Alarma Enfocada en Mapa',
+    detail: `${getNombreTipoAlerta(alerta.tipo, idiomaActual)} - ${idiomaActual === 'en' ? 'Device' : 'HW'}: ${getHardwareInfo(alerta.id_hardware)}`,
+    life: 2500
+  })
+}
 
 const hardwareList = ref<HardwareSimple[]>([])
 
@@ -65,74 +89,29 @@ const getHardwareInfo = (id: string | number) => {
   return h ? `${h.nombre}${h.familia ? ` (${h.familia})` : ''}` : idStr
 }
 
-const MAP_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 'AIzaSyDIUxzochI7PvqdE8pNL6b5jy77NOnO1Ko'
+// Obtener únicamente el nombre real del hardware si existe en catálogo (sin fallback de ID numérico para voz)
+const getHardwareNombreReal = (id: string | number): string | null => {
+  if (!id) return null
+  const idStr = String(id)
+  const h = hardwareList.value.find(item => item.id_hardware === idStr)
+  return h?.nombre ? h.nombre.trim() : null
+}
 
-const staticMapUrl = computed(() => {
-  if (!selectedAlertaForSolve.value) return ''
-  const lat = selectedAlertaForSolve.value.lat
-  const lng = selectedAlertaForSolve.value.lon
-  if (!lat || !lng) return ''
-
-  let url = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${mapZoom.value}&size=640x460&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${MAP_KEY}`
-
-  if (themeStore.isDark || document.documentElement.classList.contains('dark')) {
-    const darkStyles = [
-      'element:geometry|color:0x242f3e',
-      'element:labels.text.stroke|color:0x242f3e',
-      'element:labels.text.fill|color:0x746855',
-      'feature:administrative.locality|element:labels.text.fill|color:0xd59563',
-      'feature:poi|element:labels.text.fill|color:0xd59563',
-      'feature:poi.park|element:geometry|color:0x263c3f',
-      'feature:poi.park|element:labels.text.fill|color:0x6b9a76',
-      'feature:road|element:geometry|color:0x38414e',
-      'feature:road|element:geometry.stroke|color:0x212a37',
-      'feature:road|element:labels.text.fill|color:0x9ca5b3',
-      'feature:road.highway|element:geometry|color:0x746855',
-      'feature:road.highway|element:geometry.stroke|color:0x1f2835',
-      'feature:road.highway|element:labels.text.fill|color:0xf3d19c',
-      'feature:transit|element:geometry|color:0x2f3948',
-      'feature:transit.station|element:labels.text.fill|color:0xd59563',
-      'feature:water|element:geometry|color:0x17263c',
-      'feature:water|element:labels.text.fill|color:0x515c6d',
-      'feature:water|element:labels.text.stroke|color:0x17263c'
-    ].map(s => `style=${encodeURIComponent(s)}`).join('&')
-
-    url += `&${darkStyles}`
+const getNombreTipoAlerta = (tipo: number, idioma?: 'es' | 'en'): string => {
+  const lang = idioma || obtenerIdiomaUsuario()
+  if (lang === 'en') {
+    switch (tipo) {
+      case 1: return 'Overspeed'
+      case 2: return 'SOS Emergency'
+      case 3: return 'Route Deviation'
+      case 4: return 'Lock Open'
+      case 5: return 'Lock Closed'
+      case 6: return 'Route Return'
+      default: return `Alert type ${tipo}`
+    }
   }
 
-  return url
-})
-
-const googleMapsExternalUrl = computed(() => {
-  if (!selectedAlertaForSolve.value) return '#'
-  return `https://www.google.com/maps/search/?api=1&query=${selectedAlertaForSolve.value.lat},${selectedAlertaForSolve.value.lon}`
-})
-
-const zoomIn = () => {
-  if (mapZoom.value < 20) {
-    isMapImageLoading.value = true
-    mapZoom.value++
-  }
-}
-
-const zoomOut = () => {
-  if (mapZoom.value > 10) {
-    isMapImageLoading.value = true
-    mapZoom.value--
-  }
-}
-
-const openMapView = () => {
-  mapZoom.value = 16
-  isMapImageLoading.value = true
-  modalActiveView.value = 'map'
-}
-
-const backToList = () => {
-  modalActiveView.value = 'list'
-}
-
-const getNombreTipoAlerta = (tipo: number): string => {
+  // Español
   switch (tipo) {
     case 1: return 'Exceso de velocidad'
     case 2: return 'SOS / Emergencia'
@@ -144,61 +123,19 @@ const getNombreTipoAlerta = (tipo: number): string => {
   }
 }
 
-const modalTitle = computed(() => {
-  if (modalActiveView.value === 'map' && selectedAlertaForSolve.value) {
-    return `Ubicación de Alarma: ${getNombreTipoAlerta(selectedAlertaForSolve.value.tipo)}`
-  }
-  return 'Solventar Alerta de Seguridad'
-})
-
 const handleSelectAlert = (alerta: any) => {
   if (alerta) {
     selectedAlertaForSolve.value = alerta
-    selectedVisibilidadForSolve.value = true
-    modalActiveView.value = 'list'
-    mapZoom.value = 16
-    isMapImageLoading.value = true
   }
 }
 
-const handleSolventarAlerta = async () => {
-  if (!selectedAlertaForSolve.value?.token || isSolventandoAlerta.value) return
-  
-  isSolventandoAlerta.value = true
-  const token = selectedAlertaForSolve.value.token
-  const visible = selectedVisibilidadForSolve.value
-  
-  try {
-    const res = await solventarAlertaApi({ token, visible })
-    if (res?.done !== false) {
-      toast.add({
-        severity: 'success',
-        summary: 'Éxito',
-        detail: 'Alarma solventada correctamente',
-        life: 3000
-      })
-      // Filtrar la alerta solventada de la lista local
-      alertasDetalleRes.value = alertasDetalleRes.value.filter(a => a.token !== token)
-      selectedAlertaForSolve.value = null
-    } else {
-      toast.add({
-        severity: 'error',
-        summary: 'Error',
-        detail: res?.msg || res?.message || 'No se pudo solventar la alarma',
-        life: 4000
-      })
-    }
-  } catch (err: any) {
-    console.error('Error al solventar alerta:', err)
-    toast.add({
-      severity: 'error',
-      summary: 'Error',
-      detail: err?.message || 'Error de conexión al solventar la alerta',
-      life: 4000
-    })
-  } finally {
-    isSolventandoAlerta.value = false
+const onAlertaSolventada = (token: string) => {
+  // Filtrar la alerta solventada de la lista local
+  alertasDetalleRes.value = alertasDetalleRes.value.filter(a => a.token !== token)
+  if (alertaEnfocada.value?.token === token) {
+    alertaEnfocada.value = null
   }
+  selectedAlertaForSolve.value = null
 }
 
 // Evaluar credenciales de forma sincrónica para evitar condiciones de carrera con onMounted de los hijos
@@ -256,6 +193,72 @@ const alertasDetalleRes = ref<Array<{
   in_main_db: boolean;
   ws_sync: boolean;
 }>>([])
+
+// Síntesis de voz (TTS) para notificación de alarmas
+const {
+  hablar,
+  cancelar,
+  estaSilenciado,
+  estaHablando,
+  alternarSilencio,
+  probarVoz
+} = useSintesisVoz()
+
+const alertasNotificadasPorVoz = new Set<string>()
+const esCargaInicialAlertas = ref(true)
+
+const procesarAlertasVoz = (alertas: typeof alertasDetalleRes.value) => {
+  if (!alertas || alertas.length === 0) return
+
+  // En la primera carga o cambio de grupo, registrar las alarmas existentes sin reproducir
+  if (esCargaInicialAlertas.value) {
+    for (const alerta of alertas) {
+      const clave = alerta.token || `${alerta.id_hardware}_${alerta.tipo}_${alerta.fecha_hora}`
+      alertasNotificadasPorVoz.add(clave)
+    }
+    esCargaInicialAlertas.value = false
+    return
+  }
+
+  // Identificar alarmas nuevas entrantes
+  const nuevasAlarmas: typeof alertas = []
+  for (const alerta of alertas) {
+    const clave = alerta.token || `${alerta.id_hardware}_${alerta.tipo}_${alerta.fecha_hora}`
+    if (!alertasNotificadasPorVoz.has(clave)) {
+      alertasNotificadasPorVoz.add(clave)
+      nuevasAlarmas.push(alerta)
+    }
+  }
+
+  // Dar prioridad a las nuevas alarmas entrantes
+  if (nuevasAlarmas.length > 0) {
+    // 1. Quitar el estado de enfoque manual previo: ninguna queda como "enfocada" y el mapa muestra la nueva alarma automáticamente
+    alertaEnfocada.value = null
+
+    // 2. Cancelar cualquier audio en curso para dar paso inmediato a la nueva emergencia
+    cancelar()
+
+    // 3. Notificar por voz las nuevas alarmas en el idioma del perfil (/me)
+    for (const alerta of nuevasAlarmas) {
+      const idiomaActual = obtenerIdiomaUsuario()
+      const nombreTipo = getNombreTipoAlerta(alerta.tipo, idiomaActual)
+      const nombreHwReal = getHardwareNombreReal(alerta.id_hardware)
+
+      let mensajeVoz = ''
+      if (idiomaActual === 'en') {
+        mensajeVoz = nombreHwReal
+          ? `Alert: ${nombreTipo}. Device: ${nombreHwReal}.`
+          : `Alert: ${nombreTipo}.`
+      } else {
+        mensajeVoz = nombreHwReal
+          ? `Alarma de ${nombreTipo}. Dispositivo: ${nombreHwReal}.`
+          : `Alarma de ${nombreTipo}.`
+      }
+
+      hablar(mensajeVoz, { idioma: idiomaActual === 'en' ? 'en-US' : 'es-ES' })
+    }
+  }
+}
 
 const connectWebSocket = () => {
   if (reconnectTimeoutId) {
@@ -332,6 +335,7 @@ const connectWebSocket = () => {
           }
           if (Array.isArray(payload.resumen.alertas_detalle)) {
             alertasDetalleRes.value = payload.resumen.alertas_detalle
+            procesarAlertasVoz(payload.resumen.alertas_detalle)
           }
         }
       } catch (err) {
@@ -393,6 +397,9 @@ watch(
   ([newToken, newGroup]) => {
     if (newToken || newGroup) {
       console.log('[Dashboard WebSocket] Detectado cambio en query params, reconectando...')
+      alertasNotificadasPorVoz.clear()
+      alertaEnfocada.value = null
+      esCargaInicialAlertas.value = true
       connectWebSocket()
     }
   }
@@ -404,6 +411,9 @@ watch(
   (newId) => {
     if (newId) {
       console.log('[Dashboard WebSocket] Grupo cambiado en Pinia store a:', newId)
+      alertasNotificadasPorVoz.clear()
+      alertaEnfocada.value = null
+      esCargaInicialAlertas.value = true
       connectWebSocket()
       cargarHardwareList()
     }
@@ -417,6 +427,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   disconnectWebSocket()
+  cancelar()
 })
 </script>
 
@@ -426,7 +437,9 @@ onUnmounted(() => {
     <!-- Capa Visual Base y Holográfica -->
     <DashboardBackground 
       :alertas-detalle="alertasDetalleRes" 
+      :alerta-enfocada="alertaEnfocada"
       @select-alert="handleSelectAlert"
+      @enfocar-alerta="handleEnfocarAlerta"
     />
 
     <!-- LEFT PANEL (WIDGETS) -->
@@ -448,7 +461,12 @@ onUnmounted(() => {
         :alertas="alertasRes"
         :alertas-detalle="alertasDetalleRes"
         :is-live="isLive"
+        :esta-silenciado="estaSilenciado"
+        :esta-hablando="estaHablando"
+        :alerta-enfocada-token="alertaEnfocada?.token || ''"
         @select-alert="handleSelectAlert"
+        @enfocar-alerta="handleEnfocarAlerta"
+        @alternar-silencio="alternarSilencio"
         class="flex-1 min-h-0" 
       />
     </div>
@@ -473,226 +491,14 @@ onUnmounted(() => {
       />
     </div>
 
-    <!-- MODAL SOLVENTAR ALERTA (Mismo diseño que ServicioVerAlarmasModal.vue) -->
-    <AppModal
+    <!-- MODAL SOLVENTAR ALERTA (Unificado y Limpio) -->
+    <SolventarAlertaModal
       :is-open="!!selectedAlertaForSolve"
-      @update:is-open="selectedAlertaForSolve = null"
+      :alerta="selectedAlertaForSolve"
+      :hardware-list="hardwareList"
       @close="selectedAlertaForSolve = null"
-      :title="modalTitle"
-      cancel-text="Cerrar"
-      :show-footer="false"
-      size="xl"
-    >
-      <template #icon>
-        <div v-if="modalActiveView === 'map'" class="w-10 h-10 rounded-2xl bg-blue-500/10 text-blue-500 border border-blue-500/20 flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-transform duration-300">
-          <HugeiconsIcon :icon="MapsIcon" :size="20" :stroke-width="2" />
-        </div>
-        <div v-else class="w-10 h-10 rounded-2xl bg-rose-500/10 text-rose-500 border border-rose-500/20 flex items-center justify-center shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] transition-transform duration-300">
-          <HugeiconsIcon :icon="Alert01Icon" :size="20" :stroke-width="2" />
-        </div>
-      </template>
-
-      <!-- Transición suave tipo Morph entre Vistas (Detalle <-> Mapa) -->
-      <Transition name="modal-view-morph" mode="out-in">
-        <!-- Vista de Mapa (Foto/Imagen Estática de Google Maps) -->
-        <div v-if="modalActiveView === 'map'" key="map-view" class="flex flex-col gap-4">
-          <!-- Top Toolbar del Mapa -->
-          <div class="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-100/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 backdrop-blur-md flex-wrap sm:flex-nowrap">
-            <button
-              @click="backToList"
-              class="px-4 py-2 rounded-xl text-xs font-bold bg-white dark:bg-[#1A1D24] hover:bg-slate-50 dark:hover:bg-white/10 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-white/10 transition-all duration-200 flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
-            >
-              <HugeiconsIcon :icon="ArrowLeft02Icon" :size="16" />
-              <span>Volver a la vista detallada</span>
-            </button>
-
-            <div v-if="selectedAlertaForSolve" class="flex items-center gap-3 text-xs flex-wrap">
-              <div class="flex items-center gap-2 bg-slate-200/60 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/60 dark:border-white/5">
-                <HugeiconsIcon :icon="HardDriveIcon" :size="14" class="text-slate-400" />
-                <span class="font-medium text-slate-400 dark:text-slate-500">Hardware:</span>
-                <span class="font-bold text-slate-800 dark:text-slate-100">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
-              </div>
-
-              <a
-                :href="googleMapsExternalUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 transition-all duration-200 flex items-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <HugeiconsIcon :icon="MapsIcon" :size="14" />
-                <span>Abrir en Google Maps</span>
-              </a>
-            </div>
-          </div>
-
-          <!-- Contenedor de la Imagen Estática de Mapa -->
-          <div class="relative w-full h-[450px] rounded-2xl overflow-hidden border border-slate-200/80 dark:border-white/10 shadow-lg bg-slate-100 dark:bg-[#13161C] flex items-center justify-center">
-            <!-- Spinner Loader mientras carga la foto -->
-            <div v-if="isMapImageLoading" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-100/90 dark:bg-[#13161C]/90 backdrop-blur-sm">
-              <HugeiconsIcon :icon="Loading02Icon" :size="32" class="text-blue-500 animate-spin" />
-              <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">Cargando mapa...</span>
-            </div>
-
-            <!-- Imagen Estática de Google Maps con Marcador -->
-            <img
-              v-if="staticMapUrl"
-              :src="staticMapUrl"
-              :alt="`Mapa de ${getNombreTipoAlerta(selectedAlertaForSolve?.tipo)}`"
-              class="w-full h-full object-cover transition-opacity duration-300"
-              :class="{ 'opacity-0': isMapImageLoading, 'opacity-100': !isMapImageLoading }"
-              @load="isMapImageLoading = false"
-              @error="isMapImageLoading = false"
-            />
-
-            <!-- Controles de Zoom sobre la Imagen -->
-            <div class="absolute bottom-4 right-4 z-20 flex flex-col gap-1 bg-white/90 dark:bg-[#1A1D24]/90 backdrop-blur-md p-1.5 rounded-2xl border border-slate-200/80 dark:border-white/10 shadow-lg">
-              <button
-                @click="zoomIn"
-                :disabled="mapZoom >= 20"
-                class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-                title="Acercar (+)"
-              >
-                +
-              </button>
-              <div class="h-px w-full bg-slate-200 dark:bg-white/10"></div>
-              <button
-                @click="zoomOut"
-                :disabled="mapZoom <= 10"
-                class="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer text-base leading-none"
-                title="Alejar (-)"
-              >
-                −
-              </button>
-            </div>
-          </div>
-
-          <!-- Barra de acción inferior con Visibilidad y Solventar -->
-          <div class="flex items-center justify-between gap-3 pt-1 flex-wrap sm:flex-nowrap">
-            <!-- Selector de Visibilidad -->
-            <div class="flex items-center gap-2 p-1.5 rounded-xl bg-slate-100/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10">
-              <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5">Visibilidad:</span>
-              <div class="flex items-center gap-1">
-                <button
-                  type="button"
-                  @click="selectedVisibilidadForSolve = true"
-                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                  :class="selectedVisibilidadForSolve === true
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'"
-                >
-                  <HugeiconsIcon :icon="EyeIcon" :size="14" />
-                  <span>Visible</span>
-                </button>
-                <button
-                  type="button"
-                  @click="selectedVisibilidadForSolve = false"
-                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                  :class="selectedVisibilidadForSolve === false
-                    ? 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-500/30 ring-1 ring-slate-500/20 shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-white/5 border border-transparent'"
-                >
-                  <HugeiconsIcon :icon="ViewOffIcon" :size="14" />
-                  <span>No Visible</span>
-                </button>
-              </div>
-            </div>
-
-            <button
-              @click="handleSolventarAlerta"
-              :disabled="isSolventandoAlerta"
-              class="px-5 py-2.5 rounded-xl bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm text-xs font-bold ml-auto"
-            >
-              <HugeiconsIcon :icon="isSolventandoAlerta ? Loading02Icon : Tick02Icon" :size="16" :class="{ 'animate-spin': isSolventandoAlerta }" />
-              <span>{{ isSolventandoAlerta ? 'Solventando...' : 'Solventar Alarma' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Vista Principal: Tarjeta Detallada de la Alerta -->
-        <div v-else key="details-view" class="flex flex-col gap-4 relative">
-          <div
-            v-if="selectedAlertaForSolve"
-            class="p-5 rounded-2xl border border-slate-200/80 dark:border-white/[0.08] bg-white dark:bg-[#13161C]/70 backdrop-blur-xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] dark:shadow-[0_10px_30px_rgba(0,0,0,0.3)] space-y-4"
-          >
-            <!-- Fila Superior: Tipo & Fecha -->
-            <div class="flex items-center justify-between gap-4 pb-3 border-b border-slate-100 dark:border-white/[0.06] flex-wrap sm:flex-nowrap">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)] shrink-0">
-                  <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
-                  <HugeiconsIcon :icon="Alert01Icon" :size="14" />
-                  {{ getNombreTipoAlerta(selectedAlertaForSolve.tipo) }}
-                </span>
-                <span class="text-xs text-slate-400 dark:text-slate-400 flex items-center gap-1.5 font-medium tabular-nums shrink-0">
-                  <HugeiconsIcon :icon="Clock01Icon" :size="13" class="opacity-70" />
-                  {{ selectedAlertaForSolve.fecha_hora || '---' }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Fila de Información: Hardware y Mapa -->
-            <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 text-xs">
-              <div class="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                <HugeiconsIcon :icon="HardDriveIcon" :size="15" class="text-slate-400 shrink-0" />
-                <span class="font-medium text-slate-400 dark:text-slate-400">Hardware:</span>
-                <span class="font-bold text-slate-800 dark:text-slate-200">{{ getHardwareInfo(selectedAlertaForSolve.id_hardware) }}</span>
-              </div>
-
-              <div v-if="selectedAlertaForSolve.lat && selectedAlertaForSolve.lon" class="flex items-center gap-2 text-slate-600 dark:text-slate-300 ml-auto">
-                <button
-                  @click="openMapView"
-                  class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/30 transition-all duration-200 flex items-center gap-1.5 active:scale-95 shadow-sm hover:shadow-[#3b82f6]/10 cursor-pointer"
-                >
-                  <HugeiconsIcon :icon="MapsIcon" :size="14" />
-                  <span>Ver en mapa</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- Fila de Acción: Selector de Visibilidad y Botón Solventar -->
-            <div class="pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
-              <!-- Selector de Visibilidad -->
-              <div class="flex items-center gap-2 p-1.5 rounded-xl bg-slate-50 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5">
-                <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5">Visibilidad:</span>
-                <div class="flex items-center gap-1">
-                  <button
-                    type="button"
-                    @click="selectedVisibilidadForSolve = true"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                    :class="selectedVisibilidadForSolve === true
-                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'"
-                  >
-                    <HugeiconsIcon :icon="EyeIcon" :size="14" />
-                    <span>Visible</span>
-                  </button>
-                  <button
-                    type="button"
-                    @click="selectedVisibilidadForSolve = false"
-                    class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
-                    :class="selectedVisibilidadForSolve === false
-                      ? 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border border-slate-500/30 ring-1 ring-slate-500/20 shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 border border-transparent'"
-                  >
-                    <HugeiconsIcon :icon="ViewOffIcon" :size="14" />
-                    <span>No Visible</span>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Botón Solventar -->
-              <button
-                @click="handleSolventarAlerta"
-                :disabled="isSolventandoAlerta"
-                class="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-b from-amber-500/10 to-amber-600/20 hover:from-amber-500/20 hover:to-amber-600/30 text-amber-600 dark:text-amber-400 border border-amber-500/30 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer shadow-sm ml-auto"
-              >
-                <HugeiconsIcon :icon="isSolventandoAlerta ? Loading02Icon : Tick02Icon" :size="15" :class="{ 'animate-spin': isSolventandoAlerta }" />
-                <span>{{ isSolventandoAlerta ? 'Solventando...' : 'Solventar Alarma' }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </AppModal>
+      @solventada="onAlertaSolventada"
+    />
 
     <!-- MODAL ERROR WEBSOCKET / SESIÓN EXPIRADA -->
     <Teleport to="body">

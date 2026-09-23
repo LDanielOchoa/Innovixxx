@@ -190,13 +190,13 @@ const router = createRouter({
           path: 'servicios/alertas',
           name: 'servicios-alertas',
           component: () => import('../domains/servicios/views/AlertasServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.ALERT_HISTORIAL, soloGrupoMain: true }
+          meta: { permission: PERMISSIONS.ALERT_HISTORIAL, soloGrupoMain: true, permitirAdminEnSubgrupos: true }
         },
         {
           path: 'servicios/eventos',
           name: 'servicios-eventos',
           component: () => import('../domains/servicios/views/EventosServiciosListView.vue'),
-          meta: { permission: PERMISSIONS.EVENT_LIST, soloGrupoMain: true }
+          meta: { permission: PERMISSIONS.EVENT_LIST, soloGrupoMain: true, permitirAdminEnSubgrupos: true }
         },
         {
           path: 'servicios/dashboard',
@@ -239,17 +239,19 @@ router.beforeEach(async (to, _from, next) => {
   if (isAuthRequired && token) {
     const authStore = useAuthStore()
     const groupStore = useGroupStore()
+    const esAdmin = authStore.isSuperAdmin || authStore.isAdmin || authStore.userData?.isAdmin || authStore.userData?.isSuperAdmin
 
-    // 1. Verificación de rutas restringidas exclusivamente al Grupo Main
+    // 1. Verificación de rutas restringidas exclusivamente al Grupo Main (los admin pueden acceder si permitirAdminEnSubgrupos está activo)
     const requiresMainGroup = to.matched.some(record => record.meta.soloGrupoMain)
-    if (requiresMainGroup && !groupStore.esGrupoMain) {
+    const permiteAdminSubgrupo = to.matched.some(record => record.meta.permitirAdminEnSubgrupos)
+    if (requiresMainGroup && !groupStore.esGrupoMain && !(permiteAdminSubgrupo && esAdmin)) {
       next({ name: 'dashboard' })
       return
     }
 
     // 2. Verificación de rutas solo para Administrador
     const requiresAdmin = to.matched.some(record => record.meta.adminOnly)
-    if (requiresAdmin && !authStore.isLoading && !authStore.isSuperAdmin && !authStore.isAdmin) {
+    if (requiresAdmin && !authStore.isLoading && !esAdmin) {
       next({ name: 'dashboard' })
       return
     }

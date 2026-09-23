@@ -2,7 +2,8 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WidgetCard from '../ui/WidgetCard.vue'
-import { Alert02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/vue'
+import { Alert02Icon, VolumeHighIcon, VolumeOffIcon } from '@hugeicons/core-free-icons'
 
 interface AlertaResumen {
   SOS: number
@@ -30,6 +31,9 @@ const props = defineProps<{
   alertas?: AlertaResumen | null
   alertasDetalle?: AlertaDetalle[]
   isLive?: boolean
+  estaSilenciado?: boolean
+  estaHablando?: boolean
+  alertaEnfocadaToken?: string
 }>()
 
 const { t } = useI18n()
@@ -37,6 +41,8 @@ const isLoading = ref(true)
 
 const emit = defineEmits<{
   (e: 'selectAlert', alerta: AlertaDetalle): void
+  (e: 'alternarSilencio'): void
+  (e: 'enfocarAlerta', alerta: AlertaDetalle): void
 }>()
 
 const getNombreTipoAlerta = (tipo: number): string => {
@@ -138,9 +144,32 @@ onMounted(() => {
 
 <template>
   <WidgetCard :title="t('dashboard.widgets.alarms.title')" :icon="Alert02Icon" :loading="isLoading" class="h-full">
-    <div class="flex flex-col gap-4 h-full">
+    <template #header-right>
+      <button
+        type="button"
+        @click.stop="emit('alternarSilencio')"
+        :title="props.estaSilenciado ? 'Activar alertas de voz' : 'Silenciar alertas de voz'"
+        class="relative p-1.5 rounded-lg border transition-all duration-200 cursor-pointer flex items-center justify-center group"
+        :class="props.estaSilenciado
+          ? 'bg-slate-100/80 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
+          : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shadow-sm'"
+      >
+        <HugeiconsIcon
+          :icon="props.estaSilenciado ? VolumeOffIcon : VolumeHighIcon"
+          :size="13"
+          :stroke-width="2.2"
+        />
+        <!-- Indicador animado cuando la síntesis de voz está hablando -->
+        <span
+          v-if="!props.estaSilenciado && props.estaHablando"
+          class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 animate-ping"
+        ></span>
+      </button>
+    </template>
+
+    <div class="flex flex-col gap-3 h-full min-h-0">
       <!-- Resumen Crítico -->
-      <div class="flex items-center gap-3 bg-red-500/5 dark:bg-[#0F1115]/80 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 shadow-[inset_0_2px_8px_rgba(239,68,68,0.05)] dark:shadow-[inset_0_2px_12px_rgba(239,68,68,0.15)] hover:shadow-[inset_0_4px_12px_rgba(239,68,68,0.1)] dark:hover:shadow-[inset_0_4px_16px_rgba(239,68,68,0.25)] hover:bg-red-500/10">
+      <div class="shrink-0 flex items-center gap-3 bg-red-500/5 dark:bg-[#0F1115]/80 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 shadow-[inset_0_2px_8px_rgba(239,68,68,0.05)] dark:shadow-[inset_0_2px_12px_rgba(239,68,68,0.15)] hover:shadow-[inset_0_4px_12px_rgba(239,68,68,0.1)] dark:hover:shadow-[inset_0_4px_16px_rgba(239,68,68,0.25)] hover:bg-red-500/10">
         <div class="relative w-12 h-12 shrink-0 flex items-center justify-center rounded-xl bg-red-500 text-white shadow-[0_4px_12px_rgba(239,68,68,0.3)] group-hover/alert:scale-105 transition-transform duration-500">
           <span class="text-xl font-black">{{ totalAlertasCount }}</span>
           <div class="absolute inset-0 rounded-xl border border-red-400 animate-ping opacity-20"></div>
@@ -153,19 +182,46 @@ onMounted(() => {
         <div class="absolute top-0 -left-[100%] w-full h-full bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-[-20deg] group-hover/alert:left-[100%] transition-all duration-1000"></div>
       </div>
 
-      <!-- Lista de Alarmas -->
-      <div class="flex-1 relative overflow-hidden">
-        <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5 h-full overflow-y-auto custom-scrollbar pr-1">
-          <div v-for="alarm in alarmList" :key="alarm.id" @click="emit('selectAlert', alarm.alertaOriginal)" class="flex items-center justify-between p-2.5 bg-slate-50/50 dark:bg-[#0F1115]/50 rounded-lg border border-slate-200/50 dark:border-white/5 transition-all duration-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/50 cursor-pointer">
-            <div class="flex items-center gap-2.5">
-               <div class="w-1.5 h-1.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"></div>
-               <span class="text-slate-400 dark:text-slate-500 text-[9px] font-black w-14 uppercase tracking-tighter">{{ alarm.time }}</span>
+      <!-- Lista de Alarmas con Scroll -->
+      <div class="flex-1 min-h-0 relative overflow-hidden flex flex-col">
+        <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+          <TransitionGroup name="alarm-card" tag="div" class="flex flex-col gap-1.5 pb-1">
+            <div 
+              v-for="alarm in alarmList" 
+              :key="alarm.id" 
+              @click="emit('selectAlert', alarm.alertaOriginal)" 
+              @contextmenu.stop.prevent="emit('enfocarAlerta', alarm.alertaOriginal)"
+              :title="'Click izquierdo: Solventar | Click derecho: Enfocar en el mapa'"
+              class="flex items-center justify-between p-2.5 rounded-lg border transition-all duration-300 cursor-pointer select-none"
+              :class="props.alertaEnfocadaToken && props.alertaEnfocadaToken === alarm.alertaOriginal.token
+                ? 'bg-cyan-500/10 dark:bg-cyan-950/30 border-cyan-500/60 dark:border-cyan-400/50 shadow-[0_0_12px_rgba(6,182,212,0.25)] translate-x-1'
+                : 'bg-slate-50/50 dark:bg-[#0F1115]/50 border-slate-200/50 dark:border-white/5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_2px_8px_rgba(0,0,0,0.3)] hover:shadow-[inset_0_2px_6px_rgba(0,0,0,0.1)] dark:hover:shadow-[inset_0_4px_12px_rgba(0,0,0,0.4)] hover:bg-slate-100/50 dark:hover:bg-[#0A0C10]/50 hover:translate-x-1 hover:border-[#3b82f6]/50'"
+            >
+              <div class="flex items-center gap-2.5">
+                 <div 
+                   class="w-1.5 h-1.5 rounded-full transition-colors duration-300 shrink-0"
+                   :class="props.alertaEnfocadaToken && props.alertaEnfocadaToken === alarm.alertaOriginal.token
+                     ? 'bg-cyan-400 shadow-[0_0_8px_rgba(6,182,212,0.9)] animate-pulse'
+                     : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]'"
+                 ></div>
+                 <span 
+                   class="text-[9px] font-black w-14 uppercase tracking-tighter shrink-0"
+                   :class="props.alertaEnfocadaToken && props.alertaEnfocadaToken === alarm.alertaOriginal.token
+                     ? 'text-cyan-600 dark:text-cyan-300 font-extrabold'
+                     : 'text-slate-400 dark:text-slate-500'"
+                 >{{ alarm.time }}</span>
+              </div>
+              <span 
+                class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border tracking-[0.1em] backdrop-blur-md transition-colors duration-300 truncate max-w-[130px]"
+                :class="props.alertaEnfocadaToken && props.alertaEnfocadaToken === alarm.alertaOriginal.token
+                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30'
+                  : 'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 dark:border-red-500/10 hover:bg-red-500/20'"
+              >
+                {{ alarm.issue }}
+              </span>
             </div>
-            <span class="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border tracking-[0.1em] backdrop-blur-md transition-colors duration-300 bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20 dark:border-red-500/10 hover:bg-red-500/20">
-              {{ alarm.issue }}
-            </span>
-          </div>
-        </TransitionGroup>
+          </TransitionGroup>
+        </div>
       </div>
     </div>
   </WidgetCard>
@@ -177,5 +233,28 @@ onMounted(() => {
 .alarm-card-enter-from { opacity: 0; transform: translateX(-20px) scale(0.95); }
 .alarm-card-leave-to { opacity: 0; transform: translateX(20px) scale(0.95); }
 .alarm-card-move { transition: transform 0.4s ease; }
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(239, 68, 68, 0.35) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 9999px;
+}
+:global(.dark) .custom-scrollbar::-webkit-scrollbar-track,
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.35);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.65);
+}
 </style>
 

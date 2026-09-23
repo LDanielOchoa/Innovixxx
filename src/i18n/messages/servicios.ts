@@ -68,6 +68,7 @@ export const serviciosMessages = {
     thEvent: 'Evento',
     thAuthor: 'Autor',
     thObservations: 'Observación',
+    thComment: 'Comentario',
     thPhotos: 'Fotos',
     thSolved: 'Solventada',
     thVisibility: 'Visibilidad',
@@ -90,6 +91,7 @@ export const serviciosMessages = {
     noEscortsFound: 'No se encontraron escoltas.',
     noHardwareFound: 'No se encontró hardware.',
     noObservation: 'Sin observación registrada',
+    noComment: 'Sin comentario',
 
     // Estados del servicio
     stateAll: 'Todos',
@@ -498,6 +500,7 @@ export const serviciosMessages = {
     thEvent: 'Event',
     thAuthor: 'Author',
     thObservations: 'Observation',
+    thComment: 'Comment',
     thPhotos: 'Photos',
     thSolved: 'Solved',
     thVisibility: 'Visibility',
@@ -520,6 +523,7 @@ export const serviciosMessages = {
     noEscortsFound: 'No escorts found.',
     noHardwareFound: 'No hardware found.',
     noObservation: 'No observation recorded',
+    noComment: 'No comment recorded',
 
     // Service statuses
     stateAll: 'All',

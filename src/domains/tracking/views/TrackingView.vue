@@ -8,7 +8,7 @@ import { useGroupStore } from '../../../stores/group.store'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon, Settings02Icon, Clock01Icon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
 import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
@@ -1597,6 +1597,33 @@ const getServicioEstadoInfo = (estadoVal: any) => {
   }
 }
 
+const formatTimestampDateTime = (timestamp?: number | string | null) => {
+  if (timestamp === undefined || timestamp === null || timestamp === '' || timestamp === 0 || timestamp === '0') {
+    return { fecha: null, hora: null }
+  }
+  try {
+    let d: Date
+    const num = Number(timestamp)
+    if (!isNaN(num) && num > 0) {
+      const ms = num < 1e11 ? num * 1000 : num
+      d = new Date(ms)
+    } else if (typeof timestamp === 'string') {
+      d = new Date(timestamp.replace(' ', 'T'))
+    } else {
+      return { fecha: null, hora: null }
+    }
+
+    if (!isNaN(d.getTime())) {
+      const fecha = d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      return { fecha, hora }
+    }
+    return { fecha: null, hora: null }
+  } catch {
+    return { fecha: null, hora: null }
+  }
+}
+
 const hoveredServiceDateTime = computed(() => {
   const service = hoveredService.value
   if (!service) return { fecha: null, hora: null }
@@ -1609,6 +1636,18 @@ const hoveredEscoltaServiceDateTime = computed(() => {
   if (!service) return { fecha: null, hora: null }
   const fechaRaw = service.fecha_inicio || service.fecha_hora_inicio || service.fecha_creacion || service.fecha_creada || service.created_at
   return formatServiceDateTime(fechaRaw)
+})
+
+const hoveredHardwareDateTime = computed(() => {
+  const hw = hoveredItem.value
+  if (!hw) return { fecha: null, hora: null }
+  return formatTimestampDateTime(hw.time_fx || (hw as any).device_ts || (hw as any).fecha_hora)
+})
+
+const hoveredEscoltaDateTime = computed(() => {
+  const esc = hoveredEscoltaItem.value
+  if (!esc) return { fecha: null, hora: null }
+  return formatTimestampDateTime(esc.time_fx || esc.fecha_hora || esc.device_ts)
 })
 
 const hoveredServiceEstadoInfo = computed(() => {
@@ -1689,6 +1728,18 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
               </template>
             </div>
 
+            <!-- Último Reporte GPS (time_fx) -->
+            <div v-if="hoveredHardwareDateTime.fecha || hoveredHardwareDateTime.hora" class="flex items-center justify-between text-[10px] px-1">
+              <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <HugeiconsIcon :icon="Clock01Icon" :size="13" class="text-slate-400" />
+                <span>{{ t('tracking.lastReport') }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
+                <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredHardwareDateTime.fecha }}</span>
+                <span v-if="hoveredHardwareDateTime.hora" class="text-emerald-600 dark:text-emerald-400 font-bold">{{ hoveredHardwareDateTime.hora }}</span>
+              </div>
+            </div>
+
             <div class="flex items-center justify-between text-[10px] px-1">
               <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
                 <HugeiconsIcon :icon="UserGroupIcon" :size="13" class="text-slate-400" />
@@ -1747,6 +1798,18 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                   </div>
                 </div>
               </template>
+            </div>
+
+            <!-- Último Reporte Escolta si aplica -->
+            <div v-if="hoveredEscoltaDateTime.fecha || hoveredEscoltaDateTime.hora" class="flex items-center justify-between text-[10px] px-1">
+              <div class="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
+                <HugeiconsIcon :icon="Clock01Icon" :size="13" class="text-slate-400" />
+                <span>{{ t('tracking.lastReport') }}</span>
+              </div>
+              <div class="flex items-center gap-1.5 font-mono text-[9.5px]">
+                <span class="text-slate-700 dark:text-slate-200 font-medium">{{ hoveredEscoltaDateTime.fecha }}</span>
+                <span v-if="hoveredEscoltaDateTime.hora" class="text-emerald-600 dark:text-emerald-400 font-bold">{{ hoveredEscoltaDateTime.hora }}</span>
+              </div>
             </div>
 
             <div v-if="hoveredEscoltaItem.celular" class="flex items-center justify-between text-[10px] px-1">
@@ -1861,18 +1924,15 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
         <!-- Separador sutil -->
         <div class="h-4 w-px bg-slate-200 dark:bg-slate-800 shrink-0 mx-0.5"></div>
 
-        <!-- Botón de Geocercas (siempre visible, cliqueable solo en SERVICIOS y HARDWARE) -->
+        <!-- Botón de Geocercas (siempre visible y seleccionable) -->
         <button
-          @click="activeTab !== 'ESCOLTAS' && toggleGeocercas()"
-          :disabled="activeTab === 'ESCOLTAS'"
-          :title="activeTab === 'ESCOLTAS' ? t('tracking.geofencesNotAvailable') : (showGeocercas ? t('tracking.hideGeofences') : t('tracking.showGeofences'))"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all focus:outline-none shrink-0 border"
+          @click="toggleGeocercas()"
+          :title="showGeocercas ? t('tracking.hideGeofences') : t('tracking.showGeofences')"
+          class="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold tracking-wider uppercase rounded-lg transition-all focus:outline-none shrink-0 border cursor-pointer"
           :class="[
-            activeTab === 'ESCOLTAS' 
-              ? 'opacity-40 cursor-not-allowed text-slate-500 border-transparent bg-transparent'
-              : (showGeocercas 
-                  ? 'bg-amber-500/90 text-white border-amber-500/80 cursor-pointer' 
-                  : 'text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-transparent cursor-pointer')
+            showGeocercas 
+              ? 'bg-amber-500/90 text-white border-amber-500/80' 
+              : 'text-amber-600/80 dark:text-amber-400/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border-transparent'
           ]"
         >
           <HugeiconsIcon v-if="loadingGeocercas" :icon="Loading03Icon" :size="14" class="animate-spin" />
