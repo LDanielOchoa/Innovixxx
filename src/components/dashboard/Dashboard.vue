@@ -461,12 +461,9 @@ onUnmounted(() => {
         :alertas="alertasRes"
         :alertas-detalle="alertasDetalleRes"
         :is-live="isLive"
-        :esta-silenciado="estaSilenciado"
-        :esta-hablando="estaHablando"
         :alerta-enfocada-token="alertaEnfocada?.token || ''"
         @select-alert="handleSelectAlert"
         @enfocar-alerta="handleEnfocarAlerta"
-        @alternar-silencio="alternarSilencio"
         class="flex-1 min-h-0" 
       />
     </div>

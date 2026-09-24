@@ -2,8 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WidgetCard from '../ui/WidgetCard.vue'
-import { HugeiconsIcon } from '@hugeicons/vue'
-import { Alert02Icon, VolumeHighIcon, VolumeOffIcon } from '@hugeicons/core-free-icons'
+import { Alert02Icon } from '@hugeicons/core-free-icons'
 
 interface AlertaResumen {
   SOS: number
@@ -31,8 +30,6 @@ const props = defineProps<{
   alertas?: AlertaResumen | null
   alertasDetalle?: AlertaDetalle[]
   isLive?: boolean
-  estaSilenciado?: boolean
-  estaHablando?: boolean
   alertaEnfocadaToken?: string
 }>()
 
@@ -41,7 +38,6 @@ const isLoading = ref(true)
 
 const emit = defineEmits<{
   (e: 'selectAlert', alerta: AlertaDetalle): void
-  (e: 'alternarSilencio'): void
   (e: 'enfocarAlerta', alerta: AlertaDetalle): void
 }>()
 
@@ -144,29 +140,6 @@ onMounted(() => {
 
 <template>
   <WidgetCard :title="t('dashboard.widgets.alarms.title')" :icon="Alert02Icon" :loading="isLoading" class="h-full">
-    <template #header-right>
-      <button
-        type="button"
-        @click.stop="emit('alternarSilencio')"
-        :title="props.estaSilenciado ? 'Activar alertas de voz' : 'Silenciar alertas de voz'"
-        class="relative p-1.5 rounded-lg border transition-all duration-200 cursor-pointer flex items-center justify-center group"
-        :class="props.estaSilenciado
-          ? 'bg-slate-100/80 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
-          : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 shadow-sm'"
-      >
-        <HugeiconsIcon
-          :icon="props.estaSilenciado ? VolumeOffIcon : VolumeHighIcon"
-          :size="13"
-          :stroke-width="2.2"
-        />
-        <!-- Indicador animado cuando la síntesis de voz está hablando -->
-        <span
-          v-if="!props.estaSilenciado && props.estaHablando"
-          class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 animate-ping"
-        ></span>
-      </button>
-    </template>
-
     <div class="flex flex-col gap-3 h-full min-h-0">
       <!-- Resumen Crítico -->
       <div class="shrink-0 flex items-center gap-3 bg-red-500/5 dark:bg-[#0F1115]/80 rounded-xl border border-red-500/20 dark:border-red-500/10 p-3 relative overflow-hidden group/alert transition-all duration-300 shadow-[inset_0_2px_8px_rgba(239,68,68,0.05)] dark:shadow-[inset_0_2px_12px_rgba(239,68,68,0.15)] hover:shadow-[inset_0_4px_12px_rgba(239,68,68,0.1)] dark:hover:shadow-[inset_0_4px_16px_rgba(239,68,68,0.25)] hover:bg-red-500/10">
