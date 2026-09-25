@@ -33,7 +33,7 @@ export const rutasMessages = {
     formColorPlaceholder: '#60a5fa',
     formSubtitle: 'Detalles de la ruta',
     basicInfo: 'Información Básica',
-    optimizeRoute: 'Optimizar Ruta',
+    optimizeRoute: 'Optimizar Ruta al Guardar',
     optimizeRouteDesc: 'Optimizar automáticamente el trazado de la ruta',
     otherColor: 'Otros',
     strategicStops: 'Paradas Estratégicas',
@@ -136,7 +136,12 @@ export const rutasMessages = {
     inheritSuccessTitle: 'Trazado Heredado',
     inheritSuccessDesc: 'El trazado de la ruta se heredó exitosamente',
     inheritErrorDesc: 'Error al heredar el trazado de la ruta',
-    errorLoadingRoutes: 'Error al cargar el listado de rutas'
+    errorLoadingRoutes: 'Error al cargar el listado de rutas',
+    alertSuccessDeleteRange: 'Se eliminaron {count} puntos del tramo exitosamente',
+    rangeSelected: '{count} puntos seleccionados',
+    selectedRangeTitle: 'Tramo seleccionado: Puntos {from} al {to}',
+    selectedRangeSubtitle: '{count} puntos a eliminar',
+    btnDeleteRange: 'Eliminar Tramo'
   },
   en: {
     title: 'Routes',
@@ -172,7 +177,7 @@ export const rutasMessages = {
     formColorPlaceholder: '#60a5fa',
     formSubtitle: 'Route details',
     basicInfo: 'Basic Information',
-    optimizeRoute: 'Optimize Route',
+    optimizeRoute: 'Optimize Route on Save',
     optimizeRouteDesc: 'Automatically optimize route trajectory',
     otherColor: 'Other',
     strategicStops: 'Strategic Stops',
@@ -275,6 +280,11 @@ export const rutasMessages = {
     inheritSuccessTitle: 'Trajectory Inherited',
     inheritSuccessDesc: 'Route trajectory was inherited successfully',
     inheritErrorDesc: 'Error inheriting route trajectory',
-    errorLoadingRoutes: 'Error loading routes list'
+    errorLoadingRoutes: 'Error loading routes list',
+    alertSuccessDeleteRange: '{count} route points deleted successfully',
+    rangeSelected: '{count} points selected',
+    selectedRangeTitle: 'Selected segment: Points {from} to {to}',
+    selectedRangeSubtitle: '{count} points to delete',
+    btnDeleteRange: 'Delete Segment'
   }
 }

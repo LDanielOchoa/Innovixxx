@@ -20,7 +20,8 @@ import {
 import { loadModuleMessages } from '../../../i18n'
 import * as XLSX from 'xlsx'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi, deleteGeocercaApi } from '../services/geocercas.api'
-import type { Geocerca, GeocercaDetalle } from '../types/geocerca'
+import type { Geocerca, GeocercaDetalle, ElementoGeocercaCluster, GeocercaCluster } from '../types/geocerca'
+import { calcularCentroGeocerca, agruparGeocercasEnClusters } from '../composables/useGeocercaClustering'
 import { useI18n } from 'vue-i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
@@ -39,12 +40,20 @@ const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
 const { t } = useI18n()
 
+// Estado principal de geocercas
 const geocercas = ref<Geocerca[]>([])
+const geocercasConDetalles = ref<ElementoGeocercaCluster[]>([])
 const loading = ref(false)
 const searchQuery = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const currentPage = ref(typeof route.query.page === 'string' ? parseInt(route.query.page, 10) || 1 : 1)
 const itemsPerPage = 10
 
+// Estado de agrupación (clustering) y Tooltips flotantes
+let clustersMap = new Map<string, any>()
+const hoveredCluster = ref<GeocercaCluster | null>(null)
+const hoveredClusterPosition = ref({ top: 0, left: 0 })
+
+// Menú de opciones por elemento
 const openMenuGeocercaId = ref<string | null>(null)
 const toggleMenu = (geocercaId: string, event: Event) => {
   event.stopPropagation()
@@ -74,23 +83,63 @@ watch(currentPage, () => {
   syncStateToUrl()
 })
 
-const fetchGeocercas = async () => {
-  if (!selectedGroup.value?.id) {
-    geocercas.value = []
-    return
+const filteredGeocercas = computed(() => {
+  let result = [...geocercas.value]
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(g =>
+      g.nombre.toLowerCase().includes(query) ||
+      g.descripcion.toLowerCase().includes(query) ||
+      g.id_geocerca.toLowerCase().includes(query)
+    )
   }
-  loading.value = true
-  try {
-    geocercas.value = await fetchGeocercasApi(selectedGroup.value.id)
-    if (map.value && !selectedGeocerca.value) {
-      await drawAllGeocercas()
-    }
-  } catch (error) {
-    console.error('Error al obtener geocercas:', error)
-    geocercas.value = []
-  } finally {
-    loading.value = false
+  return result
+})
+
+const paginatedGeocercas = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  return filteredGeocercas.value.slice(start, start + itemsPerPage)
+})
+
+const selectedGeocerca = ref<Geocerca | null>(null)
+const currentDrawing = shallowRef<any>(null)
+const allDrawings = ref<any[]>([])
+const isLoadingDetails = ref(false)
+
+const hoverTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const hoveredGeocerca = ref<Geocerca | null>(null)
+
+const clearHoverTimer = () => {
+  if (hoverTimer.value) {
+    clearTimeout(hoverTimer.value)
+    hoverTimer.value = null
   }
+}
+
+const clearAllClusters = () => {
+  clustersMap.forEach(m => {
+    if (m) m.map = null
+  })
+  clustersMap.clear()
+  hoveredCluster.value = null
+}
+
+const clearAllDrawings = () => {
+  allDrawings.value.forEach(d => d.setMap(null))
+  allDrawings.value = []
+}
+
+const clearDrawings = () => {
+  if (currentDrawing.value) {
+    currentDrawing.value.setMap(null)
+    currentDrawing.value = null
+  }
+  if (selectedLabelOverlay.value) {
+    selectedLabelOverlay.value.setMap(null)
+    selectedLabelOverlay.value = null
+  }
+  clearAllDrawings()
+  clearAllClusters()
 }
 
 // Google Maps Setup (shared composable)
@@ -105,11 +154,446 @@ const {
   setMapType
 } = useMapSetup('geocercas-map-container', {
   defaultZoom: 12,
-  gestureHandling: 'greedy'
+  gestureHandling: 'greedy',
+  mapId: '688c00fbadb30bbb930f73e2'
 })
 
 let CustomLabelOverlay: any = null
 const selectedLabelOverlay = ref<any>(null)
+
+/**
+ * Crea el elemento DOM del marcador de grupo (cluster) para geocercas
+ */
+const createClusterMarkerElement = (cluster: GeocercaCluster) => {
+  const container = document.createElement('div')
+  container.className = 'custom-cluster-marker'
+  container.style.cssText = 'position: relative; width: 0; height: 0; cursor: pointer; user-select: none; pointer-events: auto;'
+
+  const count = cluster.elementos.length
+  const borderStyle = 'border-[#3b82f6]/50'
+  const textStyle = 'text-[#3b82f6]'
+  const iconBg = 'bg-[#3b82f6]/10'
+  const needleBorder = 'border-t-[#3b82f6]'
+  const labelText = count === 1 ? t('geocercas.geocerca') : t('geocercas.title')
+
+  const iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>`
+
+  container.innerHTML = `
+    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
+      <!-- Insignia sobria y profesional -->
+      <div class="px-2.5 py-1 rounded-lg bg-[#0f121a]/95 border ${borderStyle} shadow-md backdrop-blur-md flex items-center gap-2 text-white">
+        <div class="w-5 h-5 rounded ${iconBg} ${textStyle} flex items-center justify-center shrink-0">
+          ${iconSvg}
+        </div>
+        <div class="flex items-center gap-1 font-sans">
+          <span class="text-[12px] font-bold ${textStyle} font-mono leading-none">${count}</span>
+          <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300 leading-none">
+            ${labelText}
+          </span>
+        </div>
+      </div>
+      <!-- Puntero sutil al mapa -->
+      <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] ${needleBorder} -mt-[0.5px]"></div>
+    </div>
+  `
+
+  container.addEventListener('mouseenter', () => {
+    const mapDiv = map.value?.getDiv()
+    if (!mapDiv) return
+    const mapRect = mapDiv.getBoundingClientRect()
+    const markerRect = container.getBoundingClientRect()
+
+    hoveredClusterPosition.value = {
+      top: markerRect.top - mapRect.top - 10,
+      left: markerRect.left - mapRect.left + (markerRect.width / 2)
+    }
+    hoveredCluster.value = cluster
+  })
+
+  container.addEventListener('mouseleave', () => {
+    hoveredCluster.value = null
+  })
+
+  return container
+}
+
+/**
+ * Renderiza todas las geocercas en el mapa aplicando agrupación (clustering) inteligente según el nivel de zoom
+ */
+const drawAllGeocercas = () => {
+  clearAllDrawings()
+  if (!map.value || geocercasConDetalles.value.length === 0) {
+    clearAllClusters()
+    return
+  }
+
+  const currentZoom = map.value.getZoom() || 12
+  const shouldCluster = currentZoom < 14 && geocercasConDetalles.value.length > 1
+
+  let clusters: GeocercaCluster[] = []
+  let singleItems: ElementoGeocercaCluster[] = []
+
+  if (shouldCluster) {
+    const agrupados = agruparGeocercasEnClusters(geocercasConDetalles.value, currentZoom, 75)
+    clusters = agrupados.clusters
+    singleItems = agrupados.elementosIndividuales
+  } else {
+    singleItems = geocercasConDetalles.value
+  }
+
+  const activeClusterKeys = new Set<string>()
+  clusters.forEach(c => activeClusterKeys.add(c.id))
+
+  if (hoveredCluster.value && !activeClusterKeys.has(hoveredCluster.value.id)) {
+    hoveredCluster.value = null
+  }
+
+  // 1. Renderizar / actualizar marcadores de agrupaciones (clusters)
+  clusters.forEach(cluster => {
+    let cMarker = clustersMap.get(cluster.id)
+    if (cMarker) {
+      cMarker.map = map.value
+      cMarker.position = { lat: cluster.latCentro, lng: cluster.lngCentro }
+    } else {
+      const content = createClusterMarkerElement(cluster)
+      if ((window as any).google?.maps?.marker?.AdvancedMarkerElement) {
+        cMarker = new (window as any).google.maps.marker.AdvancedMarkerElement({
+          position: { lat: cluster.latCentro, lng: cluster.lngCentro },
+          map: map.value,
+          title: `${cluster.elementos.length} geocercas agrupadas`,
+          content,
+          zIndex: 500
+        })
+
+        cMarker.addListener('click', () => {
+          hoveredCluster.value = null
+          if (map.value) {
+            map.value.panTo({ lat: cluster.latCentro, lng: cluster.lngCentro })
+            map.value.setZoom(Math.min((map.value.getZoom() || 12) + 3, 16))
+            drawAllGeocercas()
+          }
+        })
+
+        clustersMap.set(cluster.id, cMarker)
+      }
+    }
+  })
+
+  // Limpiar agrupaciones que ya no existen
+  clustersMap.forEach((cMarker, key) => {
+    if (!activeClusterKeys.has(key)) {
+      cMarker.map = null
+      clustersMap.delete(key)
+    }
+  })
+
+  // 2. Renderizar figuras individuales no agrupadas
+  singleItems.forEach(item => {
+    const detalle = item.detalle
+    if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
+    const color = detalle.color || '#3b82f6'
+    let bounds: any = null
+
+    if (detalle.tipo === 'Circular') {
+      const p = detalle.puntos[0]
+      const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
+      const radius = parseFloat(p.radio || '0')
+      const circle = new (window as any).google.maps.Circle({
+        strokeColor: color,
+        strokeOpacity: 0.45,
+        strokeWeight: 1.2,
+        fillColor: color,
+        fillOpacity: 0.12,
+        map: map.value,
+        center,
+        radius
+      })
+      circle.addListener('click', () => {
+        onGeocercaClick(detalle)
+      })
+      allDrawings.value.push(circle)
+      bounds = circle.getBounds()
+    } else {
+      const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+      const polygon = new (window as any).google.maps.Polygon({
+        paths,
+        strokeColor: color,
+        strokeOpacity: 0.45,
+        strokeWeight: 1.2,
+        fillColor: color,
+        fillOpacity: 0.12,
+        map: map.value
+      })
+      polygon.addListener('click', () => {
+        onGeocercaClick(detalle)
+      })
+      allDrawings.value.push(polygon)
+      const polyBounds = new (window as any).google.maps.LatLngBounds()
+      paths.forEach(p => polyBounds.extend(p))
+      bounds = polyBounds
+    }
+
+    if (bounds && map.value && CustomLabelOverlay) {
+      const topPosition = new (window as any).google.maps.LatLng(
+        bounds.getNorthEast().lat(),
+        bounds.getCenter().lng()
+      )
+      const labelOverlay = new CustomLabelOverlay(topPosition, detalle.nombre, color)
+      labelOverlay.setMap(map.value)
+      allDrawings.value.push(labelOverlay)
+    }
+  })
+}
+
+const onGeocercaClickFromCluster = (item: ElementoGeocercaCluster) => {
+  hoveredCluster.value = null
+  const original = geocercas.value.find(g => g.id_geocerca === item.id) || item.detalle
+  onGeocercaClick(original)
+}
+
+const getMapPadding = () => {
+  const isDesktop = window.innerWidth >= 768
+  return {
+    top: 120,
+    right: 80,
+    bottom: 120,
+    left: isDesktop ? 440 : 60
+  }
+}
+
+// Animación de vuelo cinemático suave
+const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number | null, bounds?: any) => {
+  return new Promise<void>((resolve) => {
+    const startZoom = mapInstance.getZoom()
+    const startCenter = mapInstance.getCenter()
+    
+    // Si estamos muy cerca, usar nativo para evitar salto brusco
+    const dist = (window as any).google.maps.geometry.spherical.computeDistanceBetween(startCenter, targetLatLng)
+    if (dist < 2000 && startZoom >= 13) {
+      mapInstance.panTo(targetLatLng)
+      setTimeout(() => {
+        if (bounds) {
+          mapInstance.fitBounds(bounds, getMapPadding())
+          if (mapInstance.getZoom() > 15) {
+            mapInstance.setZoom(15)
+          }
+        } else if (targetZoom) {
+          mapInstance.setZoom(targetZoom)
+        }
+        resolve()
+      }, 500)
+      return
+    }
+
+    const duration = 600 // Vuelo cinemático rápido
+    const startTime = performance.now()
+    
+    const finalZoom = targetZoom || 15
+    let midZoom = Math.min(startZoom, finalZoom) - 3
+    if (dist > 50000) midZoom = Math.min(startZoom, 8)
+    if (dist > 500000) midZoom = Math.min(startZoom, 6)
+
+    const animate = (currentTime: number) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+
+      // Easing In-Out Cubic
+      const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
+
+      const currentLat = startCenter.lat() + (targetLatLng.lat() - startCenter.lat()) * ease
+      const currentLng = startCenter.lng() + (targetLatLng.lng() - startCenter.lng()) * ease
+      mapInstance.setCenter({ lat: currentLat, lng: currentLng })
+
+      let currentZoom
+      if (progress < 0.5) {
+        const p2 = progress * 2
+        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
+        currentZoom = startZoom + (midZoom - startZoom) * easeZoom
+      } else {
+        const p2 = (progress - 0.5) * 2
+        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
+        currentZoom = midZoom + (finalZoom - midZoom) * easeZoom
+      }
+      
+      if (!bounds || progress < 0.95) {
+        mapInstance.setZoom(currentZoom)
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        mapInstance.setCenter(targetLatLng)
+        if (bounds) {
+          mapInstance.fitBounds(bounds, getMapPadding())
+          if (mapInstance.getZoom() > 15) {
+            mapInstance.setZoom(15)
+          }
+        } else if (targetZoom) {
+          mapInstance.setZoom(targetZoom)
+        }
+        resolve()
+      }
+    }
+
+    requestAnimationFrame(animate)
+  })
+}
+
+const onGeocercaClick = async (geocerca: Geocerca) => {
+  clearHoverTimer()
+  hoveredGeocerca.value = null
+  if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
+    selectedGeocerca.value = null
+    clearDrawings()
+    drawAllGeocercas()
+    return
+  }
+  if (!map.value || !selectedGroup.value?.id) return
+  if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_DETAILS)) return
+  selectedGeocerca.value = geocerca
+  clearDrawings()
+  
+  try {
+    const detalle = await fetchGeocercaDetallesApi(selectedGroup.value.id, geocerca.id_geocerca)
+    if (!detalle) return
+    
+    const color = detalle.color || '#3b82f6'
+
+    if (detalle.tipo === 'Circular' && detalle.puntos && detalle.puntos.length > 0) {
+      const p = detalle.puntos[0]
+      const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
+      const radius = parseFloat(p.radio || '0')
+      
+      // 1. Dibujar la figura
+      const circle = new (window as any).google.maps.Circle({
+        strokeColor: color,
+        strokeOpacity: 0.65,
+        strokeWeight: 1.5,
+        fillColor: color,
+        fillOpacity: 0.18,
+        map: map.value,
+        center: center,
+        radius: radius
+      })
+      currentDrawing.value = circle
+      const bounds = circle.getBounds()
+
+      // Dibujar etiqueta arriba del trazo
+      if (CustomLabelOverlay && bounds) {
+        const topPosition = new (window as any).google.maps.LatLng(
+          bounds.getNorthEast().lat(),
+          bounds.getCenter().lng()
+        )
+        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
+        selectedLabelOverlay.value.setMap(map.value)
+      }
+      
+      // 2. Vuelo parabólico hacia la geocerca
+      const targetLatLng = new (window as any).google.maps.LatLng(center.lat, center.lng)
+      await flyToMap(map.value, targetLatLng, 15, bounds)
+      
+    } else if (detalle.tipo === 'Poligonal' && detalle.puntos && detalle.puntos.length > 0) {
+      const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+      const bounds = new (window as any).google.maps.LatLngBounds()
+      paths.forEach(p => bounds.extend(p))
+      
+      // 1. Dibujar la figura
+      currentDrawing.value = new (window as any).google.maps.Polygon({
+        paths: paths,
+        strokeColor: color,
+        strokeOpacity: 0.65,
+        strokeWeight: 1.5,
+        fillColor: color,
+        fillOpacity: 0.18,
+        map: map.value
+      })
+
+      // Dibujar etiqueta arriba del trazo
+      if (CustomLabelOverlay) {
+        const topPosition = new (window as any).google.maps.LatLng(
+          bounds.getNorthEast().lat(),
+          bounds.getCenter().lng()
+        )
+        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
+        selectedLabelOverlay.value.setMap(map.value)
+      }
+      
+      // 2. Vuelo hacia el centro del polígono
+      const center = bounds.getCenter()
+      await flyToMap(map.value, center, 15, bounds)
+    }
+    
+  } catch (error) {
+    console.error('Error al cargar detalles de geocerca:', error)
+  } finally {
+    isLoadingDetails.value = false
+  }
+}
+
+const onGeocercaMouseEnter = (geocerca: Geocerca) => {
+  clearHoverTimer()
+  hoveredGeocerca.value = geocerca
+  hoverTimer.value = setTimeout(() => {
+    if (hoveredGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
+      onGeocercaClick(geocerca)
+    }
+  }, 3000)
+}
+
+const onGeocercaMouseLeave = () => {
+  clearHoverTimer()
+  hoveredGeocerca.value = null
+}
+
+const fetchGeocercas = async () => {
+  if (!selectedGroup.value?.id) {
+    geocercas.value = []
+    geocercasConDetalles.value = []
+    clearDrawings()
+    return
+  }
+  loading.value = true
+  try {
+    const listado = await fetchGeocercasApi(selectedGroup.value.id)
+    geocercas.value = listado
+
+    // Precargar detalles para cálculo de clusters en mapa
+    const promesas = listado.map(g =>
+      fetchGeocercaDetallesApi(selectedGroup.value!.id, g.id_geocerca).catch(() => null)
+    )
+    const detalles = await Promise.all(promesas)
+    const elementosValidos: ElementoGeocercaCluster[] = []
+
+    detalles.forEach(detalle => {
+      if (!detalle) return
+      const centro = calcularCentroGeocerca(detalle)
+      if (centro) {
+        elementosValidos.push({
+          id: detalle.id_geocerca,
+          nombre: detalle.nombre,
+          tipo: detalle.tipo,
+          color: detalle.color || '#3b82f6',
+          lat: centro.lat,
+          lon: centro.lon,
+          detalle
+        })
+      }
+    })
+
+    geocercasConDetalles.value = elementosValidos
+
+    if (map.value && !selectedGeocerca.value) {
+      drawAllGeocercas()
+    }
+  } catch (error) {
+    console.error('Error al obtener geocercas:', error)
+    geocercas.value = []
+    geocercasConDetalles.value = []
+    clearDrawings()
+  } finally {
+    loading.value = false
+  }
+}
 
 const initializeMap = async (googleMapsApi: any) => {
   initMap(googleMapsApi)
@@ -192,8 +676,17 @@ const initializeMap = async (googleMapsApi: any) => {
     }
   }
 
-  if (geocercas.value.length > 0 && !selectedGeocerca.value) {
-    await drawAllGeocercas()
+  // Listener para re-calcular clusters al hacer zoom o desplazar el mapa
+  if (map.value) {
+    map.value.addListener('idle', () => {
+      if (!selectedGeocerca.value) {
+        drawAllGeocercas()
+      }
+    })
+  }
+
+  if (geocercasConDetalles.value.length > 0 && !selectedGeocerca.value) {
+    drawAllGeocercas()
   }
 }
 
@@ -213,327 +706,20 @@ onMounted(() => {
 
 onUnmounted(() => {
   clearHoverTimer()
+  clearAllClusters()
   window.removeEventListener('click', closeAllMenus)
   // Cleanup handled by useMapSetup onUnmounted
 })
 
 watch(selectedGroup, async (newGroup) => {
+  clearDrawings()
+  geocercasConDetalles.value = []
   if (newGroup?.id) {
     await fetchGeocercas()
   } else {
     geocercas.value = []
   }
 }, { immediate: true })
-
-const filteredGeocercas = computed(() => {
-  let result = [...geocercas.value]
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    result = result.filter(g =>
-      g.nombre.toLowerCase().includes(query) ||
-      g.descripcion.toLowerCase().includes(query) ||
-      g.id_geocerca.toLowerCase().includes(query)
-    )
-  }
-  return result
-})
-
-const paginatedGeocercas = computed(() => {
-  const start = (currentPage.value - 1) * itemsPerPage
-  return filteredGeocercas.value.slice(start, start + itemsPerPage)
-})
-
-const selectedGeocerca = ref<Geocerca | null>(null)
-const currentDrawing = shallowRef<any>(null)
-const allDrawings = ref<any[]>([])
-const isLoadingDetails = ref(false)
-
-const hoverTimer = ref<ReturnType<typeof setTimeout> | null>(null)
-const hoveredGeocerca = ref<Geocerca | null>(null)
-
-const onGeocercaMouseEnter = (geocerca: Geocerca) => {
-  clearHoverTimer()
-  hoveredGeocerca.value = geocerca
-  hoverTimer.value = setTimeout(() => {
-    if (hoveredGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
-      onGeocercaClick(geocerca)
-    }
-  }, 3000)
-}
-
-const onGeocercaMouseLeave = () => {
-  clearHoverTimer()
-  hoveredGeocerca.value = null
-}
-
-const clearHoverTimer = () => {
-  if (hoverTimer.value) {
-    clearTimeout(hoverTimer.value)
-    hoverTimer.value = null
-  }
-}
-
-const clearAllDrawings = () => {
-  allDrawings.value.forEach(d => d.setMap(null))
-  allDrawings.value = []
-}
-
-const clearDrawings = () => {
-  if (currentDrawing.value) {
-    currentDrawing.value.setMap(null)
-    currentDrawing.value = null
-  }
-  if (selectedLabelOverlay.value) {
-    selectedLabelOverlay.value.setMap(null)
-    selectedLabelOverlay.value = null
-  }
-  clearAllDrawings()
-}
-
-const drawAllGeocercas = async () => {
-  clearAllDrawings()
-  if (!selectedGroup.value?.id || !map.value || geocercas.value.length === 0) return
-  try {
-    const promises = geocercas.value.map(g =>
-      fetchGeocercaDetallesApi(selectedGroup.value!.id, g.id_geocerca).catch(() => null)
-    )
-    const detalles = await Promise.all(promises)
-
-    detalles.forEach(detalle => {
-      if (!detalle || !detalle.puntos || detalle.puntos.length === 0) return
-      const color = detalle.color || '#3b82f6'
-      let bounds: any = null
-
-      if (detalle.tipo === 'Circular') {
-        const p = detalle.puntos[0]
-        const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
-        const radius = parseFloat(p.radio || '0')
-        const circle = new (window as any).google.maps.Circle({
-          strokeColor: color,
-          strokeOpacity: 0.7,
-          strokeWeight: 1.5,
-          fillColor: color,
-          fillOpacity: 0.2,
-          map: map.value,
-          center,
-          radius
-        })
-        allDrawings.value.push(circle)
-        bounds = circle.getBounds()
-      } else {
-        const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
-        const polygon = new (window as any).google.maps.Polygon({
-          paths,
-          strokeColor: color,
-          strokeOpacity: 0.7,
-          strokeWeight: 1.5,
-          fillColor: color,
-          fillOpacity: 0.2,
-          map: map.value
-        })
-        allDrawings.value.push(polygon)
-        const polyBounds = new (window as any).google.maps.LatLngBounds()
-        paths.forEach(p => polyBounds.extend(p))
-        bounds = polyBounds
-      }
-
-      if (bounds && map.value && CustomLabelOverlay) {
-        const topPosition = new (window as any).google.maps.LatLng(
-          bounds.getNorthEast().lat(),
-          bounds.getCenter().lng()
-        )
-        const labelOverlay = new CustomLabelOverlay(topPosition, detalle.nombre, color)
-        labelOverlay.setMap(map.value)
-        allDrawings.value.push(labelOverlay)
-      }
-    })
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const getMapPadding = () => {
-  const isDesktop = window.innerWidth >= 768
-  return {
-    top: 120,
-    right: 80,
-    bottom: 120,
-    left: isDesktop ? 440 : 60
-  }
-}
-
-// Custom Cinematic Fly-To Animation
-const flyToMap = async (mapInstance: any, targetLatLng: any, targetZoom: number | null, bounds?: any) => {
-  return new Promise<void>((resolve) => {
-    const startZoom = mapInstance.getZoom()
-    const startCenter = mapInstance.getCenter()
-    
-    // Si estamos muy cerca, usar nativo para evitar salto brusco
-    const dist = (window as any).google.maps.geometry.spherical.computeDistanceBetween(startCenter, targetLatLng)
-    if (dist < 2000 && startZoom >= 13) {
-      mapInstance.panTo(targetLatLng)
-      setTimeout(() => {
-        if (bounds) {
-          mapInstance.fitBounds(bounds, getMapPadding())
-          if (mapInstance.getZoom() > 15) {
-            mapInstance.setZoom(15)
-          }
-        } else if (targetZoom) {
-          mapInstance.setZoom(targetZoom)
-        }
-        resolve()
-      }, 500)
-      return
-    }
-
-    const duration = 600 // 0.6 seconds fast cinematic flight
-    const startTime = performance.now()
-    
-    // Zoom out farther if distance is huge
-    const finalZoom = targetZoom || 15
-    let midZoom = Math.min(startZoom, finalZoom) - 3
-    if (dist > 50000) midZoom = Math.min(startZoom, 8)
-    if (dist > 500000) midZoom = Math.min(startZoom, 6)
-
-    const animate = (currentTime: number) => {
-      const elapsed = currentTime - startTime
-      const progress = Math.min(elapsed / duration, 1)
-
-      // Easing In-Out Cubic
-      const ease = progress < 0.5 ? 4 * progress * progress * progress : 1 - Math.pow(-2 * progress + 2, 3) / 2
-
-      // Interpolar centro
-      const currentLat = startCenter.lat() + (targetLatLng.lat() - startCenter.lat()) * ease
-      const currentLng = startCenter.lng() + (targetLatLng.lng() - startCenter.lng()) * ease
-      mapInstance.setCenter({ lat: currentLat, lng: currentLng })
-
-      // Interpolar zoom (parábola)
-      let currentZoom
-      if (progress < 0.5) {
-        const p2 = progress * 2
-        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
-        currentZoom = startZoom + (midZoom - startZoom) * easeZoom
-      } else {
-        const p2 = (progress - 0.5) * 2
-        const easeZoom = p2 < 0.5 ? 2 * p2 * p2 : 1 - Math.pow(-2 * p2 + 2, 2) / 2
-        currentZoom = midZoom + (finalZoom - midZoom) * easeZoom
-      }
-      
-      // Si tenemos bounds, al final hacemos fitBounds, mientras tanto animamos zoom manual
-      if (!bounds || progress < 0.95) {
-        mapInstance.setZoom(currentZoom)
-      }
-
-      if (progress < 1) {
-        requestAnimationFrame(animate)
-      } else {
-        mapInstance.setCenter(targetLatLng)
-        if (bounds) {
-          mapInstance.fitBounds(bounds, getMapPadding())
-          if (mapInstance.getZoom() > 15) {
-            mapInstance.setZoom(15)
-          }
-        } else if (targetZoom) {
-          mapInstance.setZoom(targetZoom)
-        }
-        resolve()
-      }
-    }
-
-    requestAnimationFrame(animate)
-  })
-}
-
-const onGeocercaClick = async (geocerca: Geocerca) => {
-  clearHoverTimer()
-  hoveredGeocerca.value = null
-  if (selectedGeocerca.value?.id_geocerca === geocerca.id_geocerca) {
-    selectedGeocerca.value = null
-    clearDrawings()
-    await drawAllGeocercas()
-    return
-  }
-  if (!map.value || !selectedGroup.value?.id) return
-  if (!authStore.hasPermission(PERMISSIONS.GEOCERCAS_DETAILS)) return
-  selectedGeocerca.value = geocerca
-  clearDrawings()
-  
-  try {
-    const detalle = await fetchGeocercaDetallesApi(selectedGroup.value.id, geocerca.id_geocerca)
-    if (!detalle) return
-    
-    const color = detalle.color || '#3b82f6'
-
-    if (detalle.tipo === 'Circular' && detalle.puntos && detalle.puntos.length > 0) {
-      const p = detalle.puntos[0]
-      const center = { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }
-      const radius = parseFloat(p.radio || '0')
-      
-      // 1. Dibujar la figura primero
-      const circle = new (window as any).google.maps.Circle({
-        strokeColor: color,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: color,
-        fillOpacity: 0.35,
-        map: map.value,
-        center: center,
-        radius: radius
-      })
-      currentDrawing.value = circle
-      const bounds = circle.getBounds()
-
-      // Dibujar etiqueta arriba del trazo
-      if (CustomLabelOverlay && bounds) {
-        const topPosition = new (window as any).google.maps.LatLng(
-          bounds.getNorthEast().lat(),
-          bounds.getCenter().lng()
-        )
-        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
-        selectedLabelOverlay.value.setMap(map.value)
-      }
-      
-      // 2. Vuelo parabólico personalizado con bounds
-      const targetLatLng = new (window as any).google.maps.LatLng(center.lat, center.lng)
-      await flyToMap(map.value, targetLatLng, 15, bounds)
-      
-    } else if (detalle.tipo === 'Poligonal' && detalle.puntos && detalle.puntos.length > 0) {
-      const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
-      const bounds = new (window as any).google.maps.LatLngBounds()
-      paths.forEach(p => bounds.extend(p))
-      
-      // 1. Dibujar la figura primero
-      currentDrawing.value = new (window as any).google.maps.Polygon({
-        paths: paths,
-        strokeColor: color,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        fillColor: color,
-        fillOpacity: 0.35,
-        map: map.value
-      })
-
-      // Dibujar etiqueta arriba del trazo
-      if (CustomLabelOverlay) {
-        const topPosition = new (window as any).google.maps.LatLng(
-          bounds.getNorthEast().lat(),
-          bounds.getCenter().lng()
-        )
-        selectedLabelOverlay.value = new CustomLabelOverlay(topPosition, detalle.nombre, color)
-        selectedLabelOverlay.value.setMap(map.value)
-      }
-      
-      // 2. Vuelo parabólico hacia el centro del polígono
-      const center = bounds.getCenter()
-      await flyToMap(map.value, center, 15, bounds)
-    }
-    
-  } catch (error) {
-    console.error('Error al cargar detalles de geocerca:', error)
-  } finally {
-    isLoadingDetails.value = false
-  }
-}
 
 const openCreateModal = () => {
   const query: Record<string, string> = {}
@@ -607,6 +793,57 @@ const handleDeleteGeocerca = async () => {
         class="absolute inset-0 z-0"
         style="width:100%;height:100%;"
       ></div>
+
+      <!-- Popover de información de Agrupación (Cluster de Geocercas) -->
+      <Transition name="hover-card-pop">
+        <div 
+          v-if="hoveredCluster" 
+          :style="{ top: hoveredClusterPosition.top + 'px', left: hoveredClusterPosition.left + 'px' }"
+          class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
+        >
+          <div class="w-[260px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans pointer-events-auto">
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/60 dark:border-white/5">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] flex items-center justify-center shrink-0 border border-[#3b82f6]/20">
+                  <HugeiconsIcon :icon="MapsIcon" :size="15" />
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">
+                    {{ t('geocercas.clusterGroup', { count: hoveredCluster.elementos.length }) }}
+                  </h4>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">
+                    {{ t('geocercas.clickToZoom') }}
+                  </span>
+                </div>
+              </div>
+              <span class="text-[9px] font-mono font-bold text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 border border-[#3b82f6]/20 px-2 py-0.5 rounded-lg shrink-0">
+                {{ hoveredCluster.elementos.length }}
+              </span>
+            </div>
+
+            <div class="max-h-[160px] overflow-y-auto geocercas-scrollbar flex flex-col gap-1.5 pr-0.5">
+              <div 
+                v-for="(item, idx) in hoveredCluster.elementos" 
+                :key="idx"
+                @click="onGeocercaClickFromCluster(item)"
+                class="flex items-center justify-between p-2 rounded-[12px] bg-slate-50 dark:bg-[#181C24]/80 border border-slate-200/60 dark:border-white/5 hover:border-[#3b82f6]/40 hover:bg-[#3b82f6]/5 dark:hover:bg-[#3b82f6]/10 cursor-pointer transition-all text-[10px]"
+              >
+                <div class="flex items-center gap-2 min-w-0 flex-1">
+                  <span 
+                    class="w-2.5 h-2.5 rounded-full shrink-0 border border-white/20"
+                    :style="{ backgroundColor: item.color || '#3b82f6' }"
+                  ></span>
+                  <span class="text-slate-800 dark:text-slate-200 font-bold truncate">{{ item.nombre }}</span>
+                </div>
+                <span class="text-[8.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-white/5 text-slate-600 dark:text-slate-400 shrink-0">
+                  {{ item.tipo === 'Circular' ? t('geocercas.circular') : t('geocercas.poligonal') }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
+        </div>
+      </Transition>
 
       <!-- Selector de Tipo de Mapa Flotante en Geocercas -->
       <div class="absolute top-4 right-4 z-20 flex items-center p-0.5 bg-white/90 dark:bg-[#0f1117]/90 backdrop-blur-xl rounded-xl border border-slate-200 dark:border-white/10 shadow-lg">
@@ -962,6 +1199,21 @@ const handleDeleteGeocerca = async () => {
 @keyframes hover-progress {
   0% { width: 0%; }
   100% { width: 100%; }
+}
+
+.hover-card-pop-enter-active {
+  transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.hover-card-pop-leave-active {
+  transition: all 0.15s cubic-bezier(0.25, 1, 0.50, 1);
+}
+.hover-card-pop-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -92%) scale(0.92);
+}
+.hover-card-pop-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -96%) scale(0.95);
 }
 
 .fade-overlay-enter-active {

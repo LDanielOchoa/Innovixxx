@@ -56,14 +56,33 @@ const createPlaceholderIcon = (strokeColor: string, isNormal: boolean): string =
   if (!ctx) return ''
 
   const centerX = size / 2
-  const centerY = size / 2
-  const radius = isNormal ? 9 : 14
-
   ctx.clearRect(0, 0, size, size)
-  ctx.beginPath()
-  ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
-  ctx.fillStyle = strokeColor || '#3b82f6'
-  ctx.fill()
+
+  if (isNormal) {
+    const centerY = size / 2
+    ctx.beginPath()
+    ctx.arc(centerX, centerY, 9, 0, 2 * Math.PI)
+    ctx.fillStyle = strokeColor || '#3b82f6'
+    ctx.fill()
+  } else {
+    // Pin con punta hacia abajo
+    const pinTop = 14
+    const pinRadius = 14
+    const pinBottomY = 60
+
+    ctx.beginPath()
+    ctx.arc(centerX, pinTop + pinRadius, pinRadius, Math.PI, 0, false)
+    ctx.lineTo(centerX, pinBottomY)
+    ctx.closePath()
+    ctx.fillStyle = strokeColor || '#3b82f6'
+    ctx.fill()
+
+    // Círculo blanco interno
+    ctx.beginPath()
+    ctx.arc(centerX, pinTop + pinRadius, 5.5, 0, 2 * Math.PI)
+    ctx.fillStyle = '#ffffff'
+    ctx.fill()
+  }
 
   const resultDataUrl = canvas.toDataURL()
   placeholderCache.set(cacheKey, resultDataUrl)
@@ -99,11 +118,18 @@ const createCircularIcon = (
     if (cancelled) return
 
     const centerX = size / 2
-    const centerY = size / 2
-    const imgSize = isNormal ? 32 : 48
-
     ctx.clearRect(0, 0, size, size)
-    ctx.drawImage(img, centerX - imgSize / 2, centerY - imgSize / 2, imgSize, imgSize)
+
+    if (isNormal) {
+      const centerY = size / 2
+      const imgSize = 32
+      ctx.drawImage(img, centerX - imgSize / 2, centerY - imgSize / 2, imgSize, imgSize)
+    } else {
+      // Dibujar el icono de parada (Inicio, Fin, etc.) apoyado en la base inferior (y = 60)
+      const imgSize = 52
+      const posY = 60 - imgSize
+      ctx.drawImage(img, centerX - imgSize / 2, posY, imgSize, imgSize)
+    }
 
     const resultDataUrl = canvas.toDataURL()
     iconCache.set(cacheKey, resultDataUrl)
@@ -148,9 +174,10 @@ export function useParadasManager(
   map: Ref<any>,
   tiposParada: Ref<TipoParada[]>,
   routeColor: Ref<string>,
-  onMarkerClick: (index: number) => void,
+  onMarkerClick: (index: number, event?: any) => void,
   onMarkerRightClick?: (index: number) => void | Promise<void>,
-  onMarkerDragEnd?: (index: number, lat: number, lon: number) => void
+  onMarkerDragEnd?: (index: number, lat: number, lon: number) => void,
+  onMarkerHover?: (index: number | null) => void
 ) {
   const paradasTemporales = ref<Array<ParadaPayload & { fecha?: string }>>([])
   const paradasMarkers     = shallowRef<any[]>([])
@@ -172,6 +199,9 @@ export function useParadasManager(
     const currentMap = map.value
 
     const placeholderUrl = createPlaceholderIcon(color, isNormal)
+    const anchorPoint = isNormal
+      ? new (window as any).google.maps.Point(32, 32)
+      : new (window as any).google.maps.Point(32, 60)
 
     const marker = new (window as any).google.maps.Marker({
       position: { lat, lng: lon },
@@ -184,7 +214,7 @@ export function useParadasManager(
         ? {
             url: placeholderUrl,
             scaledSize: new (window as any).google.maps.Size(64, 64),
-            anchor: new (window as any).google.maps.Point(32, 32)
+            anchor: anchorPoint
           }
         : {
             path: (window as any).google.maps.SymbolPath.CIRCLE,
@@ -202,16 +232,17 @@ export function useParadasManager(
         marker.setIcon({
           url: dataUrl,
           scaledSize: new (window as any).google.maps.Size(64, 64),
-          anchor: new (window as any).google.maps.Point(32, 32)
+          anchor: anchorPoint
         })
       } catch (_) {}
     })
     paradaIconCancellers.value.push(cancelIconLoad)
 
-    // Listener de hover usando InfoWindow compartido
+    // Listener de hover usando InfoWindow compartido y notificación de hover
     marker.addListener('mouseover', () => {
       const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
       if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length) {
+        if (onMarkerHover) onMarkerHover(currentIdx)
         const parada = paradasTemporales.value[currentIdx]
         const name = tiposParada.value.find(t => t.id_tipo === parada?.tipo)?.nombre || tipoNombre || 'Parada'
         let contentString = `<div style="background: #ffffff; border-radius: 10px; padding: 8px 14px; text-align: center; font-family: 'Inter', sans-serif; min-width: 140px; box-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);">`
@@ -231,14 +262,23 @@ export function useParadasManager(
     })
 
     marker.addListener('mouseout', () => {
+      if (onMarkerHover) onMarkerHover(null)
       const iw = getSharedInfoWindow()
       if (iw) iw.close()
     })
 
-    marker.addListener('click', () => {
+    marker.addListener('click', (e: any) => {
+      if (e?.domEvent) {
+        try {
+          if (e.domEvent.shiftKey) {
+            e.domEvent.preventDefault?.()
+            e.domEvent.stopPropagation?.()
+          }
+        } catch (_) {}
+      }
       const currentIdx = (marker as any)._originalIndex ?? paradasMarkers.value.indexOf(marker)
       if (currentIdx !== -1 && currentIdx < paradasTemporales.value.length) {
-        onMarkerClick(currentIdx)
+        onMarkerClick(currentIdx, e?.domEvent || e)
       }
     })
 
@@ -420,6 +460,21 @@ export function useParadasManager(
     return realIndex !== -1 ? realIndex : index
   }
 
+  /**
+   * Elimina un rango continuo de paradas y refresca los marcadores agrupados.
+   */
+  const deleteParadasRange = (startIndex: number, endIndex: number): { from: number; count: number } => {
+    const from = Math.max(0, Math.min(startIndex, endIndex))
+    const to = Math.min(paradasTemporales.value.length - 1, Math.max(startIndex, endIndex))
+    if (from > to || paradasTemporales.value.length === 0) return { from: -1, count: 0 }
+
+    const count = to - from + 1
+    paradasTemporales.value.splice(from, count)
+    updateMarkersForZoom()
+
+    return { from, count }
+  }
+
   /** Actualiza el tipo de una parada existente */
   const updateParadaTipo = (index: number, tipo: number) => {
     const parada = paradasTemporales.value[index]
@@ -446,6 +501,7 @@ export function useParadasManager(
     updateMarkersForZoom,
     insertParada,
     deleteParada,
+    deleteParadasRange,
     updateParadaTipo
   }
 }

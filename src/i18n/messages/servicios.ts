@@ -124,10 +124,16 @@ export const serviciosMessages = {
     tooltipVehicles: 'Vehículos y Hardware',
     tooltipEscorts: 'Escoltas Asignados',
     tooltipHardware: 'Hardware Asociado',
+    tooltipProvisional: 'Recursos Provisionales',
     noRouteAssigned: 'Sin ruta asignada',
     noVehiclesAssigned: 'Sin vehículos asignados',
     noHardwareAssigned: 'Sin hardware asignado',
     noEscortsAssigned: 'Sin escoltas asignados',
+    noProvisionalHardware: 'Sin hardware provisional',
+    noProvisionalEscorts: 'Sin escoltas provisionales',
+    provisionalExcelSuccess: 'Excel de recursos provisionales descargado con éxito',
+    provisionalExcelError: 'Error al exportar recursos provisionales',
+    provisionalExcelEmpty: 'No hay recursos provisionales para exportar',
     unassigned: 'Sin asignar',
 
     // Acciones y botones
@@ -556,10 +562,16 @@ export const serviciosMessages = {
     tooltipVehicles: 'Vehicles and Hardware',
     tooltipEscorts: 'Assigned Escorts',
     tooltipHardware: 'Associated Hardware',
+    tooltipProvisional: 'Provisional Resources',
     noRouteAssigned: 'No route assigned',
     noVehiclesAssigned: 'No vehicles assigned',
     noHardwareAssigned: 'No hardware assigned',
     noEscortsAssigned: 'No escorts assigned',
+    noProvisionalHardware: 'No provisional hardware',
+    noProvisionalEscorts: 'No provisional escorts',
+    provisionalExcelSuccess: 'Provisional resources Excel downloaded successfully',
+    provisionalExcelError: 'Error exporting provisional resources',
+    provisionalExcelEmpty: 'No provisional resources to export',
     unassigned: 'Unassigned',
 
     // Actions and buttons

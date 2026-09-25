@@ -29,3 +29,20 @@ export interface GeocercaCreatePayload {
     radio?: number
   }>
 }
+
+export interface ElementoGeocercaCluster {
+  id: string
+  nombre: string
+  tipo: 'Circular' | 'Poligonal' | string
+  color: string
+  lat: number
+  lon: number
+  detalle: GeocercaDetalle
+}
+
+export interface GeocercaCluster {
+  id: string
+  latCentro: number
+  lngCentro: number
+  elementos: ElementoGeocercaCluster[]
+}

@@ -274,20 +274,6 @@ watch(() => props.isOpen, async (isOpen) => {
 
 // Selección interactiva de Hardware
 const selectHardware = (id: string) => {
-  const hwObj = hardware.value.find(h => h.id_hardware === id)
-  const isDisponible = !hwObj?.estado || hwObj.estado.toUpperCase() === 'DISPONIBLE'
-  const eraInicial = inicialesHardwareIds.value.includes(id)
-
-  if (hwObj && !isDisponible && !eraInicial && !selectedHardwareIds.value.includes(id)) {
-    toast.add({
-      severity: 'warn',
-      summary: t('servicios.toastOccupiedHardwareSummary'),
-      detail: t('servicios.toastOccupiedHardwareInUse'),
-      life: 4000
-    })
-    return
-  }
-
   const index = selectedHardwareIds.value.indexOf(id)
   if (index > -1) {
     selectedHardwareIds.value.splice(index, 1)
@@ -298,9 +284,7 @@ const selectHardware = (id: string) => {
 
 const selectAllHardware = () => {
   filteredHardware.value.forEach(h => {
-    const isDisponible = !h.estado || h.estado.toUpperCase() === 'DISPONIBLE'
-    const eraInicial = inicialesHardwareIds.value.includes(h.id_hardware)
-    if ((isDisponible || eraInicial) && !selectedHardwareIds.value.includes(h.id_hardware)) {
+    if (!selectedHardwareIds.value.includes(h.id_hardware)) {
       selectedHardwareIds.value.push(h.id_hardware)
     }
   })
@@ -316,18 +300,6 @@ let copyTimeout: ReturnType<typeof setTimeout> | null = null
 
 const selectEscolta = (id: string) => {
   const eObj = escoltas.value.find(e => e.id_escolta === id)
-  const isDisponible = !eObj?.estado || eObj.estado.toUpperCase() === 'DISPONIBLE'
-  const eraInicial = inicialesEscoltasIds.value.includes(id)
-
-  if (eObj && !isDisponible && !eraInicial && !selectedEscoltasIds.value.includes(id)) {
-    toast.add({
-      severity: 'warn',
-      summary: t('servicios.toastOccupiedEscortSummary'),
-      detail: t('servicios.toastOccupiedEscortDetail', { estado: eObj.estado }),
-      life: 4000
-    })
-    return
-  }
 
   const index = selectedEscoltasIds.value.indexOf(id)
   if (index > -1) {
@@ -350,9 +322,7 @@ const selectEscolta = (id: string) => {
 
 const selectAllEscoltas = () => {
   filteredEscoltas.value.forEach(e => {
-    const isDisponible = !e.estado || e.estado.toUpperCase() === 'DISPONIBLE'
-    const eraInicial = inicialesEscoltasIds.value.includes(e.id_escolta)
-    if ((isDisponible || eraInicial) && !selectedEscoltasIds.value.includes(e.id_escolta)) {
+    if (!selectedEscoltasIds.value.includes(e.id_escolta)) {
       selectedEscoltasIds.value.push(e.id_escolta)
     }
   })
@@ -822,10 +792,9 @@ const handleClose = () => {
               :key="h.id_hardware"
               type="button"
               @click="selectHardware(h.id_hardware)"
-              class="panel-row group/row"
+              class="panel-row group/row cursor-pointer"
               :class="[
                 selectedHardwareIds.includes(h.id_hardware) ? 'panel-row--on' : 'panel-row--off',
-                h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware) && !selectedHardwareIds.includes(h.id_hardware) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : '',
                 !selectedHardwareIds.includes(h.id_hardware) && preasignadosHardwareIds.includes(h.id_hardware) ? '!border-amber-500/40 bg-amber-500/[0.04]' : ''
               ]"
             >
@@ -833,12 +802,10 @@ const handleClose = () => {
                 class="panel-row-dot shrink-0"
                 :class="[
                   selectedHardwareIds.includes(h.id_hardware) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware) && !selectedHardwareIds.includes(h.id_hardware) ? '!bg-amber-500/20 !border-amber-500/30' : '',
                   !selectedHardwareIds.includes(h.id_hardware) && preasignadosHardwareIds.includes(h.id_hardware) ? '!border-amber-500/50' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="selectedHardwareIds.includes(h.id_hardware)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
-                <HugeiconsIcon v-else-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
                 <div v-else-if="preasignadosHardwareIds.includes(h.id_hardware)" class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
@@ -860,7 +827,7 @@ const handleClose = () => {
                       {{ h.bateria }}%
                     </span>
                   </span>
-                  <span v-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesHardwareIds.includes(h.id_hardware)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
+                  <span v-if="h.estado && h.estado.toUpperCase() !== 'DISPONIBLE'" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
                     {{ h.estado }}
                   </span>
                 </span>
@@ -879,10 +846,9 @@ const handleClose = () => {
               :key="e.id_escolta"
               type="button"
               @click="selectEscolta(e.id_escolta)"
-              class="panel-row group/row"
+              class="panel-row group/row cursor-pointer"
               :class="[
                 selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row--on' : 'panel-row--off',
-                e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? 'opacity-50 cursor-not-allowed' : '',
                 !selectedEscoltasIds.includes(e.id_escolta) && preasignadosEscoltasIds.includes(e.id_escolta) ? '!border-amber-500/40 bg-amber-500/[0.04]' : ''
               ]"
             >
@@ -890,12 +856,10 @@ const handleClose = () => {
                 class="panel-row-dot shrink-0"
                 :class="[
                   selectedEscoltasIds.includes(e.id_escolta) ? 'panel-row-dot--on' : 'panel-row-dot--off',
-                  e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta) && !selectedEscoltasIds.includes(e.id_escolta) ? '!bg-amber-500/20 !border-amber-500/30' : '',
                   !selectedEscoltasIds.includes(e.id_escolta) && preasignadosEscoltasIds.includes(e.id_escolta) ? '!border-amber-500/50' : ''
                 ]"
               >
                 <HugeiconsIcon v-if="selectedEscoltasIds.includes(e.id_escolta)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
-                <HugeiconsIcon v-else-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
                 <div v-else-if="preasignadosEscoltasIds.includes(e.id_escolta)" class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               </div>
               <div class="flex flex-col flex-1 min-w-0 text-left">
@@ -920,7 +884,7 @@ const handleClose = () => {
                       :class="copiedEscoltaId === e.id_escolta ? 'text-emerald-500' : 'text-slate-400 hover:text-slate-300'"
                     />
                   </span>
-                  <span v-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
+                  <span v-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE'" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide">
                     {{ e.estado }}
                   </span>
                 </span>

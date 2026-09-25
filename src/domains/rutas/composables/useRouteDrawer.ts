@@ -238,10 +238,81 @@ export function useRouteDrawer(
     )
   }
 
+  let animationInterval: any = null
+
   const clearHighlight = () => {
+    if (animationInterval) {
+      clearInterval(animationInterval)
+      animationInterval = null
+    }
     if (highlightedRenderer.value) {
       try { highlightedRenderer.value.setMap(null) } catch (_) { }
       highlightedRenderer.value = null
+    }
+  }
+
+  /**
+   * Resalta un tramo continuo (rango) entre múltiples paradas.
+   * @param paradas Array de paradas a resaltar.
+   * @param isAnimated Si es true, aplica un diseño animado en movimiento (hover dinámico).
+   */
+  const highlightRange = (paradas: ParadaPayload[], isAnimated: boolean = false) => {
+    if (!map.value || !paradas || paradas.length < 2) return
+
+    clearHighlight()
+
+    const path = paradas.map(p => ({ lat: Number(p.lat), lng: Number(p.lon) }))
+
+    if (isAnimated && (window as any).google?.maps?.SymbolPath) {
+      const lineSymbol = {
+        path: 'M 0,-1 0,1',
+        strokeOpacity: 1,
+        strokeColor: '#ffffff',
+        scale: 3
+      }
+
+      const poly = new (window as any).google.maps.Polyline({
+        path,
+        strokeColor: '#f43f5e',
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        zIndex: 100,
+        icons: [{
+          icon: lineSymbol,
+          offset: '0%',
+          repeat: '18px'
+        }],
+        map: map.value
+      })
+
+      let offset = 0
+      animationInterval = setInterval(() => {
+        offset = (offset + 1) % 18
+        try {
+          const icons = [{
+            icon: lineSymbol,
+            offset: `${offset * 5}%`,
+            repeat: '18px'
+          }]
+          poly.set('icons', icons)
+        } catch (_) {
+          if (animationInterval) {
+            clearInterval(animationInterval)
+            animationInterval = null
+          }
+        }
+      }, 75)
+
+      highlightedRenderer.value = poly
+    } else {
+      highlightedRenderer.value = new (window as any).google.maps.Polyline({
+        path,
+        strokeColor: '#ef4444',
+        strokeOpacity: 0.9,
+        strokeWeight: 6,
+        zIndex: 100,
+        map: map.value
+      })
     }
   }
 
@@ -253,6 +324,7 @@ export function useRouteDrawer(
 
   onUnmounted(() => {
     clearDebounce()
+    clearHighlight()
   })
 
   return {
@@ -260,6 +332,7 @@ export function useRouteDrawer(
     recalculateFromIndex,
     drawFullRoute,
     highlightSegment,
+    highlightRange,
     clearHighlight,
     clearAll
   }

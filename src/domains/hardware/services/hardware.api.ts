@@ -9,7 +9,9 @@ import type {
   Posicion,
   HardwareAbrirCandadoPayload,
   HardwareOffsetHoursPayload,
-  HardwareChangeStatePayload
+  HardwareChangeStatePayload,
+  EstadoCargaHardwarePayload,
+  RespuestaEstadoCargaHardware
 } from '../types/hardware'
 
 export const fetchHardwareApi = async (id_grupo: string): Promise<Hardware[]> => {
@@ -73,6 +75,13 @@ export const setOffsetHoursHardwareApi = async (payload: HardwareOffsetHoursPayl
 
 export const changeStateHardwareApi = async (payload: HardwareChangeStatePayload): Promise<{ done: boolean, message?: string, data?: any }> => {
   return apiClient('/api/v1/hardware/change_state/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const consultarEstadoCargaHardwareApi = async (payload: EstadoCargaHardwarePayload): Promise<RespuestaEstadoCargaHardware> => {
+  return apiClient('/api/v1/hardware/is_charging/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })

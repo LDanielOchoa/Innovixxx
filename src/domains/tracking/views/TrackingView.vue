@@ -1277,8 +1277,9 @@ const createEndpointMarkerElement = (imgUrl: string, titleText: string, isNormal
   const container = document.createElement('div')
   container.style.cssText = 'position: relative; width: 0; height: 0; pointer-events: auto; user-select: none;'
   const size = isNormal ? 32 : 48
+  const transform = isNormal ? 'translate(-50%, -50%)' : 'translate(-50%, -95%)'
   container.innerHTML = `
-    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 50%); display: flex; flex-direction: column; align-items: center;" title="${titleText}">
+    <div style="position: absolute; top: 0; left: 0; transform: ${transform}; display: flex; flex-direction: column; align-items: center;" title="${titleText}">
       <img src="${imgUrl}" style="width: ${size}px; height: ${size}px; object-fit: contain;" />
     </div>
   `
@@ -1388,7 +1389,7 @@ watch(selectedItem, async (newVal, oldVal) => {
                 icon: {
                   url: imgUrl,
                   scaledSize: new (window as any).google.maps.Size(size, size),
-                  anchor: new (window as any).google.maps.Point(size / 2, size / 2)
+                  anchor: new (window as any).google.maps.Point(size / 2, isNormal ? size / 2 : size * 0.95)
                 },
                 zIndex: isNormal ? 1500 : 1600
               })

@@ -25,6 +25,7 @@ import {
   fetchServiciosApi,
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
+  fetchRecursosProvisionalesServicioApi,
   crearReporteServicioApi
 } from '../services/servicios.api'
 import type { Servicio, ServicioDashboard, ServicioListPayload, VehiculoSimple, HardwareSimple } from '../types/servicio'
@@ -270,12 +271,22 @@ const estadoOptions = computed(() => [
   { value: 6, label: t('servicios.stateCancelled') }
 ])
 
-const isServicioFinalizado = (servicio: Servicio | ServicioDashboard | null): boolean => {
+const puedeDescargarReporteFinal = (servicio: Servicio | ServicioDashboard | null): boolean => {
   if (!servicio) return false
   const label = obtenerLabelEstado(servicio.estado)
-  return label === 'FINALIZADO' ||
-         Number(servicio.estado) === SERVICIO_ESTADOS.FINALIZADO ||
-         String(servicio.estado).toUpperCase() === 'FINALIZADO'
+  const estadoNum = Number(servicio.estado)
+  const estadoStr = String(servicio.estado).toUpperCase()
+
+  return (
+    label === 'FINALIZADO' ||
+    label === 'CANCELADO' ||
+    estadoNum === SERVICIO_ESTADOS.FINALIZADO ||
+    estadoNum === SERVICIO_ESTADOS.CANCELADO ||
+    estadoStr === 'FINALIZADO' ||
+    estadoStr === 'CANCELADO' ||
+    estadoStr === '5' ||
+    estadoStr === '6'
+  )
 }
 
 const esServicioPrerecarga = (servicio: Servicio | ServicioDashboard | null): boolean => {
@@ -351,30 +362,152 @@ const descargarReporteFinal = async (servicio: Servicio | ServicioDashboard) => 
   }
 }
 
+// Recursos Provisionales
+const recursosProvisionalesMap = ref<Record<string, { hardware: string[]; escoltas: string[]; loading?: boolean }>>({})
+
+const cargarRecursosProvisionales = async (id_servicio: string): Promise<{ hardware: string[]; escoltas: string[] } | null> => {
+  if (!selectedGroup.value?.id || !id_servicio) return null
+  const existente = recursosProvisionalesMap.value[id_servicio]
+  if (existente && !existente.loading && (existente.hardware.length > 0 || existente.escoltas.length > 0)) {
+    return existente
+  }
+
+  recursosProvisionalesMap.value[id_servicio] = {
+    hardware: existente?.hardware || [],
+    escoltas: existente?.escoltas || [],
+    loading: true
+  }
+
+  try {
+    const res = await fetchRecursosProvisionalesServicioApi({
+      id_grupo: selectedGroup.value.id,
+      id_servicio
+    })
+    if (res.done && res.data) {
+      recursosProvisionalesMap.value[id_servicio] = {
+        hardware: res.data.hardware || [],
+        escoltas: res.data.escoltas || [],
+        loading: false
+      }
+      return recursosProvisionalesMap.value[id_servicio]
+    }
+  } catch (error) {
+    console.error('Error al cargar recursos provisionales del servicio:', error)
+  }
+
+  recursosProvisionalesMap.value[id_servicio] = {
+    hardware: [],
+    escoltas: [],
+    loading: false
+  }
+  return recursosProvisionalesMap.value[id_servicio]
+}
+
+const tieneRecursosProvisionales = (id_servicio: string): boolean => {
+  const prov = recursosProvisionalesMap.value[id_servicio]
+  if (!prov) return false
+  return (prov.hardware && prov.hardware.length > 0) || (prov.escoltas && prov.escoltas.length > 0)
+}
+
+const descargarExcelProvisional = async (servicio: Servicio | ServicioDashboard) => {
+  if (!selectedGroup.value?.id || !servicio?.id_servicio) return
+
+  let prov = recursosProvisionalesMap.value[servicio.id_servicio]
+  if (!prov || prov.loading) {
+    prov = (await cargarRecursosProvisionales(servicio.id_servicio)) || { hardware: [], escoltas: [] }
+  }
+
+  const hardwaresIds = prov.hardware || []
+  const escoltasIds = prov.escoltas || []
+
+  if (hardwaresIds.length === 0 && escoltasIds.length === 0) {
+    toast.add({
+      severity: 'info',
+      summary: t('common.info') || 'Información',
+      detail: t('servicios.provisionalExcelEmpty'),
+      life: 3000
+    })
+    return
+  }
+
+  try {
+    const dataHardware = hardwaresIds.map(hwId => {
+      const hwObj = catalogoHardware.value.find(h => String(h.id_hardware) === String(hwId))
+      return {
+        'ID Hardware': hwId,
+        'Nombre': hwObj?.nombre || hwId,
+        'Familia': hwObj?.familia || '---',
+        'Estado': hwObj?.estado || '---',
+        'Batería': hwObj?.bateria !== undefined ? `${hwObj.bateria}%` : '---'
+      }
+    })
+
+    const dataEscoltas = escoltasIds.map(eId => {
+      const escObj = escoltas.value.find(e => String(e.id_escolta) === String(eId))
+      return {
+        'ID Escolta': eId,
+        'Nombre Completo': escObj?.nombre || '---',
+        'Cédula': escObj?.cedula || '---',
+        'Celular': escObj?.celular || '---',
+        'Correo Electrónico': escObj?.email || '---'
+      }
+    })
+
+    const workbook = XLSX.utils.book_new()
+
+    // Hoja Hardware
+    const wsHardware = XLSX.utils.json_to_sheet(dataHardware.length > 0 ? dataHardware : [{ 'Mensaje': 'Sin hardware provisional asignado' }])
+    XLSX.utils.book_append_sheet(workbook, wsHardware, 'Hardware')
+
+    // Hoja Escoltas
+    const wsEscoltas = XLSX.utils.json_to_sheet(dataEscoltas.length > 0 ? dataEscoltas : [{ 'Mensaje': 'Sin escoltas provisionales asignados' }])
+    XLSX.utils.book_append_sheet(workbook, wsEscoltas, 'Escoltas')
+
+    XLSX.writeFile(workbook, `recursos_provisionales_${servicio.id_servicio}.xlsx`)
+
+    toast.add({
+      severity: 'success',
+      summary: t('common.success'),
+      detail: t('servicios.provisionalExcelSuccess'),
+      life: 3000
+    })
+  } catch (error) {
+    console.error('Error al exportar recursos provisionales a Excel:', error)
+    toast.add({
+      severity: 'error',
+      summary: t('common.error'),
+      detail: t('servicios.provisionalExcelError'),
+      life: 4000
+    })
+  }
+}
+
 // Estado del tooltip
 const tooltipVisible = ref(false)
 const tooltipData = ref<any>(null)
-const tooltipTipo = ref<'rutas' | 'vehiculos' | 'escoltas'>('rutas')
+const tooltipTipo = ref<'rutas' | 'vehiculos' | 'escoltas' | 'provisionales'>('rutas')
 const tooltipPos = ref({ top: '0px', left: '0px' })
 let tooltipTimer: ReturnType<typeof setTimeout> | null = null
 
 const tooltipIcon = computed(() => {
   if (tooltipTipo.value === 'rutas') return Route01Icon
   if (tooltipTipo.value === 'vehiculos') return Car01Icon
+  if (tooltipTipo.value === 'provisionales') return CpuIcon
   return User02Icon
 })
 
 const tooltipTitulo = computed(() => {
   if (tooltipTipo.value === 'rutas') return t('servicios.tooltipRoutes')
   if (tooltipTipo.value === 'vehiculos') return t('servicios.tooltipVehicles')
+  if (tooltipTipo.value === 'provisionales') return t('servicios.tooltipProvisional')
   return t('servicios.tooltipEscorts')
 })
 
-const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos' | 'escoltas') => {
+const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos' | 'escoltas' | 'provisionales') => {
   if (tooltipTimer) clearTimeout(tooltipTimer)
   const el = event.currentTarget as HTMLElement
   const rect = el.getBoundingClientRect()
-  const tooltipWidth = tipo === 'vehiculos' ? 260 : 210
+  const tooltipWidth = tipo === 'vehiculos' || tipo === 'provisionales' ? 260 : 210
   let left = rect.left + rect.width / 2 - tooltipWidth / 2
   if (left < 8) left = 8
   if (left + tooltipWidth > window.innerWidth - 8) left = window.innerWidth - tooltipWidth - 8
@@ -385,6 +518,10 @@ const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos
   tooltipData.value = data
   tooltipTipo.value = tipo
   tooltipVisible.value = true
+
+  if (tipo === 'provisionales' && data?.id_servicio) {
+    cargarRecursosProvisionales(data.id_servicio)
+  }
 }
 
 const ocultarTooltip = () => {
@@ -481,6 +618,13 @@ const fetchServicios = async () => {
     }
     const respuesta = await fetchServiciosApi(payload)
     servicios.value = Array.isArray(respuesta) ? respuesta : []
+
+    // Precargar recursos provisionales para servicios en prerecarga (estado 1)
+    servicios.value.forEach(s => {
+      if (s.id_servicio && esServicioPrerecarga(s)) {
+        cargarRecursosProvisionales(s.id_servicio)
+      }
+    })
   } catch (error) {
     console.error('Error al cargar servicios:', error)
     servicios.value = []
@@ -926,6 +1070,23 @@ onUnmounted(() => {
               >
                 <HugeiconsIcon :icon="User02Icon" :size="13" :stroke-width="2.5" />
               </button>
+
+              <!-- Botón Recursos Provisionales (Solo para Estado 1 / PRERCARGA) -->
+              <button
+                v-if="esServicioPrerecarga(data)"
+                class="w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-150 cursor-pointer active:scale-95"
+                :class="[
+                  tieneRecursosProvisionales(data.id_servicio)
+                    ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-200/60 dark:border-blue-500/20 text-blue-500 dark:text-blue-400 hover:bg-blue-100/60 dark:hover:bg-blue-500/20'
+                    : 'bg-slate-50/60 dark:bg-white/[0.02] border-slate-100/60 dark:border-white/[0.03] text-slate-350 dark:text-slate-600 hover:bg-slate-100/60 dark:hover:bg-white/[0.05]'
+                ]"
+                @mouseenter="mostrarTooltip($event, data, 'provisionales')"
+                @mouseleave="ocultarTooltip"
+                @click.stop="descargarExcelProvisional(data)"
+                :title="t('servicios.tooltipProvisional')"
+              >
+                <HugeiconsIcon :icon="CpuIcon" :size="13" :stroke-width="2.5" />
+              </button>
             </div>
           </template>
         </Column>
@@ -974,7 +1135,7 @@ onUnmounted(() => {
           >
             <div 
               class="bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2"
-              :class="tooltipTipo === 'vehiculos' ? 'w-[240px]' : 'w-[220px]'"
+              :class="tooltipTipo === 'vehiculos' || tooltipTipo === 'provisionales' ? 'w-[250px]' : 'w-[220px]'"
             >
               <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
                 <HugeiconsIcon :icon="tooltipIcon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
@@ -982,7 +1143,7 @@ onUnmounted(() => {
                   {{ tooltipTitulo }}
                 </span>
               </div>
-              <div class="max-h-[220px] overflow-y-auto custom-scrollbar p-2.5">
+              <div class="max-h-[240px] overflow-y-auto custom-scrollbar p-2.5">
                 <!-- Rutas -->
                 <div v-if="tooltipTipo === 'rutas'" class="space-y-1">
                   <template v-if="(tooltipData.rutas || []).length > 0">
@@ -1025,6 +1186,47 @@ onUnmounted(() => {
                   </template>
                   <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noEscortsAssigned') }}</div>
                 </div>
+
+                <!-- Recursos Provisionales -->
+                <div v-else-if="tooltipTipo === 'provisionales'" class="space-y-2.5">
+                  <div v-if="recursosProvisionalesMap[tooltipData.id_servicio]?.loading" class="py-3 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">
+                    Cargando recursos...
+                  </div>
+                  <template v-else>
+                    <!-- Hardware Provisional -->
+                    <div>
+                      <div class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <HugeiconsIcon :icon="CpuIcon" :size="11" />
+                        <span>Hardware ({{ (recursosProvisionalesMap[tooltipData.id_servicio]?.hardware || []).length }})</span>
+                      </div>
+                      <template v-if="(recursosProvisionalesMap[tooltipData.id_servicio]?.hardware || []).length > 0">
+                        <div v-for="hwId in recursosProvisionalesMap[tooltipData.id_servicio].hardware" :key="hwId" class="flex items-center gap-2 py-0.5 border-b border-slate-100 dark:border-white/5 last:border-0">
+                          <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                          <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreHardware(hwId) }}</span>
+                        </div>
+                      </template>
+                      <div v-else class="text-slate-400 dark:text-slate-500 italic text-[10px]">{{ t('servicios.noProvisionalHardware') }}</div>
+                    </div>
+
+                    <!-- Escoltas Provisionales -->
+                    <div class="pt-2 border-t border-slate-100 dark:border-white/5">
+                      <div class="text-[10px] font-black text-[#3b82f6] dark:text-[#5da6fc] uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                        <HugeiconsIcon :icon="User02Icon" :size="11" />
+                        <span>Escoltas ({{ (recursosProvisionalesMap[tooltipData.id_servicio]?.escoltas || []).length }})</span>
+                      </div>
+                      <template v-if="(recursosProvisionalesMap[tooltipData.id_servicio]?.escoltas || []).length > 0">
+                        <div v-for="eId in recursosProvisionalesMap[tooltipData.id_servicio].escoltas" :key="eId" class="flex items-center gap-2 py-0.5 border-b border-slate-100 dark:border-white/5 last:border-0">
+                          <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
+                          <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">
+                            {{ obtenerNombreEscolta(eId) }}
+                            <span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 font-normal ml-1">({{ obtenerCelularEscolta(eId) }})</span>
+                          </span>
+                        </div>
+                      </template>
+                      <div v-else class="text-slate-400 dark:text-slate-500 italic text-[10px]">{{ t('servicios.noProvisionalEscorts') }}</div>
+                    </div>
+                  </template>
+                </div>
               </div>
             </div>
           </div>
@@ -1043,19 +1245,19 @@ onUnmounted(() => {
           >
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
-              @click="openModal('assign', activeMenuServicio)"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
-            >
-              <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-              <span>{{ t('servicios.btnAssign') }}</span>
-            </button>
-            <button
-              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
               @click="openModal('provisional', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
             >
               <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-amber-500 dark:text-amber-400" />
               <span>{{ t('servicios.btnAssignProvisional') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
+              @click="openModal('assign', activeMenuServicio)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="CpuIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('servicios.btnAssign') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_ROUTE)"
@@ -1106,7 +1308,7 @@ onUnmounted(() => {
               <span>{{ t('servicios.btnChangeStatus') }}</span>
             </button>
             <button
-              v-if="activeMenuServicio && isServicioFinalizado(activeMenuServicio)"
+              v-if="activeMenuServicio && puedeDescargarReporteFinal(activeMenuServicio)"
               @click="descargarReporteFinal(activeMenuServicio)"
               :disabled="isDownloadingReporte === activeMenuServicio?.id_servicio"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors disabled:opacity-50"

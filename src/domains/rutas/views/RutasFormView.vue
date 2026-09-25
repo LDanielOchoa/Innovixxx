@@ -374,9 +374,9 @@
       </button>
     </Transition>
 
-    <!-- Barra de Búsqueda de Lugares (Solo visible al estar trazando con el panel oculto) -->
+    <!-- Barra de Búsqueda de Lugares (Solo visible al estar trazando con el panel oculto y sin rango activo) -->
     <Transition name="fade-slide-down">
-      <div v-show="isAddingParadas && isFormHiddenDuringMap" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
+      <div v-show="isAddingParadas && isFormHiddenDuringMap && !selectedRange" class="absolute top-6 left-1/2 -translate-x-1/2 z-40 w-[320px] sm:w-[400px]">
         <div class="relative flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.06)] dark:shadow-[0_15px_50px_rgba(0,0,0,0.4)] transition-all duration-300">
           <HugeiconsIcon :icon="Search01Icon" :size="18" :stroke-width="1.8" class="absolute left-4 text-slate-400 dark:text-slate-500" />
           <input 
@@ -389,6 +389,45 @@
       </div>
     </Transition>
 
+    <!-- Floating Action Banner para Selección de Rango con Shift + Click -->
+    <Transition name="fade-slide-down">
+      <div 
+        v-if="selectedRange"
+        class="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-5 py-3 rounded-2xl bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-red-500/30 shadow-[0_16px_40px_-10px_rgba(239,68,68,0.2)] dark:shadow-[0_16px_40px_-10px_rgba(0,0,0,0.6)] animate-none pointer-events-auto"
+      >
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+            <HugeiconsIcon :icon="Delete01Icon" :size="16" />
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-800 dark:text-white leading-tight">
+              {{ t('rutas.selectedRangeTitle', { from: selectedRange.from + 1, to: selectedRange.to + 1 }) }}
+            </p>
+            <p class="text-[10px] font-medium text-red-500 dark:text-red-400">
+              {{ t('rutas.selectedRangeSubtitle', { count: selectedRange.to - selectedRange.from + 1 }) }}
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            @click="confirmDeleteRange"
+            class="px-3.5 py-1.5 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 text-white text-xs font-bold uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5"
+          >
+            <HugeiconsIcon :icon="Delete01Icon" :size="13" />
+            <span>{{ t('rutas.btnDeleteRange') }}</span>
+          </button>
+          <button
+            type="button"
+            @click="cancelRangeSelection"
+            class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-600 dark:text-slate-300 text-xs font-bold transition-all"
+          >
+            <span>{{ t('common.cancel') }}</span>
+          </button>
+        </div>
+      </div>
+    </Transition>
+
     <!-- Panel de Paradas: Modo Edición (Floating Side Panel, solo visible cuando el formulario está oculto) -->
     <Transition name="panel-float">
       <ParadasListPanel
@@ -396,8 +435,13 @@
         :paradas="paradasTemporales"
         :tipos-parada="tiposParada"
         :selected-index="selectedParadaIndex"
+        :selected-range="selectedRange"
+        :hover-range="hoverRange"
         @select="onParadaSelect"
+        @hover="onParadaHover"
         @delete="onParadaDelete"
+        @delete-range="onRangeDelete"
+        @cancel-range="cancelRangeSelection"
         @save="finishAddingParadas"
         @clear="clearParadasTemporales"
         @close="finishAddingParadas"
@@ -669,6 +713,7 @@ import {
   Location01Icon,
   Route01Icon,
   Delete01Icon,
+  Cancel01Icon,
   Shield01Icon,
   Tick01Icon,
   Search01Icon,
@@ -1023,19 +1068,25 @@ const {
   redrawMarkers,
   insertParada,
   deleteParada,
+  deleteParadasRange,
   updateParadaTipo
 } = useParadasManager(
   map,
   tiposParada,
   routeColor,
-  // Click izquierdo → abrir modal de edición.
-  // FIX: funciona siempre (también tras cargar una ruta por GPS, sin entrar
-  // antes en modo edición). Carga los tipos de parada bajo demanda.
-  async (idx: number) => {
+  // Click izquierdo → si es Shift+Click seleccionar rango; de lo contrario seleccionar y abrir modal
+  async (idx: number, event?: MouseEvent) => {
+    if (event?.shiftKey) {
+      onParadaSelect(idx, event)
+      return
+    }
+
     if (tiposParada.value.length === 0) {
       try   { tiposParada.value = await fetchTiposParadaApi() }
       catch (e) { console.error('Error fetching tipos parada', e) }
     }
+    selectedParadaIndex.value = idx
+    cancelRangeSelection()
     editingParadaIndex.value = idx
     editingTipoParada.value  = paradasTemporales.value[idx]?.tipo ?? null
     isEditParadaModalOpen.value = true
@@ -1047,6 +1098,10 @@ const {
   // Arrastrar marcador (dragend) → recalcular ruta desde ese índice
   (idx: number) => {
     recalculateFromIndex(idx, paradasTemporales.value, routeColor.value, isGpsRoute.value)
+  },
+  // Hover sobre marcador → actualizar hoverParadaIndex
+  (idx: number | null) => {
+    onParadaHover(idx)
   }
 )
 
@@ -1055,6 +1110,7 @@ const {
   recalculateFromIndex,
   drawFullRoute,
   highlightSegment,
+  highlightRange,
   clearHighlight,
   clearAll: clearAllRoutes
 } = useRouteDrawer(map, directionsService)
@@ -1282,19 +1338,145 @@ const confirmParada = () => {
   selectedTipoParada.value  = null
 }
 
-const onParadaSelect = (index: number | null) => {
-  selectedParadaIndex.value = index
-  clearHighlight()
+const selectedRange = ref<{ from: number; to: number } | null>(null)
+const hoverParadaIndex = ref<number | null>(null)
+const isShiftPressed = ref(false)
 
-  if (index !== null) {
-    const parada = paradasTemporales.value[index]
-    if (parada && map.value) {
-      map.value.setCenter({ lat: parada.lat, lng: parada.lon })
-      map.value.setZoom(15)
-    }
-    const next = paradasTemporales.value[index + 1]
-    if (parada && next) highlightSegment(parada, next, isGpsRoute.value)
+// Rango dinámico calculado según el hover en tiempo real
+const hoverRange = computed(() => {
+  if (selectedRange.value) return null
+  if (
+    selectedParadaIndex.value !== null &&
+    hoverParadaIndex.value !== null &&
+    selectedParadaIndex.value !== hoverParadaIndex.value
+  ) {
+    const from = Math.min(selectedParadaIndex.value, hoverParadaIndex.value)
+    const to = Math.max(selectedParadaIndex.value, hoverParadaIndex.value)
+    return { from, to }
   }
+  return null
+})
+
+const onParadaHover = (index: number | null) => {
+  hoverParadaIndex.value = index
+}
+
+// Observador para actualizar el trazo animado en tiempo real durante el hover
+watch(hoverRange, (newRange) => {
+  if (selectedRange.value) return
+
+  if (newRange) {
+    highlightRange(paradasTemporales.value.slice(newRange.from, newRange.to + 1), true)
+  } else if (selectedParadaIndex.value !== null) {
+    const next = paradasTemporales.value[selectedParadaIndex.value + 1]
+    if (next) {
+      highlightSegment(paradasTemporales.value[selectedParadaIndex.value], next, isGpsRoute.value)
+    } else {
+      clearHighlight()
+    }
+  } else {
+    clearHighlight()
+  }
+})
+
+const cancelRangeSelection = () => {
+  selectedRange.value = null
+  hoverParadaIndex.value = null
+  clearHighlight()
+}
+
+const confirmDeleteRange = () => {
+  if (!selectedRange.value) return
+  onRangeDelete(selectedRange.value.from, selectedRange.value.to)
+}
+
+const onParadaSelect = (index: number | null, event?: MouseEvent) => {
+  if (index === null) {
+    selectedParadaIndex.value = null
+    cancelRangeSelection()
+    return
+  }
+
+  // Manejo de Shift + Clic para selección y fijado de tramo continuo
+  if (event?.shiftKey || isShiftPressed.value) {
+    if (selectedParadaIndex.value !== null && selectedParadaIndex.value !== index) {
+      const from = Math.min(selectedParadaIndex.value, index)
+      const to = Math.max(selectedParadaIndex.value, index)
+      selectedRange.value = { from, to }
+      hoverParadaIndex.value = null
+      highlightRange(paradasTemporales.value.slice(from, to + 1), false)
+      return
+    } else if (selectedRange.value !== null) {
+      const from = Math.min(selectedRange.value.from, index)
+      const to = Math.max(selectedRange.value.from, index)
+      selectedRange.value = { from, to }
+      hoverParadaIndex.value = null
+      highlightRange(paradasTemporales.value.slice(from, to + 1), false)
+      return
+    } else {
+      selectedParadaIndex.value = index
+      return
+    }
+  }
+
+  // Clic individual estándar: seleccionar sin forzar cambio de zoom
+  cancelRangeSelection()
+  selectedParadaIndex.value = index
+
+  const parada = paradasTemporales.value[index]
+  if (parada && map.value) {
+    map.value.panTo({ lat: parada.lat, lng: parada.lon })
+  }
+  const next = paradasTemporales.value[index + 1]
+  if (parada && next) highlightSegment(parada, next, isGpsRoute.value)
+}
+
+const onRangeDelete = (startIndex: number, endIndex: number) => {
+  const from = Math.max(0, Math.min(startIndex, endIndex))
+  const to = Math.min(paradasTemporales.value.length - 1, Math.max(startIndex, endIndex))
+  if (from > to || paradasTemporales.value.length === 0) return
+
+  const totalAntes = paradasTemporales.value.length
+  const primerElementoTipo = paradasTemporales.value[0]?.tipo ?? null
+  const ultimoElementoTipo = paradasTemporales.value[totalAntes - 1]?.tipo ?? null
+
+  const eraInicio = from === 0
+  const eraFin = to >= totalAntes - 1
+
+  const { from: realIndex, count } = deleteParadasRange(from, to)
+  if (realIndex === -1 || count === 0) return
+
+  // Limpiar selecciones
+  selectedParadaIndex.value = null
+  cancelRangeSelection()
+
+  // Si se eliminó el punto de inicio o fin, heredar el tipo especial
+  if (paradasTemporales.value.length > 0) {
+    if (eraInicio && primerElementoTipo !== null) {
+      const nuevoPrimero = paradasTemporales.value[0]
+      if (nuevoPrimero) {
+        nuevoPrimero.tipo = primerElementoTipo
+        updateParadaTipo(0, primerElementoTipo)
+      }
+    }
+    if (eraFin && ultimoElementoTipo !== null) {
+      const nuevoUltimoIndex = paradasTemporales.value.length - 1
+      const nuevoUltimo = paradasTemporales.value[nuevoUltimoIndex]
+      if (nuevoUltimo) {
+        nuevoUltimo.tipo = ultimoElementoTipo
+        updateParadaTipo(nuevoUltimoIndex, ultimoElementoTipo)
+      }
+    }
+  }
+
+  // Actualizar la polilínea inmediatamente
+  if (paradasTemporales.value.length < 2) {
+    clearAllRoutes()
+  } else {
+    recalculateFromIndex(realIndex, paradasTemporales.value, routeColor.value, isGpsRoute.value, true)
+  }
+
+  showModalMessage(t('rutas.alertSuccessDeleteRange', { count }), 'success')
 }
 
 const onParadaDelete = (index: number) => {
@@ -1348,6 +1530,7 @@ const clearParadasTemporales = () => {
   clearMarkers()
   clearAllRoutes()
   selectedParadaIndex.value = null
+  cancelRangeSelection()
 }
 
 const selectAndSaveTipoParada = (idTipo: number) => {
@@ -1454,10 +1637,28 @@ const verificarRutaGps = async () => {
   }
 }
 
+// ── Listeners de Teclado ──────────────────────────────────────
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Shift') {
+    isShiftPressed.value = true
+  } else if (e.key === 'Escape') {
+    cancelRangeSelection()
+  }
+}
+
+const handleKeyUp = (e: KeyboardEvent) => {
+  if (e.key === 'Shift') {
+    isShiftPressed.value = false
+  }
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(() => {
   loadModuleMessages('rutas')
   startDarkModeObserver()
+
+  window.addEventListener('keydown', handleKeyDown)
+  window.addEventListener('keyup', handleKeyUp)
 
   loadGoogleMaps()
     .then((apiMaps) => {
@@ -1468,10 +1669,11 @@ onMounted(() => {
       console.error('[RutasFormView] Error cargando Google Maps:', err)
       isLoadingMap.value = false
     })
-
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  window.removeEventListener('keyup', handleKeyUp)
 })
 </script>
 

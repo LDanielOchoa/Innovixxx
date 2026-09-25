@@ -87,3 +87,19 @@ export interface HardwareOffsetHoursPayload {
   id_hardware: string
   offset: number
 }
+
+export interface EstadoCargaHardwarePayload {
+  id_grupo: string
+  id_hardware: string
+}
+
+export interface DatosEstadoCargaHardware {
+  is_charging: boolean
+  server_time: string | null
+}
+
+export interface RespuestaEstadoCargaHardware {
+  message: string
+  done: boolean
+  data: DatosEstadoCargaHardware
+}

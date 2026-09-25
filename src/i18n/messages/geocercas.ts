@@ -56,7 +56,10 @@ export const geocercasMessages = {
     errorAction: 'Error al {action} la geocerca',
     errorNetAction: 'Error de red al {action} la geocerca',
     actionUpdate: 'actualizar',
-    actionCreate: 'crear'
+    actionCreate: 'crear',
+    clusterGroup: '{count} geocercas agrupadas',
+    clickToZoom: 'Haz clic para acercar',
+    geocerca: 'Geocerca'
   },
   en: {
     title: 'Geofences',
@@ -115,6 +118,9 @@ export const geocercasMessages = {
     errorAction: 'Error trying to {action} geofence',
     errorNetAction: 'Network error trying to {action} geofence',
     actionUpdate: 'update',
-    actionCreate: 'create'
+    actionCreate: 'create',
+    clusterGroup: '{count} grouped geofences',
+    clickToZoom: 'Click to zoom in',
+    geocerca: 'Geofence'
   }
 }

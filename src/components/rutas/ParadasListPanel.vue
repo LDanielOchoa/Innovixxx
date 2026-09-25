@@ -68,12 +68,18 @@
           <div
             v-for="parada in paginatedParadas"
             :key="parada.originalIndex"
-            @click="$emit('select', parada.originalIndex)"
+            @click="handleItemClick(parada.originalIndex, $event)"
+            @mouseenter="$emit('hover', parada.originalIndex)"
+            @mouseleave="$emit('hover', null)"
             class="group flex items-center justify-between p-2.5 px-3 rounded-xl border cursor-pointer transition-all duration-200"
             :class="[
-              selectedIndex === parada.originalIndex
-                ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/40'
-                : 'bg-slate-50/50 dark:bg-[#1E222B]/40 border-slate-200/60 dark:border-white/5 hover:bg-slate-100/70 dark:hover:bg-[#232732]/70 hover:border-slate-300 dark:hover:border-white/10'
+              isIndexInRange(parada.originalIndex)
+                ? 'bg-red-500/10 dark:bg-red-500/15 border-red-500/40 shadow-sm'
+                : isIndexInHoverRange(parada.originalIndex)
+                  ? 'bg-rose-500/10 dark:bg-rose-500/15 border-rose-500/30 text-rose-500 animate-pulse'
+                  : selectedIndex === parada.originalIndex
+                    ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/15 border-[#3b82f6]/40'
+                    : 'bg-slate-50/50 dark:bg-[#1E222B]/40 border-slate-200/60 dark:border-white/5 hover:bg-slate-100/70 dark:hover:bg-[#232732]/70 hover:border-slate-300 dark:hover:border-white/10'
             ]"
           >
             <div class="flex items-center gap-3 min-w-0">
@@ -81,9 +87,13 @@
               <div
                 class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors"
                 :class="[
-                  selectedIndex === parada.originalIndex
-                    ? 'bg-[#3b82f6] text-white'
-                    : 'bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/10'
+                  isIndexInRange(parada.originalIndex)
+                    ? 'bg-red-500 text-white'
+                    : isIndexInHoverRange(parada.originalIndex)
+                      ? 'bg-rose-500 text-white shadow-sm'
+                      : selectedIndex === parada.originalIndex
+                        ? 'bg-[#3b82f6] text-white'
+                        : 'bg-white dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-white/10'
                 ]"
               >
                 {{ parada.originalIndex + 1 }}
@@ -93,7 +103,15 @@
               <div class="flex flex-col min-w-0">
                 <span
                   class="text-[11px] font-bold truncate"
-                  :class="selectedIndex === parada.originalIndex ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-700 dark:text-slate-200'"
+                  :class="[
+                    isIndexInRange(parada.originalIndex)
+                      ? 'text-red-600 dark:text-red-400'
+                      : isIndexInHoverRange(parada.originalIndex)
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : selectedIndex === parada.originalIndex
+                          ? 'text-[#3b82f6] dark:text-[#5da6fc]'
+                          : 'text-slate-700 dark:text-slate-200'
+                  ]"
                 >
                   {{ getTipoNombre(parada.tipo) }}
                 </span>
@@ -103,9 +121,9 @@
               </div>
             </div>
 
-            <!-- Botón Eliminar -->
+            <!-- Botón Eliminar (solo si no hay rango activo) -->
             <button
-              v-if="selectedIndex === parada.originalIndex"
+              v-if="!selectedRange && selectedIndex === parada.originalIndex"
               @click.stop="$emit('delete', parada.originalIndex)"
               class="w-7 h-7 flex items-center justify-center rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white border border-red-500/20 transition-all duration-200 shrink-0"
               :title="t('rutas.panelDeleteStopTooltip')"
@@ -114,6 +132,36 @@
             </button>
           </div>
         </TransitionGroup>
+      </div>
+
+      <!-- Banner de Acción para Rango Seleccionado -->
+      <div v-if="selectedRange" class="px-4 py-3 bg-red-500/10 dark:bg-red-500/15 border-t border-red-500/20 flex items-center justify-between gap-2 shrink-0">
+        <div class="flex flex-col min-w-0">
+          <span class="text-[11px] font-bold text-red-600 dark:text-red-400 truncate">
+            {{ t('rutas.rangeSelected', { count: selectedRange.to - selectedRange.from + 1 }) }}
+          </span>
+          <span class="text-[9.5px] text-slate-500 dark:text-slate-400 truncate">
+            Puntos {{ selectedRange.from + 1 }} al {{ selectedRange.to + 1 }}
+          </span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            @click.stop="$emit('deleteRange', selectedRange.from, selectedRange.to)"
+            class="px-2.5 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 active:scale-95 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all"
+          >
+            <HugeiconsIcon :icon="Delete01Icon" :size="12" />
+            <span>{{ t('rutas.btnDelete') }}</span>
+          </button>
+          <button
+            type="button"
+            @click.stop="$emit('cancelRange')"
+            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all"
+            :title="t('common.cancel')"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="13" />
+          </button>
+        </div>
       </div>
 
       <!-- Paginación Simple -->
@@ -166,17 +214,36 @@ interface Props {
   paradas: ParadaPayload[]
   tiposParada: { id_tipo: number; nombre: string }[]
   selectedIndex?: number | null
+  selectedRange?: { from: number; to: number } | null
+  hoverRange?: { from: number; to: number } | null
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'select', index: number | null): void
+  (e: 'select', index: number | null, event?: MouseEvent): void
+  (e: 'hover', index: number | null): void
   (e: 'delete', index: number): void
+  (e: 'deleteRange', from: number, to: number): void
+  (e: 'cancelRange'): void
   (e: 'save'): void
   (e: 'clear'): void
   (e: 'close'): void
 }>()
+
+const isIndexInRange = (index: number) => {
+  if (!props.selectedRange) return false
+  return index >= props.selectedRange.from && index <= props.selectedRange.to
+}
+
+const isIndexInHoverRange = (index: number) => {
+  if (props.selectedRange || !props.hoverRange) return false
+  return index >= props.hoverRange.from && index <= props.hoverRange.to
+}
+
+const handleItemClick = (index: number, event: MouseEvent) => {
+  emit('select', index, event)
+}
 
 const stopListContainer = ref<HTMLElement | null>(null)
 const searchQuery = ref('')
