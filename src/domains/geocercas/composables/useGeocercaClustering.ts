@@ -49,8 +49,22 @@ export const calcularCentroGeocerca = (detalle: GeocercaDetalle): { lat: number;
 }
 
 /**
+ * Convierte coordenadas geográficas a píxeles de pantalla usando
+ * proyección esférica de Mercator para el nivel de zoom dado.
+ */
+const toPixel = (lat: number, lng: number, zoom: number): { x: number; y: number } => {
+  const sinLat = Math.sin((lat * Math.PI) / 180)
+  const clampedSin = Math.max(-0.9999, Math.min(0.9999, sinLat))
+  const escala = 256 * Math.pow(2, zoom)
+  const x = ((lng + 180) / 360) * escala
+  const y = (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * escala
+  return { x, y }
+}
+
+/**
  * Agrupa los elementos de geocercas en clusters según la distancia en píxeles en el nivel de zoom actual.
  * Utiliza proyección esférica de Mercator para convertir coordenadas geográficas a píxeles.
+ * El ID del cluster se basa en los IDs de sus miembros para que sea estable entre renders.
  */
 export const agruparGeocercasEnClusters = (
   elementos: ElementoGeocercaCluster[],
@@ -58,14 +72,8 @@ export const agruparGeocercasEnClusters = (
   radioClusterPx: number = 75
 ): { clusters: GeocercaCluster[]; elementosIndividuales: ElementoGeocercaCluster[] } => {
   const puntos = elementos.map(elemento => {
-    const lat = elemento.lat
-    const lng = elemento.lon
-    const sinLat = Math.sin((lat * Math.PI) / 180)
-    const clampedSin = Math.max(-0.9999, Math.min(0.9999, sinLat))
-    const escala = 256 * Math.pow(2, zoom)
-    const x = ((lng + 180) / 360) * escala
-    const y = (0.5 - Math.log((1 + clampedSin) / (1 - clampedSin)) / (4 * Math.PI)) * escala
-    return { elemento, lat, lng, x, y, visitado: false }
+    const { x, y } = toPixel(elemento.lat, elemento.lon, zoom)
+    return { elemento, lat: elemento.lat, lng: elemento.lon, x, y, visitado: false }
   })
 
   const clusters: GeocercaCluster[] = []
@@ -79,8 +87,8 @@ export const agruparGeocercasEnClusters = (
 
     for (let j = i + 1; j < puntos.length; j++) {
       if (puntos[j].visitado) continue
-      const dx = puntos[i].x - points_j_x(puntos[i].x, puntos[j].x)
-      const dy = puntos[i].y - points_j_y(puntos[i].y, puntos[j].y)
+      const dx = puntos[i].x - puntos[j].x
+      const dy = puntos[i].y - puntos[j].y
       const distancia = Math.sqrt(dx * dx + dy * dy)
       if (distancia <= radioClusterPx) {
         puntos[j].visitado = true
@@ -98,8 +106,11 @@ export const agruparGeocercasEnClusters = (
       const latCentro = sumaLat / clusterActual.length
       const lngCentro = sumaLng / clusterActual.length
 
+      // ID estable basado en los IDs de los miembros (ordenados) para evitar
+      // re-creación del marcador en cada evento de zoom/pan
+      const memberIds = clusterActual.map(p => p.elemento.id).sort().join('_')
       clusters.push({
-        id: `cluster_geo_${latCentro.toFixed(5)}_${lngCentro.toFixed(5)}_${clusterActual.length}`,
+        id: `cluster_geo_${memberIds}`,
         latCentro,
         lngCentro,
         elementos: clusterActual.map(p => p.elemento)
@@ -111,6 +122,3 @@ export const agruparGeocercasEnClusters = (
 
   return { clusters, elementosIndividuales }
 }
-
-const points_j_x = (_x1: number, x2: number) => x2
-const points_j_y = (_y1: number, y2: number) => y2

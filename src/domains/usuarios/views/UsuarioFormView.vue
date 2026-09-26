@@ -10,6 +10,9 @@ import {
   Shield02Icon,
   Tick01Icon,
   Alert01Icon,
+  Alert02Icon,
+  CheckmarkSquare02Icon,
+  TickDouble02Icon,
   Loading01Icon,
   LockPasswordIcon
 } from '@hugeicons/core-free-icons'
@@ -50,6 +53,62 @@ interface UsuarioForm {
   pass: string
   id_role: string
   id_grupo: string
+}
+
+interface AlarmaHabladaOption {
+  position: number
+  code: string
+  labelKey: string
+}
+
+const ALARMAS_HABLADAS_CONFIG: AlarmaHabladaOption[] = [
+  { position: 1, code: 'ALERT_TYPE_OVER_SPEED', labelKey: 'users.alarmOverSpeed' },
+  { position: 2, code: 'ALERT_TYPE_SOS', labelKey: 'users.alarmSos' },
+  { position: 3, code: 'ALERT_TYPE_ROUTE_OUT', labelKey: 'users.alarmRouteOut' },
+  { position: 4, code: 'ALERT_TYPE_LOCK_OPEN', labelKey: 'users.alarmLockOpen' },
+  { position: 5, code: 'ALERT_TYPE_LOCK_CLOSE', labelKey: 'users.alarmLockClose' },
+  { position: 6, code: 'ALERT_TYPE_ROUTE_IN', labelKey: 'users.alarmRouteIn' }
+]
+
+const alarmasHabladas = ref<boolean[]>([false, false, false, false, false, false, false, false])
+
+const parseAlarmaHabladaString = (str?: string): boolean[] => {
+  const flags = [false, false, false, false, false, false, false, false]
+  if (!str) return flags
+  const parts = str.split(',').map(s => s.trim())
+  for (let i = 0; i < 8; i++) {
+    flags[i] = parts[i] === '1'
+  }
+  return flags
+}
+
+const buildAlarmaHabladaPayload = (): string => {
+  const parts = [0, 0, 0, 0, 0, 0, 0, 0]
+  for (let i = 0; i < 8; i++) {
+    parts[i] = alarmasHabladas.value[i] ? 1 : 0
+  }
+  return parts.join(',')
+}
+
+const toggleAlarma = (index: number) => {
+  if (saving.value) return
+  alarmasHabladas.value[index] = !alarmasHabladas.value[index]
+}
+
+const areAllAlarmasSelected = computed(() => {
+  return ALARMAS_HABLADAS_CONFIG.every(a => alarmasHabladas.value[a.position - 1])
+})
+
+const activeAlarmasCount = computed(() => {
+  return ALARMAS_HABLADAS_CONFIG.filter(a => alarmasHabladas.value[a.position - 1]).length
+})
+
+const toggleAllAlarmas = () => {
+  if (saving.value) return
+  const targetVal = !areAllAlarmasSelected.value
+  ALARMAS_HABLADAS_CONFIG.forEach(a => {
+    alarmasHabladas.value[a.position - 1] = targetVal
+  })
 }
 
 const activeSchema = computed(() => isEditMode.value ? updateUsuarioSchema : createUsuarioSchema)
@@ -162,6 +221,7 @@ const initData = async () => {
           id_role: targetUser.id_role || '',
           id_grupo: targetUser.id_grupo || selectedGroup.value?.id || ''
         }
+        alarmasHabladas.value = parseAlarmaHabladaString(targetUser.alarma_hablada)
         await fetchRolesForCreate(formData.value.id_grupo)
         formData.value.id_role = targetUser.id_role // restaurar despues del fetch
       } else {
@@ -176,6 +236,7 @@ const initData = async () => {
   } else {
     // Creación
     formData.value.id_grupo = selectedGroup.value?.id || grupos.value[0]?.id || ''
+    alarmasHabladas.value = [false, false, false, false, false, false, false, false]
     await fetchRolesForCreate(formData.value.id_grupo)
     loadingInit.value = false
   }
@@ -219,7 +280,8 @@ const saveUsuario = async () => {
         nombre: formData.value.nombre,
         email: formData.value.email,
         lang: formData.value.lang,
-        pass: formData.value.pass
+        pass: formData.value.pass,
+        alarma_hablada: buildAlarmaHabladaPayload()
       })
 
       if (data.done) {
@@ -258,7 +320,8 @@ const saveUsuario = async () => {
         nombre: formData.value.nombre,
         email: formData.value.email,
         lang: formData.value.lang,
-        pass: formData.value.pass.trim().length > 0 ? formData.value.pass : undefined
+        pass: formData.value.pass.trim().length > 0 ? formData.value.pass : undefined,
+        alarma_hablada: buildAlarmaHabladaPayload()
       }
 
       const { data } = await updateUsuarioApi(updatePayload)
@@ -488,6 +551,90 @@ const saveUsuario = async () => {
               <p v-if="isEditMode" class="text-[11px] text-slate-400 dark:text-slate-600 mt-2 pl-1 font-medium italic">
                 {{ t('users.formPasswordHelpEdit') }}
               </p>
+            </div>
+
+            <!-- Sección de Alarmas Habladas -->
+            <div class="pt-6 border-t border-slate-100 dark:border-white/5 space-y-4">
+              <!-- Header Alarmas -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-xl bg-blue-50/60 dark:bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] border border-blue-100/60 dark:border-blue-500/20 flex items-center justify-center shrink-0">
+                    <HugeiconsIcon :icon="Alert02Icon" :size="16" />
+                  </div>
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <label class="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">
+                        {{ t('users.formSpokenAlarms') }}
+                      </label>
+                      <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#3b82f6]/10 text-[#3b82f6] dark:text-[#5da6fc] border border-[#3b82f6]/20">
+                        {{ activeAlarmasCount }} / {{ ALARMAS_HABLADAS_CONFIG.length }}
+                      </span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                      {{ t('users.formSpokenAlarmsHelp') }}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  @click="toggleAllAlarmas"
+                  :disabled="saving"
+                  class="self-start sm:self-auto px-3 py-1.5 rounded-xl text-xs font-bold border transition-all duration-200 flex items-center gap-1.5 bg-slate-50 dark:bg-[#1D1D24] border-slate-200 dark:border-white/10 hover:border-[#3b82f6]/40 text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] shadow-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <HugeiconsIcon :icon="TickDouble02Icon" :size="14" />
+                  <span>{{ areAllAlarmasSelected ? t('users.uncheckAllAlarms') : t('users.checkAllAlarms') }}</span>
+                </button>
+              </div>
+
+              <!-- Grid de Alarmas -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div
+                  v-for="item in ALARMAS_HABLADAS_CONFIG"
+                  :key="item.position"
+                  @click="toggleAlarma(item.position - 1)"
+                  class="group/alarm relative flex items-center justify-between p-3 rounded-2xl border cursor-pointer select-none transition-all duration-200"
+                  :class="[
+                    saving ? 'pointer-events-none opacity-60' : '',
+                    alarmasHabladas[item.position - 1]
+                      ? 'bg-[#3b82f6]/[0.08] dark:bg-[#3b82f6]/15 border-[#3b82f6]/50 dark:border-[#5da6fc]/40 shadow-sm shadow-blue-500/10'
+                      : 'bg-gradient-to-b from-white to-slate-50 dark:from-[#20242D] dark:to-[#1D1D24] border-slate-200 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                  ]"
+                >
+                  <div class="flex items-center gap-3 min-w-0 flex-1 mr-2">
+                    <div
+                      class="w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all duration-200 shrink-0"
+                      :class="alarmasHabladas[item.position - 1]
+                        ? 'bg-[#3b82f6] border-[#3b82f6] text-white shadow-sm shadow-blue-500/30'
+                        : 'bg-transparent border-slate-300 dark:border-white/20 group-hover/alarm:border-slate-400 dark:group-hover/alarm:border-white/40'"
+                    >
+                      <HugeiconsIcon
+                        :icon="CheckmarkSquare02Icon"
+                        :size="12"
+                        :stroke-width="3"
+                        class="text-white transition-transform duration-200"
+                        :class="alarmasHabladas[item.position - 1] ? 'scale-100' : 'scale-0'"
+                      />
+                    </div>
+
+                    <span
+                      class="text-xs font-semibold truncate transition-colors duration-200"
+                      :class="alarmasHabladas[item.position - 1] ? 'text-[#3b82f6] dark:text-[#5da6fc] font-bold' : 'text-slate-700 dark:text-slate-200'"
+                    >
+                      {{ t(item.labelKey) }}
+                    </span>
+                  </div>
+
+                  <div
+                    class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors duration-200"
+                    :class="alarmasHabladas[item.position - 1]
+                      ? 'bg-blue-500/15 text-[#3b82f6] dark:text-[#5da6fc] border border-blue-500/25 shadow-sm'
+                      : 'bg-slate-200/60 dark:bg-white/5 text-slate-400 dark:text-slate-500 border border-transparent'"
+                  >
+                    {{ item.position }}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

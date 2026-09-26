@@ -134,36 +134,6 @@
         </TransitionGroup>
       </div>
 
-      <!-- Banner de Acción para Rango Seleccionado -->
-      <div v-if="selectedRange" class="px-4 py-3 bg-red-500/10 dark:bg-red-500/15 border-t border-red-500/20 flex items-center justify-between gap-2 shrink-0">
-        <div class="flex flex-col min-w-0">
-          <span class="text-[11px] font-bold text-red-600 dark:text-red-400 truncate">
-            {{ t('rutas.rangeSelected', { count: selectedRange.to - selectedRange.from + 1 }) }}
-          </span>
-          <span class="text-[9.5px] text-slate-500 dark:text-slate-400 truncate">
-            Puntos {{ selectedRange.from + 1 }} al {{ selectedRange.to + 1 }}
-          </span>
-        </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <button
-            type="button"
-            @click.stop="$emit('deleteRange', selectedRange.from, selectedRange.to)"
-            class="px-2.5 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 active:scale-95 text-white text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 shadow-sm transition-all"
-          >
-            <HugeiconsIcon :icon="Delete01Icon" :size="12" />
-            <span>{{ t('rutas.btnDelete') }}</span>
-          </button>
-          <button
-            type="button"
-            @click.stop="$emit('cancelRange')"
-            class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition-all"
-            :title="t('common.cancel')"
-          >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="13" />
-          </button>
-        </div>
-      </div>
-
       <!-- Paginación Simple -->
       <div v-if="totalPages > 1" class="px-4 py-2 flex items-center justify-between border-t border-slate-200/60 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
         <button

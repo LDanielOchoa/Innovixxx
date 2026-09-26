@@ -162,7 +162,9 @@ let CustomLabelOverlay: any = null
 const selectedLabelOverlay = ref<any>(null)
 
 /**
- * Crea el elemento DOM del marcador de grupo (cluster) para geocercas
+ * Crea el elemento DOM del marcador de grupo (cluster) para geocercas.
+ * IMPORTANTE: Usa inline styles en lugar de clases Tailwind porque Tailwind
+ * no puede procesar strings dinámicos generados en JavaScript (innerHTML).
  */
 const createClusterMarkerElement = (cluster: GeocercaCluster) => {
   const container = document.createElement('div')
@@ -170,30 +172,22 @@ const createClusterMarkerElement = (cluster: GeocercaCluster) => {
   container.style.cssText = 'position: relative; width: 0; height: 0; cursor: pointer; user-select: none; pointer-events: auto;'
 
   const count = cluster.elementos.length
-  const borderStyle = 'border-[#3b82f6]/50'
-  const textStyle = 'text-[#3b82f6]'
-  const iconBg = 'bg-[#3b82f6]/10'
-  const needleBorder = 'border-t-[#3b82f6]'
   const labelText = count === 1 ? t('geocercas.geocerca') : t('geocercas.title')
 
-  const iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>`
+  const iconSvg = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>`
 
   container.innerHTML = `
     <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
-      <!-- Insignia sobria y profesional -->
-      <div class="px-2.5 py-1 rounded-lg bg-[#0f121a]/95 border ${borderStyle} shadow-md backdrop-blur-md flex items-center gap-2 text-white">
-        <div class="w-5 h-5 rounded ${iconBg} ${textStyle} flex items-center justify-center shrink-0">
+      <div style="padding: 4px 10px; border-radius: 8px; background: rgba(15,18,26,0.95); border: 1px solid rgba(59,130,246,0.5); box-shadow: 0 2px 12px rgba(0,0,0,0.5); backdrop-filter: blur(8px); display: flex; align-items: center; gap: 8px; color: white;">
+        <div style="width: 20px; height: 20px; border-radius: 4px; background: rgba(59,130,246,0.12); color: #3b82f6; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
           ${iconSvg}
         </div>
-        <div class="flex items-center gap-1 font-sans">
-          <span class="text-[12px] font-bold ${textStyle} font-mono leading-none">${count}</span>
-          <span class="text-[9px] font-bold uppercase tracking-wider text-slate-300 leading-none">
-            ${labelText}
-          </span>
+        <div style="display: flex; align-items: center; gap: 4px; font-family: Inter, ui-sans-serif, system-ui, sans-serif;">
+          <span style="font-size: 12px; font-weight: 700; color: #3b82f6; font-family: monospace; line-height: 1;">${count}</span>
+          <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; line-height: 1;">${labelText}</span>
         </div>
       </div>
-      <!-- Puntero sutil al mapa -->
-      <div class="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[5px] ${needleBorder} -mt-[0.5px]"></div>
+      <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #3b82f6; margin-top: -0.5px;"></div>
     </div>
   `
 
@@ -228,7 +222,7 @@ const drawAllGeocercas = () => {
   }
 
   const currentZoom = map.value.getZoom() || 12
-  const shouldCluster = currentZoom < 14 && geocercasConDetalles.value.length > 1
+  const shouldCluster = currentZoom < 15 && geocercasConDetalles.value.length > 1
 
   let clusters: GeocercaCluster[] = []
   let singleItems: ElementoGeocercaCluster[] = []

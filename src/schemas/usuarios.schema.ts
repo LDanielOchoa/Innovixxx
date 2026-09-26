@@ -10,7 +10,8 @@ export const createUsuarioSchema = z.object({
   pass: passwordSchema,
   id_role: z.string().min(1, 'Debe seleccionar un rol'),
   id_grupo: z.string().length(8, 'Grupo inválido'),
-  lang: z.string().min(2).default('es')
+  lang: z.string().min(2).default('es'),
+  alarma_hablada: z.string().optional()
 })
 
 export const updateUsuarioSchema = z.object({
@@ -19,7 +20,8 @@ export const updateUsuarioSchema = z.object({
   nombre: z.string().min(2, 'El nombre es requerido').max(100),
   email: z.string().min(1, 'El correo es requerido').email('Correo electrónico inválido'),
   lang: z.string().min(2).default('es'),
-  pass: z.preprocess((val) => (val === '' || val === undefined ? undefined : val), passwordSchema.optional())
+  pass: z.preprocess((val) => (val === '' || val === undefined ? undefined : val), passwordSchema.optional()),
+  alarma_hablada: z.string().optional()
 })
 
 export const deleteUsuarioSchema = z.object({

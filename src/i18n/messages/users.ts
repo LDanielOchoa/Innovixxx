@@ -69,6 +69,19 @@ export const usersMessages = {
     formPasswordNew: 'Nueva Contraseña',
     formPasswordChangeTitle: 'Cambiar Contraseña',
 
+    // Alarmas Habladas
+    formSpokenAlarms: 'Alarmas Habladas',
+    formSpokenAlarmsHelp: 'Configura las notificaciones de voz hablada para este usuario',
+    spokenAlarmsActiveCount: '{count} activadas',
+    checkAllAlarms: 'Activar todas',
+    uncheckAllAlarms: 'Desactivar todas',
+    alarmOverSpeed: 'Exceso de velocidad',
+    alarmSos: 'SOS / Emergencia',
+    alarmRouteOut: 'Salida de ruta',
+    alarmLockOpen: 'Apertura de candado',
+    alarmLockClose: 'Cierre de candado',
+    alarmRouteIn: 'Entrada a ruta',
+
     // Alertas y notificaciones
     alertMinPassword: 'La contraseña debe tener mínimo 8 caracteres',
     alertNoGroup: 'No hay un grupo válido asignado.',
@@ -160,6 +173,19 @@ export const usersMessages = {
     formPasswordCurrent: 'Current Password',
     formPasswordNew: 'New Password',
     formPasswordChangeTitle: 'Change Password',
+
+    // Spoken Alarms
+    formSpokenAlarms: 'Spoken Alarms',
+    formSpokenAlarmsHelp: 'Configure spoken voice notifications for this user',
+    spokenAlarmsActiveCount: '{count} enabled',
+    checkAllAlarms: 'Enable all',
+    uncheckAllAlarms: 'Disable all',
+    alarmOverSpeed: 'Over Speed',
+    alarmSos: 'SOS / Emergency',
+    alarmRouteOut: 'Route Deviation',
+    alarmLockOpen: 'Lock Open',
+    alarmLockClose: 'Lock Closed',
+    alarmRouteIn: 'Route Return',
 
     // Alerts and notifications
     alertMinPassword: 'Password must be at least 8 characters long',

@@ -15,6 +15,7 @@ interface UserData {
   foto: string
   isAdmin: boolean
   isSuperAdmin?: boolean
+  hablar_alarma?: string
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -25,7 +26,8 @@ export const useAuthStore = defineStore('auth', () => {
     idioma: '',
     tz: '',
     foto: '',
-    isAdmin: false
+    isAdmin: false,
+    hablar_alarma: ''
   })
 
   const isAdmin = ref(false)
@@ -57,7 +59,8 @@ export const useAuthStore = defineStore('auth', () => {
     CookieAuth.removeToken()
     localStorage.removeItem('auth-token-ws')
     localStorage.removeItem('auth-grupo-id')
-    userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false }
+    localStorage.removeItem('auth-hablar-alarma')
+    userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false, hablar_alarma: '' }
     isAdmin.value = false
     isSuperAdmin.value = false
     userPermissions.value = []
@@ -109,7 +112,8 @@ export const useAuthStore = defineStore('auth', () => {
       authChannel?.postMessage({ type: 'LOGOUT' })
     } catch {}
 
-    userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false }
+    userData.value = { nombre: '', email: '', grupo: '', idioma: '', tz: '', foto: '', isAdmin: false, isSuperAdmin: false, hablar_alarma: '' }
+    localStorage.removeItem('auth-hablar-alarma')
     isAdmin.value = false
     isSuperAdmin.value = false
     userPermissions.value = []
@@ -133,6 +137,14 @@ export const useAuthStore = defineStore('auth', () => {
     if (isSuperAdmin.value) return true
     const permStr = String(permissionId)
     return userPermissions.value.some(p => String(p) === permStr)
+  }
+
+  const puedeEscucharAlarma = (tipo: number): boolean => {
+    const raw = userData.value.hablar_alarma || localStorage.getItem('auth-hablar-alarma') || ''
+    if (!raw) return false
+    const flags = raw.split(',').map(s => s.trim())
+    const index = tipo - 1
+    return index >= 0 && index < flags.length && flags[index] === '1'
   }
 
   const parseMenuOpsToPermissions = (menuOps: any[]): string[] => {
@@ -211,6 +223,10 @@ export const useAuthStore = defineStore('auth', () => {
         userData.value.idioma = data.data.idioma
         userData.value.tz = data.data.tz
         userData.value.foto = data.data.foto || ''
+        userData.value.hablar_alarma = data.data.hablar_alarma ?? data.data.alarma_hablada ?? ''
+        if (userData.value.hablar_alarma) {
+          localStorage.setItem('auth-hablar-alarma', userData.value.hablar_alarma)
+        }
 
         userPermissions.value = []
 
@@ -267,6 +283,7 @@ export const useAuthStore = defineStore('auth', () => {
     userAvatar,
     userPermissions,
     hasPermission,
+    puedeEscucharAlarma,
     fetchUserProfile,
     logout
   }

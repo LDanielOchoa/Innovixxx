@@ -238,8 +238,12 @@ const procesarAlertasVoz = (alertas: typeof alertasDetalleRes.value) => {
     // 2. Cancelar cualquier audio en curso para dar paso inmediato a la nueva emergencia
     cancelar()
 
-    // 3. Notificar por voz las nuevas alarmas en el idioma del perfil (/me)
+    // 3. Notificar por voz las nuevas alarmas en el idioma del perfil (/me) únicamente si el usuario las tiene habilitadas
     for (const alerta of nuevasAlarmas) {
+      if (!authStore.puedeEscucharAlarma(alerta.tipo)) {
+        continue
+      }
+
       const idiomaActual = obtenerIdiomaUsuario()
       const nombreTipo = getNombreTipoAlerta(alerta.tipo, idiomaActual)
       const nombreHwReal = getHardwareNombreReal(alerta.id_hardware)

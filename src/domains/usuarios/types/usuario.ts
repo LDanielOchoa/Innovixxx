@@ -8,6 +8,7 @@ export interface Usuario {
   grupo_nombre: string
   time_zone?: string
   foto?: string
+  alarma_hablada?: string
 }
 
 export interface Grupo {
@@ -27,6 +28,7 @@ export interface UsuarioCreatePayload {
   email: string
   lang: string
   pass: string
+  alarma_hablada?: string
 }
 
 export interface UsuarioUpdatePayload {
@@ -37,6 +39,7 @@ export interface UsuarioUpdatePayload {
   email: string
   lang: string
   pass?: string
+  alarma_hablada?: string
 }
 
 export interface UsuarioDeletePayload {
@@ -44,3 +47,4 @@ export interface UsuarioDeletePayload {
   id_usuario: string
   lang: string
 }
+
