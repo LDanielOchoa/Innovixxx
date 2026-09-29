@@ -12,6 +12,7 @@ export interface Escolta {
   pase: string
   tipo_pase: string
   pase_vence: string
+  foto?: string
 }
 
 export const ESCOLTA_ESTADO = {
@@ -30,15 +31,16 @@ export const ESCOLTA_ESTADO_LABELS: Record<string, string> = {
 export interface EscoltaCreatePayload {
   nombre: string
   cedula: string
-  email: string
-  celular: string
+  email?: string
+  celular?: string
   id_grupo: string
-  id_servicio: string
-  id_vehiculo: string
-  id_hardware: string
-  tipo_pase: string
-  pase: string
-  pase_vence: string
+  id_servicio?: string
+  id_vehiculo?: string
+  id_hardware?: string
+  tipo_pase?: string
+  pase?: string
+  pase_vence?: string
+  foto?: File | string | null
 }
 
 export interface EscoltaUpdatePayload extends EscoltaCreatePayload {

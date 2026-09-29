@@ -10,7 +10,7 @@ const MEDIA_BASE_URL = '/media/';
  * @returns La URL formateada o una imagen por defecto.
  */
 export const obtenerUrlImagen = (ruta: string | null | undefined): string => {
-  if (!ruta) return 'https://i.pravatar.cc/150?img=11';
+  if (!ruta || !ruta.trim()) return '';
 
   // Si ya es una URL completa o un data URI, la retornamos tal cual
   if (ruta.startsWith('http') || ruta.startsWith('data:')) {

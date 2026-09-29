@@ -16,17 +16,17 @@ export const fetchEscoltasApi = async (id_grupo: string, estado: number = 0): Pr
   return data.done && Array.isArray(data.data) ? data.data : []
 }
 
-export const createEscoltaApi = async (payload: EscoltaCreatePayload): Promise<any> => {
+export const createEscoltaApi = async (payload: EscoltaCreatePayload | FormData): Promise<any> => {
   return apiClient('/api/v1/escolta/crear/', {
     method: 'POST',
-    body: JSON.stringify(payload)
+    body: payload instanceof FormData ? payload : JSON.stringify(payload)
   })
 }
 
-export const updateEscoltaApi = async (payload: EscoltaUpdatePayload): Promise<any> => {
+export const updateEscoltaApi = async (payload: EscoltaUpdatePayload | FormData): Promise<any> => {
   return apiClient('/api/v1/escolta/actualizar/', {
     method: 'POST',
-    body: JSON.stringify(payload)
+    body: payload instanceof FormData ? payload : JSON.stringify(payload)
   })
 }
 

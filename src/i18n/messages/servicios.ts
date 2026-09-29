@@ -214,6 +214,17 @@ export const serviciosMessages = {
     selectedCount: '{count} seleccionados',
     registeringService: 'Registrando Servicio...',
 
+    // Modal Documento Escolta Firmar
+    btnEscortDocumentSign: 'Documento Escolta Firmar',
+    modalTitleEscortDocumentSign: 'Documento Escolta a Firmar',
+    modalSubtitleEscortDocumentSign: 'Seleccione el escolta para generar el documento de firma del conductor.',
+    selectEscortPrompt: 'Seleccione un escolta de la lista',
+    noEscortsForService: 'No se encontraron escoltas asignados a este servicio.',
+    generatingEscortDocument: 'Generando Documento...',
+    btnGenerateDocument: 'Generar y Descargar PDF',
+    escortDocumentSuccess: 'Documento para firma generado exitosamente.',
+    escortDocumentError: 'Error al generar el documento para firma.',
+
     // Modal Asignar Recursos
     modalTitleAssign: 'Asignar Recursos al Servicio',
     assigningResources: 'Asignando Recursos...',
@@ -651,6 +662,17 @@ export const serviciosMessages = {
     selectedVehiclesCount: '{count} selected vehicles',
     selectedCount: '{count} selected',
     registeringService: 'Registering Service...',
+
+    // Modal Escort Document Sign
+    btnEscortDocumentSign: 'Escort Document Sign',
+    modalTitleEscortDocumentSign: 'Escort Document to Sign',
+    modalSubtitleEscortDocumentSign: 'Select the escort to generate the driver sign document.',
+    selectEscortPrompt: 'Select an escort from the list',
+    noEscortsForService: 'No escorts assigned to this service.',
+    generatingEscortDocument: 'Generating Document...',
+    btnGenerateDocument: 'Generate & Download PDF',
+    escortDocumentSuccess: 'Document for signature generated successfully.',
+    escortDocumentError: 'Error generating document for signature.',
 
     // Modal Assign Resources
     modalTitleAssign: 'Assign Resources to Service',

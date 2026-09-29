@@ -573,8 +573,9 @@ const cerrarSesion = () => {
         >
           <!-- Header de Usuario -->
           <div class="flex items-center gap-3 p-3 bg-slate-50/70 dark:bg-white/5 rounded-[15px] mb-1.5">
-            <div class="w-12 h-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-xs">
-              <img :src="authStore.userAvatar" class="w-full h-full object-cover" alt="Avatar" />
+            <div class="w-12 h-12 shrink-0 rounded-full overflow-hidden flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-xs bg-slate-100 dark:bg-white/5">
+              <img v-if="authStore.userAvatar" :src="authStore.userAvatar" class="w-full h-full object-cover" alt="Avatar" />
+              <HugeiconsIcon v-else :icon="User02Icon" :size="22" class="text-slate-400 dark:text-slate-500" />
             </div>
             <div class="flex-1 overflow-hidden">
               <p class="text-[14px] font-bold text-slate-800 dark:text-white truncate mb-0.5">{{ authStore.userData.nombre || t('sidebar.defaultUser') }}</p>
@@ -610,8 +611,9 @@ const cerrarSesion = () => {
           @click="isProfileMenuOpen = !isProfileMenuOpen"
           class="flex items-center gap-3 p-2 rounded-[14px] hover:bg-slate-50 dark:hover:bg-white/5 border border-transparent hover:border-slate-200/80 dark:hover:border-white/10 transition-all duration-300 w-full text-left relative group/profile cursor-pointer"
         >
-          <div class="relative w-10 h-10 shrink-0 rounded-full overflow-hidden border border-slate-200 dark:border-white/10 group-hover/profile:border-[#3b82f6]/50 transition-colors flex items-center justify-center">
-            <img :src="authStore.userAvatar" class="w-full h-full object-cover" alt="Avatar" />
+          <div class="relative w-10 h-10 shrink-0 rounded-full overflow-hidden border border-slate-200 dark:border-white/10 group-hover/profile:border-[#3b82f6]/50 transition-colors flex items-center justify-center bg-slate-100 dark:bg-white/5">
+            <img v-if="authStore.userAvatar" :src="authStore.userAvatar" class="w-full h-full object-cover" alt="Avatar" />
+            <HugeiconsIcon v-else :icon="User02Icon" :size="18" class="text-slate-400 dark:text-slate-500" />
           </div>
           
           <div class="flex-1 overflow-hidden transition-all duration-500" :class="isExpanded ? 'opacity-100 max-w-[140px]' : 'opacity-0 max-w-0'">

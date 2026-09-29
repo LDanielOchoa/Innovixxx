@@ -54,6 +54,8 @@ import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppFormInput from '../../../components/ui/AppFormInput.vue'
+import AppAvatar from '../../../components/ui/AppAvatar.vue'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
 import EscoltaCreateModal from '../components/EscoltaCreateModal.vue'
 import EscoltaAsignarHardwareModal from '../components/EscoltaAsignarHardwareModal.vue'
 import EscoltaAsignarVehiculoModal from '../components/EscoltaAsignarVehiculoModal.vue'
@@ -550,9 +552,16 @@ watch(filtroEstado, async () => {
 
         <Column field="nombre" :header="t('escoltas.thName')" sortable>
           <template #body="{ data }">
-            <div class="flex flex-col py-1">
-              <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || t('escoltas.noName') }}</span>
-              <span class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ data.cedula || '---' }}</span>
+            <div class="flex items-center gap-3.5 py-1">
+              <AppAvatar 
+                :image="data.foto ? obtenerUrlImagen(data.foto) : undefined"
+                :label="data.nombre || 'ES'"
+                size="normal"
+              />
+              <div class="flex flex-col">
+                <span class="text-[14px] font-semibold text-slate-800 dark:text-white tracking-tight leading-none">{{ data.nombre || t('escoltas.noName') }}</span>
+                <span class="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{{ data.cedula || '---' }}</span>
+              </div>
             </div>
           </template>
         </Column>

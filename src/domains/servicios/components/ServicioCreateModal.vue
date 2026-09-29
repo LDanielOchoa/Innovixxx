@@ -482,14 +482,19 @@ const handleClose = () => {
           </div>
         </div>
 
-        <!-- SECCIÓN: SELECTOR DE VEHÍCULOS -->
+        <!-- SECCIÓN: SELECTOR DE VEHÍCULOS (OPCIONAL) -->
         <div class="pt-6 border-t border-white/5 space-y-5">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-[14px] bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-[#5da6fc] border border-blue-500/30">
               <HugeiconsIcon :icon="Car01Icon" :size="20" class="drop-shadow-sm" />
             </div>
             <div>
-              <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('servicios.vehiclesAssignmentTitle') }}</h3>
+              <div class="flex items-center gap-2">
+                <h3 class="text-[13px] font-black text-white uppercase tracking-[0.15em]">{{ t('servicios.vehiclesAssignmentTitle') }}</h3>
+                <span class="text-[10px] font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md uppercase tracking-wider">
+                  {{ t('common.optional', 'Opcional') }}
+                </span>
+              </div>
               <p class="text-[11px] text-slate-400 font-medium mt-0.5">{{ t('servicios.vehiclesAssignmentDesc') }}</p>
             </div>
           </div>
@@ -497,12 +502,14 @@ const handleClose = () => {
           <div class="grid grid-cols-1">
             <!-- VEHÍCULOS -->
             <div class="space-y-2">
-              <label
-                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-              >
-                {{ t('servicios.labelVehicles') }}
-              </label>
+              <div class="flex items-center justify-between ml-1">
+                <label
+                  class="text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-300"
+                  :class="panelActivo === 'vehiculos' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ t('servicios.labelVehicles') }}
+                </label>
+              </div>
               <button
                 ref="btnVehiculos"
                 type="button"

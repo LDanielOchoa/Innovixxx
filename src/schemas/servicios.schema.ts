@@ -5,7 +5,7 @@ export const servicioCreateSchema = z.object({
   id_ruta: z.string().min(1, 'La ruta es obligatoria'),
   fecha_hora_inicio: z.string().min(1, 'La fecha y hora de inicio es obligatoria'),
   modo_fin: z.number().int().min(1, 'El modo de fin es obligatorio'),
-  vehiculos_id: z.array(z.string()).min(1, 'Debe seleccionar al menos un vehículo')
+  vehiculos_id: z.array(z.string()).optional().default([])
 })
 
 export const servicioCambiarRutaSchema = z.object({

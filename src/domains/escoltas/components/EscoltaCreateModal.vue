@@ -20,7 +20,10 @@ import {
   BatteryFullIcon,
   BatteryMedium01Icon,
   BatteryLowIcon,
-  BatteryEmptyIcon
+  BatteryEmptyIcon,
+  Camera01Icon,
+  RotateRight01Icon,
+  RotateLeft01Icon
 } from '@hugeicons/core-free-icons'
 import { useGroupStore } from '../../../stores/group.store'
 import { useI18n } from 'vue-i18n'
@@ -36,6 +39,10 @@ import type { Escolta } from '../types/escolta'
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppInput from '../../../components/ui/AppInput.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
+import BaseModal from '../../../components/common/BaseModal.vue'
+import { Cropper, CircleStencil } from 'vue-advanced-cropper'
+import 'vue-advanced-cropper/dist/style.css'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
 import { useToast } from 'primevue/usetoast'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 
@@ -59,6 +66,57 @@ const { getError, clearErrors } = useFormError(formId as any)
 const isInitializing = ref(true)
 const saving = ref(false)
 const modalMessage = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
+
+// Estado de foto y recorte
+const previewImage = ref<string | null>(null)
+const selectedFile = ref<File | null>(null)
+const isCropping = ref(false)
+const imageToCrop = ref<string | null>(null)
+const cropper = ref<any>(null)
+
+const handleFileUpload = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imageToCrop.value = e.target?.result as string
+      isCropping.value = true
+    }
+    reader.readAsDataURL(file)
+    target.value = ''
+  }
+}
+
+const applyCrop = () => {
+  if (!cropper.value) return
+  const { canvas } = cropper.value.getResult()
+  if (canvas) {
+    canvas.toBlob((blob: Blob | null) => {
+      if (!blob) return
+      const file = new File([blob], 'escolta.jpg', { type: 'image/jpeg' })
+      selectedFile.value = file
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        previewImage.value = e.target?.result as string
+        isCropping.value = false
+        imageToCrop.value = null
+      }
+      reader.readAsDataURL(blob)
+    }, 'image/jpeg')
+  }
+}
+
+const cancelCrop = () => {
+  isCropping.value = false
+  imageToCrop.value = null
+}
+
+const rotate = (angle: number) => {
+  if (cropper.value) {
+    cropper.value.rotate(angle)
+  }
+}
 
 const formData = reactive({
   nombre: '',
@@ -358,12 +416,16 @@ watch(() => props.isOpen, async (isOpen) => {
         pase: e.pase || '',
         pase_vence: parsarFecha(e.pase_vence)
       })
+      previewImage.value = e.foto ? obtenerUrlImagen(e.foto) : null
+      selectedFile.value = null
     } else {
       Object.assign(formData, {
         nombre: '', cedula: '', email: '', celular: '',
         id_vehiculo: '', id_hardware: '',
         tipo_pase: '', pase: '', pase_vence: null
       })
+      previewImage.value = null
+      selectedFile.value = null
     }
 
     if (groupStore.selectedGroup?.id) {
@@ -394,6 +456,8 @@ watch(() => props.isOpen, async (isOpen) => {
     }, 600)
   } else {
     panelActivo.value = null
+    isCropping.value = false
+    imageToCrop.value = null
   }
 })
 
@@ -443,8 +507,25 @@ const handleGuardar = async () => {
   }
 
   try {
+    const formDataObj = new FormData()
+    formDataObj.append('id_grupo', groupStore.selectedGroup.id)
+    formDataObj.append('nombre', formData.nombre ?? '')
+    formDataObj.append('cedula', formData.cedula ?? '')
+    formDataObj.append('email', formData.email ?? '')
+    formDataObj.append('celular', formData.celular ?? '')
+    formDataObj.append('tipo_pase', formData.tipo_pase ?? '')
+    formDataObj.append('pase', formData.pase ?? '')
+    formDataObj.append('pase_vence', formatFecha(formData.pase_vence))
+    if (formData.id_vehiculo) formDataObj.append('id_vehiculo', formData.id_vehiculo)
+    if (formData.id_hardware) formDataObj.append('id_hardware', formData.id_hardware)
+
+    if (selectedFile.value) {
+      formDataObj.append('foto', selectedFile.value)
+    }
+
     if (esModoEdicion.value && props.editItem) {
-      const data = await updateEscoltaApi({ ...payload, id_escolta: props.editItem.id_escolta })
+      formDataObj.append('id_escolta', props.editItem.id_escolta)
+      const data = await updateEscoltaApi(formDataObj)
       if (data.done) {
         toast.add({
           severity: 'success',
@@ -458,7 +539,7 @@ const handleGuardar = async () => {
         showMessage(data.message || t('escoltas.alertErrorUpdate'), 'error')
       }
     } else {
-      const data = await createEscoltaApi(payload)
+      const data = await createEscoltaApi(formDataObj)
       if (data.done) {
         toast.add({
           severity: 'success',
@@ -472,6 +553,8 @@ const handleGuardar = async () => {
           id_vehiculo: '', id_hardware: '',
           tipo_pase: '', pase: '', pase_vence: null
         })
+        previewImage.value = null
+        selectedFile.value = null
         resetErrors(formId.value)
         clearErrors()
         handleClose()
@@ -596,6 +679,49 @@ const formatFecha = (date: Date | null): string => {
         </Transition>
 
         <div class="space-y-5">
+          <!-- Subida de Foto del Escolta -->
+          <div class="flex flex-col items-center justify-center pb-2">
+            <div class="relative group">
+              <label
+                for="escoltaPhotoUpload"
+                class="block w-24 h-24 rounded-full bg-slate-100 dark:bg-white/5 p-1 relative border border-slate-200/80 dark:border-white/10 shadow-sm cursor-pointer active:scale-95 transition-all duration-300"
+              >
+                <div class="w-full h-full rounded-full overflow-hidden bg-slate-50 dark:bg-[#0B0D11] flex items-center justify-center border border-slate-200/50 dark:border-black/50 relative">
+                  <img
+                    v-if="previewImage"
+                    :src="previewImage"
+                    class="w-full h-full object-cover"
+                    alt="Foto Escolta"
+                  />
+                  <HugeiconsIcon
+                    v-else
+                    :icon="User02Icon"
+                    :size="40"
+                    :stroke-width="1.5"
+                    class="text-slate-300 dark:text-slate-600"
+                  />
+
+                  <!-- Upload Overlay Glass -->
+                  <div class="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity duration-200">
+                    <HugeiconsIcon :icon="Camera01Icon" :size="20" class="text-white mb-0.5" />
+                    <span class="text-[8px] font-black text-white uppercase tracking-wider">{{ t('sidebar.changePhoto', 'Foto') }}</span>
+                  </div>
+                </div>
+              </label>
+              <input
+                id="escoltaPhotoUpload"
+                type="file"
+                accept="image/*"
+                class="hidden"
+                :disabled="saving"
+                @change="handleFileUpload"
+              />
+            </div>
+            <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mt-2">
+              {{ esModoEdicion ? t('sidebar.changePhoto', 'Cambiar foto de perfil') : t('sidebar.changePhoto', 'Subir foto de perfil') }}
+            </span>
+          </div>
+
           <AppInput
             v-model="formData.nombre"
             :label="t('escoltas.labelName')"
@@ -971,6 +1097,65 @@ const formatFecha = (date: Date | null): string => {
       </div>
     </Transition>
   </Teleport>
+  <!-- Modal para recortar imagen -->
+  <BaseModal
+    :isOpen="isCropping"
+    @update:isOpen="isCropping = $event"
+    :title="t('sidebar.editPhoto', 'Ajustar Foto del Escolta')"
+    size="lg"
+    @confirm="applyCrop"
+    @close="cancelCrop"
+    :confirmText="t('common.apply', 'Aplicar')"
+  >
+    <template #icon>
+      <HugeiconsIcon :icon="Camera01Icon" :size="20" class="text-[#3b82f6]" />
+    </template>
+
+    <div class="cropper-wrapper bg-slate-900/5 dark:bg-black/20 rounded-2xl overflow-hidden border border-slate-200 dark:border-white/5 relative group">
+      <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_transparent_0%,_rgba(0,0,0,0.2)_100%)] pointer-events-none z-10"></div>
+      <Cropper
+        ref="cropper"
+        class="cropper min-h-[350px] max-h-[50vh]"
+        :src="imageToCrop"
+        :stencil-component="CircleStencil"
+        :stencil-props="{
+          aspectRatio: 1/1,
+          previewClass: 'cropper-preview'
+        }"
+        :canvas="{
+          height: 1024,
+          width: 1024
+        }"
+      />
+      
+      <!-- Controles de Rotación sobre el Cropper -->
+      <div class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-20">
+        <button 
+          @click="rotate(-90)"
+          class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center cursor-pointer"
+          :title="t('sidebar.rotateLeft', 'Rotar a la izquierda')"
+          type="button"
+        >
+          <HugeiconsIcon :icon="RotateLeft01Icon" :size="20" />
+        </button>
+        <button 
+          @click="rotate(90)"
+          class="p-3 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/10 text-white hover:bg-white/20 transition-all active:scale-90 flex items-center justify-center cursor-pointer"
+          :title="t('sidebar.rotateRight', 'Rotar a la derecha')"
+          type="button"
+        >
+          <HugeiconsIcon :icon="RotateRight01Icon" :size="20" />
+        </button>
+      </div>
+    </div>
+
+    <div class="mt-4 flex items-center gap-3 p-4 bg-blue-50/50 dark:bg-blue-500/5 rounded-2xl border border-blue-100 dark:border-blue-500/10">
+      <HugeiconsIcon :icon="Alert01Icon" :size="18" class="text-[#3b82f6]" />
+      <p class="text-[12px] font-bold text-slate-600 dark:text-slate-400">
+        {{ t('sidebar.adjustImageInfo', 'Ajusta el círculo para centrar tu foto. Solo lo que esté dentro del círculo será visible.') }}
+      </p>
+    </div>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -1053,5 +1238,27 @@ const formatFecha = (date: Date | null): string => {
 .panel-flotante-leave-to {
   opacity: 0;
   transform: translateX(-8px) scale(0.98);
+}
+
+/* Estilos personalizados para el Cropper */
+:deep(.vue-advanced-cropper) {
+  background: #000;
+}
+
+:deep(.vue-circle-stencil) {
+  border: 2px solid rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.6);
+}
+
+:deep(.vue-handler-wrapper--active .vue-handler) {
+  background: #3b82f6;
+}
+
+:deep(.vue-simple-handler) {
+  background: #3b82f6;
+  border: 2px solid white;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
 }
 </style>

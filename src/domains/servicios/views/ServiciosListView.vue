@@ -52,6 +52,7 @@ import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVe
 import ServicioVerHistorialModal from '../components/ServicioVerHistorialModal.vue'
 import ServicioVerAlarmasModal from '../components/ServicioVerAlarmasModal.vue'
 import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal.vue'
+import ServicioDocumentoEscoltaModal from '../components/ServicioDocumentoEscoltaModal.vue'
 import { useAuthStore } from '../../../stores/auth.store'
 import { PERMISSIONS } from '../../../utils/permissions'
 import Column from 'primevue/column'
@@ -134,7 +135,7 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 
 // Modales consolidados
-const activeModal = ref<'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | null>(null)
+const activeModal = ref<'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | 'document-sign' | null>(null)
 const selectedServicio = ref<Servicio | ServicioDashboard | null>(null)
 
 const isCreateModalOpen = computed({
@@ -173,8 +174,12 @@ const isCambiarEstadoModalOpen = computed({
   get: () => activeModal.value === 'status',
   set: (val) => { if (!val) activeModal.value = null }
 })
+const isDocumentoEscoltaModalOpen = computed({
+  get: () => activeModal.value === 'document-sign',
+  set: (val) => { if (!val) activeModal.value = null }
+})
 
-const openModal = (tipo: 'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status', servicio: Servicio | ServicioDashboard | null = null) => {
+const openModal = (tipo: 'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | 'document-sign', servicio: Servicio | ServicioDashboard | null = null) => {
   closeMenu()
   selectedServicio.value = servicio
   activeModal.value = tipo
@@ -1252,6 +1257,14 @@ onUnmounted(() => {
               <span>{{ t('servicios.btnAssignProvisional') }}</span>
             </button>
             <button
+              v-if="activeMenuServicio && !esServicioPrerecarga(activeMenuServicio)"
+              @click="openModal('document-sign', activeMenuServicio)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="Download01Icon" :size="16" class="text-indigo-500 dark:text-indigo-400" />
+              <span>{{ t('servicios.btnEscortDocumentSign') }}</span>
+            </button>
+            <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_ASSIGN_RESOURCES) && activeMenuServicio && esServicioPrerecarga(activeMenuServicio)"
               @click="openModal('assign', activeMenuServicio)"
               class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
@@ -1381,6 +1394,12 @@ onUnmounted(() => {
       v-model:is-open="isCambiarEstadoModalOpen"
       :servicio="selectedServicio"
       @updated="fetchServicios"
+    />
+
+    <ServicioDocumentoEscoltaModal
+      v-model:is-open="isDocumentoEscoltaModalOpen"
+      :servicio="selectedServicio"
+      :escoltas-catalogo="escoltas"
     />
   </div>
 </template>

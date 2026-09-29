@@ -25,7 +25,7 @@ export interface ServicioCreatePayload {
   id_ruta: string
   fecha_hora_inicio: string
   modo_fin: number
-  vehiculos_id: string[]
+  vehiculos_id?: string[]
 }
 
 export interface RutaSimple {
@@ -291,5 +291,20 @@ export interface ServicioVerRecursosProvisionalesResponse {
   message: string
   done: boolean
   data: ServicioVerRecursosProvisionalesData
+}
+
+export interface ServicioDocumentoEscoltaFirmarPayload {
+  id_grupo: string
+  id_servicio: string
+  id_escolta: string
+}
+
+export interface ServicioDocumentoEscoltaFirmarResponse {
+  message: string
+  done: boolean
+  data?: {
+    url: string
+    cache?: boolean
+  }
 }
 

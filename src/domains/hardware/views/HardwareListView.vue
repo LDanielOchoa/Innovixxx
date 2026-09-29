@@ -28,8 +28,7 @@ import { loadModuleMessages } from '../../../i18n'
 
 import {
   fetchHardwareApi,
-  deleteHardwareApi,
-  consultarEstadoCargaHardwareApi
+  deleteHardwareApi
 } from '../services/hardware.api'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
 import type { Hardware } from '../types/hardware'
@@ -48,6 +47,7 @@ import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
 import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.vue'
 import HardwareOffsetHoursModal from '../components/HardwareOffsetHoursModal.vue'
 import HardwareCambiarEstadoModal from '../components/HardwareCambiarEstadoModal.vue'
+import HardwareBateriaModal from '../components/HardwareBateriaModal.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
@@ -184,91 +184,6 @@ const isCandadoSupported = (item?: Hardware | null) => {
   return esFamiliaGL800(item)
 }
 
-// Estado de carga para dispositivos de la familia GL800
-interface EstadoCargaInfo {
-  estaCargando: boolean
-  horaServidor?: string
-  cargando?: boolean
-  error?: boolean
-}
-
-const estadosCarga = ref<Record<string, EstadoCargaInfo>>({})
-const MAX_INTENTOS_CARGA = 6
-const RETRY_DELAY_MS = 1500
-
-const consultarEstadoCarga = async (id_hardware: string, intento = 1) => {
-  const idGrupoActual = selectedGroup.value?.id
-  if (!idGrupoActual) return
-
-  if (intento === 1) {
-    estadosCarga.value[id_hardware] = {
-      ...(estadosCarga.value[id_hardware] || { estaCargando: false }),
-      cargando: true,
-      error: false
-    }
-  }
-
-  try {
-    const res = await consultarEstadoCargaHardwareApi({
-      id_grupo: idGrupoActual,
-      id_hardware
-    })
-
-    // Si el usuario cambió de grupo durante la consulta, abortar
-    if (selectedGroup.value?.id !== idGrupoActual) return
-
-    if (res.done && res.data) {
-      // Si server_time es null o no está disponible, reintentamos hasta que responda con la fecha
-      if (res.data.server_time === null || res.data.server_time === undefined || res.data.server_time === '') {
-        if (intento < MAX_INTENTOS_CARGA) {
-          estadosCarga.value[id_hardware] = {
-            ...(estadosCarga.value[id_hardware] || { estaCargando: false }),
-            cargando: true,
-            error: false
-          }
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
-          if (selectedGroup.value?.id !== idGrupoActual) return
-          return consultarEstadoCarga(id_hardware, intento + 1)
-        }
-      }
-
-      estadosCarga.value[id_hardware] = {
-        estaCargando: Boolean(res.data.is_charging),
-        horaServidor: res.data.server_time || undefined,
-        cargando: false,
-        error: false
-      }
-    } else {
-      estadosCarga.value[id_hardware] = {
-        estaCargando: false,
-        cargando: false,
-        error: true
-      }
-    }
-  } catch {
-    if (selectedGroup.value?.id !== idGrupoActual) return
-    if (intento < MAX_INTENTOS_CARGA) {
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS))
-      if (selectedGroup.value?.id !== idGrupoActual) return
-      return consultarEstadoCarga(id_hardware, intento + 1)
-    }
-    estadosCarga.value[id_hardware] = {
-      estaCargando: false,
-      cargando: false,
-      error: true
-    }
-  }
-}
-
-const cargarEstadosCargaGL800 = (lista: Hardware[]) => {
-  const itemsGL800 = lista.filter(item => esFamiliaGL800(item))
-  if (itemsGL800.length === 0) return
-
-  itemsGL800.forEach(item => {
-    consultarEstadoCarga(item.id_hardware)
-  })
-}
-
 const closeMenu = () => {
   openMenuId.value = null
 }
@@ -306,7 +221,6 @@ const fetchHardware = async () => {
     ])
     if (resultados[0].status === 'fulfilled') {
       items.value = resultados[0].value
-      cargarEstadosCargaGL800(items.value)
     }
   } catch (error) {
     console.error('Error fetching hardware:', error)
@@ -318,6 +232,16 @@ const fetchHardware = async () => {
 onMounted(() => {
   loadModuleMessages('hardware')
 })
+
+// Modal de Batería
+const isBateriaModalOpen = ref(false)
+const bateriaHardware = ref<Hardware | null>(null)
+
+const openBateriaModal = (item: Hardware | null) => {
+  if (!item || !esFamiliaGL800(item)) return
+  bateriaHardware.value = item
+  isBateriaModalOpen.value = true
+}
 const isFormModalOpen = ref(false)
 const editItem = ref<Hardware | null>(null)
 
@@ -380,11 +304,12 @@ const openCambiarEstadoModal = (item: Hardware) => {
   isCambiarEstadoModalOpen.value = true
 }
 
-const handleMenuAction = (action: 'posicion' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas' | 'cambiar-estado') => {
+const handleMenuAction = (action: 'posicion' | 'bateria' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas' | 'cambiar-estado') => {
   const item = items.value.find(i => i.id_hardware === openMenuId.value)
   openMenuId.value = null
   if (!item) return
   if (action === 'posicion') openPosicionModal(item)
+  else if (action === 'bateria') openBateriaModal(item)
   else if (action === 'edit') openEditModal(item)
   else if (action === 'delete') confirmDelete(item.id_hardware)
   else if (action === 'abrir-candado') openAbrirCandadoModal(item)
@@ -428,12 +353,12 @@ const getBatteryIcon = (bateria: number | string | undefined | null) => {
 
 const getBatteryClass = (bateria: number | string | undefined | null) => {
   if (bateria === undefined || bateria === null || bateria === '') {
-    return 'text-slate-400 bg-slate-500/10 border-slate-500/20'
+    return 'text-slate-400 dark:text-slate-500'
   }
   const nivel = Number(bateria)
-  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400 bg-amber-500/10 border-amber-500/20'
-  return 'text-red-500 dark:text-red-400 bg-red-500/10 border-red-500/20'
+  if (nivel >= 50) return 'text-emerald-500 dark:text-emerald-400'
+  if (nivel >= 20) return 'text-amber-500 dark:text-amber-400'
+  return 'text-rose-500 dark:text-rose-400'
 }
 
 const exportToExcel = () => {
@@ -441,9 +366,6 @@ const exportToExcel = () => {
     Nombre: item.nombre,
     Familia: item.familia,
     Bateria: item.bateria !== undefined && item.bateria !== null && item.bateria !== '' ? `${item.bateria}%` : '---',
-    'Cargando': esFamiliaGL800(item)
-      ? (estadosCarga.value[item.id_hardware]?.estaCargando ? 'Sí' : (estadosCarga.value[item.id_hardware] && !estadosCarga.value[item.id_hardware]?.error ? 'No' : '---'))
-      : 'N/A',
     Serial: item.serial,
     IMEI: item.imei,
     MAC: item.mac,
@@ -709,68 +631,29 @@ const filteredItems = computed(() => {
         </Column>
 
         <!-- Columna Batería -->
-        <Column field="bateria" :header="t('hardware.thBattery')" sortable headerStyle="min-width: 175px">
+        <Column field="bateria" :header="t('hardware.thBattery')" sortable headerStyle="min-width: 140px">
           <template #body="{ data }">
-            <div class="flex items-center gap-2 py-1">
-              <!-- Nivel de Batería -->
-              <div 
-                v-if="data.bateria !== undefined && data.bateria !== null && data.bateria !== ''"
-                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-all shrink-0"
-                :class="getBatteryClass(data.bateria)"
-              >
-                <HugeiconsIcon :icon="getBatteryIcon(data.bateria)" :size="15" />
-                <span>{{ data.bateria }}%</span>
-              </div>
-              <span v-else class="text-xs text-slate-400 dark:text-slate-500 font-mono shrink-0">---</span>
+            <!-- Dispositivos GL800: Botón interactivo para ver batería y consultar estado de carga -->
+            <button
+              v-if="esFamiliaGL800(data)"
+              type="button"
+              @click.stop="openBateriaModal(data)"
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-[#13161C] hover:bg-slate-50 dark:hover:bg-white/5 text-slate-700 dark:text-slate-200 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] border border-slate-200/80 dark:border-white/10 hover:border-[#3b82f6]/30 shadow-xs active:scale-95 transition-all cursor-pointer group"
+              :title="t('hardware.viewBattery')"
+            >
+              <HugeiconsIcon :icon="getBatteryIcon(data.bateria)" :size="15" :class="getBatteryClass(data.bateria)" />
+              <span class="font-medium">{{ data.bateria !== undefined && data.bateria !== null && data.bateria !== '' ? `${data.bateria}%` : t('hardware.viewBattery') }}</span>
+            </button>
 
-              <!-- Estado de Carga para Familia GL800 -->
-              <template v-if="esFamiliaGL800(data)">
-                <!-- Cargando petición / Reintentando -->
-                <div 
-                  v-if="estadosCarga[data.id_hardware]?.cargando"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/15 shrink-0"
-                  :title="t('hardware.chargingStatusLoading')"
-                >
-                  <HugeiconsIcon :icon="RefreshIcon" :size="11" class="animate-spin text-slate-400" />
-                  <span class="text-[9px] uppercase tracking-wider">...</span>
-                </div>
-
-                <!-- Cargando (True) -->
-                <button
-                  v-else-if="estadosCarga[data.id_hardware]?.estaCargando"
-                  type="button"
-                  @click.stop="consultarEstadoCarga(data.id_hardware)"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-sm shadow-amber-500/10 shrink-0 hover:bg-amber-500/25 active:scale-95 transition-all cursor-pointer"
-                  :title="estadosCarga[data.id_hardware]?.horaServidor ? `${t('hardware.charging')} (${estadosCarga[data.id_hardware]?.horaServidor})` : t('hardware.charging')"
-                >
-                  <HugeiconsIcon :icon="BatteryCharging01Icon" :size="12" class="animate-pulse text-amber-500 shrink-0" />
-                  <span class="uppercase tracking-wider text-[9.5px]">{{ t('hardware.charging') }}</span>
-                </button>
-
-                <!-- Sin Carga (False) -->
-                <button 
-                  v-else-if="estadosCarga[data.id_hardware] && !estadosCarga[data.id_hardware]?.cargando && !estadosCarga[data.id_hardware]?.error"
-                  type="button"
-                  @click.stop="consultarEstadoCarga(data.id_hardware)"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20 shrink-0 hover:bg-slate-500/20 active:scale-95 transition-all cursor-pointer"
-                  :title="estadosCarga[data.id_hardware]?.horaServidor ? `${t('hardware.notCharging')} (${estadosCarga[data.id_hardware]?.horaServidor})` : t('hardware.notCharging')"
-                >
-                  <HugeiconsIcon :icon="FlashOffIcon" :size="11" class="opacity-70 shrink-0" />
-                  <span class="uppercase tracking-wider text-[9.5px]">{{ t('hardware.notCharging') }}</span>
-                </button>
-
-                <!-- Botón de reintento si hubo error -->
-                <button
-                  v-else-if="estadosCarga[data.id_hardware]?.error"
-                  type="button"
-                  @click.stop="consultarEstadoCarga(data.id_hardware)"
-                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 active:scale-95 transition-all cursor-pointer"
-                  title="Reintentar consultar estado"
-                >
-                  <HugeiconsIcon :icon="RefreshIcon" :size="10" />
-                  <span>Reintentar</span>
-                </button>
-              </template>
+            <!-- Otros dispositivos: Visualización simple del nivel de batería sin modal -->
+            <div
+              v-else
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold"
+            >
+              <HugeiconsIcon :icon="getBatteryIcon(data.bateria)" :size="15" :class="getBatteryClass(data.bateria)" />
+              <span :class="getBatteryClass(data.bateria)" class="font-medium">
+                {{ data.bateria !== undefined && data.bateria !== null && data.bateria !== '' ? `${data.bateria}%` : '---' }}
+              </span>
             </div>
           </template>
         </Column>
@@ -856,6 +739,14 @@ const filteredItems = computed(() => {
             >
               <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('hardware.actionViewPosition') }}</span>
+            </button>
+            <button
+              v-if="esFamiliaGL800(openMenuItem)"
+              @click="handleMenuAction('bateria')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="BatteryCharging01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('hardware.viewBattery') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS) && isCandadoSupported(openMenuItem)"
@@ -949,6 +840,12 @@ const filteredItems = computed(() => {
       v-model:is-open="isCambiarEstadoModalOpen"
       :hardware="cambiarEstadoHardware"
       @updated="fetchHardware"
+    />
+
+    <!-- Modal Batería Hardware -->
+    <HardwareBateriaModal
+      v-model:is-open="isBateriaModalOpen"
+      :hardware="bateriaHardware"
     />
   </div>
 </template>

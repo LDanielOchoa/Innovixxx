@@ -85,6 +85,7 @@ const clearHoverStates = () => {
   hoveredItem.value = null
   hoveredEscoltaItem.value = null
   hoveredCluster.value = null
+  clearGeocercaHoverStates()
 }
 
 // Agrupa múltiples solicitudes de repintado en un solo frame (rAF).
@@ -307,7 +308,8 @@ const createClusterMarkerElement = (cluster: Cluster) => {
     const mapDiv = map.value?.getDiv()
     if (!mapDiv) return
     const mapRect = mapDiv.getBoundingClientRect()
-    const markerRect = container.getBoundingClientRect()
+    const badgeElem = container.firstElementChild as HTMLElement
+    const markerRect = badgeElem ? badgeElem.getBoundingClientRect() : container.getBoundingClientRect()
 
     hoveredClusterPosition.value = {
       top: markerRect.top - mapRect.top - 10,
@@ -344,7 +346,10 @@ const { drawFullRoute, clearAll: clearRouteLines } = useRouteDrawer(map, directi
 const {
   showGeocercas,
   loadingGeocercas,
-  toggleGeocercas
+  toggleGeocercas,
+  hoveredGeocercaCluster,
+  hoveredGeocercaClusterPosition,
+  clearGeocercaHoverStates
 } = useTrackingGeocercas(map)
 
 let infoWindow: any = null
@@ -1873,6 +1878,52 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
                 </div>
                 <span v-if="item.data?.speed !== undefined" class="text-[9px] font-mono font-semibold text-slate-500 dark:text-slate-400 shrink-0">
                   {{ Math.round(item.data.speed) }} km/h
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="w-0 h-0 border-l-8 border-l-transparent border-r-8 border-r-transparent border-t-8 border-t-white dark:border-t-[#13161C] -mt-[1px]"></div>
+        </div>
+      </Transition>
+
+      <!-- Popover de información de Agrupación de Geocercas (Cluster) -->
+      <Transition name="hover-card-pop">
+        <div 
+          v-if="hoveredGeocercaCluster" 
+          :style="{ top: hoveredGeocercaClusterPosition.top + 'px', left: hoveredGeocercaClusterPosition.left + 'px' }"
+          class="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center select-none"
+        >
+          <div class="w-[245px] bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl rounded-[16px] p-3.5 border border-slate-200/80 dark:border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)] text-left flex flex-col gap-3 font-sans">
+            <div class="flex items-center justify-between min-w-0 pb-2 border-b border-slate-200/60 dark:border-white/5">
+              <div class="flex items-center gap-2 min-w-0">
+                <div class="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <HugeiconsIcon :icon="MapsIcon" :size="15" />
+                </div>
+                <div class="min-w-0">
+                  <h4 class="text-[12px] font-bold text-slate-800 dark:text-white truncate tracking-tight">{{ t('tracking.geofences') }}</h4>
+                  <span class="text-[9px] font-medium text-slate-500 dark:text-white/40 block truncate">{{ t('tracking.clickToZoom') }}</span>
+                </div>
+              </div>
+              <span class="text-[9px] font-mono font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-lg shrink-0">
+                {{ hoveredGeocercaCluster.geocercas.length }}
+              </span>
+            </div>
+
+            <div class="max-h-[140px] overflow-y-auto custom-scrollbar flex flex-col gap-1.5 pr-0.5">
+              <div 
+                v-for="(item, idx) in hoveredGeocercaCluster.geocercas" 
+                :key="idx"
+                class="flex items-center justify-between p-2 rounded-[12px] bg-slate-50 dark:bg-[#181C24]/80 border border-slate-200/60 dark:border-white/5 text-[10px]"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <span 
+                    class="w-2 h-2 rounded-full shrink-0 border"
+                    :style="{ backgroundColor: item.color || '#f59e0b', borderColor: item.color || '#f59e0b' }"
+                  ></span>
+                  <span class="text-slate-800 dark:text-slate-200 font-bold truncate">{{ item.nombre }}</span>
+                </div>
+                <span class="text-[9px] font-mono font-semibold text-slate-500 dark:text-slate-400 uppercase shrink-0">
+                  {{ item.tipo }}
                 </span>
               </div>
             </div>

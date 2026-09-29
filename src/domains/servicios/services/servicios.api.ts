@@ -25,7 +25,9 @@ import type {
   ServicioCrearReporteResponse,
   ServicioAsignarRecursosProvisionalPayload,
   ServicioVerRecursosProvisionalesPayload,
-  ServicioVerRecursosProvisionalesResponse
+  ServicioVerRecursosProvisionalesResponse,
+  ServicioDocumentoEscoltaFirmarPayload,
+  ServicioDocumentoEscoltaFirmarResponse
 } from '../types/servicio'
 
 export const fetchServiciosApi = async (payload: ServicioListPayload): Promise<Servicio[]> => {
@@ -291,6 +293,15 @@ export const asignarRecursosProvisionalServicioApi = async (payload: ServicioAsi
 
 export const fetchRecursosProvisionalesServicioApi = async (payload: ServicioVerRecursosProvisionalesPayload): Promise<ServicioVerRecursosProvisionalesResponse> => {
   return apiClient<ServicioVerRecursosProvisionalesResponse>('/api/v1/servicio/asignar_src/provisional/ver/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const generarDocumentoEscoltaFirmarApi = async (
+  payload: ServicioDocumentoEscoltaFirmarPayload
+): Promise<ServicioDocumentoEscoltaFirmarResponse> => {
+  return apiClient<ServicioDocumentoEscoltaFirmarResponse>('/api/v1/servicio/escolta/conductor/documento_firmar/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })
