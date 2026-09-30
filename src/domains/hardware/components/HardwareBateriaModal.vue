@@ -250,9 +250,6 @@ const handleClose = () => {
             <HugeiconsIcon :icon="BatteryCharging01Icon" :size="20" class="animate-pulse shrink-0 text-emerald-500" />
             <div>
               <p class="text-xs font-bold">{{ t('hardware.charging') }}</p>
-              <p v-if="estadoCarga.horaServidor" class="text-[10px] opacity-75 font-mono mt-0.5">
-                {{ t('hardware.lastReportTime') }}: {{ estadoCarga.horaServidor }}
-              </p>
             </div>
           </div>
         </div>
@@ -263,9 +260,6 @@ const handleClose = () => {
             <HugeiconsIcon :icon="FlashOffIcon" :size="20" class="opacity-70 shrink-0" />
             <div>
               <p class="text-xs font-bold">{{ t('hardware.notCharging') }}</p>
-              <p v-if="estadoCarga.horaServidor" class="text-[10px] opacity-75 font-mono mt-0.5">
-                {{ t('hardware.lastReportTime') }}: {{ estadoCarga.horaServidor }}
-              </p>
             </div>
           </div>
         </div>

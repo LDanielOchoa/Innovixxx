@@ -169,6 +169,7 @@ const openEditModal = (vehicle: Vehiculo) => {
 }
 
 const handleModalSaved = () => {
+  isModalOpen.value = false
   fetchVehicles()
 }
 

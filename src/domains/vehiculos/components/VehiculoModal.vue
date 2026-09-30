@@ -185,8 +185,9 @@ const handleSave = async () => {
         detail: data.message || (isEditMode.value ? t('vehiculos.alertSuccessUpdateDetail') : t('vehiculos.alertSuccessCreateDetail')),
         life: 4000
       })
+      saving.value = false
+      emit('update:isOpen', false)
       emit('saved')
-      handleClose()
       formData.nombre = ''
       formData.placa = ''
       formData.serial = ''

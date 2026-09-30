@@ -221,8 +221,9 @@ const handleSave = async () => {
         detail: data.message || (isEditMode.value ? t('vehiculosServicio.alertSuccessUpdateDetail') : t('vehiculosServicio.alertSuccessCreateDetail')),
         life: 4000
       })
+      saving.value = false
+      emit('update:isOpen', false)
       emit('saved')
-      handleClose()
       Object.assign(formData, {
         placa: '', serial_chasis: '', marca: '', referencia: '',
         modelo: 0, color: '#3b82f6', cilindrada: 0,

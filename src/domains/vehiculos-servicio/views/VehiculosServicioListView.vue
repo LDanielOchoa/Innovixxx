@@ -193,6 +193,7 @@ const openEditModal = (vehicle: VehiculoServicio) => {
 }
 
 const handleModalSaved = () => {
+  isModalOpen.value = false
   fetchVehicles()
 }
 </script>
