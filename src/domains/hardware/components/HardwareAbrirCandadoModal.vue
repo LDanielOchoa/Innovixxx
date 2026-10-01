@@ -6,7 +6,8 @@ import {
   Loading03Icon,
   Alert01Icon,
   Tick02Icon,
-  SmartPhone01Icon
+  SmartPhone01Icon,
+  SignalFull01Icon
 } from '@hugeicons/core-free-icons'
 import { abrirCandadoHardwareApi } from '../services/hardware.api'
 import type { Hardware } from '../types/hardware'
@@ -33,6 +34,7 @@ const toast = useToast()
 const isLoading = ref(true)
 const saving = ref(false)
 const clave = ref('')
+const modo = ref<'sms' | 'gprs'>('sms')
 
 const hasPermission = computed(() => authStore.hasPermission(PERMISSIONS.HARDWARE_COMMANDS))
 
@@ -43,6 +45,7 @@ watch(() => props.isOpen, (isOpen) => {
     isLoading.value = true
     saving.value = false
     clave.value = ''
+    modo.value = 'sms'
 
     setTimeout(() => {
       isLoading.value = false
@@ -75,23 +78,33 @@ const handleAbrirCandado = async () => {
       id_grupo: groupStore.selectedGroup?.id || '',
       id_hardware: props.hardware.id_hardware,
       clave_hardware: clave.value,
-      modo: 'sms'
+      modo: modo.value
     })
 
     if (data.done) {
+      let detalleMensaje = data.message || `${t('hardware.lockOpenTitle')}: ${props.hardware.nombre}`
+      if (modo.value === 'gprs' && /sms/i.test(detalleMensaje)) {
+        detalleMensaje = detalleMensaje.replace(/sms/gi, 'GPRS')
+      }
+
       toast.add({
         severity: 'success',
         summary: t('hardware.lockOpenTitle'),
-        detail: data.message || `${t('hardware.lockOpenTitle')}: ${props.hardware.nombre}`,
+        detail: detalleMensaje,
         life: 4000
       })
       emit('updated')
       handleClose()
     } else {
+      let detalleError = data.message || t('hardware.lockOpenErrorDetail')
+      if (modo.value === 'gprs' && /sms/i.test(detalleError)) {
+        detalleError = detalleError.replace(/sms/gi, 'GPRS')
+      }
+
       toast.add({
         severity: 'error',
         summary: t('hardware.lockOpenErrorTitle'),
-        detail: data.message || t('hardware.lockOpenErrorDetail'),
+        detail: detalleError,
         life: 4000
       })
     }
@@ -210,14 +223,52 @@ const handleClose = () => {
             <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 ml-1">
               {{ t('hardware.openMode') }}
             </label>
-            <div class="grid grid-cols-1 gap-2">
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 bg-[#3b82f6]/10 border-[#3b82f6]/40 text-[#3b82f6] dark:bg-[#3b82f6]/15 dark:border-[#5da6fc]/40 dark:text-[#5da6fc]">
-                <HugeiconsIcon :icon="SmartPhone01Icon" :size="18" :stroke-width="1.8" />
-                <div class="flex-1">
-                  <p class="text-[12px] font-bold uppercase tracking-wider">SMS</p>
+            <div class="grid grid-cols-2 gap-2.5">
+              <!-- Opción SMS -->
+              <button
+                type="button"
+                @click="modo = 'sms'"
+                class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer"
+                :class="modo === 'sms'
+                  ? 'bg-blue-500/10 border-blue-500 text-blue-600 dark:bg-blue-500/20 dark:border-[#5da6fc] dark:text-[#5da6fc] shadow-sm'
+                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-[#0F1115] dark:border-white/5 dark:text-slate-400 dark:hover:border-white/10'"
+              >
+                <div
+                  class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                  :class="modo === 'sms'
+                    ? 'bg-blue-500/20 text-blue-600 dark:bg-[#5da6fc]/20 dark:text-[#5da6fc]'
+                    : 'bg-slate-200/60 dark:bg-white/5 text-slate-500 dark:text-slate-400'"
+                >
+                  <HugeiconsIcon :icon="SmartPhone01Icon" :size="17" :stroke-width="1.8" />
                 </div>
-                <HugeiconsIcon :icon="Tick02Icon" :size="16" />
-              </div>
+                <span class="flex-1 text-[12px] font-bold uppercase tracking-wider">{{ t('hardware.openModeSms') }}</span>
+                <div v-if="modo === 'sms'" class="text-blue-600 dark:text-[#5da6fc] shrink-0">
+                  <HugeiconsIcon :icon="Tick02Icon" :size="16" />
+                </div>
+              </button>
+
+              <!-- Opción GPRS -->
+              <button
+                type="button"
+                @click="modo = 'gprs'"
+                class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border-2 text-left transition-all duration-200 cursor-pointer"
+                :class="modo === 'gprs'
+                  ? 'bg-blue-500/10 border-blue-500 text-blue-600 dark:bg-blue-500/20 dark:border-[#5da6fc] dark:text-[#5da6fc] shadow-sm'
+                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300 dark:bg-[#0F1115] dark:border-white/5 dark:text-slate-400 dark:hover:border-white/10'"
+              >
+                <div
+                  class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                  :class="modo === 'gprs'
+                    ? 'bg-blue-500/20 text-blue-600 dark:bg-[#5da6fc]/20 dark:text-[#5da6fc]'
+                    : 'bg-slate-200/60 dark:bg-white/5 text-slate-500 dark:text-slate-400'"
+                >
+                  <HugeiconsIcon :icon="SignalFull01Icon" :size="17" :stroke-width="1.8" />
+                </div>
+                <span class="flex-1 text-[12px] font-bold uppercase tracking-wider">{{ t('hardware.openModeGprs') }}</span>
+                <div v-if="modo === 'gprs'" class="text-blue-600 dark:text-[#5da6fc] shrink-0">
+                  <HugeiconsIcon :icon="Tick02Icon" :size="16" />
+                </div>
+              </button>
             </div>
           </div>
 

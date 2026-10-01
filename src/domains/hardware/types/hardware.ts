@@ -79,7 +79,7 @@ export interface HardwareAbrirCandadoPayload {
   id_grupo: string
   id_hardware: string
   clave_hardware: string
-  modo: 'sms'
+  modo: 'sms' | 'gprs'
 }
 
 export interface HardwareOffsetHoursPayload {
