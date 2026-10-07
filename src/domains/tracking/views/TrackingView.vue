@@ -61,6 +61,11 @@ threeModulePromise
 const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'>('SERVICIOS')
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
+const checkedHardwareSerials = ref<string[]>([])
+
+watch(checkedHardwareSerials, () => {
+  scheduleMarkersUpdate()
+}, { deep: true })
 
 // Helper para determinar si un ítem pertenece al servicio seleccionado actualmente
 const isItemBelongingToSelectedService = (itemServiceId?: string) => {
@@ -850,7 +855,13 @@ const updateMarkersOnMap = () => {
   const allActiveItems: ClusterItem[] = []
 
   if (activeTab.value === 'SERVICIOS' || activeTab.value === 'HARDWARE') {
+    const isHardwareFiltered = activeTab.value === 'HARDWARE' && checkedHardwareSerials.value.length > 0
+    const filterSet = isHardwareFiltered ? new Set(checkedHardwareSerials.value) : null
+
     hardwareList.value.forEach(hw => {
+      if (filterSet && !filterSet.has(hw.serial) && !filterSet.has(hw.id_hardware)) {
+        return
+      }
       const latNum = Number(hw.lat)
       const lonNum = Number(hw.lon)
       if (!isNaN(latNum) && !isNaN(lonNum) && latNum !== 0 && lonNum !== 0) {
@@ -1492,6 +1503,7 @@ const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS') => {
   activeTab.value = tab
   selectedItem.value = null
   searchQuery.value = ''
+  checkedHardwareSerials.value = []
 }
 
 // Al cambiar de grupo (desde el selector global de la app o por query params de la URL)
@@ -2032,6 +2044,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     <!-- PANEL LATERAL IZQUIERDO -->
     <TrackingSidebar
       v-model:searchQuery="searchQuery"
+      v-model:checkedHardwareSerials="checkedHardwareSerials"
       :activeTab="activeTab"
       :hardwareList="hardwareList"
       :serviciosList="serviciosList"

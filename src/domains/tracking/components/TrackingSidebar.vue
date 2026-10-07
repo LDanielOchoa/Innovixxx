@@ -17,7 +17,8 @@ import {
   Cancel01Icon,
   Alert02Icon,
   ArrowRight01Icon,
-  Tick01Icon
+  Tick01Icon,
+  Clock01Icon
 } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
 import SolventarAlertaModal from '../../servicios/components/SolventarAlertaModal.vue'
@@ -30,6 +31,7 @@ const toast = useToast()
 interface Props {
   activeTab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'
   searchQuery: string
+  checkedHardwareSerials?: string[]
   hardwareList: HardwareWs[]
   serviciosList: any[]
   escoltasList: any[]
@@ -46,12 +48,14 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  checkedHardwareSerials: () => [],
   showGeocercas: false,
   loadingGeocercas: false
 })
 
 const emit = defineEmits<{
   (e: 'update:searchQuery', val: string): void
+  (e: 'update:checkedHardwareSerials', val: string[]): void
   (e: 'reconnect'): void
   (e: 'select', item: any): void
   (e: 'toggleGeocercas'): void
@@ -133,6 +137,39 @@ const getAlertInfo = (tipo: number) => {
     default:
       return { label: t('tracking.alertGeneric', { type: tipo }), colorClass: 'text-slate-400 bg-slate-500/10 border-slate-500/20' }
   }
+}
+
+const formatTimestampDateTime = (timestamp: any): { fecha: string | null; hora: string | null } => {
+  if (timestamp === undefined || timestamp === null || timestamp === '' || timestamp === 0 || timestamp === '0') {
+    return { fecha: null, hora: null }
+  }
+  try {
+    let d: Date
+    const num = Number(timestamp)
+    if (!isNaN(num) && num > 0) {
+      const ms = num < 1e11 ? num * 1000 : num
+      d = new Date(ms)
+    } else if (typeof timestamp === 'string') {
+      d = new Date(timestamp.replace(' ', 'T'))
+    } else {
+      return { fecha: null, hora: null }
+    }
+
+    if (!isNaN(d.getTime())) {
+      const fecha = d.toLocaleDateString('es-CO', { year: 'numeric', month: '2-digit', day: '2-digit' })
+      const hora = d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+      return { fecha, hora }
+    }
+    return { fecha: null, hora: null }
+  } catch {
+    return { fecha: null, hora: null }
+  }
+}
+
+const getItemDateTime = (item: any): { fecha: string | null; hora: string | null } => {
+  if (!item) return { fecha: null, hora: null }
+  const ts = item.time_fx || item.device_ts || item.fecha_hora
+  return formatTimestampDateTime(ts)
 }
 
 const activeAlertasItem = computed(() => hoveredAlertasItem.value || props.selectedItem)
@@ -391,6 +428,102 @@ const isItemSelected = (item: any) => {
   }
   return false
 }
+
+const formatHardwareText = (h: HardwareWs): string => {
+  const dt = getItemDateTime(h)
+  const fechaHoraStr = (dt.fecha && dt.hora)
+    ? `${dt.fecha} ${dt.hora}`
+    : (dt.fecha || dt.hora || 'Sin reporte')
+  
+  const nombre = (h.nombre || h.serial || h.id_hardware || 'Dispositivo').trim()
+  const bateriaStr = h.battery !== undefined ? `${h.battery}%` : 'N/A'
+
+  return [
+    `Dispositivo: ${nombre}`,
+    `Fecha y Hora: ${fechaHoraStr}`,
+    `Batería: ${bateriaStr}`
+  ].join('\n')
+}
+
+const copyHardwareListToClipboard = async (serials: string[]) => {
+  if (!serials || serials.length === 0) return
+
+  const selectedHwList = props.hardwareList.filter(h => {
+    const key = h.serial || h.id_hardware
+    return serials.includes(key)
+  })
+
+  if (selectedHwList.length === 0) return
+
+  const textToCopy = selectedHwList.map(formatHardwareText).join('\n───────────────────────────────\n')
+
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(textToCopy)
+    } else {
+      const textArea = document.createElement('textarea')
+      textArea.value = textToCopy
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+      document.execCommand('copy')
+      textArea.remove()
+    }
+
+    const firstItem = selectedHwList[0]
+    const detailMsg = selectedHwList.length === 1
+      ? t('tracking.toastCopiedDetail', { name: firstItem.nombre || firstItem.serial })
+      : t('tracking.toastCopiedMultiple', { count: selectedHwList.length })
+
+    toast.add({
+      severity: 'info',
+      summary: t('tracking.toastCopiedClipboard'),
+      detail: detailMsg,
+      life: 2500
+    })
+  } catch (err) {
+    console.error('Error al copiar al portapapeles:', err)
+  }
+}
+
+const isItemChecked = (item: any) => {
+  const key = item.serial || item.id_hardware
+  return props.checkedHardwareSerials ? props.checkedHardwareSerials.includes(key) : false
+}
+
+const toggleCheckItem = (item: any) => {
+  const key = item.serial || item.id_hardware
+  if (!key) return
+  const current = props.checkedHardwareSerials ? [...props.checkedHardwareSerials] : []
+  const idx = current.indexOf(key)
+  if (idx >= 0) {
+    current.splice(idx, 1)
+  } else {
+    current.push(key)
+  }
+  emit('update:checkedHardwareSerials', current)
+
+  if (idx < 0) {
+    copyHardwareListToClipboard(current)
+  }
+}
+
+const clearCheckedHardware = () => {
+  emit('update:checkedHardwareSerials', [])
+}
+
+const toggleSelectAllHardware = () => {
+  if (!props.checkedHardwareSerials || props.checkedHardwareSerials.length === 0) {
+    const allKeys = props.hardwareList.map(h => h.serial || h.id_hardware).filter(Boolean)
+    emit('update:checkedHardwareSerials', allKeys)
+    copyHardwareListToClipboard(allKeys)
+  } else {
+    emit('update:checkedHardwareSerials', [])
+  }
+}
 </script>
 
 <template>
@@ -416,11 +549,30 @@ const isItemSelected = (item: any) => {
             <h2 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight capitalize">
               {{ activeTab === 'SERVICIOS' ? t('tracking.services') : (activeTab === 'HARDWARE' ? t('tracking.devices') : t('tracking.escorts')) }}
             </h2>
-            <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 uppercase tracking-wider block mt-0.5">
-              {{ t('tracking.elementsCount', { count: filteredItems.length }) }}
-            </span>
+            <div class="flex items-center gap-2 mt-0.5">
+              <span class="text-[9px] font-medium text-slate-400 dark:text-white/40 uppercase tracking-wider block">
+                {{ t('tracking.elementsCount', { count: filteredItems.length }) }}
+              </span>
+              <span 
+                v-if="activeTab === 'HARDWARE' && checkedHardwareSerials && checkedHardwareSerials.length > 0"
+                class="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 rounded"
+              >
+                {{ checkedHardwareSerials.length }} en mapa
+              </span>
+            </div>
           </div>
         </div>
+
+        <!-- Botón Seleccionar / Deseleccionar todos para Hardware -->
+        <button
+          v-if="activeTab === 'HARDWARE' && hardwareList.length > 0"
+          type="button"
+          @click="toggleSelectAllHardware"
+          class="text-[10px] font-bold text-slate-500 hover:text-emerald-500 dark:text-slate-400 dark:hover:text-emerald-400 px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-colors cursor-pointer"
+          :title="checkedHardwareSerials && checkedHardwareSerials.length > 0 ? 'Deseleccionar todos (Mostrar todos en mapa)' : 'Seleccionar todos'"
+        >
+          {{ checkedHardwareSerials && checkedHardwareSerials.length > 0 ? 'Limpiar' : 'Seleccionar todos' }}
+        </button>
       </div>
 
       <!-- Buscador -->
@@ -431,6 +583,23 @@ const isItemSelected = (item: any) => {
           :icon="Search01Icon"
           class="w-full"
         />
+      </div>
+
+      <!-- Banner Informativo de Filtro Activo de Dispositivos -->
+      <div 
+        v-if="activeTab === 'HARDWARE' && checkedHardwareSerials && checkedHardwareSerials.length > 0"
+        class="mt-2.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-[10px]"
+      >
+        <span class="text-emerald-600 dark:text-emerald-400 font-semibold truncate">
+          Mostrando {{ checkedHardwareSerials.length }} de {{ hardwareList.length }} en mapa
+        </span>
+        <button 
+          type="button" 
+          @click="clearCheckedHardware"
+          class="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-bold underline shrink-0 ml-2 cursor-pointer"
+        >
+          Mostrar todos
+        </button>
       </div>
     </div>
 
@@ -473,7 +642,7 @@ const isItemSelected = (item: any) => {
           v-for="item in filteredItems"
           :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
           @click="emit('select', item)"
-          class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-3 relative select-none cursor-pointer"
+          class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-2.5 relative select-none cursor-pointer"
           :class="[
             isItemSelected(item)
               ? (activeTab === 'SERVICIOS' 
@@ -486,6 +655,25 @@ const isItemSelected = (item: any) => {
                   : 'bg-white dark:bg-[#13161C] border-slate-200/60 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700')
           ]"
         >
+          <!-- Checkbox para filtrar en mapa (exclusivo para HARDWARE) -->
+          <div 
+            v-if="activeTab === 'HARDWARE'"
+            @click.stop="toggleCheckItem(item)"
+            class="flex items-center justify-center shrink-0 z-20 cursor-pointer pr-0.5"
+            :title="isItemChecked(item) ? 'Ocultar del mapa' : 'Mostrar solo este/estos dispositivos en el mapa'"
+          >
+            <div 
+              class="w-4 h-4 rounded-[5px] border flex items-center justify-center transition-all duration-150"
+              :class="[
+                isItemChecked(item)
+                  ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/40'
+                  : 'border-slate-300 dark:border-white/20 bg-slate-100 dark:bg-white/5 hover:border-emerald-500/60'
+              ]"
+            >
+              <HugeiconsIcon v-if="isItemChecked(item)" :icon="Tick01Icon" :size="11" class="stroke-[3]" />
+            </div>
+          </div>
+
           <!-- Left: Icono interactivo -->
           <div 
             class="w-8 h-8 flex items-center justify-center shrink-0 transition-colors rounded-lg relative z-10"
@@ -537,11 +725,22 @@ const isItemSelected = (item: any) => {
               </div>
             </template>
 
-            <!-- Otros ítems -->
+            <!-- Otros ítems (HARDWARE y ESCOLTAS) -->
             <template v-else>
               <p class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
                 {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || t('tracking.noDescription') }}
               </p>
+
+              <!-- Último Reporte GPS / Registro -->
+              <div 
+                v-if="getItemDateTime(item).fecha || getItemDateTime(item).hora" 
+                class="flex items-center gap-1.5 mt-1 text-[9.5px] text-slate-500 dark:text-slate-400 font-medium"
+              >
+                <HugeiconsIcon :icon="Clock01Icon" :size="11" class="text-slate-400 shrink-0" />
+                <span class="text-slate-400 dark:text-slate-500 text-[9px]">{{ t('tracking.lastReport') }}:</span>
+                <span class="font-mono text-[9px] text-slate-700 dark:text-slate-300 font-medium">{{ getItemDateTime(item).fecha }}</span>
+                <span v-if="getItemDateTime(item).hora" class="font-mono text-[9px] text-emerald-600 dark:text-emerald-400 font-bold ml-0.5">{{ getItemDateTime(item).hora }}</span>
+              </div>
             </template>
           </div>
 
@@ -647,6 +846,11 @@ const isItemSelected = (item: any) => {
                     <span v-if="hw.status_lock" class="text-[8px] font-bold px-1 py-0.2 rounded" :class="hw.status_lock === 'CERRADA' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'">
                       {{ hw.status_lock }}
                     </span>
+                  </div>
+                  <div v-if="getItemDateTime(hw).fecha || getItemDateTime(hw).hora" class="flex items-center gap-1 mt-0.5 text-[8.5px] text-slate-400">
+                    <HugeiconsIcon :icon="Clock01Icon" :size="9.5" class="text-slate-400 shrink-0" />
+                    <span>{{ getItemDateTime(hw).fecha }}</span>
+                    <span v-if="getItemDateTime(hw).hora" class="text-emerald-500 font-bold ml-0.5">{{ getItemDateTime(hw).hora }}</span>
                   </div>
                 </div>
               </div>

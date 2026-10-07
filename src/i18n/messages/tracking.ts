@@ -93,6 +93,9 @@ export const trackingMessages = {
     toastAlertSolvedDetail: 'La alerta ha sido solventada exitosamente',
     toastAlertSolvedError: 'No se pudo solventar la alerta',
     toastConnectionError: 'Error de conexión al solventar la alerta',
+    toastCopiedClipboard: 'Copiado al portapapeles',
+    toastCopiedDetail: 'Información de {name} copiada',
+    toastCopiedMultiple: 'Información de {count} dispositivos copiada',
     toastError: 'Error'
   },
   en: {
@@ -189,6 +192,9 @@ export const trackingMessages = {
     toastAlertSolvedDetail: 'The alert has been solved successfully',
     toastAlertSolvedError: 'Could not solve alert',
     toastConnectionError: 'Connection error while solving alert',
+    toastCopiedClipboard: 'Copied to clipboard',
+    toastCopiedDetail: '{name} information copied',
+    toastCopiedMultiple: 'Information of {count} devices copied',
     toastError: 'Error'
   }
 }
