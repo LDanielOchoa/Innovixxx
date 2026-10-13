@@ -274,9 +274,13 @@ const handleSave = async () => {
     estado: 1,
     id_ruta: isEditMode.value ? '' : 0,
     numero_sms: formData.value.numero_sms || '',
-    id_binario: formData.value.id_binario || '',
     clave_open: formData.value.clave_open || '',
     isdn: formData.value.isdn || ''
+  }
+
+  // id_binario solo se envía al crear; en edición es informativo
+  if (!isEditMode.value) {
+    payload.id_binario = formData.value.id_binario || ''
   }
 
   if (isEditMode.value && props.editItem) {
@@ -538,12 +542,11 @@ const handleClose = () => {
               :disabled="saving"
             />
             <AppInput
-              v-if="!isEditMode"
               v-model="formData.id_binario"
               :label="t('hardware.labelBinaryId')"
               :placeholder="t('hardware.placeholderBinaryId')"
               :icon="CpuIcon"
-              :disabled="saving"
+              :disabled="saving || isEditMode"
             />
           </div>
         </div>

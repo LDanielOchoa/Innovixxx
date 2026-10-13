@@ -7,6 +7,7 @@ import {
   Car01Icon,
   CpuIcon,
   User02Icon,
+  LicenseIcon,
   Cancel01Icon,
   Search01Icon,
   CheckmarkCircle01Icon,
@@ -45,10 +46,12 @@ import {
   fetchRutasSimplesApi,
   fetchVehiculosSimplesApi,
   fetchHardwareSimplesApi,
-  fetchEscoltasSimplesApi,
   fetchRecursosProvisionalesServicioApi,
   asignarRecursosServicioApi
 } from '../services/servicios.api'
+import { fetchConductoresApi } from '../../conductores/services/conductores.api'
+import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
+import type { Conductor } from '../../conductores/types/conductor'
 import type {
   Servicio,
   ServicioDashboard,
@@ -61,6 +64,8 @@ import type {
 import AppModal from '../../../components/ui/AppModal.vue'
 import AppSelect from '../../../components/ui/AppSelect.vue'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
+import AppAvatar from '../../../components/ui/AppAvatar.vue'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
 
 import { useFormValidator } from '../../../composables/useFormValidator'
 import { useFormError } from '../../../composables/useFormError'
@@ -74,7 +79,7 @@ const toast = useToast()
 
 const props = defineProps<{
   isOpen: boolean
-  servicio: ServicioDashboard | null
+  servicio: ServicioDashboard | Servicio | null
 }>()
 
 const emit = defineEmits(['update:isOpen', 'assigned'])
@@ -91,12 +96,14 @@ const rutas = ref<RutaSimple[]>([])
 const vehiculos = ref<VehiculoSimple[]>([])
 const hardware = ref<HardwareSimple[]>([])
 const escoltas = ref<EscoltaSimple[]>([])
+const conductores = ref<Conductor[]>([])
 
 // Estados de carga individuales
 const loadingRutas = ref(false)
 const loadingVehiculos = ref(false)
 const loadingHardware = ref(false)
 const loadingEscoltas = ref(false)
+const loadingConductores = ref(false)
 
 // Campos del formulario
 const selectedRutaId = ref('')
@@ -112,17 +119,21 @@ const vehiculosHardware = ref<Record<string, string[]>>({})
 const inicialesHardwareIds = ref<string[]>([])
 const preasignadosHardwareIds = ref<string[]>([])
 const vehiculoAsignandoHardware = ref<string | null>(null)
+const vehiculosConductores = ref<Record<string, string[]>>({})
+const inicialesConductoresIds = ref<string[]>([])
+const vehiculoAsignandoConductor = ref<string | null>(null)
 const selectedEscoltasIds = ref<string[]>([])
 const inicialesEscoltasIds = ref<string[]>([])
 const preasignadosEscoltasIds = ref<string[]>([])
 
-// Panel activo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null
-const panelActivo = ref<'rutas' | 'vehiculos' | 'hardware' | 'escoltas' | null>(null)
+// Panel activo: 'rutas' | 'vehiculos' | 'hardware' | 'conductores' | 'escoltas' | null
+const panelActivo = ref<'rutas' | 'vehiculos' | 'hardware' | 'conductores' | 'escoltas' | null>(null)
 
 // Refs de los botones para calcular posición del panel flotante
 const btnRutas = ref<HTMLElement | null>(null)
 const btnVehiculos = ref<HTMLElement | null>(null)
 const btnHardware = ref<HTMLElement | null>(null)
+const btnConductores = ref<HTMLElement | null>(null)
 const btnEscoltas = ref<HTMLElement | null>(null)
 
 // Posición del panel flotante
@@ -136,6 +147,7 @@ const panelStyle = ref<{ top: string; left: string; height: string }>({
 const searchRutasQuery = ref('')
 const searchVehiculosQuery = ref('')
 const searchHardwareQuery = ref('')
+const searchConductoresQuery = ref('')
 const searchEscoltasQuery = ref('')
 
 // Opciones reactivas para selectores simples
@@ -249,7 +261,7 @@ const calcularPosicionPanel = (btnRef: HTMLElement | null) => {
 }
 
 // Abre/cierra un panel lateral flotante
-const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas') => {
+const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'conductores' | 'escoltas') => {
   if (panelActivo.value === tipo) {
     panelActivo.value = null
     return
@@ -268,6 +280,20 @@ const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas')
       vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
     }
   }
+  if (tipo === 'conductores') {
+    if (selectedVehiculosIds.value.length === 0) {
+      toast.add({
+        severity: 'warn',
+        summary: t('servicios.toastValidation'),
+        detail: t('servicios.toastSelectVehicleFirst'),
+        life: 4000
+      })
+      return
+    }
+    if (!vehiculoAsignandoConductor.value || !selectedVehiculosIds.value.includes(vehiculoAsignandoConductor.value)) {
+      vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0]
+    }
+  }
   panelActivo.value = tipo
   await nextTick()
 
@@ -275,6 +301,7 @@ const abrirPanel = async (tipo: 'rutas' | 'vehiculos' | 'hardware' | 'escoltas')
     rutas: btnRutas.value,
     vehiculos: btnVehiculos.value,
     hardware: btnHardware.value,
+    conductores: btnConductores.value,
     escoltas: btnEscoltas.value
   }
   calcularPosicionPanel(refMap[tipo])
@@ -297,6 +324,8 @@ watch(() => props.isOpen, async (isOpen) => {
     inicialesVehiculosIds.value = []
     vehiculosHardware.value = {}
     vehiculoAsignandoHardware.value = null
+    vehiculosConductores.value = {}
+    vehiculoAsignandoConductor.value = null
     selectedEscoltasIds.value = []
     fechaHoraInicio.value = null
     modoFin.value = '1'
@@ -305,6 +334,7 @@ watch(() => props.isOpen, async (isOpen) => {
 
     searchVehiculosQuery.value = ''
     searchHardwareQuery.value = ''
+    searchConductoresQuery.value = ''
     searchEscoltasQuery.value = ''
     searchRutasQuery.value = ''
 
@@ -330,10 +360,21 @@ watch(() => props.isOpen, async (isOpen) => {
         inicialesHardwareIds.value = Object.values(props.servicio.vehiculos).flat().map(String)
         if (selectedVehiculosIds.value.length > 0) {
           vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
+          vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0]
         }
       } else {
         inicialesVehiculosIds.value = []
         inicialesHardwareIds.value = []
+      }
+      const conductoresServicio = props.servicio.vehiculos_conductores || props.servicio.conductores
+      if (conductoresServicio) {
+        vehiculosConductores.value = JSON.parse(JSON.stringify(conductoresServicio))
+        inicialesConductoresIds.value = Object.values(conductoresServicio).flat().map(String)
+        if (selectedVehiculosIds.value.length > 0) {
+          vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0]
+        }
+      } else {
+        inicialesConductoresIds.value = []
       }
       if (props.servicio.escoltas && props.servicio.escoltas.length > 0) {
         selectedEscoltasIds.value = [...props.servicio.escoltas].map(String)
@@ -361,13 +402,15 @@ watch(() => props.isOpen, async (isOpen) => {
       loadingVehiculos.value = true
       loadingHardware.value = true
       loadingEscoltas.value = true
+      loadingConductores.value = true
 
       try {
         const promesas: Promise<any>[] = [
           fetchRutasSimplesApi(groupStore.selectedGroup.id),
           fetchVehiculosSimplesApi(groupStore.selectedGroup.id, 0),
           fetchHardwareSimplesApi(groupStore.selectedGroup.id, 0),
-          fetchEscoltasSimplesApi(groupStore.selectedGroup.id, 0)
+          fetchEscoltasApi(groupStore.selectedGroup.id, 0),
+          fetchConductoresApi(groupStore.selectedGroup.id)
         ]
 
         if (props.servicio?.id_servicio) {
@@ -384,9 +427,10 @@ watch(() => props.isOpen, async (isOpen) => {
         if (resultados[1].status === 'fulfilled') vehiculos.value = resultados[1].value
         if (resultados[2].status === 'fulfilled') hardware.value = resultados[2].value
         if (resultados[3].status === 'fulfilled') escoltas.value = resultados[3].value
-        if (resultados[4] && resultados[4].status === 'fulfilled' && resultados[4].value?.data) {
-          preasignadosHardwareIds.value = resultados[4].value.data.hardware || []
-          preasignadosEscoltasIds.value = resultados[4].value.data.escoltas || []
+        if (resultados[4] && resultados[4].status === 'fulfilled') conductores.value = resultados[4].value
+        if (resultados[5] && resultados[5].status === 'fulfilled' && resultados[5].value?.data) {
+          preasignadosHardwareIds.value = resultados[5].value.data.hardware || []
+          preasignadosEscoltasIds.value = resultados[5].value.data.escoltas || []
         }
       } catch (error) {
         console.error('Error al cargar datos maestros del grupo:', error)
@@ -395,6 +439,7 @@ watch(() => props.isOpen, async (isOpen) => {
         loadingVehiculos.value = false
         loadingHardware.value = false
         loadingEscoltas.value = false
+        loadingConductores.value = false
       }
     }
 
@@ -431,13 +476,23 @@ const selectVehiculo = (id: string) => {
   if (index > -1) {
     selectedVehiculosIds.value.splice(index, 1)
     delete vehiculosHardware.value[id]
+    delete vehiculosConductores.value[id]
     if (vehiculoAsignandoHardware.value === id) {
       vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0] || null
+    }
+    if (vehiculoAsignandoConductor.value === id) {
+      vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0] || null
     }
   } else {
     selectedVehiculosIds.value.push(id)
     if (!vehiculosHardware.value[id]) {
       vehiculosHardware.value[id] = []
+    }
+    if (!vehiculosConductores.value[id]) {
+      vehiculosConductores.value[id] = []
+    }
+    if (!vehiculoAsignandoConductor.value) {
+      vehiculoAsignandoConductor.value = id
     }
   }
 }
@@ -445,6 +500,11 @@ const selectVehiculo = (id: string) => {
 const setVehiculoParaHardware = (vehiculoId: string) => {
   vehiculoAsignandoHardware.value = vehiculoId
   abrirPanel('hardware')
+}
+
+const setVehiculoParaConductores = (vehiculoId: string) => {
+  vehiculoAsignandoConductor.value = vehiculoId
+  abrirPanel('conductores')
 }
 
 const obtenerVehiculoAsociadoAHardware = (hardwareId: string): string | null => {
@@ -496,6 +556,113 @@ const selectHardware = (id: string) => {
     arr.push(id)
   }
 }
+
+const obtenerVehiculoAsociadoAConductor = (conductorId: string): string | null => {
+  if (!vehiculoAsignandoConductor.value) return null
+  const activeVehicleId = vehiculoAsignandoConductor.value
+  const entry = Object.entries(vehiculosConductores.value).find(([vId, cIds]) => {
+    return vId !== activeVehicleId && cIds.includes(conductorId)
+  })
+  return entry ? entry[0] : null
+}
+
+const currentConductoresIds = computed(() => {
+  if (!vehiculoAsignandoConductor.value) return []
+  return vehiculosConductores.value[vehiculoAsignandoConductor.value] || []
+})
+
+const selectConductor = (id: string) => {
+  if (!vehiculoAsignandoConductor.value) return
+  const vehiculoId = vehiculoAsignandoConductor.value
+
+  const vIdAsociado = obtenerVehiculoAsociadoAConductor(id)
+  if (vIdAsociado) {
+    toast.add({
+      severity: 'warn',
+      summary: t('servicios.toastOccupiedDriverSummary'),
+      detail: t('servicios.toastOccupiedDriverDetail', { vehiculo: getVehiculoLabel(vIdAsociado) }),
+      life: 4000
+    })
+    return
+  }
+
+  const cObj = conductores.value.find(c => c.id_conductor === id)
+  const eraInicial = inicialesConductoresIds.value.includes(id)
+  const isOcupado = cObj?.estado && cObj.estado.toUpperCase() !== 'DISPONIBLE'
+
+  if (cObj && isOcupado && !eraInicial && !currentConductoresIds.value.includes(id)) {
+    toast.add({
+      severity: 'warn',
+      summary: t('servicios.toastOccupiedDriverSummary'),
+      detail: t('servicios.toastOccupiedDriverInUse', { estado: cObj.estado }),
+      life: 4000
+    })
+    return
+  }
+
+  if (!vehiculosConductores.value[vehiculoId]) {
+    vehiculosConductores.value[vehiculoId] = []
+  }
+  const arr = vehiculosConductores.value[vehiculoId]
+  const index = arr.indexOf(id)
+  if (index > -1) {
+    arr.splice(index, 1)
+  } else {
+    arr.push(id)
+  }
+}
+
+const selectAllConductores = () => {
+  if (!vehiculoAsignandoConductor.value) return
+  const vehiculoId = vehiculoAsignandoConductor.value
+  if (!vehiculosConductores.value[vehiculoId]) {
+    vehiculosConductores.value[vehiculoId] = []
+  }
+  filteredConductores.value.forEach(c => {
+    const isDisponible = !c.estado || c.estado.toUpperCase() === 'DISPONIBLE' || inicialesConductoresIds.value.includes(c.id_conductor)
+    if (isDisponible && !obtenerVehiculoAsociadoAConductor(c.id_conductor)) {
+      if (!vehiculosConductores.value[vehiculoId].includes(c.id_conductor)) {
+        vehiculosConductores.value[vehiculoId].push(c.id_conductor)
+      }
+    }
+  })
+}
+
+const clearConductores = () => {
+  if (!vehiculoAsignandoConductor.value) return
+  vehiculosConductores.value[vehiculoAsignandoConductor.value] = []
+}
+
+const getConductorLabel = (id: string) => {
+  const c = conductores.value.find(item => item.id_conductor === id)
+  return c ? c.nombre : id
+}
+
+const vehiculosConConductorCount = computed(() => {
+  return selectedVehiculosIds.value.filter(id => 
+    (vehiculosConductores.value[id] || []).length > 0
+  ).length
+})
+
+const totalConductoresAsignados = computed(() => {
+  return selectedVehiculosIds.value.reduce((acc, id) => 
+    acc + (vehiculosConductores.value[id] || []).length, 0
+  )
+})
+
+const filteredConductores = computed(() => {
+  const q = searchConductoresQuery.value.toLowerCase().trim()
+  let list = conductores.value
+  if (q) {
+    list = list.filter(c =>
+      (c.nombre && c.nombre.toLowerCase().includes(q)) ||
+      (c.cedula && c.cedula.toLowerCase().includes(q)) ||
+      (c.celular && c.celular.toLowerCase().includes(q)) ||
+      c.id_conductor.toLowerCase().includes(q)
+    )
+  }
+  return list
+})
 
 const copiedEscoltaId = ref<string | null>(null)
 let copyTimeout: ReturnType<typeof setTimeout> | null = null
@@ -573,11 +740,20 @@ const selectAllVehiculos = () => {
       if (!selectedVehiculosIds.value.includes(v.id_vehiculo)) {
         selectedVehiculosIds.value.push(v.id_vehiculo)
         if (!vehiculosHardware.value[v.id_vehiculo]) {
-            vehiculosHardware.value[v.id_vehiculo] = []
+          vehiculosHardware.value[v.id_vehiculo] = []
+        }
+        if (!vehiculosConductores.value[v.id_vehiculo]) {
+          vehiculosConductores.value[v.id_vehiculo] = []
         }
       }
     }
   })
+  if (!vehiculoAsignandoHardware.value && selectedVehiculosIds.value.length > 0) {
+    vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0]
+  }
+  if (!vehiculoAsignandoConductor.value && selectedVehiculosIds.value.length > 0) {
+    vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0]
+  }
 }
 
 const clearVehiculos = () => {
@@ -588,11 +764,15 @@ const clearVehiculos = () => {
       libres.push(id)
     } else {
       delete vehiculosHardware.value[id]
+      delete vehiculosConductores.value[id]
     }
   })
   selectedVehiculosIds.value = libres
   if (vehiculoAsignandoHardware.value && !selectedVehiculosIds.value.includes(vehiculoAsignandoHardware.value)) {
     vehiculoAsignandoHardware.value = selectedVehiculosIds.value[0] || null
+  }
+  if (vehiculoAsignandoConductor.value && !selectedVehiculosIds.value.includes(vehiculoAsignandoConductor.value)) {
+    vehiculoAsignandoConductor.value = selectedVehiculosIds.value[0] || null
   }
 }
 
@@ -642,7 +822,7 @@ const handleClickOutside = (event: MouseEvent) => {
   const panelEl = document.querySelector('.panel-flotante-recursos')
   if (panelEl && panelEl.contains(target)) return
 
-  const botones = [btnRutas.value, btnVehiculos.value, btnHardware.value, btnEscoltas.value]
+  const botones = [btnRutas.value, btnVehiculos.value, btnHardware.value, btnConductores.value, btnEscoltas.value]
   if (botones.some(btn => btn && btn.contains(target))) return
 
   panelActivo.value = null
@@ -655,6 +835,7 @@ const handleResize = () => {
     rutas: btnRutas.value,
     vehiculos: btnVehiculos.value,
     hardware: btnHardware.value,
+    conductores: btnConductores.value,
     escoltas: btnEscoltas.value
   }
   calcularPosicionPanel(refMap[panelActivo.value])
@@ -677,8 +858,10 @@ const handleAsignar = async () => {
   clearErrors()
 
   const vehiculosPayload: Record<string, string[]> = {}
+  const vehiculosConductoresPayload: Record<string, string[]> = {}
   for (const vehiculoId of selectedVehiculosIds.value) {
     vehiculosPayload[vehiculoId] = vehiculosHardware.value[vehiculoId] || []
+    vehiculosConductoresPayload[vehiculoId] = vehiculosConductores.value[vehiculoId] || []
   }
 
   const payload = {
@@ -690,7 +873,8 @@ const handleAsignar = async () => {
     alcance: alcanceNacional.value ? parseInt(alcanceNacional.value, 10) : NaN,
     id_ruta: selectedRutaId.value,
     vehiculos: vehiculosPayload,
-    escoltas_id: selectedEscoltasIds.value
+    escoltas_id: selectedEscoltasIds.value,
+    vehiculos_conductores: vehiculosConductoresPayload
   }
 
   if (!validate(payload, 'servicio-asignar-recursos')) {
@@ -921,7 +1105,7 @@ const formatFechaHora = (date: Date | null): string => {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 items-start gap-4 sm:gap-5">
 
             <!-- 1. VEHÍCULOS -->
             <div class="space-y-2">
@@ -1053,7 +1237,60 @@ const formatFechaHora = (date: Date | null): string => {
               </button>
             </div>
 
-            <!-- 3. ESCOLTAS -->
+            <!-- 3. CONDUCTORES -->
+            <div class="space-y-2">
+              <label
+                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
+                :class="panelActivo === 'conductores' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+              >
+                {{ t('servicios.labelDrivers') }}
+              </label>
+              <button
+                ref="btnConductores"
+                type="button"
+                @click="abrirPanel('conductores')"
+                :disabled="loadingConductores || selectedVehiculosIds.length === 0"
+                class="selector-btn bg-slate-50 border border-slate-200 rounded-xl shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:bg-[#0F1115] dark:border-white/5 dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]"
+                :class="[
+                  loadingConductores || selectedVehiculosIds.length === 0 ? 'opacity-60 cursor-not-allowed' : '',
+                  panelActivo === 'conductores' ? 'panel-on' : ''
+                ]"
+              >
+                <div
+                  class="relative z-10 text-slate-400 dark:text-slate-500 transition-colors duration-300 mr-2 shrink-0"
+                  :class="panelActivo === 'conductores' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''"
+                >
+                  <HugeiconsIcon :icon="LicenseIcon" :size="18" :stroke-width="1.8" />
+                </div>
+                <div class="relative z-10 flex-1 flex flex-wrap gap-1.5 py-0.5 min-h-[28px] items-center">
+                  <template v-if="selectedVehiculosIds.length > 0 && totalConductoresAsignados > 0">
+                    <div class="badge-recurso">
+                      <span>{{ t('servicios.vehiclesWithDriversCount', { count: vehiculosConConductorCount }) }}</span>
+                    </div>
+                    <div class="badge-recurso">
+                      <span>{{ t('servicios.totalDriversAssigned', { count: totalConductoresAsignados }) }}</span>
+                    </div>
+                  </template>
+                  <span v-else-if="selectedVehiculosIds.length === 0" class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                    {{ t('servicios.toastSelectVehicleFirst') }}
+                  </span>
+                  <span v-else class="text-slate-400 dark:text-slate-600 text-sm font-medium">
+                    {{ loadingConductores ? t('servicios.changingRoute') : t('servicios.placeholderDrivers') }}
+                  </span>
+                </div>
+                <div
+                  class="relative z-10 text-slate-400 dark:text-slate-500 pl-2 shrink-0 transition-all duration-300"
+                  :class="[
+                    panelActivo === 'conductores' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : '',
+                    { 'rotate-180': panelActivo === 'conductores' }
+                  ]"
+                >
+                  <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" :stroke-width="2" />
+                </div>
+              </button>
+            </div>
+
+            <!-- 4. ESCOLTAS -->
             <div class="space-y-2">
               <label
                 class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
@@ -1151,7 +1388,7 @@ const formatFechaHora = (date: Date | null): string => {
           <div class="flex items-center gap-3">
             <div class="panel-head-icon">
               <HugeiconsIcon
-                :icon="panelActivo === 'rutas' ? Route01Icon : panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : User02Icon"
+                :icon="panelActivo === 'rutas' ? Route01Icon : panelActivo === 'vehiculos' ? Car01Icon : panelActivo === 'hardware' ? CpuIcon : panelActivo === 'conductores' ? LicenseIcon : User02Icon"
                 :size="17"
               />
             </div>
@@ -1161,6 +1398,7 @@ const formatFechaHora = (date: Date | null): string => {
                   panelActivo === 'rutas' ? t('servicios.availableRoutesTitle') :
                   panelActivo === 'vehiculos' ? t('servicios.availableVehiclesPanelTitle') :
                   panelActivo === 'hardware' ? t('servicios.availableHardwarePanelTitle') :
+                  panelActivo === 'conductores' ? t('servicios.availableDriversPanelTitle') :
                   t('servicios.availableEscortsPanelTitle')
                 }}
               </h4>
@@ -1169,6 +1407,7 @@ const formatFechaHora = (date: Date | null): string => {
                   panelActivo === 'rutas' ? t('servicios.routesCount', { count: filteredRutas.length }) :
                   panelActivo === 'vehiculos' ? t('servicios.fleetCount', { count: filteredVehiculos.length }) :
                   panelActivo === 'hardware' ? t('servicios.devicesInStock', { count: filteredHardware.length }) :
+                  panelActivo === 'conductores' ? t('servicios.driversInTeam', { count: filteredConductores.length }) :
                   t('servicios.escortsInTeam', { count: filteredEscoltas.length })
                 }}
               </p>
@@ -1205,6 +1444,26 @@ const formatFechaHora = (date: Date | null): string => {
               </button>
             </div>
           </div>
+          <!-- Selector de vehículo (solo para panel de conductores) -->
+          <div v-if="panelActivo === 'conductores'" class="mb-3 space-y-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-slate-500 ml-1">{{ t('servicios.assigningTo') }}</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button
+                v-for="vehiculoId in selectedVehiculosIds"
+                :key="vehiculoId"
+                type="button"
+                @click.stop="vehiculoAsignandoConductor = vehiculoId"
+                class="vehiculo-tab"
+                :class="vehiculoAsignandoConductor === vehiculoId ? 'vehiculo-tab--active' : 'vehiculo-tab--inactive'"
+              >
+                <HugeiconsIcon :icon="Car01Icon" :size="12" />
+                <span class="truncate max-w-[100px]">{{ getVehiculoLabel(vehiculoId) }}</span>
+                <span v-if="(vehiculosConductores[vehiculoId] || []).length > 0" class="vehiculo-tab-count">
+                  {{ (vehiculosConductores[vehiculoId] || []).length }}
+                </span>
+              </button>
+            </div>
+          </div>
           <div class="panel-search-wrap">
             <HugeiconsIcon :icon="Search01Icon" :size="14" class="text-slate-400 dark:text-slate-500 shrink-0" />
             <input
@@ -1232,6 +1491,14 @@ const formatFechaHora = (date: Date | null): string => {
               @click.stop
             />
             <input
+              v-else-if="panelActivo === 'conductores'"
+              v-model="searchConductoresQuery"
+              type="text"
+              :placeholder="t('servicios.filterSearchDriver')"
+              class="panel-search-input"
+              @click.stop
+            />
+            <input
               v-else-if="panelActivo === 'escoltas'"
               v-model="searchEscoltasQuery"
               type="text"
@@ -1240,9 +1507,9 @@ const formatFechaHora = (date: Date | null): string => {
               @click.stop
             />
             <button
-              v-if="(panelActivo === 'rutas' && searchRutasQuery) || (panelActivo === 'vehiculos' && searchVehiculosQuery) || (panelActivo === 'hardware' && searchHardwareQuery) || (panelActivo === 'escoltas' && searchEscoltasQuery)"
+              v-if="(panelActivo === 'rutas' && searchRutasQuery) || (panelActivo === 'vehiculos' && searchVehiculosQuery) || (panelActivo === 'hardware' && searchHardwareQuery) || (panelActivo === 'conductores' && searchConductoresQuery) || (panelActivo === 'escoltas' && searchEscoltasQuery)"
               type="button"
-              @click.stop="panelActivo === 'rutas' ? searchRutasQuery = '' : panelActivo === 'vehiculos' ? searchVehiculosQuery = '' : panelActivo === 'hardware' ? searchHardwareQuery = '' : searchEscoltasQuery = ''"
+              @click.stop="panelActivo === 'rutas' ? searchRutasQuery = '' : panelActivo === 'vehiculos' ? searchVehiculosQuery = '' : panelActivo === 'hardware' ? searchHardwareQuery = '' : panelActivo === 'conductores' ? searchConductoresQuery = '' : searchEscoltasQuery = ''"
               class="text-slate-400 hover:text-slate-300 transition-colors shrink-0"
             >
               <HugeiconsIcon :icon="Cancel01Icon" :size="11" />
@@ -1262,6 +1529,9 @@ const formatFechaHora = (date: Date | null): string => {
             <template v-else-if="panelActivo === 'hardware'">
               {{ t('servicios.selectedCount', { count: currentHardwareIds.length }) }}
             </template>
+            <template v-else-if="panelActivo === 'conductores'">
+              {{ t('servicios.selectedCount', { count: currentConductoresIds.length }) }}
+            </template>
             <template v-else>
               {{ t('servicios.selectedCount', { count: selectedEscoltasIds.length }) }}
             </template>
@@ -1269,7 +1539,7 @@ const formatFechaHora = (date: Date | null): string => {
           <div v-if="panelActivo !== 'rutas'" class="flex items-center gap-3 text-[10px] font-semibold">
             <button
               type="button"
-              @click.stop="panelActivo === 'vehiculos' ? selectAllVehiculos() : panelActivo === 'hardware' ? selectAllHardware() : selectAllEscoltas()"
+              @click.stop="panelActivo === 'vehiculos' ? selectAllVehiculos() : panelActivo === 'hardware' ? selectAllHardware() : panelActivo === 'conductores' ? selectAllConductores() : selectAllEscoltas()"
               class="text-slate-400 hover:text-[#5da6fc] transition-colors"
             >
               {{ t('servicios.btnSelectAll') }}
@@ -1277,7 +1547,7 @@ const formatFechaHora = (date: Date | null): string => {
             <span class="w-px h-3 bg-slate-200 dark:bg-white/10"></span>
             <button
               type="button"
-              @click.stop="panelActivo === 'vehiculos' ? clearVehiculos() : panelActivo === 'hardware' ? clearHardware() : clearEscoltas()"
+              @click.stop="panelActivo === 'vehiculos' ? clearVehiculos() : panelActivo === 'hardware' ? clearHardware() : panelActivo === 'conductores' ? clearConductores() : clearEscoltas()"
               class="text-slate-400 hover:text-red-400 transition-colors"
             >
               {{ t('servicios.btnClearAll') }}
@@ -1426,6 +1696,49 @@ const formatFechaHora = (date: Date | null): string => {
             </div>
           </template>
 
+          <!-- Conductores -->
+          <template v-else-if="panelActivo === 'conductores'">
+            <button
+              v-for="c in filteredConductores"
+              :key="c.id_conductor"
+              type="button"
+              @click="selectConductor(c.id_conductor)"
+              class="panel-row group/row"
+              :class="[
+                currentConductoresIds.includes(c.id_conductor) ? 'panel-row--on' : 'panel-row--off',
+                (obtenerVehiculoAsociadoAConductor(c.id_conductor) || (c.estado && c.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesConductoresIds.includes(c.id_conductor))) && !currentConductoresIds.includes(c.id_conductor) ? 'opacity-50 cursor-not-allowed bg-amber-500/5' : ''
+              ]"
+            >
+              <div
+                class="panel-row-dot shrink-0"
+                :class="[
+                  currentConductoresIds.includes(c.id_conductor) ? 'panel-row-dot--on' : 'panel-row-dot--off',
+                  (obtenerVehiculoAsociadoAConductor(c.id_conductor) || (c.estado && c.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesConductoresIds.includes(c.id_conductor))) && !currentConductoresIds.includes(c.id_conductor) ? '!bg-amber-500/20 !border-amber-500/30' : ''
+                ]"
+              >
+                <HugeiconsIcon v-if="currentConductoresIds.includes(c.id_conductor)" :icon="Tick01Icon" :size="9" :stroke-width="3" />
+                <HugeiconsIcon v-else-if="obtenerVehiculoAsociadoAConductor(c.id_conductor) || (c.estado && c.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesConductoresIds.includes(c.id_conductor))" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
+              </div>
+              <AppAvatar :image="obtenerUrlImagen(c.foto)" :label="c.nombre" size="normal" />
+              <div class="flex flex-col flex-1 min-w-0 text-left">
+                <span class="text-[12px] font-semibold truncate leading-snug">{{ c.nombre }}</span>
+                <span class="text-[10px] truncate leading-none mt-0.5 flex justify-between items-center pr-1 gap-1">
+                  <span class="text-slate-400 dark:text-slate-500 truncate">{{ c.cedula }}<template v-if="c.celular"> · {{ c.celular }}</template></span>
+                  <span v-if="obtenerVehiculoAsociadoAConductor(c.id_conductor)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
+                    {{ t('servicios.busyHardwareBadge') }}: {{ getVehiculoLabel(obtenerVehiculoAsociadoAConductor(c.id_conductor)!) }}
+                  </span>
+                  <span v-else-if="c.estado && c.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesConductoresIds.includes(c.id_conductor)" class="text-amber-500 dark:text-amber-400 font-bold text-[9px] uppercase tracking-wide shrink-0">
+                    {{ c.estado }}
+                  </span>
+                </span>
+              </div>
+            </button>
+            <div v-if="filteredConductores.length === 0" class="panel-empty">
+              <HugeiconsIcon :icon="LicenseIcon" :size="24" class="opacity-30 mb-2" />
+              <span>{{ t('servicios.noDriversFound') }}</span>
+            </div>
+          </template>
+
           <!-- Escoltas -->
           <template v-else-if="panelActivo === 'escoltas'">
             <button
@@ -1452,6 +1765,7 @@ const formatFechaHora = (date: Date | null): string => {
                 <HugeiconsIcon v-else-if="e.estado && e.estado.toUpperCase() !== 'DISPONIBLE' && !inicialesEscoltasIds.includes(e.id_escolta)" :icon="Cancel01Icon" :size="8" class="text-amber-500" />
                 <div v-else-if="preasignadosEscoltasIds.includes(e.id_escolta)" class="w-1.5 h-1.5 rounded-full bg-amber-500"></div>
               </div>
+              <AppAvatar :image="obtenerUrlImagen(e.foto)" :label="e.nombre" size="normal" />
               <div class="flex flex-col flex-1 min-w-0 text-left">
                 <div class="flex items-center justify-between gap-1.5">
                   <span class="text-[12px] font-semibold truncate leading-snug">{{ e.nombre }}</span>
@@ -1498,6 +1812,7 @@ const formatFechaHora = (date: Date | null): string => {
               panelActivo === 'rutas' ? (selectedRutaId ? '1' : '0') :
               panelActivo === 'vehiculos' ? selectedVehiculosIds.length :
               panelActivo === 'hardware' ? currentHardwareIds.length :
+              panelActivo === 'conductores' ? currentConductoresIds.length :
               selectedEscoltasIds.length
             }})
           </button>

@@ -18,7 +18,8 @@ import {
   Clock01Icon,
   Alert01Icon,
   RefreshIcon,
-  Download01Icon
+  Download01Icon,
+  LicenseIcon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 import {
@@ -37,18 +38,22 @@ import { fetchRutasApi } from '../../rutas/services/rutas.api'
 import type { Ruta } from '../../rutas/types/ruta'
 import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
 import type { Escolta } from '../../escoltas/types/escolta'
+import { fetchConductoresApi } from '../../conductores/services/conductores.api'
+import type { Conductor } from '../../conductores/types/conductor'
 import * as XLSX from 'xlsx'
 
 import AppTableCard from '../../../components/ui/AppTableCard.vue'
 import AppTable from '../../../components/ui/AppTable.vue'
 import AppPagination from '../../../components/ui/AppPagination.vue'
 import AppDateRangePicker from '../../../components/ui/AppDateRangePicker.vue'
+import AppAvatar from '../../../components/ui/AppAvatar.vue'
 import ServicioCreateModal from '../components/ServicioCreateModal.vue'
 import ServicioAsignarRecursosModal from '../components/ServicioAsignarRecursosModal.vue'
 import ServicioAsignarRecursosProvisionalModal from '../components/ServicioAsignarRecursosProvisionalModal.vue'
 import ServicioCambiarRutaModal from '../components/ServicioCambiarRutaModal.vue'
 import ServicioActualizarEscoltaModal from '../components/ServicioActualizarEscoltaModal.vue'
 import ServicioActualizarVehiculosModal from '../components/ServicioActualizarVehiculosModal.vue'
+import ServicioActualizarConductoresModal from '../components/ServicioActualizarConductoresModal.vue'
 import ServicioVerHistorialModal from '../components/ServicioVerHistorialModal.vue'
 import ServicioVerAlarmasModal from '../components/ServicioVerAlarmasModal.vue'
 import ServicioCambiarEstadoModal from '../components/ServicioCambiarEstadoModal.vue'
@@ -68,6 +73,7 @@ const { selectedGroup } = storeToRefs(groupStore)
 const servicios = ref<any[]>([])
 const catalogoVehiculos = ref<VehiculoSimple[]>([])
 const catalogoHardware = ref<HardwareSimple[]>([])
+const catalogoConductores = ref<Conductor[]>([])
 const isLoading = ref(false)
 const isDownloadingReporte = ref<string | null>(null)
 const searchQuery = ref('')
@@ -90,9 +96,31 @@ const obtenerNombreHardware = (id: string): string => {
   return h ? (h.nombre || h.id_hardware) : id
 }
 
+const obtenerNombreConductor = (id: string): string => {
+  const c = catalogoConductores.value.find(item => item.id_conductor === id)
+  return c ? (c.nombre || id) : id
+}
+
+const obtenerConductorObj = (id: string): Conductor | undefined => {
+  return catalogoConductores.value.find(item => String(item.id_conductor) === String(id))
+}
+
+const obtenerVehiculoObj = (id: string): VehiculoSimple | undefined => {
+  return catalogoVehiculos.value.find(item => String(item.id_vehiculo) === String(id))
+}
+
+const obtenerConductoresServicio = (servicio: any, vehiculoId: string): string[] => {
+  const mapa = servicio?.conductores || servicio?.vehiculos_conductores || {}
+  return mapa[vehiculoId] || []
+}
+
 const obtenerNombreEscolta = (id: string): string => {
   const e = escoltas.value.find(item => item.id_escolta === id)
   return e ? e.nombre : id
+}
+
+const obtenerEscoltaObj = (id: string): Escolta | undefined => {
+  return escoltas.value.find(item => String(item.id_escolta) === String(id))
 }
 
 const obtenerCelularEscolta = (id: string): string => {
@@ -135,7 +163,7 @@ const currentPage = ref(1)
 const itemsPerPage = 10
 
 // Modales consolidados
-const activeModal = ref<'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | 'document-sign' | null>(null)
+const activeModal = ref<'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'drivers' | 'history' | 'alarms' | 'status' | 'document-sign' | null>(null)
 const selectedServicio = ref<Servicio | ServicioDashboard | null>(null)
 
 const isCreateModalOpen = computed({
@@ -162,6 +190,10 @@ const isActualizarVehiculosModalOpen = computed({
   get: () => activeModal.value === 'vehicles',
   set: (val) => { if (!val) activeModal.value = null }
 })
+const isActualizarConductoresModalOpen = computed({
+  get: () => activeModal.value === 'drivers',
+  set: (val) => { if (!val) activeModal.value = null }
+})
 const isVerHistorialModalOpen = computed({
   get: () => activeModal.value === 'history',
   set: (val) => { if (!val) activeModal.value = null }
@@ -179,7 +211,7 @@ const isDocumentoEscoltaModalOpen = computed({
   set: (val) => { if (!val) activeModal.value = null }
 })
 
-const openModal = (tipo: 'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'history' | 'alarms' | 'status' | 'document-sign', servicio: Servicio | ServicioDashboard | null = null) => {
+const openModal = (tipo: 'create' | 'assign' | 'provisional' | 'route' | 'escort' | 'vehicles' | 'drivers' | 'history' | 'alarms' | 'status' | 'document-sign', servicio: Servicio | ServicioDashboard | null = null) => {
   closeMenu()
   selectedServicio.value = servicio
   activeModal.value = tipo
@@ -492,6 +524,8 @@ const tooltipVisible = ref(false)
 const tooltipData = ref<any>(null)
 const tooltipTipo = ref<'rutas' | 'vehiculos' | 'escoltas' | 'provisionales'>('rutas')
 const tooltipPos = ref({ top: '0px', left: '0px' })
+const tooltipPlacement = ref<'top' | 'bottom'>('top')
+const tooltipMaxHeight = ref(280)
 let tooltipTimer: ReturnType<typeof setTimeout> | null = null
 
 const tooltipIcon = computed(() => {
@@ -512,14 +546,60 @@ const mostrarTooltip = (event: MouseEvent, data: any, tipo: 'rutas' | 'vehiculos
   if (tooltipTimer) clearTimeout(tooltipTimer)
   const el = event.currentTarget as HTMLElement
   const rect = el.getBoundingClientRect()
-  const tooltipWidth = tipo === 'vehiculos' || tipo === 'provisionales' ? 260 : 210
+  const tooltipWidth = tipo === 'vehiculos' ? 370 : (tipo === 'escoltas' ? 280 : (tipo === 'provisionales' ? 270 : 220))
   let left = rect.left + rect.width / 2 - tooltipWidth / 2
-  if (left < 8) left = 8
-  if (left + tooltipWidth > window.innerWidth - 8) left = window.innerWidth - tooltipWidth - 8
-  tooltipPos.value = {
-    top: `${rect.top + window.scrollY - 8}px`,
-    left: `${left}px`
+  if (left < 10) left = 10
+  if (left + tooltipWidth > window.innerWidth - 10) left = window.innerWidth - tooltipWidth - 10
+
+  // Estimación de altura requerida según tipo y cantidad de items
+  let estimatedHeight = 130
+  if (tipo === 'vehiculos') {
+    const numVehiculos = Object.keys(data?.vehiculos || {}).length || 1
+    estimatedHeight = Math.min(420, 50 + numVehiculos * 95)
+  } else if (tipo === 'escoltas') {
+    const numEscoltas = (data?.escoltas || []).length || 1
+    estimatedHeight = Math.min(300, 45 + numEscoltas * 48)
+  } else if (tipo === 'provisionales') {
+    estimatedHeight = 180
   }
+
+  const spaceAbove = rect.top - 12
+  const spaceBelow = window.innerHeight - rect.bottom - 12
+
+  // Si cabe arriba con suficiente margen, colocar arriba; si no, colocar abajo
+  if (spaceAbove >= estimatedHeight) {
+    tooltipPlacement.value = 'top'
+    tooltipMaxHeight.value = Math.min(420, Math.max(160, spaceAbove - 20))
+    tooltipPos.value = {
+      top: `${rect.top - 8}px`,
+      left: `${left}px`
+    }
+  } else if (spaceBelow >= estimatedHeight) {
+    tooltipPlacement.value = 'bottom'
+    tooltipMaxHeight.value = Math.min(420, Math.max(160, spaceBelow - 20))
+    tooltipPos.value = {
+      top: `${rect.bottom + 8}px`,
+      left: `${left}px`
+    }
+  } else {
+    // Si no cabe completo en ninguno de los dos, elegir el que tenga más espacio
+    if (spaceAbove >= spaceBelow) {
+      tooltipPlacement.value = 'top'
+      tooltipMaxHeight.value = Math.max(140, spaceAbove - 20)
+      tooltipPos.value = {
+        top: `${rect.top - 8}px`,
+        left: `${left}px`
+      }
+    } else {
+      tooltipPlacement.value = 'bottom'
+      tooltipMaxHeight.value = Math.max(140, spaceBelow - 20)
+      tooltipPos.value = {
+        top: `${rect.bottom + 8}px`,
+        left: `${left}px`
+      }
+    }
+  }
+
   tooltipData.value = data
   tooltipTipo.value = tipo
   tooltipVisible.value = true
@@ -644,13 +724,15 @@ const fetchFiltrosData = async () => {
     fetchRutasApi(selectedGroup.value.id),
     fetchEscoltasApi(selectedGroup.value.id),
     fetchVehiculosSimplesApi(selectedGroup.value.id, 0),
-    fetchHardwareSimplesApi(selectedGroup.value.id, 0)
+    fetchHardwareSimplesApi(selectedGroup.value.id, 0),
+    fetchConductoresApi(selectedGroup.value.id)
   ])
 
   if (resultados[0].status === 'fulfilled') rutas.value = resultados[0].value
   if (resultados[1].status === 'fulfilled') escoltas.value = resultados[1].value
   if (resultados[2].status === 'fulfilled') catalogoVehiculos.value = resultados[2].value
   if (resultados[3].status === 'fulfilled') catalogoHardware.value = resultados[3].value
+  if (resultados[4].status === 'fulfilled') catalogoConductores.value = resultados[4].value
 
   const fallos = resultados.filter(r => r.status === 'rejected')
   if (fallos.length > 0) {
@@ -1136,25 +1218,32 @@ onUnmounted(() => {
           <div
             v-if="tooltipVisible && tooltipData"
             class="fixed z-[99999] pointer-events-none"
-            :style="{ top: tooltipPos.top, left: tooltipPos.left, transform: 'translateY(-100%)' }"
+            :style="{ 
+              top: tooltipPos.top, 
+              left: tooltipPos.left, 
+              transform: tooltipPlacement === 'top' ? 'translateY(-100%)' : 'translateY(0)' 
+            }"
           >
             <div 
-              class="bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden mb-2"
-              :class="tooltipTipo === 'vehiculos' || tooltipTipo === 'provisionales' ? 'w-[250px]' : 'w-[220px]'"
+              class="bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl text-slate-700 dark:text-slate-300 text-[12px] rounded-[18px] border border-slate-200/80 dark:border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.08)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] font-medium overflow-hidden"
+              :class="tooltipTipo === 'vehiculos' ? 'w-[370px]' : (tooltipTipo === 'escoltas' ? 'w-[280px]' : (tooltipTipo === 'provisionales' ? 'w-[270px]' : 'w-[220px]'))"
             >
-              <div class="flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-white/10">
+              <div class="flex items-center gap-2 px-3 py-2 bg-slate-50/70 dark:bg-white/5 border-b border-slate-100 dark:border-white/10 shrink-0">
                 <HugeiconsIcon :icon="tooltipIcon" :size="12" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[10px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">
+                <span class="text-[9.5px] font-black uppercase tracking-wider text-[#3b82f6] dark:text-[#5da6fc]">
                   {{ tooltipTitulo }}
                 </span>
               </div>
-              <div class="max-h-[240px] overflow-y-auto custom-scrollbar p-2.5">
+              <div 
+                class="overflow-y-auto custom-scrollbar p-2"
+                :style="{ maxHeight: `${tooltipMaxHeight}px` }"
+              >
                 <!-- Rutas -->
                 <div v-if="tooltipTipo === 'rutas'" class="space-y-1">
                   <template v-if="(tooltipData.rutas || []).length > 0">
                     <div v-for="rId in tooltipData.rutas" :key="rId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
                       <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
+                      <span class="text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreRuta(rId) }}</span>
                     </div>
                   </template>
                   <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noRouteAssigned') }}</div>
@@ -1163,18 +1252,85 @@ onUnmounted(() => {
                 <!-- Vehículos -->
                 <div v-else-if="tooltipTipo === 'vehiculos'" class="space-y-2">
                   <template v-if="Object.keys(tooltipData.vehiculos || {}).length > 0">
-                    <div v-for="(hwIds, vId) in tooltipData.vehiculos" :key="vId" class="py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                      <div class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] truncate mb-0.5">
-                        {{ obtenerNombreVehiculo(String(vId)) }}
-                      </div>
-                      <div class="pl-2.5 space-y-0.5">
-                        <template v-if="(hwIds as string[]).length > 0">
-                          <div v-for="hwId in (hwIds as string[])" :key="hwId" class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
-                            <span class="w-1 h-1 rounded-full bg-slate-400 dark:bg-slate-500"></span>
-                            <span class="truncate font-medium">{{ obtenerNombreHardware(hwId) }}</span>
+                    <div
+                      v-for="(hwIds, vId) in tooltipData.vehiculos"
+                      :key="vId"
+                      class="p-2.5 rounded-xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/5 space-y-2"
+                    >
+                      <!-- Bloque Superior: Vehículo y Hardware -->
+                      <div class="space-y-1">
+                        <!-- Fila 1: Placa + Hardware Badge -->
+                        <div class="flex items-center justify-between gap-2">
+                          <div class="flex items-center gap-1.5 min-w-0">
+                            <div class="w-5 h-5 rounded-md bg-blue-500/10 dark:bg-blue-500/20 text-[#3b82f6] dark:text-[#5da6fc] flex items-center justify-center shrink-0">
+                              <HugeiconsIcon :icon="Car01Icon" :size="12" />
+                            </div>
+                            <span class="text-[12px] font-extrabold text-slate-800 dark:text-slate-100 tracking-wide whitespace-nowrap">
+                              {{ obtenerVehiculoObj(String(vId))?.placa || obtenerNombreVehiculo(String(vId)) }}
+                            </span>
                           </div>
-                        </template>
-                        <div v-else class="text-[10px] text-slate-400 dark:text-slate-500 italic">{{ t('servicios.noHardwareAssigned') }}</div>
+
+                          <!-- Hardware badge(s) -->
+                          <div v-if="(hwIds as string[]).length > 0" class="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                            <span
+                              v-for="hwId in (hwIds as string[])"
+                              :key="hwId"
+                              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-500/10 dark:bg-blue-500/20 text-[#3b82f6] dark:text-[#5da6fc] text-[9.5px] font-bold border border-blue-500/20 whitespace-nowrap"
+                              :title="obtenerNombreHardware(hwId)"
+                            >
+                              <HugeiconsIcon :icon="CpuIcon" :size="10" class="shrink-0" />
+                              <span>{{ obtenerNombreHardware(hwId) }}</span>
+                            </span>
+                          </div>
+                          <span v-else class="text-[9px] text-slate-400 dark:text-slate-500 italic shrink-0">
+                            {{ t('servicios.noHardwareAssigned') }}
+                          </span>
+                        </div>
+
+                        <!-- Fila 2: Nombre y Tipo del Vehículo -->
+                        <div 
+                          v-if="obtenerVehiculoObj(String(vId))?.nombre || obtenerVehiculoObj(String(vId))?.tipo" 
+                          class="flex items-center gap-1.5 pl-6.5 text-[10px] text-slate-500 dark:text-slate-400 flex-wrap"
+                        >
+                          <span v-if="obtenerVehiculoObj(String(vId))?.nombre" class="font-medium text-slate-700 dark:text-slate-300">
+                            {{ obtenerVehiculoObj(String(vId))?.nombre }}
+                          </span>
+                          <span v-if="obtenerVehiculoObj(String(vId))?.nombre && obtenerVehiculoObj(String(vId))?.tipo" class="text-slate-300 dark:text-slate-600">·</span>
+                          <span 
+                            v-if="obtenerVehiculoObj(String(vId))?.tipo"
+                            class="inline-block px-1.5 py-0.5 rounded text-[9px] font-medium bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-300/40 dark:border-white/5"
+                          >
+                            {{ obtenerVehiculoObj(String(vId))?.tipo }}
+                          </span>
+                        </div>
+                      </div>
+
+                      <!-- Fila 3: Conductor(es) asignados -->
+                      <template v-if="obtenerConductoresServicio(tooltipData, String(vId)).length > 0">
+                        <div
+                          v-for="cId in obtenerConductoresServicio(tooltipData, String(vId))"
+                          :key="cId"
+                          class="flex items-center gap-2.5 p-2 rounded-xl bg-white dark:bg-white/[0.04] border border-slate-200/60 dark:border-white/5 shadow-sm"
+                        >
+                          <AppAvatar
+                            :image="obtenerUrlImagen(obtenerConductorObj(cId)?.foto)"
+                            :label="obtenerNombreConductor(cId)"
+                            size="small"
+                          />
+                          <div class="flex-1 min-w-0">
+                            <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                              {{ obtenerNombreConductor(cId) }}
+                            </div>
+                            <div class="text-[9.5px] text-slate-400 dark:text-slate-400 leading-none mt-1 flex items-center gap-1.5 font-medium">
+                              <span v-if="obtenerConductorObj(cId)?.cedula">CC: {{ obtenerConductorObj(cId)?.cedula }}</span>
+                              <span v-if="obtenerConductorObj(cId)?.cedula && obtenerConductorObj(cId)?.celular" class="text-slate-300 dark:text-slate-600">·</span>
+                              <span v-if="obtenerConductorObj(cId)?.celular">Tel: {{ obtenerConductorObj(cId)?.celular }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                      <div v-else class="text-[9.5px] text-slate-400 dark:text-slate-500 italic px-1">
+                        {{ t('servicios.noDriverAssigned') }}
                       </div>
                     </div>
                   </template>
@@ -1182,11 +1338,28 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Escoltas -->
-                <div v-else-if="tooltipTipo === 'escoltas'" class="space-y-1">
+                <div v-else-if="tooltipTipo === 'escoltas'" class="space-y-1.5">
                   <template v-if="(tooltipData.escoltas || []).length > 0">
-                    <div v-for="eId in tooltipData.escoltas" :key="eId" class="flex items-center gap-2 py-1 border-b border-slate-100 dark:border-white/5 last:border-0">
-                      <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                      <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">{{ obtenerNombreEscolta(eId) }}<span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 font-normal ml-1">({{ obtenerCelularEscolta(eId) }})</span></span>
+                    <div
+                      v-for="eId in tooltipData.escoltas"
+                      :key="eId"
+                      class="flex items-center gap-2.5 p-2 rounded-xl bg-slate-50/70 dark:bg-white/[0.03] border border-slate-100 dark:border-white/5"
+                    >
+                      <AppAvatar
+                        :image="obtenerUrlImagen(obtenerEscoltaObj(eId)?.foto)"
+                        :label="obtenerNombreEscolta(eId)"
+                        size="small"
+                      />
+                      <div class="flex-1 min-w-0">
+                        <div class="text-[11px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
+                          {{ obtenerNombreEscolta(eId) }}
+                        </div>
+                        <div class="text-[9.5px] text-slate-400 dark:text-slate-400 leading-none mt-1 flex items-center gap-1.5 font-medium">
+                          <span v-if="obtenerEscoltaObj(eId)?.cedula">CC: {{ obtenerEscoltaObj(eId)?.cedula }}</span>
+                          <span v-if="obtenerEscoltaObj(eId)?.cedula && obtenerCelularEscolta(eId)">·</span>
+                          <span v-if="obtenerCelularEscolta(eId)">Tel: {{ obtenerCelularEscolta(eId) }}</span>
+                        </div>
+                      </div>
                     </div>
                   </template>
                   <div v-else class="py-1 text-slate-400 dark:text-slate-500 italic text-[11px] text-center">{{ t('servicios.noEscortsAssigned') }}</div>
@@ -1220,12 +1393,24 @@ onUnmounted(() => {
                         <span>Escoltas ({{ (recursosProvisionalesMap[tooltipData.id_servicio]?.escoltas || []).length }})</span>
                       </div>
                       <template v-if="(recursosProvisionalesMap[tooltipData.id_servicio]?.escoltas || []).length > 0">
-                        <div v-for="eId in recursosProvisionalesMap[tooltipData.id_servicio].escoltas" :key="eId" class="flex items-center gap-2 py-0.5 border-b border-slate-100 dark:border-white/5 last:border-0">
-                          <div class="w-1 h-1 rounded-full bg-[#3b82f6] dark:bg-[#5da6fc] shrink-0"></div>
-                          <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium">
-                            {{ obtenerNombreEscolta(eId) }}
-                            <span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 font-normal ml-1">({{ obtenerCelularEscolta(eId) }})</span>
-                          </span>
+                        <div
+                          v-for="eId in recursosProvisionalesMap[tooltipData.id_servicio].escoltas"
+                          :key="eId"
+                          class="flex items-center gap-2 p-1 rounded-lg bg-white dark:bg-white/[0.02] border border-slate-100/80 dark:border-white/5 mb-1 last:mb-0"
+                        >
+                          <AppAvatar
+                            :image="obtenerUrlImagen(obtenerEscoltaObj(eId)?.foto)"
+                            :label="obtenerNombreEscolta(eId)"
+                            size="small"
+                          />
+                          <div class="flex-1 min-w-0">
+                            <span class="truncate text-slate-700 dark:text-slate-300 text-[11px] font-medium block">
+                              {{ obtenerNombreEscolta(eId) }}
+                            </span>
+                            <span v-if="obtenerCelularEscolta(eId)" class="text-slate-400 dark:text-slate-500 text-[10px] block truncate">
+                              {{ obtenerCelularEscolta(eId) }}
+                            </span>
+                          </div>
                         </div>
                       </template>
                       <div v-else class="text-slate-400 dark:text-slate-500 italic text-[10px]">{{ t('servicios.noProvisionalEscorts') }}</div>
@@ -1295,6 +1480,14 @@ onUnmounted(() => {
             >
               <HugeiconsIcon :icon="Car01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('servicios.btnUpdateVehicles') }}</span>
+            </button>
+            <button
+              v-if="authStore.hasPermission(PERMISSIONS.SERVICE_CHANGE_VEHICLES)"
+              @click="openModal('drivers', activeMenuServicio)"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="User02Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('servicios.btnUpdateDrivers') }}</span>
             </button>
             <button
               v-if="authStore.hasPermission(PERMISSIONS.SERVICE_HISTORY)"
@@ -1377,6 +1570,14 @@ onUnmounted(() => {
       :servicio="selectedServicio"
       :vehiculos="catalogoVehiculos"
       :hardware="catalogoHardware"
+      @updated="fetchServicios"
+    />
+
+    <ServicioActualizarConductoresModal
+      v-model:is-open="isActualizarConductoresModalOpen"
+      :servicio="selectedServicio"
+      :vehiculos="catalogoVehiculos"
+      :conductores="catalogoConductores"
       @updated="fetchServicios"
     />
 

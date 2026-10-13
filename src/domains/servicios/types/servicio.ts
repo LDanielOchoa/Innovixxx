@@ -9,6 +9,8 @@ export interface Servicio {
   rutas?: string[]
   vehiculos?: ServicioDashboardVehiculo | Record<string, string[]>
   escoltas?: string[]
+  conductores?: Record<string, string[]>
+  vehiculos_conductores?: Record<string, string[]>
 }
 
 export interface ServicioListPayload {
@@ -57,6 +59,7 @@ export interface EscoltaSimple {
   nombre: string
   celular: string
   estado: string
+  foto?: string
 }
 
 export interface ServicioAsignarRecursosPayload {
@@ -69,6 +72,7 @@ export interface ServicioAsignarRecursosPayload {
   id_ruta: string
   vehiculos: Record<string, string[]>
   escoltas_id: string[]
+  vehiculos_conductores?: Record<string, string[]>
 }
 
 export interface ServicioDashboardVehiculo {
@@ -86,6 +90,8 @@ export interface ServicioDashboard {
   vehiculos: ServicioDashboardVehiculo
   rutas: string[]
   escoltas: string[]
+  conductores?: Record<string, string[]>
+  vehiculos_conductores?: Record<string, string[]>
 }
 
 export interface ServicioDashboardPayload {
@@ -114,6 +120,12 @@ export interface ServicioActualizarVehiculosPayload {
   id_servicio: string
   ids_salen: string[]
   ids_entran: Record<string, string[]>
+}
+
+export interface ServicioActualizarConductoresPayload {
+  id_grupo: string
+  id_servicio: string
+  vehiculos_conductores: Record<string, string[]>
 }
 
 export interface ServicioHistorialItem {

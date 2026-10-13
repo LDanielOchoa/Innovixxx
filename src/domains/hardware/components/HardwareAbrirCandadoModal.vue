@@ -86,6 +86,10 @@ const handleAbrirCandado = async () => {
       if (modo.value === 'gprs' && /sms/i.test(detalleMensaje)) {
         detalleMensaje = detalleMensaje.replace(/sms/gi, 'GPRS')
       }
+      if (data.data?.lock) {
+        const isCerrado = String(data.data.lock).toUpperCase().includes('CERR')
+        detalleMensaje += ` (${t('hardware.lockStatus')}: ${isCerrado ? t('hardware.lockClosed') : t('hardware.lockOpen')})`
+      }
 
       toast.add({
         severity: 'success',

@@ -5,7 +5,7 @@ import Avatar from 'primevue/avatar'
 interface Props {
   image?: string
   label?: string
-  size?: 'normal' | 'large' | 'xlarge'
+  size?: 'small' | 'normal' | 'large' | 'xlarge'
   shape?: 'circle' | 'square'
   glow?: boolean
   hoverable?: boolean
@@ -54,8 +54,8 @@ const getInitials = (text?: string): string => {
       :pt="{
         root: { 
           style: {
-            width: size === 'xlarge' ? '6rem' : size === 'large' ? '4rem' : '2.75rem',
-            height: size === 'xlarge' ? '6rem' : size === 'large' ? '4rem' : '2.75rem'
+            width: size === 'xlarge' ? '6rem' : size === 'large' ? '4rem' : size === 'small' ? '1.875rem' : '2.75rem',
+            height: size === 'xlarge' ? '6rem' : size === 'large' ? '4rem' : size === 'small' ? '1.875rem' : '2.75rem'
           }
         },
         image: {
@@ -68,6 +68,6 @@ const getInitials = (text?: string): string => {
 
 <style scoped>
 :deep(.p-avatar-text) {
-  @apply font-black tracking-tight;
+  @apply font-black tracking-tight text-xs;
 }
 </style>

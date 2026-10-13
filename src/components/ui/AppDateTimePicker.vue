@@ -219,13 +219,15 @@ onUnmounted(() => {
 
 <template>
   <div ref="pickerRef" class="space-y-2 w-full">
-    <label
-      v-if="label"
-      class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-      :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isOpen }"
-    >
-      {{ label }}
-    </label>
+    <div class="flex items-center justify-between ml-1">
+      <label
+        v-if="label"
+        class="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] transition-colors duration-300 truncate"
+        :class="{ 'text-[#3b82f6] dark:text-[#5da6fc]': isOpen }"
+      >
+        {{ label }}
+      </label>
+    </div>
 
     <div class="relative">
       <button
@@ -233,7 +235,7 @@ onUnmounted(() => {
         type="button"
         @click="openDropdown"
         :disabled="disabled"
-        class="relative flex items-center w-full bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-300 group/input"
+        class="relative flex items-center w-full h-[46px] bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 text-sm font-medium transition-all duration-300 group/input"
         :class="[
           { 'opacity-60 cursor-not-allowed': disabled },
           isOpen

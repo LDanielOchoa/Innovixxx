@@ -22,7 +22,8 @@ import {
   BatteryEmptyIcon,
   BatteryCharging01Icon,
   FlashOffIcon,
-  Clock01Icon
+  Clock01Icon,
+  User02Icon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 
@@ -31,6 +32,10 @@ import {
   deleteHardwareApi
 } from '../services/hardware.api'
 import { fetchServiciosDropdownApi } from '../../servicios/services/servicios.api'
+import { fetchEscoltasApi } from '../../escoltas/services/escoltas.api'
+import type { Escolta } from '../../escoltas/types/escolta'
+import { obtenerUrlImagen } from '../../../utils/imagenes'
+import { useToast } from 'primevue/usetoast'
 import type { Hardware } from '../types/hardware'
 import { ApiError, getErrorMessage } from '../../../utils/api-errors'
 import { useI18n } from 'vue-i18n'
@@ -48,6 +53,7 @@ import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.v
 import HardwareOffsetHoursModal from '../components/HardwareOffsetHoursModal.vue'
 import HardwareCambiarEstadoModal from '../components/HardwareCambiarEstadoModal.vue'
 import HardwareBateriaModal from '../components/HardwareBateriaModal.vue'
+import AppAvatar from '../../../components/ui/AppAvatar.vue'
 import Column from 'primevue/column'
 
 // Shared Domain Components
@@ -59,6 +65,7 @@ const { t } = useI18n()
 const groupStore = useGroupStore()
 const authStore = useAuthStore()
 const { selectedGroup } = storeToRefs(groupStore)
+const toast = useToast()
 
 const items = ref<Hardware[]>([])
 const isLoading = ref(false)
@@ -141,6 +148,37 @@ const cargarServiciosData = async () => {
   }
 }
 
+const escoltas = ref<Escolta[]>([])
+
+const cargarEscoltasData = async () => {
+  if (!selectedGroup.value?.id) return
+  try {
+    escoltas.value = await fetchEscoltasApi(selectedGroup.value.id)
+  } catch (error) {
+    console.error('Error cargando escoltas:', error)
+  }
+}
+
+const getEscolta = (id?: string | null) => {
+  if (!id) return null
+  return escoltas.value.find(e => e.id_escolta === id) || null
+}
+
+const copiarTelefonoEscolta = async (escolta: Escolta | null) => {
+  if (!escolta?.celular) return
+  try {
+    await navigator.clipboard.writeText(escolta.celular)
+    toast.add({
+      severity: 'success',
+      summary: t('hardware.escortPhoneCopied'),
+      detail: `${escolta.nombre}: ${escolta.celular}`,
+      life: 2500
+    })
+  } catch (error) {
+    console.error('Error copiando teléfono:', error)
+  }
+}
+
 const toggleMenu = (id: string, event: MouseEvent) => {
   if (openMenuId.value === id) {
     openMenuId.value = null
@@ -217,7 +255,8 @@ const fetchHardware = async () => {
   try {
     const resultados = await Promise.allSettled([
       fetchHardwareApi(selectedGroup.value.id),
-      cargarServiciosData()
+      cargarServiciosData(),
+      cargarEscoltasData()
     ])
     if (resultados[0].status === 'fulfilled') {
       items.value = resultados[0].value
@@ -363,6 +402,7 @@ const getBatteryClass = (bateria: number | string | undefined | null) => {
 
 const exportToExcel = () => {
   const dataToExport = filteredItems.value.map(item => ({
+    ID: item.id_hardware,
     Nombre: item.nombre,
     Familia: item.familia,
     Bateria: item.bateria !== undefined && item.bateria !== null && item.bateria !== '' ? `${item.bateria}%` : '---',
@@ -370,8 +410,7 @@ const exportToExcel = () => {
     IMEI: item.imei,
     MAC: item.mac,
     ISDN: item.isdn || '---',
-    Estado: item.estado,
-    ID: item.id_hardware
+    Estado: item.estado
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
   const workbook = XLSX.utils.book_new()
@@ -402,6 +441,7 @@ const filteredItems = computed(() => {
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     list = list.filter(item =>
+      (item.id_hardware && String(item.id_hardware).toLowerCase().includes(query)) ||
       (item.nombre?.toLowerCase().includes(query)) ||
       (item.serial?.toLowerCase().includes(query)) ||
       (item.imei?.toLowerCase().includes(query)) ||
@@ -602,6 +642,15 @@ const filteredItems = computed(() => {
           <HugeiconsIcon :icon="Search01Icon" :size="32" class="text-slate-300 dark:text-slate-600" />
         </template>
 
+        <!-- Columna ID Hardware -->
+        <Column field="id_hardware" :header="t('hardware.thId')" sortable headerStyle="width: 110px">
+          <template #body="{ data }">
+            <span class="font-mono text-[11px] font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-lg border border-slate-200/60 dark:border-white/10 inline-block shadow-2xs">
+              {{ data.id_hardware }}
+            </span>
+          </template>
+        </Column>
+
         <Column field="nombre" :header="t('hardware.thName')" sortable>
           <template #body="{ data }">
             <div class="flex flex-col py-1">
@@ -674,6 +723,60 @@ const filteredItems = computed(() => {
                   <div class="flex flex-col gap-0.5">
                     <span class="font-bold text-[#5da6fc]">{{ t('hardware.tooltipService') }}</span>
                     <span class="font-mono text-[10px]">{{ data.id_servicio ? getServicioInfo(data.id_servicio) : t('hardware.unassigned') }}</span>
+                  </div>
+                  <!-- Arrow -->
+                  <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>
+                </div>
+              </div>
+
+              <!-- Escolta -->
+              <div class="relative group">
+                <div 
+                  class="w-8 h-8 rounded-lg flex items-center justify-center border transition-all duration-200"
+                  :class="data.id_escolta 
+                    ? 'bg-[#3b82f6]/10 text-[#5da6fc] border-[#3b82f6]/20 cursor-pointer active:scale-95 hover:border-[#3b82f6]/40' 
+                    : 'bg-slate-500/5 text-slate-400/50 border-transparent'"
+                  @click.stop="data.id_escolta && copiarTelefonoEscolta(getEscolta(data.id_escolta))"
+                >
+                  <HugeiconsIcon :icon="User02Icon" :size="15" />
+                </div>
+                <!-- Tooltip -->
+                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs bg-slate-900 dark:bg-slate-800 text-white text-[11px] font-medium p-3 rounded-xl shadow-xl border border-white/10 opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 z-50">
+                  <div class="flex flex-col gap-1.5 min-w-[170px]">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="font-bold text-[#5da6fc] text-[10px] uppercase tracking-wider">{{ t('hardware.tooltipEscort') }}</span>
+                    </div>
+
+                    <template v-if="data.id_escolta">
+                      <template v-if="getEscolta(data.id_escolta)">
+                        <div class="flex items-center gap-3 pt-0.5">
+                          <AppAvatar
+                            :image="getEscolta(data.id_escolta)?.foto ? obtenerUrlImagen(getEscolta(data.id_escolta)?.foto) : undefined"
+                            :label="getEscolta(data.id_escolta)?.nombre || 'ES'"
+                            size="normal"
+                            class="shrink-0"
+                          />
+                          <div class="flex flex-col min-w-0">
+                            <span class="font-bold text-[12px] text-white leading-tight truncate">
+                              {{ getEscolta(data.id_escolta)?.nombre }}
+                            </span>
+                            <span v-if="getEscolta(data.id_escolta)?.email" class="text-[10px] text-slate-300 truncate mt-0.5">
+                              {{ getEscolta(data.id_escolta)?.email }}
+                            </span>
+                            <span v-if="getEscolta(data.id_escolta)?.celular" class="font-mono text-[10.5px] text-emerald-400 font-semibold mt-0.5">
+                              {{ getEscolta(data.id_escolta)?.celular }}
+                            </span>
+                          </div>
+                        </div>
+                        <div class="pt-1.5 border-t border-white/10 flex items-center justify-between text-[9px] text-slate-400">
+                          <span>{{ t('hardware.clickToCopyPhone') }}</span>
+                        </div>
+                      </template>
+                      <template v-else>
+                        <span class="font-mono text-[10px] text-slate-300">{{ data.id_escolta }}</span>
+                      </template>
+                    </template>
+                    <span v-else class="text-[10px] text-slate-400">{{ t('hardware.unassigned') }}</span>
                   </div>
                   <!-- Arrow -->
                   <div class="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-slate-900 dark:border-t-slate-800"></div>

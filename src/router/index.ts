@@ -118,6 +118,11 @@ const router = createRouter({
           meta: { permission: PERMISSIONS.VEHICLE_BODYGUARD_LIST }
         },
         {
+          path: 'conductores',
+          name: 'conductores',
+          component: () => import('../domains/conductores/views/ConductoresListView.vue')
+        },
+        {
           path: 'escoltas',
           name: 'escoltas',
           component: () => import('../domains/escoltas/views/EscoltasListView.vue'),

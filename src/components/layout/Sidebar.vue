@@ -26,7 +26,8 @@ import {
   Clock01Icon,
   Alert01Icon,
   Calendar01Icon,
-  ArrowDown01Icon
+  ArrowDown01Icon,
+  LicenseIcon
 } from '@hugeicons/core-free-icons'
 
 import { PERMISSIONS } from '../../constants/permissions'
@@ -200,6 +201,7 @@ const displayedMenuItems = computed(() => {
 
     { id: 'item-vehicles', icon: markRaw(Car01Icon), text: t('sidebar.menu.vehicles'), route: '/vehiculos', permissionId: PERMISSIONS.VEHICULOS_LIST },
     { id: 'item-escort-vehicles', icon: markRaw(ServiceIcon), text: t('sidebar.menu.escortVehicles'), route: '/vehiculos-servicio', permissionId: PERMISSIONS.VEHICLE_BODYGUARD_LIST },
+    { id: 'item-conductores', icon: markRaw(LicenseIcon), text: t('sidebar.menu.drivers'), route: '/conductores' },
 
     { id: 'sep-devices', separator: true },
 

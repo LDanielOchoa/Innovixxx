@@ -47,6 +47,7 @@ const showPassword = ref(false)
       class="relative flex items-center group/input bg-slate-50 dark:bg-[#0F1115] border rounded-xl overflow-hidden transition-all duration-300"
       :class="[
         { 'opacity-60 cursor-not-allowed': disabled },
+        { 'h-[46px]': type !== 'textarea' },
         error
           ? 'border-rose-500/80 dark:border-rose-500/80 ring-1 ring-rose-500/20'
           : isFocused

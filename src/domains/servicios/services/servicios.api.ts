@@ -12,6 +12,7 @@ import type {
   ServicioDashboardResponse,
   ServicioActualizarEscoltasPayload,
   ServicioActualizarVehiculosPayload,
+  ServicioActualizarConductoresPayload,
   ServicioHistorialPayload,
   ServicioHistorialResponse,
   ServicioCambiarEstadoPayload,
@@ -133,6 +134,13 @@ export const actualizarEscoltasApi = async (payload: ServicioActualizarEscoltasP
 
 export const actualizarVehiculosApi = async (payload: ServicioActualizarVehiculosPayload): Promise<any> => {
   return apiClient('/api/v1/servicio/actualizar_vehiculos/', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export const actualizarConductoresApi = async (payload: ServicioActualizarConductoresPayload): Promise<any> => {
+  return apiClient('/api/v1/servicio/actualizar_conductores/', {
     method: 'POST',
     body: JSON.stringify(payload)
   })

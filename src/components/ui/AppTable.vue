@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, useAttrs } from 'vue'
 import DataTable from 'primevue/datatable'
 import type { DataTableProps } from 'primevue/datatable'
 
@@ -12,11 +13,18 @@ withDefaults(defineProps<Props>(), {
   loading: false,
   emptyMessage: 'No se encontraron registros'
 })
+
+const attrs = useAttrs()
+// PrimeVue solo recorta filas (rows/first) si el paginador está activo.
+// La paginación visual la maneja AppPagination, así que se usa un paginador interno oculto.
+const hasRows = computed(() => attrs.rows !== undefined && attrs.rows !== null)
 </script>
 
 <template>
   <div class="app-table-container w-full overflow-hidden">
     <DataTable 
+      :paginator="hasRows"
+      :resetPageOnSort="false"
       v-bind="$attrs"
       :value="value" 
       :loading="loading"
@@ -70,6 +78,10 @@ withDefaults(defineProps<Props>(), {
 </template>
 
 <style>
+.modern-table .p-paginator {
+  display: none !important;
+}
+
 .modern-table .p-datatable-thead > tr > th {
   background: transparent !important;
   color: #94a3b8 !important;

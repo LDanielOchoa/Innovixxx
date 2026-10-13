@@ -821,31 +821,46 @@ const formatFecha = (date: Date | null): string => {
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
             <!-- Tipo de Pase -->
-            <div class="space-y-2">
-              <label
-                class="text-[10px] font-black uppercase tracking-[0.2em] ml-1 transition-colors duration-300"
-                :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
-              >
-                {{ t('escoltas.labelPassType') }}
-              </label>
+            <div class="space-y-2 w-full">
+              <div class="flex items-center justify-between ml-1">
+                <label
+                  class="text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-300"
+                  :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'text-slate-400 dark:text-slate-500'"
+                >
+                  {{ t('escoltas.labelPassType') }}
+                </label>
+              </div>
               <button
                 ref="btnTipoPase"
                 type="button"
                 @click="abrirPanel('tipoPase')"
                 :disabled="saving"
-                class="w-full flex items-center bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 py-3 transition-all duration-300 text-left"
+                class="relative flex items-center w-full h-[46px] bg-slate-50 dark:bg-[#0F1115] border border-slate-200 dark:border-white/5 rounded-xl px-4 text-sm font-medium transition-all duration-300 group/btn text-left"
                 :class="[
                   saving ? 'opacity-60 cursor-not-allowed' : 'hover:border-slate-300 dark:hover:border-white/10',
-                  panelActivo === 'tipoPase' ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20' : ''
+                  panelActivo === 'tipoPase'
+                    ? 'border-[#3b82f6] dark:border-[#5da6fc] ring-1 ring-[#3b82f6]/20 dark:ring-[#5da6fc]/20 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] dark:shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]'
+                    : 'shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_2px_6px_rgba(0,0,0,0.25)]'
                 ]"
               >
-                <HugeiconsIcon :icon="LicenseIcon" :size="18" class="text-slate-400 dark:text-slate-500 mr-2 shrink-0" :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : ''" />
-                <span class="flex-1 text-sm font-medium truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
+                <HugeiconsIcon
+                  :icon="LicenseIcon"
+                  :size="18"
+                  :stroke-width="1.8"
+                  class="text-slate-400 dark:text-slate-500 mr-3 shrink-0 transition-colors duration-300"
+                  :class="panelActivo === 'tipoPase' ? 'text-[#3b82f6] dark:text-[#5da6fc]' : 'group-hover/btn:text-slate-500 dark:group-hover/btn:text-slate-400'"
+                />
+                <span class="flex-1 truncate" :class="formData.tipo_pase ? 'text-slate-800 dark:text-slate-200' : 'text-slate-400 dark:text-slate-600'">
                   {{ formData.tipo_pase || t('escoltas.placeholderPassType') }}
                 </span>
-                <HugeiconsIcon :icon="ArrowDown01Icon" :size="16" class="text-slate-400 dark:text-slate-500 shrink-0 transition-transform duration-300" :class="{ 'rotate-180': panelActivo === 'tipoPase' }" />
+                <HugeiconsIcon
+                  :icon="ArrowDown01Icon"
+                  :size="16"
+                  class="text-slate-400 dark:text-slate-500 shrink-0 ml-2 transition-transform duration-300"
+                  :class="{ 'rotate-180 text-[#3b82f6] dark:text-[#5da6fc]': panelActivo === 'tipoPase' }"
+                />
               </button>
             </div>
             <AppInput

@@ -34,7 +34,8 @@ export const servicioAsignarRecursosSchema = z.object({
   vehiculos: z.record(z.array(z.string())).refine(val => Object.keys(val).length > 0, {
     message: 'Debe asignar al menos un vehículo'
   }),
-  escoltas_id: z.array(z.string())
+  escoltas_id: z.array(z.string()),
+  vehiculos_conductores: z.record(z.array(z.string())).optional()
 })
 
 export const servicioActualizarVehiculosSchema = z.object({
@@ -51,9 +52,16 @@ export const servicioActualizarEscoltaSchema = z.object({
   entran: z.array(z.string())
 })
 
+export const servicioActualizarConductoresSchema = z.object({
+  id_grupo: z.string().length(8, 'Grupo inválido'),
+  id_servicio: z.string().min(1, 'Servicio inválido'),
+  vehiculos_conductores: z.record(z.array(z.string()))
+})
+
 export type ServicioCreateInput = z.infer<typeof servicioCreateSchema>
 export type ServicioCambiarRutaInput = z.infer<typeof servicioCambiarRutaSchema>
 export type ServicioCambiarEstadoInput = z.infer<typeof servicioCambiarEstadoSchema>
 export type ServicioAsignarRecursosInput = z.infer<typeof servicioAsignarRecursosSchema>
 export type ServicioActualizarVehiculosInput = z.infer<typeof servicioActualizarVehiculosSchema>
 export type ServicioActualizarEscoltaInput = z.infer<typeof servicioActualizarEscoltaSchema>
+export type ServicioActualizarConductoresInput = z.infer<typeof servicioActualizarConductoresSchema>

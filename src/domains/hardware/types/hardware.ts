@@ -16,6 +16,7 @@ export interface Hardware {
   isdn?: string | number | null
   id_servicio?: string
   grupo_servicio?: string
+  id_escolta?: string
   id_ruta?: number | string
 }
 
@@ -96,6 +97,7 @@ export interface EstadoCargaHardwarePayload {
 export interface DatosEstadoCargaHardware {
   is_charging: boolean
   server_time: string | null
+  lock?: string | null
 }
 
 export interface RespuestaEstadoCargaHardware {

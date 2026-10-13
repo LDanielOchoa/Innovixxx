@@ -10,7 +10,9 @@ import {
   FlashOffIcon,
   RefreshIcon,
   Alert01Icon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  LockKeyIcon,
+  CircleUnlock01Icon
 } from '@hugeicons/core-free-icons'
 import { consultarEstadoCargaHardwareApi } from '../services/hardware.api'
 import type { Hardware } from '../types/hardware'
@@ -35,12 +37,22 @@ interface EstadoCarga {
   horaServidor?: string
   cargando: boolean
   error: boolean
+  lock?: string | null
 }
 
 const estadoCarga = ref<EstadoCarga>({
   estaCargando: false,
   cargando: false,
-  error: false
+  error: false,
+  lock: null
+})
+
+const esCandadoCerrado = computed(() => {
+  if (!estadoCarga.value.lock) return null
+  const lock = estadoCarga.value.lock.trim().toUpperCase()
+  if (lock.includes('CERR')) return true
+  if (lock.includes('ABIER')) return false
+  return null
 })
 
 const MAX_INTENTOS = 6
@@ -119,13 +131,15 @@ const consultarEstado = async (intento = 1) => {
         estaCargando: Boolean(res.data.is_charging),
         horaServidor: res.data.server_time || undefined,
         cargando: false,
-        error: false
+        error: false,
+        lock: res.data.lock || null
       }
     } else {
       estadoCarga.value = {
         estaCargando: false,
         cargando: false,
-        error: true
+        error: true,
+        lock: null
       }
     }
   } catch {
@@ -138,7 +152,8 @@ const consultarEstado = async (intento = 1) => {
     estadoCarga.value = {
       estaCargando: false,
       cargando: false,
-      error: true
+      error: true,
+      lock: null
     }
   }
 }
@@ -148,7 +163,8 @@ watch(() => props.isOpen, (abierto) => {
     estadoCarga.value = {
       estaCargando: false,
       cargando: false,
-      error: false
+      error: false,
+      lock: null
     }
     if (esFamiliaGL800.value) {
       consultarEstado()
@@ -244,22 +260,54 @@ const handleClose = () => {
           </span>
         </div>
 
-        <!-- Está Cargando -->
-        <div v-else-if="estadoCarga.estaCargando" class="flex items-center justify-between p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-          <div class="flex items-center gap-3">
-            <HugeiconsIcon :icon="BatteryCharging01Icon" :size="20" class="animate-pulse shrink-0 text-emerald-500" />
-            <div>
-              <p class="text-xs font-bold">{{ t('hardware.charging') }}</p>
+        <!-- Estado de Carga y Candado -->
+        <div v-else-if="!estadoCarga.error" class="space-y-2.5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <!-- Está Cargando / No cargando -->
+            <div
+              class="flex items-center gap-3 p-3 rounded-xl border transition-all"
+              :class="estadoCarga.estaCargando
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : 'bg-slate-50 dark:bg-white/[0.04] border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300'"
+            >
+              <HugeiconsIcon
+                :icon="estadoCarga.estaCargando ? BatteryCharging01Icon : FlashOffIcon"
+                :size="20"
+                :class="estadoCarga.estaCargando ? 'animate-pulse text-emerald-500' : 'opacity-70'"
+                class="shrink-0"
+              />
+              <div class="min-w-0">
+                <span class="text-[10px] font-bold uppercase tracking-wider block opacity-70">
+                  {{ t('hardware.chargingStatus') }}
+                </span>
+                <p class="text-xs font-bold truncate">
+                  {{ estadoCarga.estaCargando ? t('hardware.charging') : t('hardware.notCharging') }}
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Sin Carga -->
-        <div v-else-if="!estadoCarga.error" class="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300">
-          <div class="flex items-center gap-3">
-            <HugeiconsIcon :icon="FlashOffIcon" :size="20" class="opacity-70 shrink-0" />
-            <div>
-              <p class="text-xs font-bold">{{ t('hardware.notCharging') }}</p>
+            <!-- Estado del Candado (lock: ABIERTO / CERRADO) -->
+            <div
+              v-if="estadoCarga.lock"
+              class="flex items-center gap-3 p-3 rounded-xl border transition-all"
+              :class="esCandadoCerrado
+                ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'"
+            >
+              <HugeiconsIcon
+                :icon="esCandadoCerrado ? LockKeyIcon : CircleUnlock01Icon"
+                :size="20"
+                class="shrink-0"
+                :class="esCandadoCerrado ? 'text-emerald-500' : 'text-amber-500'"
+              />
+              <div class="min-w-0">
+                <span class="text-[10px] font-bold uppercase tracking-wider block opacity-70">
+                  {{ t('hardware.lockStatus') }}
+                </span>
+                <p class="text-xs font-bold truncate">
+                  {{ esCandadoCerrado ? t('hardware.lockClosed') : t('hardware.lockOpen') }}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -268,7 +316,7 @@ const handleClose = () => {
         <div v-else class="flex items-center justify-between p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500">
           <div class="flex items-center gap-2">
             <HugeiconsIcon :icon="Alert01Icon" :size="16" class="shrink-0" />
-            <span class="text-xs font-semibold">Error al consultar carga</span>
+            <span class="text-xs font-semibold">Error al consultar estado</span>
           </div>
           <button
             type="button"
