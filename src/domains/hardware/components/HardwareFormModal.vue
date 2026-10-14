@@ -61,6 +61,7 @@ const formData = ref({
   descripcion: '',
   serial: '',
   imei: '',
+  iccid: '',
   mac: '',
   id_familia: '' as string | number,
   numero_sms: '',
@@ -205,6 +206,7 @@ watch(() => props.isOpen, async (isOpen) => {
       descripcion: '',
       serial: '',
       imei: '',
+      iccid: '',
       mac: '',
       id_familia: '',
       numero_sms: '',
@@ -219,6 +221,7 @@ watch(() => props.isOpen, async (isOpen) => {
         descripcion: props.editItem.descripcion || '',
         serial: props.editItem.serial || '',
         imei: props.editItem.imei || '',
+        iccid: props.editItem.ICCID || '',
         mac: props.editItem.mac || '',
         id_familia: props.editItem.id_familia || '',
         numero_sms: props.editItem.numero_sms || '',
@@ -270,6 +273,7 @@ const handleSave = async () => {
     nombre: formData.value.nombre,
     descripcion: formData.value.descripcion || '',
     imei: formData.value.imei || '',
+    iccid: formData.value.iccid || '',
     mac: formData.value.mac || '',
     estado: 1,
     id_ruta: isEditMode.value ? '' : 0,
@@ -337,6 +341,7 @@ const handleSave = async () => {
           descripcion: '',
           serial: '',
           imei: '',
+          iccid: '',
           mac: '',
           id_familia: '',
           numero_sms: '',
@@ -504,6 +509,13 @@ const handleClose = () => {
               v-model="formData.imei"
               :label="t('hardware.labelImei')"
               :placeholder="t('hardware.placeholderImei')"
+              :icon="TextNumberSignIcon"
+              :disabled="saving"
+            />
+            <AppInput
+              v-model="formData.iccid"
+              label="ICCID"
+              placeholder="ICCID"
               :icon="TextNumberSignIcon"
               :disabled="saving"
             />

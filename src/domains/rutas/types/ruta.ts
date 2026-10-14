@@ -3,6 +3,8 @@ export interface Ruta {
   nombre: string
   descripcion: string
   estado: string
+  descripcion_punto_inicial?: string | null
+  descripcion_punto_final?: string | null
   fecha_creada?: string
   fecha_actualizada?: string
 }
@@ -31,6 +33,8 @@ export interface RutaDetalle {
   nombre: string
   descripcion: string
   color: string
+  descripcion_punto_inicial?: string | null
+  descripcion_punto_final?: string | null
   created_at: string
   updated_at: string
   is_active: boolean
@@ -43,6 +47,8 @@ export interface RutaCreatePayload {
   nombre: string
   descripcion: string
   color?: string
+  descripcion_punto_inicial?: string
+  descripcion_punto_final?: string
   optimizar?: boolean
   paradas?: ParadaPayload[]
 }
@@ -53,6 +59,8 @@ export interface RutaUpdatePayload {
   nombre: string
   descripcion: string
   color: string
+  descripcion_punto_inicial?: string
+  descripcion_punto_final?: string
   optimizar?: boolean
   paradas: ParadaPayload[]
 }

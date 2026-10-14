@@ -112,7 +112,6 @@ const iniciarSesion = async () => {
     console.log('[Login] Respuesta completa data:', JSON.stringify(data?.data))
     if (data?.data?.token) CookieAuth.setToken(data.data.token)
     if (data?.data?.grupo) localStorage.setItem('auth-grupo', data.data.grupo)
-    if (data?.data?.token_ws) localStorage.setItem('auth-token-ws', data.data.token_ws)
 
     // grupo_id puede venir como string, número u objeto { id, nombre }
     const grupoIdRaw = data?.data?.grupo_id ?? data?.data?.id_grupo

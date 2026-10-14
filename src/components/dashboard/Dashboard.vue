@@ -151,7 +151,7 @@ const checkCredentials = () => {
     })
   }
 
-  const token = localStorage.getItem('auth-token-ws') || ''
+  const token = authStore.tokenWs || localStorage.getItem('auth-token-ws') || ''
   const group = selectedGroup.value?.id || localStorage.getItem('auth-grupo-id') || ''
   return { token, group }
 }
@@ -165,7 +165,7 @@ const wsError = ref<string | null>(null)
 const showWsModal = ref(false)
 let reconnectTimeoutId: any = null
 let reconnectAttempts = 0
-const maxReconnectAttempts = 3
+const maxReconnectAttempts = 5
 let isManualDisconnect = false
 
 const handleLogoutFromWsModal = () => {
@@ -264,7 +264,11 @@ const procesarAlertasVoz = (alertas: typeof alertasDetalleRes.value) => {
   }
 }
 
-const connectWebSocket = () => {
+const connectWebSocket = (isManualReset = false) => {
+  if (isManualReset) {
+    reconnectAttempts = 0
+  }
+
   if (reconnectTimeoutId) {
     clearTimeout(reconnectTimeoutId)
     reconnectTimeoutId = null
@@ -288,9 +292,14 @@ const connectWebSocket = () => {
   if (!tokenWs || !groupId) {
     wsStatus.value = 'disconnected'
     isLive.value = false
-    wsError.value = 'No hay sesión activa. Inicia sesión primero.'
-    showWsModal.value = true
-    console.warn('[Dashboard WebSocket] Faltan credenciales en URL, store y localStorage, esperando...', { tokenWs, groupId })
+    console.warn(`[Dashboard WebSocket] Faltan credenciales (${reconnectAttempts + 1}/${maxReconnectAttempts}), esperando...`, { tokenWs, groupId })
+    if (reconnectAttempts < maxReconnectAttempts) {
+      reconnectAttempts++
+      reconnectTimeoutId = setTimeout(connectWebSocket, 3000)
+    } else {
+      wsError.value = 'No hay sesión activa. Inicia sesión primero.'
+      showWsModal.value = true
+    }
     return
   }
 
@@ -301,7 +310,7 @@ const connectWebSocket = () => {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
   const wsHost = window.location.host
   const wsUrl = `${wsProtocol}://${wsHost}/ws-flota/start/?token=${tokenWs}&modo=5&group_id=${groupId}`
-  console.log(`[Dashboard WebSocket] Conectando a ${wsUrl}`)
+  console.log(`[Dashboard WebSocket] Conectando a ${wsUrl} (Intento ${reconnectAttempts + 1}/${maxReconnectAttempts})`)
 
   try {
     socket = new WebSocket(wsUrl)
@@ -310,6 +319,7 @@ const connectWebSocket = () => {
       wsStatus.value = 'connected'
       wsError.value = null
       showWsModal.value = false
+      reconnectAttempts = 0
       console.log(`[Dashboard WebSocket] Conectado exitosamente en modo=5`)
     }
 
@@ -409,6 +419,17 @@ watch(
   }
 )
 
+// Escuchar cuando el tokenWs de authStore esté disponible tras /get_meta
+watch(
+  () => authStore.tokenWs,
+  (newToken) => {
+    if (newToken && wsStatus.value !== 'connected') {
+      console.log('[Dashboard WebSocket] Token WS obtenido desde get_meta, conectando...')
+      connectWebSocket(true)
+    }
+  }
+)
+
 // Escuchar cambios de grupo en el Pinia store
 watch(
   () => selectedGroup.value?.id,
@@ -418,7 +439,7 @@ watch(
       alertasNotificadasPorVoz.clear()
       alertaEnfocada.value = null
       esCargaInicialAlertas.value = true
-      connectWebSocket()
+      connectWebSocket(true)
       cargarHardwareList()
     }
   }

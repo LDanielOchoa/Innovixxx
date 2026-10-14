@@ -29,10 +29,14 @@ export const useGroupStore = defineStore('group', () => {
     const nuevoNombre = group?.nombre || selectedGroup.value.nombre || ''
     const nuevoLogo = group?.logo !== undefined ? group.logo : selectedGroup.value.logo
 
-    selectedGroup.value = {
-      id: nuevoId,
-      nombre: nuevoNombre,
-      logo: nuevoLogo
+    const actual = selectedGroup.value
+    const sinCambios = actual.id === nuevoId && actual.nombre === nuevoNombre && actual.logo === nuevoLogo
+    if (!sinCambios) {
+      selectedGroup.value = {
+        id: nuevoId,
+        nombre: nuevoNombre,
+        logo: nuevoLogo
+      }
     }
 
     if (nuevoId) {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { HugeiconsIcon } from '@hugeicons/vue'
-import { ArrowDown01Icon, CheckmarkCircle01Icon } from '@hugeicons/core-free-icons'
+import { ArrowDown01Icon, CheckmarkCircle01Icon, Search01Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
 
 interface Option {
   value: string
@@ -15,10 +15,14 @@ interface Props {
   icon?: any
   options: Option[]
   disabled?: boolean
+  searchable?: boolean
+  searchPlaceholder?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  disabled: false
+  disabled: false,
+  searchable: false,
+  searchPlaceholder: 'Buscar...'
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -26,11 +30,34 @@ const emit = defineEmits(['update:modelValue'])
 const isOpen = ref(false)
 const isFocused = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const searchInputRef = ref<HTMLInputElement | null>(null)
+const searchQuery = ref('')
 
 const selectedLabel = computed(() => {
   if (!props.modelValue) return ''
   const opt = props.options.find(o => o.value === props.modelValue)
   return opt ? opt.label : ''
+})
+
+const filteredOptions = computed(() => {
+  if (!props.searchable || !searchQuery.value.trim()) {
+    return props.options
+  }
+  const q = searchQuery.value.toLowerCase().trim()
+  return props.options.filter(o => o.label.toLowerCase().includes(q))
+})
+
+watch(isOpen, (abierto) => {
+  if (abierto) {
+    searchQuery.value = ''
+    if (props.searchable) {
+      nextTick(() => {
+        searchInputRef.value?.focus()
+      })
+    }
+  } else {
+    searchQuery.value = ''
+  }
 })
 
 const toggle = () => {
@@ -45,6 +72,7 @@ const selectOption = (value: string) => {
   emit('update:modelValue', value)
   isOpen.value = false
   isFocused.value = false
+  searchQuery.value = ''
 }
 
 const handleClickOutside = (event: MouseEvent) => {
@@ -141,13 +169,41 @@ onUnmounted(() => {
           v-if="isOpen" 
           class="absolute z-50 w-full mt-2 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.4)] overflow-hidden"
         >
+          <!-- Buscador interno -->
+          <div v-if="searchable" class="p-2 border-b border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02]">
+            <div class="relative flex items-center">
+              <HugeiconsIcon 
+                :icon="Search01Icon" 
+                :size="14" 
+                class="absolute left-2.5 text-slate-400 dark:text-slate-500 pointer-events-none" 
+              />
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                :placeholder="searchPlaceholder"
+                class="w-full bg-white dark:bg-[#111317] text-slate-800 dark:text-slate-200 text-xs rounded-lg pl-8 pr-7 py-2 outline-none border border-slate-200 dark:border-white/10 focus:border-[#3b82f6] dark:focus:border-[#5da6fc] transition-all placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                @click.stop
+                @keydown.stop
+              />
+              <button
+                v-if="searchQuery"
+                type="button"
+                @click.stop="searchQuery = ''"
+                class="absolute right-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                <HugeiconsIcon :icon="Cancel01Icon" :size="12" />
+              </button>
+            </div>
+          </div>
+
           <div class="max-h-60 overflow-y-auto custom-scrollbar py-1.5">
             <button
-              v-for="option in options"
+              v-for="option in filteredOptions"
               :key="option.value"
               type="button"
               @click="selectOption(option.value)"
-              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group/option"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium transition-all duration-200 group/option cursor-pointer"
               :class="modelValue === option.value
                 ? 'bg-[#3b82f6]/10 dark:bg-[#3b82f6]/20 text-[#3b82f6] dark:text-[#5da6fc]'
                 : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5'"
@@ -161,6 +217,12 @@ onUnmounted(() => {
                 class="shrink-0"
               />
             </button>
+            <div 
+              v-if="filteredOptions.length === 0" 
+              class="px-4 py-4 text-center text-xs text-slate-400 dark:text-slate-500 font-medium"
+            >
+              No se encontraron resultados
+            </div>
           </div>
         </div>
       </Transition>

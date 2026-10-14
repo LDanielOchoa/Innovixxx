@@ -144,6 +144,20 @@
                 />
                 <span v-if="getError('descripcion')" class="text-xs text-red-500 font-bold ml-1.5 mt-1 block">{{ getError('descripcion') }}</span>
               </div>
+
+              <AppInput
+                v-model="formData.descripcion_punto_inicial"
+                label="Punto de inicio"
+                placeholder="Descripción del punto de inicio"
+                :icon="Route01Icon"
+              />
+
+              <AppInput
+                v-model="formData.descripcion_punto_final"
+                label="Punto final"
+                placeholder="Descripción del punto final"
+                :icon="Route01Icon"
+              />
             </div>
 
             <!-- Sección: Estilo Visual -->
@@ -791,7 +805,7 @@ const { selectedGroup } = storeToRefs(groupStore)
 // ── Form State ───────────────────────────────────────────────
 const isSubmitting  = ref(false)
 const modalMessage  = ref<{ text: string, type: 'success' | 'error' | 'warning' } | null>(null)
-const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa', optimizar: false })
+const formData      = ref({ nombre: '', descripcion: '', color: '#60a5fa', optimizar: false, descripcion_punto_inicial: '', descripcion_punto_final: '' })
 const isEditMode    = ref(false)
 const editingRutaId = ref<string | null>(null)
 const isGpsRoute    = computed(() => route.query.gps === 'true' || isGpsReconstructed.value)
@@ -1192,7 +1206,9 @@ const loadRouteData = async (id_ruta: string) => {
       nombre:      detalle.nombre,
       descripcion: detalle.descripcion,
       color:       detalle.color || '#60a5fa',
-      optimizar:   Boolean(detalle.optimizar)
+      optimizar:   Boolean(detalle.optimizar),
+      descripcion_punto_inicial: detalle.descripcion_punto_inicial || '',
+      descripcion_punto_final:   detalle.descripcion_punto_final || ''
     }
 
     if (detalle.color) {
@@ -1262,6 +1278,8 @@ const saveRuta = async () => {
         descripcion: formData.value.descripcion || '',
         color:       formData.value.color,
         optimizar:   formData.value.optimizar,
+        descripcion_punto_inicial: formData.value.descripcion_punto_inicial || '',
+        descripcion_punto_final:   formData.value.descripcion_punto_final || '',
         paradas:     paradasTemporales.value
       }
     : {
@@ -1270,6 +1288,8 @@ const saveRuta = async () => {
         descripcion: formData.value.descripcion || '',
         color:       formData.value.color,
         optimizar:   formData.value.optimizar,
+        descripcion_punto_inicial: formData.value.descripcion_punto_inicial || '',
+        descripcion_punto_final:   formData.value.descripcion_punto_final || '',
         paradas:     paradasTemporales.value
       }
 

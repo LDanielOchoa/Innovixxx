@@ -320,6 +320,8 @@ const exportToExcel = () => {
     [t('rutas.idRoute')]: u.id_ruta,
     [t('rutas.colRoute')]: u.nombre,
     [t('rutas.colDesc')]: u.descripcion,
+    'Punto de inicio': u.descripcion_punto_inicial || '',
+    'Punto final': u.descripcion_punto_final || '',
     [t('rutas.colStatus')]: u.estado === 'Habilitada' ? t('rutas.statusEnabled') : t('rutas.statusDisabled')
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
@@ -678,6 +680,9 @@ const trazarRutaGps = async () => {
                     </div>
                     <p class="text-[10.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-1">
                       {{ ruta.descripcion || t('rutas.noDescription') }}
+                    </p>
+                    <p v-if="ruta.descripcion_punto_inicial || ruta.descripcion_punto_final" class="text-[10px] font-medium text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                      {{ ruta.descripcion_punto_inicial || '—' }} → {{ ruta.descripcion_punto_final || '—' }}
                     </p>
                   </div>
                 </div>

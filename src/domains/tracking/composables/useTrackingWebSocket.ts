@@ -2,6 +2,7 @@ import { ref, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { apiClient } from '../../../utils/api-client'
 import { useGroupStore } from '../../../stores/group.store'
+import { useAuthStore } from '../../../stores/auth.store'
 import type { HardwareWs } from '../types/tracking'
 import { parseBattery } from '../../../utils/threeMarkerRenderer'
 
@@ -9,6 +10,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   const router = useRouter()
   const route = useRoute()
   const groupStore = useGroupStore()
+  const authStore = useAuthStore()
 
   const getActiveGroupId = () => {
     const queryGroupId = (route?.query?.group_id as string | undefined)?.trim()
@@ -66,7 +68,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
   let socket: WebSocket | null = null
   let reconnectTimeoutId: any = null
   let reconnectAttempts = 0
-  const maxReconnectAttempts = 3
+  const maxReconnectAttempts = 5
   let isManualDisconnect = false
   let wsSessionId = 0
 
@@ -251,13 +253,19 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
       }
     }
 
-    const tokenWs = localStorage.getItem('auth-token-ws') || ''
+    const tokenWs = authStore.tokenWs || localStorage.getItem('auth-token-ws') || ''
     const groupId = getActiveGroupId()
 
     if (!tokenWs || !groupId) {
       wsStatus.value = 'disconnected'
-      wsError.value = 'No hay sesión activa. Inicia sesión primero.'
-      showWsModal.value = true
+      console.warn(`[WebSocket] Esperando credenciales (${reconnectAttempts + 1}/${maxReconnectAttempts})...`)
+      if (reconnectAttempts < maxReconnectAttempts) {
+        reconnectAttempts++
+        reconnectTimeoutId = setTimeout(() => connectWebSocket(), 3000)
+      } else {
+        wsError.value = 'No hay sesión activa. Inicia sesión primero.'
+        showWsModal.value = true
+      }
       return
     }
 
@@ -277,6 +285,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         wsStatus.value = 'connected'
         wsError.value = null
         showWsModal.value = false
+        reconnectAttempts = 0
         console.log(`%c[WebSocket CONECTADO] Pestaña: ${myTab} (Modo ${modo})`, 'color: #10b981; font-weight: bold;')
       }
 
@@ -589,6 +598,16 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
         // Reconectar WS y recargar datos de referencia para el nuevo grupo
         connectWebSocket(true)
         loadAllReferenceData()
+      }
+    }
+  )
+
+  // Reconectar cuando tokenWs esté disponible desde /get_meta
+  watch(
+    () => authStore.tokenWs,
+    (newToken) => {
+      if (newToken && wsStatus.value !== 'connected') {
+        connectWebSocket(true)
       }
     }
   )

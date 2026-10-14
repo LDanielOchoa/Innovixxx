@@ -6,6 +6,7 @@ export interface Hardware {
   imei: string
   mac: string
   id_familia: number
+  ICCID?: string
   familia?: string
   estado?: number | string
   habilitado?: number | boolean
@@ -37,6 +38,7 @@ export interface HardwareCreatePayload {
   descripcion: string
   serial: string
   imei: string
+  iccid?: string
   mac: string
   id_familia: number
   id_grupo: string

@@ -30,6 +30,7 @@ export const useAuthStore = defineStore('auth', () => {
     hablar_alarma: ''
   })
 
+  const tokenWs = ref<string>(localStorage.getItem('auth-token-ws') || '')
   const isAdmin = ref(false)
   const isLoading = ref(true)
   const userPermissions = ref<string[]>([])
@@ -57,6 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
   const handleGlobalLogoutRedirect = () => {
     limpiarCookiesExceptoIdioma()
     CookieAuth.removeToken()
+    tokenWs.value = ''
     localStorage.removeItem('auth-token-ws')
     localStorage.removeItem('auth-grupo-id')
     localStorage.removeItem('auth-hablar-alarma')
@@ -95,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
   const logout = (routerInstance?: Router) => {
     limpiarCookiesExceptoIdioma()
     CookieAuth.removeToken()
+    tokenWs.value = ''
 
     const theme = localStorage.getItem('theme-store') || localStorage.getItem('theme')
     const locale = localStorage.getItem('app-locale')
@@ -223,6 +226,10 @@ export const useAuthStore = defineStore('auth', () => {
         userData.value.idioma = data.data.idioma
         userData.value.tz = data.data.tz
         userData.value.foto = data.data.foto || ''
+        if (data.data.token_ws) {
+          tokenWs.value = data.data.token_ws
+          localStorage.setItem('auth-token-ws', data.data.token_ws)
+        }
         userData.value.hablar_alarma = data.data.hablar_alarma ?? data.data.alarma_hablada ?? ''
         if (userData.value.hablar_alarma) {
           localStorage.setItem('auth-hablar-alarma', userData.value.hablar_alarma)
@@ -277,6 +284,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     userData,
+    tokenWs,
     isAdmin,
     isSuperAdmin,
     isLoading,

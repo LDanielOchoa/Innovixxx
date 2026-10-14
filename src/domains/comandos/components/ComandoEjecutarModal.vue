@@ -277,6 +277,8 @@ const handleEjecutar = async () => {
             :options="opcionesHardware"
             :icon="CpuIcon"
             :disabled="loadingHardware || ejecutando || hardwaresFiltrados.length === 0"
+            searchable
+            :search-placeholder="t('comandos.searchHardwarePlaceholder')"
           />
 
           <!-- Spinner de carga de hardware -->
