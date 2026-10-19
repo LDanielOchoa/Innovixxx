@@ -15,6 +15,7 @@ export interface HardwareWs {
   battery: number
   comm_pending?: string
   sos?: boolean
+  charging?: boolean
   status_lock?: string
   device_ts?: string
   gps_valido?: boolean

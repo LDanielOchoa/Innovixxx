@@ -81,6 +81,8 @@ export const usersMessages = {
     alarmLockOpen: 'Apertura de candado',
     alarmLockClose: 'Cierre de candado',
     alarmRouteIn: 'Entrada a ruta',
+    alarmGeofenceIn: 'Entrada a geocerca',
+    alarmGeofenceOut: 'Salida de geocerca',
 
     // Alertas y notificaciones
     alertMinPassword: 'La contraseña debe tener mínimo 8 caracteres',
@@ -186,6 +188,8 @@ export const usersMessages = {
     alarmLockOpen: 'Lock Open',
     alarmLockClose: 'Lock Closed',
     alarmRouteIn: 'Route Return',
+    alarmGeofenceIn: 'Geofence Entry',
+    alarmGeofenceOut: 'Geofence Exit',
 
     // Alerts and notifications
     alertMinPassword: 'Password must be at least 8 characters long',

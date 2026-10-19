@@ -29,7 +29,7 @@ export default defineConfig({
     allowedHosts: ['admin.innovixing.com', 'innovix.gfandino.xyz'],
     proxy: {
       '/ws-flota': {
-        target: 'ws://66.179.190.248:8901',
+        target: 'ws://74.208.52.73:8901',
         changeOrigin: true,
         ws: true,
         rewrite: (path: string) => path.replace(/^\/ws-flota/, '')

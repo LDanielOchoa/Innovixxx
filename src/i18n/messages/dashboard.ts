@@ -53,7 +53,9 @@ export const dashboard = {
           routeDeviation: 'Alejamiento Ruta',
           lockOpen: 'Candado Abierto',
           lockClose: 'Candado Cerrado',
-          routeReturn: 'Retorno Ruta'
+          routeReturn: 'Retorno Ruta',
+          geofenceIn: 'Entrada Geocerca',
+          geofenceOut: 'Salida Geocerca'
         }
       }
     },
@@ -63,7 +65,9 @@ export const dashboard = {
       routeDeviation: 'Alejamiento de ruta',
       lockOpen: 'Candado abierto',
       lockClose: 'Candado cerrado',
-      routeReturn: 'Retorno Ruta'
+      routeReturn: 'Retorno Ruta',
+      geofenceIn: 'Entrada a geocerca',
+      geofenceOut: 'Salida de geocerca'
     },
     vortex: {
       tags: {
@@ -145,7 +149,9 @@ export const dashboard = {
           routeDeviation: 'Route Deviation',
           lockOpen: 'Lock Open',
           lockClose: 'Lock Closed',
-          routeReturn: 'Route Return'
+          routeReturn: 'Route Return',
+          geofenceIn: 'Geofence Entry',
+          geofenceOut: 'Geofence Exit'
         }
       }
     },
@@ -155,7 +161,9 @@ export const dashboard = {
       routeDeviation: 'Route Deviation',
       lockOpen: 'Lock Open',
       lockClose: 'Lock Closed',
-      routeReturn: 'Route Return'
+      routeReturn: 'Route Return',
+      geofenceIn: 'Geofence Entry',
+      geofenceOut: 'Geofence Exit'
     },
     vortex: {
       tags: {

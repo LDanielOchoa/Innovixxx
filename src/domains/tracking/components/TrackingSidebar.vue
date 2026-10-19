@@ -12,6 +12,7 @@ import {
   Location01Icon,
   Search01Icon,
   BatteryCharging01Icon,
+  BatteryFullIcon,
   MapsIcon,
   Loading03Icon,
   Cancel01Icon,
@@ -228,6 +229,7 @@ const hardwareDelServicio = computed(() => {
             nombre: nombreFinal,
             descripcion: foundWs?.descripcion || foundRefHw?.descripcion || foundRefVeh?.descripcion || (typeof v === 'object' ? v.descripcion : `ID: ${canonicalKey}`),
             battery: foundWs?.battery ?? (typeof v === 'object' ? v.battery : undefined),
+            charging: foundWs?.charging ?? (typeof v === 'object' ? !!v.charging : false),
             speed: foundWs?.speed ?? (typeof v === 'object' ? v.speed : 0),
             status_lock: foundWs?.status_lock || (typeof v === 'object' ? v.status_lock : '')
           })
@@ -436,7 +438,7 @@ const formatHardwareText = (h: HardwareWs): string => {
     : (dt.fecha || dt.hora || 'Sin reporte')
   
   const nombre = (h.nombre || h.serial || h.id_hardware || 'Dispositivo').trim()
-  const bateriaStr = h.battery !== undefined ? `${h.battery}%` : 'N/A'
+  const bateriaStr = h.battery !== undefined ? `${h.battery}%${h.charging ? ' (cargando)' : ''}` : 'N/A'
 
   return [
     `Dispositivo: ${nombre}`,
@@ -750,8 +752,13 @@ const toggleSelectAllHardware = () => {
               <span v-if="item.sos" class="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 leading-none select-none tracking-wide animate-pulse">
                 SOS
               </span>
-              <span v-if="item.battery !== undefined" class="text-[10px] font-bold text-emerald-550 dark:text-emerald-450 flex items-center gap-0.5 leading-none select-none tracking-wide">
-                <HugeiconsIcon :icon="BatteryCharging01Icon" :size="10.5" class="opacity-80" />
+              <span
+                v-if="item.battery !== undefined"
+                class="text-[10px] font-bold flex items-center gap-0.5 leading-none select-none tracking-wide"
+                :class="item.charging ? 'text-cyan-500 dark:text-cyan-400' : 'text-emerald-550 dark:text-emerald-450'"
+                :title="item.charging ? 'Cargando' : undefined"
+              >
+                <HugeiconsIcon :icon="item.charging ? BatteryCharging01Icon : BatteryFullIcon" :size="10.5" :class="item.charging ? 'animate-pulse' : 'opacity-80'" />
                 {{ item.battery }}%
               </span>
               <span v-if="item.lat && item.lon" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" :title="t('tracking.gpsActive')"></span>

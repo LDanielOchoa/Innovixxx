@@ -6,6 +6,7 @@ import { toggleMobileSidebar } from '../../composables/useSidebar'
 import { useGroupStore } from '../../stores/group.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { apiClient } from '../../utils/api-client'
+import { createTrackingHandoff, TRACKING_WINDOW_PREFIX } from '../../domains/tracking/composables/useTrackingGroup'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { 
   Menu01Icon, 
@@ -143,7 +144,6 @@ watch(() => authStore.isSuperAdmin, async (isSuper, wasSuper) => {
 // Abre una ventana de tracking independiente para el grupo indicado.
 // Permite abrir múltiples ventanas concurrentes e independientes para cualquier grupo.
 const openTrackingWindow = async (grupo?: Group | Event) => {
-  const tokenWs = localStorage.getItem('auth-token-ws') || ''
   const isValidGroupObj = grupo && typeof (grupo as any).id === 'string' && (grupo as any).id.trim().length > 0
   const groupTarget = isValidGroupObj ? (grupo as Group) : groupStore.selectedGroup
 
@@ -151,11 +151,14 @@ const openTrackingWindow = async (grupo?: Group | Event) => {
     try { return JSON.parse(localStorage.getItem('auth-grupo-obj') || '{}') } catch { return {} }
   })()
   const groupId = (groupTarget?.id || grupoPersistido?.id || localStorage.getItem('auth-grupo-id') || '').trim()
-  const url = `/tracking?token_ws=${encodeURIComponent(tokenWs)}&group_id=${encodeURIComponent(groupId)}`
+  // La URL no lleva datos sensibles: el grupo se entrega a la ventana por un handoff de un solo uso
+  const url = '/tracking'
 
   // Identificador único de ventana para permitir abrir múltiples ventanas concurrentes
   const windowUniqueId = `${groupId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-  const windowName = `TrackingWindow_${windowUniqueId}`
+  const windowName = `${TRACKING_WINDOW_PREFIX}${windowUniqueId}`
+  // Botón general: la ventana sigue el grupo principal. Botón de un grupo concreto: queda fijada a él.
+  createTrackingHandoff(windowUniqueId, groupId, !isValidGroupObj)
 
   const abrirVentana = (features: string) => {
     const win = window.open(url, windowName, features)

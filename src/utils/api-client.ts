@@ -5,12 +5,20 @@ interface RequestOptions extends RequestInit {
   id_grupo?: string
 }
 
+// Grupo propio de la ventana actual (p. ej. ventanas de tracking), con prioridad
+// sobre el grupo global de localStorage, que es compartido entre todas las ventanas.
+let grupoOverride: string | null = null
+
+export const setGrupoOverride = (idGrupo: string | null) => {
+  grupoOverride = idGrupo?.trim() || null
+}
+
 export async function apiClient<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
   const token = CookieAuth.getToken()
-  const idGrupo = options.id_grupo || localStorage.getItem('auth-grupo-id')
+  const idGrupo = options.id_grupo || grupoOverride || localStorage.getItem('auth-grupo-id')
   const lang = localStorage.getItem('app-locale') || 'es'
   
   const headers = new Headers(options.headers)

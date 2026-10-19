@@ -75,7 +75,9 @@ const ALARMAS_HABLADAS_CONFIG: AlarmaHabladaOption[] = [
   { position: 3, code: 'ALERT_TYPE_ROUTE_OUT', labelKey: 'users.alarmRouteOut' },
   { position: 4, code: 'ALERT_TYPE_LOCK_OPEN', labelKey: 'users.alarmLockOpen' },
   { position: 5, code: 'ALERT_TYPE_LOCK_CLOSE', labelKey: 'users.alarmLockClose' },
-  { position: 6, code: 'ALERT_TYPE_ROUTE_IN', labelKey: 'users.alarmRouteIn' }
+  { position: 6, code: 'ALERT_TYPE_ROUTE_IN', labelKey: 'users.alarmRouteIn' },
+  { position: 7, code: 'ALERT_TYPE_GEOFENCE_IN', labelKey: 'users.alarmGeofenceIn' },
+  { position: 8, code: 'ALERT_TYPE_GEOFENCE_OUT', labelKey: 'users.alarmGeofenceOut' }
 ]
 
 // Array de 8 posiciones para alarma_hablada (posiciones 1 a 8)

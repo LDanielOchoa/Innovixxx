@@ -107,6 +107,8 @@ const getNombreTipoAlerta = (tipo: number, idioma?: 'es' | 'en'): string => {
       case 4: return 'Lock Open'
       case 5: return 'Lock Closed'
       case 6: return 'Route Return'
+      case 7: return 'Geofence Entry'
+      case 8: return 'Geofence Exit'
       default: return `Alert type ${tipo}`
     }
   }
@@ -119,6 +121,8 @@ const getNombreTipoAlerta = (tipo: number, idioma?: 'es' | 'en'): string => {
     case 4: return 'Candado abierto'
     case 5: return 'Candado cerrado'
     case 6: return 'Retorno Ruta'
+    case 7: return 'Entrada a geocerca'
+    case 8: return 'Salida de geocerca'
     default: return `Alerta tipo ${tipo}`
   }
 }

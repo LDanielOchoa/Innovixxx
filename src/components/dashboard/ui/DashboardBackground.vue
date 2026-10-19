@@ -49,6 +49,10 @@ const getNombreTipoAlerta = (tipo: number): string => {
       return t('dashboard.tacticalMap.lockClose') || 'Candado cerrado'
     case 6:
       return t('dashboard.tacticalMap.routeReturn') || 'Retorno Ruta'
+    case 7:
+      return t('dashboard.tacticalMap.geofenceIn') || 'Entrada a geocerca'
+    case 8:
+      return t('dashboard.tacticalMap.geofenceOut') || 'Salida de geocerca'
     default:
       return `Alerta activa (${tipo})`
   }

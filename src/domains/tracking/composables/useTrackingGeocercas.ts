@@ -1,6 +1,5 @@
 import { ref, shallowRef, markRaw, toRaw, watch, onUnmounted } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useGroupStore } from '../../../stores/group.store'
+import { useTrackingGroup } from './useTrackingGroup'
 import { fetchGeocercasApi, fetchGeocercaDetallesApi } from '../../geocercas/services/geocercas.api'
 import type { Geocerca, GeocercaDetalle } from '../../geocercas/types/geocerca'
 
@@ -25,8 +24,7 @@ export interface GeocercaCluster {
 const CLUSTER_RADIUS_PX = 75
 
 export function useTrackingGeocercas(mapRef: { value: any }) {
-  const groupStore = useGroupStore()
-  const { selectedGroup } = storeToRefs(groupStore)
+  const { trackingGroupId } = useTrackingGroup()
 
   const showGeocercas = ref(false)
   const loadingGeocercas = ref(false)
@@ -453,7 +451,8 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
   // Cargar datos y renderizar todas las geocercas en el mapa
   const renderGeocercasOnMap = async () => {
     clearAllGeocercaOverlays()
-    if (!showGeocercas.value || !selectedGroup.value?.id || !mapRef.value) return
+    const groupId = trackingGroupId.value
+    if (!showGeocercas.value || !groupId || !mapRef.value) return
 
     attachMapListeners()
     const currentRenderId = renderSequence
@@ -461,7 +460,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
 
     try {
       if (geocercas.value.length === 0) {
-        geocercas.value = await fetchGeocercasApi(selectedGroup.value.id)
+        geocercas.value = await fetchGeocercasApi(groupId)
       }
 
       if (currentRenderId !== renderSequence || !showGeocercas.value) {
@@ -475,7 +474,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
       }
 
       const promises = geocercas.value.map(g =>
-        fetchGeocercaDetallesApi(selectedGroup.value!.id, g.id_geocerca).catch(() => null)
+        fetchGeocercaDetallesApi(groupId, g.id_geocerca).catch(() => null)
       )
 
       const detalles = await Promise.all(promises)
@@ -550,7 +549,7 @@ export function useTrackingGeocercas(mapRef: { value: any }) {
     }
   })
 
-  watch(selectedGroup, () => {
+  watch(trackingGroupId, () => {
     geocercas.value = []
     parsedGeocercasList.value = []
     if (showGeocercas.value) {

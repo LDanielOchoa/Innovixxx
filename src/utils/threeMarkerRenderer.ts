@@ -121,6 +121,7 @@ export class ThreeMarkerRenderer {
   private lastHeading = 0
   private lastCustomColorHex?: number
   private lastShowBatteryRing = true
+  private lastCharging = false
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -143,14 +144,15 @@ export class ThreeMarkerRenderer {
     this.init()
   }
 
-  private drawBaseTexture(battery: number, isSelected: boolean, showBatteryRing = true) {
+  private drawBaseTexture(battery: number, isSelected: boolean, showBatteryRing = true, charging = false) {
     const normalizedBattery = parseBattery(battery)
-    if (this.lastBattery === normalizedBattery && this.lastSelected === isSelected && this.lastShowBatteryRing === showBatteryRing) {
+    if (this.lastBattery === normalizedBattery && this.lastSelected === isSelected && this.lastShowBatteryRing === showBatteryRing && this.lastCharging === charging) {
       return // Evitar procesamiento si el estado no cambió
     }
     this.lastBattery = normalizedBattery
     this.lastSelected = isSelected
     this.lastShowBatteryRing = showBatteryRing
+    this.lastCharging = charging
 
     if (!this.textureCanvas) return
     const ctx = this.textureCanvas.getContext('2d')
@@ -199,6 +201,30 @@ export class ThreeMarkerRenderer {
       ctx.stroke()
     }
 
+    // 4. Insignia de carga: círculo con rayo en la esquina superior derecha del aro
+    if (charging) {
+      const bx = 206
+      const by = 50
+      ctx.beginPath()
+      ctx.arc(bx, by, 34, 0, 2 * Math.PI)
+      ctx.fillStyle = '#0f172a'
+      ctx.fill()
+      ctx.lineWidth = 6
+      ctx.strokeStyle = '#22d3ee'
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.moveTo(bx + 5, by - 21)
+      ctx.lineTo(bx - 14, by + 3)
+      ctx.lineTo(bx - 2, by + 3)
+      ctx.lineTo(bx - 6, by + 21)
+      ctx.lineTo(bx + 14, by - 4)
+      ctx.lineTo(bx + 2, by - 4)
+      ctx.closePath()
+      ctx.fillStyle = '#facc15'
+      ctx.fill()
+    }
+
     if (this.baseTexture) {
       this.baseTexture.needsUpdate = true
     }
@@ -213,7 +239,7 @@ export class ThreeMarkerRenderer {
       this.markerGroup = new THREE.Group()
 
       // Dibujar textura de base inmediatamente con los últimos datos guardados (respetando showBatteryRing)
-      this.drawBaseTexture(this.lastBattery !== -1 ? this.lastBattery : 100, this.lastSelected, this.lastShowBatteryRing)
+      this.drawBaseTexture(this.lastBattery !== -1 ? this.lastBattery : 100, this.lastSelected, this.lastShowBatteryRing, this.lastCharging)
 
       // Mesh plano para el círculo y el anillo de batería
       const baseGeo = new THREE.PlaneGeometry(3.8, 3.8)
@@ -284,7 +310,7 @@ export class ThreeMarkerRenderer {
   }
 
   // Actualiza rumbo, selección, batería e inclinación 3D del mapa
-  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100, customColorHex?: number, showBatteryRing = true, mapHeading = 0) {
+  public update(course: number, isSelected: boolean, mapTilt = 0, battery = 100, customColorHex?: number, showBatteryRing = true, mapHeading = 0, charging = false) {
     this.lastCourse = course
     this.lastTilt = mapTilt
     this.lastHeading = mapHeading
@@ -292,7 +318,7 @@ export class ThreeMarkerRenderer {
     this.lastShowBatteryRing = showBatteryRing
 
     // 1. Actualizar textura de base y visibilidad del disco circular
-    this.drawBaseTexture(battery, isSelected, showBatteryRing)
+    this.drawBaseTexture(battery, isSelected, showBatteryRing, charging)
     if (this.baseMesh) {
       this.baseMesh.visible = showBatteryRing
     }

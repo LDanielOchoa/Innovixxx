@@ -1,10 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { loadModuleMessages } from '../../../i18n'
 import { useAuthStore } from '../../../stores/auth.store'
-import { useGroupStore } from '../../../stores/group.store'
 import { useGoogleMaps } from '../../../composables/useGoogleMaps'
 import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
@@ -12,6 +10,7 @@ import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon, Settings02Icon, Clock
 import type { HardwareWs } from '../types/tracking'
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
 import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
+import { useTrackingGroup } from '../composables/useTrackingGroup'
 import TrackingSidebar from '../components/TrackingSidebar.vue'
 
 import { useRouteDrawer } from '../../rutas/composables/useRouteDrawer'
@@ -26,9 +25,7 @@ import rutaPuntoNormal from '../../../assets/ruta_punto_normal.png'
 
 loadModuleMessages('tracking')
 const { t } = useI18n()
-const router = useRouter()
-const route = useRoute()
-const groupStore = useGroupStore()
+const { trackingGroupId, followsMainWindow, setTrackingGroupId } = useTrackingGroup()
 const authStore = useAuthStore()
 
 const { loadGoogleMaps } = useGoogleMaps()
@@ -654,7 +651,7 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
     const mapHeading = map.value ? map.value.getHeading() || 0 : 0
     const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
     const showBatteryRing = activeTab.value !== 'SERVICIOS'
-    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex, showBatteryRing, mapHeading)
+    marker.threeRenderer.update(course, isSelected, mapTilt, batteryVal, arrowColorHex, showBatteryRing, mapHeading, !!hw.charging)
   }
 
   const scale = getZoomScaleFactor()
@@ -1161,7 +1158,7 @@ watch(map, (newMap) => {
           const batteryVal = marker.currentBattery !== undefined ? marker.currentBattery : (hw.battery ?? 100)
           const arrowColorHex = getArrowColorHex(hw.time_fx, isSelected)
           const showBatteryRing = activeTab.value !== 'SERVICIOS'
-          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, showBatteryRing, currentHeading)
+          marker.threeRenderer.update(course, isSelected, currentTilt, batteryVal, arrowColorHex, showBatteryRing, currentHeading, !!hw.charging)
           return
         }
         const esc = escById.get(key)
@@ -1368,7 +1365,7 @@ watch(selectedItem, async (newVal, oldVal) => {
       routeId = String(servRef?.id_ruta || '').trim()
     }
 
-    const groupId = (groupStore.selectedGroup?.id || (route.query.group_id as string) || localStorage.getItem('auth-grupo-id') || '').trim()
+    const groupId = trackingGroupId.value
 
     console.log('[TrackingView] Ítem seleccionado:', newVal.id_servicio, '| id_ruta resuelto:', routeId || '(vacío)')
 
@@ -1506,13 +1503,10 @@ const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS') => {
   checkedHardwareSerials.value = []
 }
 
-// Al cambiar de grupo (desde el selector global de la app o por query params de la URL)
+// Al cambiar el grupo de esta ventana (p. ej. por broadcast desde la ventana principal)
 watch(
-  [() => groupStore.selectedGroup.id, () => route.query.group_id],
-  ([newStoreGroupId, newQueryGroupId], [oldStoreGroupId, oldQueryGroupId]) => {
-    const newGroupId = ((newQueryGroupId as string)?.trim() || newStoreGroupId?.trim() || '').trim()
-    const oldGroupId = ((oldQueryGroupId as string)?.trim() || oldStoreGroupId?.trim() || '').trim()
-
+  trackingGroupId,
+  (newGroupId, oldGroupId) => {
     if (newGroupId && newGroupId !== oldGroupId) {
       clearAllMarkers()
       routeParadasCache.clear()
@@ -1531,17 +1525,19 @@ onMounted(() => {
   // queda instanciar el mapa (requiere el contenedor del DOM).
   initMap()
 
-  // Escuchar cambios de grupo emitidos desde la ventana principal (Header.vue)
+  // Escuchar cambios de grupo emitidos desde la ventana principal (Header.vue).
+  // Solo las ventanas abiertas con el botón general siguen al grupo principal;
+  // las abiertas para un grupo concreto conservan siempre ese grupo.
   trackingGroupChannel = new BroadcastChannel('tracking-flota')
   trackingGroupChannel.onmessage = (event) => {
+    if (!followsMainWindow.value) return
     if (event.data?.type === 'GROUP_CHANGED' && event.data?.groupId) {
       const newGroupId = String(event.data.groupId).trim()
-      if (newGroupId && newGroupId !== route.query.group_id) {
+      if (newGroupId && newGroupId !== trackingGroupId.value) {
         console.log(`%c[Tracking] Grupo cambiado por broadcast: ${newGroupId}`, 'color: #a78bfa; font-weight: bold;')
-        // Actualizar el query param group_id — el watcher en useTrackingWebSocket.ts
-        // se encarga de limpiar el estado y reconectar con el nuevo grupo,
-        // preservando activeTab (y por tanto el modo del WebSocket).
-        router.replace({ query: { ...route.query, group_id: newGroupId } })
+        // El watcher en useTrackingWebSocket.ts se encarga de limpiar el estado y
+        // reconectar con el nuevo grupo, preservando activeTab (y el modo del WebSocket).
+        setTrackingGroupId(newGroupId)
       }
     }
   }

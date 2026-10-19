@@ -1,23 +1,15 @@
 import { ref, watch, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
 import { apiClient } from '../../../utils/api-client'
-import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
+import { useTrackingGroup } from './useTrackingGroup'
 import type { HardwareWs } from '../types/tracking'
 import { parseBattery } from '../../../utils/threeMarkerRenderer'
 
 export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS' | 'VEHICULOS'>>, selectedItem: ReturnType<typeof ref<any | null>>, onDataUpdated: () => void) {
-  const router = useRouter()
-  const route = useRoute()
-  const groupStore = useGroupStore()
   const authStore = useAuthStore()
+  const { trackingGroupId } = useTrackingGroup()
 
-  const getActiveGroupId = () => {
-    const queryGroupId = (route?.query?.group_id as string | undefined)?.trim()
-    if (queryGroupId) return queryGroupId
-    if (groupStore.selectedGroup?.id?.trim()) return groupStore.selectedGroup.id.trim()
-    return (localStorage.getItem('auth-grupo-id') || '').trim()
-  }
+  const getActiveGroupId = () => trackingGroupId.value
 
   const hardwareList = ref<HardwareWs[]>([])
   const serviciosList = ref<any[]>([])
@@ -242,17 +234,6 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     wsStatus.value = 'connecting'
     wsError.value = null
 
-    const queryToken = route?.query?.token_ws as string | undefined
-    const queryGroupId = route?.query?.group_id as string | undefined
-
-    if (queryToken) localStorage.setItem('auth-token-ws', queryToken.trim())
-    if (queryGroupId) {
-      localStorage.setItem('auth-grupo-id', queryGroupId.trim())
-      if (groupStore.selectedGroup.id !== queryGroupId.trim()) {
-        groupStore.setGroup({ id: queryGroupId.trim(), nombre: groupStore.selectedGroup.nombre || '' })
-      }
-    }
-
     const tokenWs = authStore.tokenWs || localStorage.getItem('auth-token-ws') || ''
     const groupId = getActiveGroupId()
 
@@ -368,6 +349,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                       speed: v.speed || 0,
                       course: v.course || 0,
                       battery: v.battery ?? 100,
+                      charging: !!v.charging,
                       status_lock: v.status_lock || ''
                     })
                     if (v.id_hardware) {
@@ -386,6 +368,7 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
                         speed: v.speed || 0,
                         course: v.course || 0,
                         battery: v.battery ?? 100,
+                        charging: !!v.charging,
                         status_lock: v.status_lock || ''
                       })
                     }
@@ -572,16 +555,13 @@ export function useTrackingWebSocket(activeTab: ReturnType<typeof ref<'SERVICIOS
     }
   })
 
-  // Reacción dinámica cuando cambia el grupo seleccionado en la aplicación o en la URL
+  // Reacción dinámica cuando cambia el grupo de esta ventana de tracking.
+  // No se escribe el grupo global (localStorage) para no afectar a otras ventanas.
   watch(
-    [() => groupStore.selectedGroup.id, () => route.query.group_id],
-    ([newStoreGroupId, newQueryGroupId], [oldStoreGroupId, oldQueryGroupId]) => {
-      const newGroupId = ((newQueryGroupId as string)?.trim() || newStoreGroupId?.trim() || '').trim()
-      const oldGroupId = ((oldQueryGroupId as string)?.trim() || oldStoreGroupId?.trim() || '').trim()
-
+    trackingGroupId,
+    (newGroupId, oldGroupId) => {
       if (newGroupId && newGroupId !== oldGroupId) {
         console.log(`%c[WebSocket GRUPO CAMBIADO] De "${oldGroupId}" a "${newGroupId}"`, 'color: #8b5cf6; font-weight: bold;')
-        localStorage.setItem('auth-grupo-id', newGroupId)
 
         // Limpiar listas anteriores para evitar mezclar datos de grupos
         hardwareList.value = []
