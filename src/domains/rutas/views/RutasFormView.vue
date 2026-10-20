@@ -147,16 +147,18 @@
 
               <AppInput
                 v-model="formData.descripcion_punto_inicial"
+                type="textarea"
                 label="Punto de inicio"
                 placeholder="Descripción del punto de inicio"
-                :icon="Route01Icon"
+                :rows="4"
               />
 
               <AppInput
                 v-model="formData.descripcion_punto_final"
+                type="textarea"
                 label="Punto final"
                 placeholder="Descripción del punto final"
-                :icon="Route01Icon"
+                :rows="4"
               />
             </div>
 

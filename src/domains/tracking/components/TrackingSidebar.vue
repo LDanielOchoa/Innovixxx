@@ -606,7 +606,7 @@ const toggleSelectAllHardware = () => {
     </div>
 
     <!-- Cuerpo / Lista -->
-    <div class="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-2 bg-slate-50/50 dark:bg-[#13161C]/50">
+    <div class="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1 bg-slate-50/50 dark:bg-[#13161C]/50">
       <!-- Error de sesión / credenciales -->
       <div v-if="wsError && activeTab === 'HARDWARE'" class="mx-1 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex flex-col gap-2">
         <p class="text-[10px] font-bold text-rose-400">{{ wsError }}</p>
@@ -644,7 +644,7 @@ const toggleSelectAllHardware = () => {
           v-for="item in filteredItems"
           :key="item.serial || item.id_servicio || item.id_escolta || item.placa"
           @click="emit('select', item)"
-          class="group w-full text-left p-2.5 px-3 rounded-xl transition-colors border outline-none flex items-center justify-between gap-2.5 relative select-none cursor-pointer"
+          class="group w-full text-left py-1.5 px-2.5 rounded-lg transition-colors border outline-none flex items-center justify-between gap-2 relative select-none cursor-pointer"
           :class="[
             isItemSelected(item)
               ? (activeTab === 'SERVICIOS' 
@@ -678,7 +678,7 @@ const toggleSelectAllHardware = () => {
 
           <!-- Left: Icono interactivo -->
           <div 
-            class="w-8 h-8 flex items-center justify-center shrink-0 transition-colors rounded-lg relative z-10"
+            class="w-7 h-7 flex items-center justify-center shrink-0 transition-colors rounded-md relative z-10"
             :class="[
               isItemSelected(item) 
                 ? (activeTab === 'SERVICIOS' ? 'bg-[#3b82f6]/15 text-[#3b82f6] dark:text-[#60a5fa]' :
@@ -711,10 +711,10 @@ const toggleSelectAllHardware = () => {
             
             <!-- Detalles de Servicio -->
             <template v-if="activeTab === 'SERVICIOS'">
-              <p class="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate mt-0.5">
+              <p class="text-[10.5px] font-semibold text-slate-700 dark:text-slate-200 truncate">
                 {{ item.nombre_ruta || item.id_ruta || t('tracking.noRoute') }}
               </p>
-              <div class="flex items-center gap-1.5 mt-1 flex-wrap text-[9px] font-bold">
+              <div class="flex items-center gap-1 mt-0.5 flex-wrap text-[9px] font-bold">
                 <span v-if="item.nivel_riesgo !== undefined" class="px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20">
                   {{ t('tracking.riskLevel', { level: item.nivel_riesgo }) }}
                 </span>
@@ -729,14 +729,10 @@ const toggleSelectAllHardware = () => {
 
             <!-- Otros ítems (HARDWARE y ESCOLTAS) -->
             <template v-else>
-              <p class="text-[10.5px] font-medium text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                {{ item.descripcion || item.serial || item.celular || item.email || item.identificacion || t('tracking.noDescription') }}
-              </p>
-
               <!-- Último Reporte GPS / Registro -->
-              <div 
-                v-if="getItemDateTime(item).fecha || getItemDateTime(item).hora" 
-                class="flex items-center gap-1.5 mt-1 text-[9.5px] text-slate-500 dark:text-slate-400 font-medium"
+              <div
+                v-if="getItemDateTime(item).fecha || getItemDateTime(item).hora"
+                class="flex items-center gap-1.5 mt-0.5 text-[9.5px] text-slate-500 dark:text-slate-400 font-medium"
               >
                 <HugeiconsIcon :icon="Clock01Icon" :size="11" class="text-slate-400 shrink-0" />
                 <span class="text-slate-400 dark:text-slate-500 text-[9px]">{{ t('tracking.lastReport') }}:</span>
@@ -747,7 +743,7 @@ const toggleSelectAllHardware = () => {
           </div>
 
           <!-- Right: Badges, Botón Alertas y Botón Ver Recursos -->
-          <div class="flex flex-col items-end gap-1.5 shrink-0 relative z-10">
+          <div class="flex flex-col items-end gap-1 shrink-0 relative z-10">
             <div class="flex items-center gap-1.5">
               <span v-if="item.sos" class="text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 leading-none select-none tracking-wide animate-pulse">
                 SOS

@@ -411,8 +411,12 @@ const formatLockStatus = (status: string | undefined) => {
   return normalized
 }
 
+// Reduce el tamaño de los marcadores al alejar el mapa (1 desde zoom 15, hasta 0.35 en zoom 8 o menos)
 const getZoomScaleFactor = () => {
-  return 1
+  const zoom = map.value ? map.value.getZoom() || 13 : 13
+  if (zoom >= 15) return 1
+  if (zoom <= 8) return 0.35
+  return 0.35 + ((zoom - 8) / 7) * 0.65
 }
 
 const getArrowColorHex = (timeFx?: number | string, isSelected = false): number => {
@@ -877,8 +881,8 @@ const updateMarkersOnMap = () => {
     })
   }
 
-  // Agrupar solo en vistas lejanas (zoom inferior a 15)
-  const shouldCluster = currentZoom < 15
+  // Agrupación de dispositivos/escoltas deshabilitada: siempre se muestran individuales
+  const shouldCluster = false
 
   let singleItems: ClusterItem[] = []
   let clusters: Cluster[] = []
@@ -1653,14 +1657,17 @@ const hoveredEscoltaServiceDateTime = computed(() => {
 })
 
 const hoveredHardwareDateTime = computed(() => {
-  const hw = hoveredItem.value
-  if (!hw) return { fecha: null, hora: null }
+  const hovered = hoveredItem.value
+  if (!hovered) return { fecha: null, hora: null }
+  // El marcador conserva el objeto del momento de su creación; se toma el dato vivo de la lista
+  const hw = hardwareList.value.find(h => h.serial === hovered.serial) || hovered
   return formatTimestampDateTime(hw.time_fx || (hw as any).device_ts || (hw as any).fecha_hora)
 })
 
 const hoveredEscoltaDateTime = computed(() => {
-  const esc = hoveredEscoltaItem.value
-  if (!esc) return { fecha: null, hora: null }
+  const hovered = hoveredEscoltaItem.value
+  if (!hovered) return { fecha: null, hora: null }
+  const esc = escoltasList.value.find((e: any) => e.id_escolta === hovered.id_escolta) || hovered
   return formatTimestampDateTime(esc.time_fx || esc.fecha_hora || esc.device_ts)
 })
 
