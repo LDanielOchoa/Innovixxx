@@ -177,7 +177,7 @@ const hoveredEscoltaService = computed(() => {
 // Estado del mapa y marcadores
 let markersMap = new Map<string, any>()
 let clustersMap = new Map<string, any>()
-const TRACKING_RENDER_SIZE = 112
+const TRACKING_RENDER_SIZE = 72
 const TRACKING_RENDER_ANCHOR_TOP = `-${TRACKING_RENDER_SIZE / 2}px`
 
 interface ClusterItem {
@@ -439,14 +439,14 @@ const getArrowColorHex = (timeFx?: number | string, isSelected = false): number 
 const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-gps-marker'
-  container.style.cssText = 'position:relative;width:112px;height:148px;cursor:pointer;display:flex;flex-direction:column;align-items:center;'
+  container.style.cssText = 'position:relative;width:72px;height:108px;cursor:pointer;display:flex;flex-direction:column;align-items:center;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
   inner.style.cssText = [
     'position:relative',
-    'width:112px',
-    'height:112px',
+    'width:72px',
+    'height:72px',
     'flex-shrink:0',
     'transform-origin:center center',
     'transition:transform 0.1s ease-out'
@@ -454,9 +454,9 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
 
   const canvas = document.createElement('canvas')
   canvas.className = 'marker-3d-canvas'
-  canvas.width = 112
-  canvas.height = 112
-  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
+  canvas.width = 72
+  canvas.height = 72
+  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:72px;height:72px;pointer-events:none;z-index:2;'
   inner.appendChild(canvas)
 
   const speedVal = hw.speed || 0
@@ -577,7 +577,7 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
 const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
   const container = document.createElement('div')
   container.className = 'custom-escolta-marker'
-  container.style.cssText = 'position:relative;width:112px;height:112px;cursor:pointer;'
+  container.style.cssText = 'position:relative;width:72px;height:72px;cursor:pointer;'
 
   const inner = document.createElement('div')
   inner.className = 'marker-inner-wrapper'
@@ -585,17 +585,17 @@ const createEscoltaMarkerElement = (esc: any, isSelected: boolean) => {
     'position:absolute',
     'top:0',
     'left:0',
-    'width:112px',
-    'height:112px',
+    'width:72px',
+    'height:72px',
     'transform-origin:center center',
     'transition:transform 0.1s ease-out'
   ].join(';')
 
   const canvas = document.createElement('canvas')
   canvas.className = 'marker-3d-canvas'
-  canvas.width = 112
-  canvas.height = 112
-  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:112px;height:112px;pointer-events:none;z-index:2;'
+  canvas.width = 72
+  canvas.height = 72
+  canvas.style.cssText = 'position:absolute;top:0px;left:0px;width:72px;height:72px;pointer-events:none;z-index:2;'
   inner.appendChild(canvas)
 
   container.addEventListener('mouseenter', () => {

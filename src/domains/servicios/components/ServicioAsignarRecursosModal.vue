@@ -108,6 +108,7 @@ const loadingConductores = ref(false)
 // Campos del formulario
 const selectedRutaId = ref('')
 const fechaHoraInicio = ref<Date | null>(null)
+const fechaHoraFinal = ref<Date | null>(null)
 const modoFin = ref('1')
 const nivelRiesgo = ref('1')
 const alcanceNacional = ref('1')
@@ -328,6 +329,7 @@ watch(() => props.isOpen, async (isOpen) => {
     vehiculoAsignandoConductor.value = null
     selectedEscoltasIds.value = []
     fechaHoraInicio.value = null
+    fechaHoraFinal.value = null
     modoFin.value = '1'
     nivelRiesgo.value = '1'
     alcanceNacional.value = '1'
@@ -346,6 +348,12 @@ watch(() => props.isOpen, async (isOpen) => {
         const parsed = new Date(props.servicio.fecha_inicio.replace(' ', 'T'))
         if (!isNaN(parsed.getTime())) {
           fechaHoraInicio.value = parsed
+        }
+      }
+      if (props.servicio.fecha_hora_final) {
+        const parsedFinal = new Date(props.servicio.fecha_hora_final.replace(' ', 'T'))
+        if (!isNaN(parsedFinal.getTime())) {
+          fechaHoraFinal.value = parsedFinal
         }
       }
       if (props.servicio.id_ruta) {
@@ -868,6 +876,7 @@ const handleAsignar = async () => {
     id_grupo: groupStore.selectedGroup?.id || '',
     id_servicio: props.servicio?.id_servicio || '',
     fecha_hora_inicio: formatFechaHora(fechaHoraInicio.value),
+    fecha_hora_final: formatFechaHora(fechaHoraFinal.value),
     modo_fin: modoFin.value ? parseInt(modoFin.value, 10) : NaN,
     nivel_riesgo: nivelRiesgo.value ? parseInt(nivelRiesgo.value, 10) : NaN,
     alcance: alcanceNacional.value ? parseInt(alcanceNacional.value, 10) : NaN,
@@ -1056,6 +1065,16 @@ const formatFechaHora = (date: Date | null): string => {
               disable-past
             />
             <span v-if="getError('fecha_hora_inicio')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_inicio') }}</span>
+          </div>
+
+          <div>
+            <AppDateTimePicker
+              v-model="fechaHoraFinal"
+              :label="t('servicios.labelDateTimeEnd')"
+              :placeholder="t('servicios.placeholderDateTime')"
+              disable-past
+            />
+            <span v-if="getError('fecha_hora_final')" class="text-xs text-red-500 font-bold block ml-1 mt-1">{{ getError('fecha_hora_final') }}</span>
           </div>
 
           <!-- Fila 2: Modo Fin, Nivel Riesgo, Alcance -->

@@ -1,6 +1,7 @@
 export interface Servicio {
   id_servicio: string
   fecha_inicio: string
+  fecha_hora_final?: string
   modo_fin: string
   alcance: string
   nivel_riesgo: string
@@ -66,6 +67,7 @@ export interface ServicioAsignarRecursosPayload {
   id_grupo: string
   id_servicio: string
   fecha_hora_inicio: string
+  fecha_hora_final: string
   modo_fin: number
   nivel_riesgo: number
   alcance: number

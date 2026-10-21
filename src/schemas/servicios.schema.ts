@@ -27,6 +27,7 @@ export const servicioAsignarRecursosSchema = z.object({
   id_grupo: z.string().length(8, 'Grupo inválido'),
   id_servicio: z.string().min(1),
   fecha_hora_inicio: z.string().min(1, 'La fecha y hora de inicio es obligatoria'),
+  fecha_hora_final: z.string().min(1, 'La fecha y hora final es obligatoria'),
   modo_fin: z.number().int(),
   nivel_riesgo: z.number().int().min(1, 'Debe seleccionar el nivel de riesgo'),
   alcance: z.number().int().min(1, 'Debe seleccionar el alcance'),
