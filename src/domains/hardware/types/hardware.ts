@@ -19,6 +19,9 @@ export interface Hardware {
   grupo_servicio?: string
   id_escolta?: string
   id_ruta?: number | string
+  ultimo_reporte?: string | null
+  ultimo_lat?: number | string | null
+  ultimo_lon?: number | string | null
 }
 
 export interface HardwareChangeStatePayload {

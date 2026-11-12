@@ -23,7 +23,8 @@ import {
   BatteryCharging01Icon,
   FlashOffIcon,
   Clock01Icon,
-  User02Icon
+  User02Icon,
+  MapsIcon
 } from '@hugeicons/core-free-icons'
 import { loadModuleMessages } from '../../../i18n'
 
@@ -49,6 +50,7 @@ import AppDeleteConfirm from '../../../components/ui/AppDeleteConfirm.vue'
 import AppBadge from '../../../components/ui/AppBadge.vue'
 import HardwareFormModal from '../components/HardwareFormModal.vue'
 import HardwarePosicionModal from '../components/HardwarePosicionModal.vue'
+import HardwareUltimoPuntoModal from '../components/HardwareUltimoPuntoModal.vue'
 import HardwareAbrirCandadoModal from '../components/HardwareAbrirCandadoModal.vue'
 import HardwareOffsetHoursModal from '../components/HardwareOffsetHoursModal.vue'
 import HardwareCambiarEstadoModal from '../components/HardwareCambiarEstadoModal.vue'
@@ -188,7 +190,7 @@ const toggleMenu = (id: string, event: MouseEvent) => {
   const button = event.currentTarget as HTMLElement
   const rect = button.getBoundingClientRect()
   const spaceBelow = window.innerHeight - rect.bottom
-  const estimatedMenuHeight = 150 // Altura aproximada del menú flotante
+  const estimatedMenuHeight = 260 // Altura aproximada del menú flotante
 
   if (spaceBelow < estimatedMenuHeight) {
     // Abrir hacia arriba
@@ -316,6 +318,15 @@ const openPosicionModal = (item: Hardware) => {
   isPosicionModalOpen.value = true
 }
 
+// Modal de último punto mapa
+const isUltimoPuntoModalOpen = ref(false)
+const ultimoPuntoHardware = ref<Hardware | null>(null)
+
+const openUltimoPuntoModal = (item: Hardware) => {
+  ultimoPuntoHardware.value = item
+  isUltimoPuntoModalOpen.value = true
+}
+
 // Modal de abrir candado
 const isAbrirCandadoModalOpen = ref(false)
 const candadoHardware = ref<Hardware | null>(null)
@@ -343,11 +354,12 @@ const openCambiarEstadoModal = (item: Hardware) => {
   isCambiarEstadoModalOpen.value = true
 }
 
-const handleMenuAction = (action: 'posicion' | 'bateria' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas' | 'cambiar-estado') => {
+const handleMenuAction = (action: 'posicion' | 'ultimo-punto' | 'bateria' | 'edit' | 'delete' | 'abrir-candado' | 'offset-horas' | 'cambiar-estado') => {
   const item = items.value.find(i => i.id_hardware === openMenuId.value)
   openMenuId.value = null
   if (!item) return
   if (action === 'posicion') openPosicionModal(item)
+  else if (action === 'ultimo-punto') openUltimoPuntoModal(item)
   else if (action === 'bateria') openBateriaModal(item)
   else if (action === 'edit') openEditModal(item)
   else if (action === 'delete') confirmDelete(item.id_hardware)
@@ -410,6 +422,7 @@ const exportToExcel = () => {
     IMEI: item.imei,
     MAC: item.mac,
     ISDN: item.isdn || '---',
+    'Último Reporte': item.ultimo_reporte || '---',
     Estado: item.estado
   }))
   const worksheet = XLSX.utils.json_to_sheet(dataToExport)
@@ -786,6 +799,19 @@ const filteredItems = computed(() => {
           </template>
         </Column>
 
+        <!-- Columna Último Reporte -->
+        <Column field="ultimo_reporte" :header="t('hardware.thLastReport')" sortable headerStyle="min-width: 155px">
+          <template #body="{ data }">
+            <div v-if="data.ultimo_reporte" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/10">
+              <HugeiconsIcon :icon="Clock01Icon" :size="13" class="text-[#3b82f6] dark:text-[#5da6fc] shrink-0" />
+              <span class="font-mono text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                {{ data.ultimo_reporte }}
+              </span>
+            </div>
+            <span v-else class="text-[11px] text-slate-400 dark:text-slate-500 font-mono">---</span>
+          </template>
+        </Column>
+
         <Column field="estado" :header="t('hardware.thStatus')" sortable>
           <template #body="{ data }">
             <span
@@ -828,7 +854,7 @@ const filteredItems = computed(() => {
         <Transition name="dropdown-menu">
           <div
             v-if="openMenuId"
-            class="fixed z-[9999] w-48 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
+            class="fixed z-[9999] w-52 bg-white dark:bg-[#1A1D24] border border-slate-200/60 dark:border-white/10 rounded-xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_20px_40px_rgba(0,0,0,0.5)] overflow-hidden"
             :style="{ 
               ...(menuPosition.top ? { top: menuPosition.top } : {}), 
               ...(menuPosition.bottom ? { bottom: menuPosition.bottom } : {}), 
@@ -842,6 +868,13 @@ const filteredItems = computed(() => {
             >
               <HugeiconsIcon :icon="Location01Icon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
               <span>{{ t('hardware.actionViewPosition') }}</span>
+            </button>
+            <button
+              @click="handleMenuAction('ultimo-punto')"
+              class="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
+            >
+              <HugeiconsIcon :icon="MapsIcon" :size="16" class="text-[#3b82f6] dark:text-[#5da6fc]" />
+              <span>{{ t('hardware.actionLastPointMap') }}</span>
             </button>
             <button
               v-if="esFamiliaGL800(openMenuItem)"
@@ -922,6 +955,12 @@ const filteredItems = computed(() => {
     <HardwarePosicionModal
       v-model:is-open="isPosicionModalOpen"
       :hardware="posicionHardware"
+    />
+
+    <!-- Modal Último Punto Mapa -->
+    <HardwareUltimoPuntoModal
+      v-model:is-open="isUltimoPuntoModalOpen"
+      :hardware="ultimoPuntoHardware"
     />
 
     <!-- Modal Abrir Candado -->

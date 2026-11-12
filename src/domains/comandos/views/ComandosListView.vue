@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import * as XLSX from 'xlsx'
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useToast } from 'primevue/usetoast'
 import { loadModuleMessages } from '../../../i18n'
 import { useGroupStore } from '../../../stores/group.store'
 import { useAuthStore } from '../../../stores/auth.store'
@@ -18,7 +19,9 @@ import {
   Edit02Icon,
   Delete01Icon,
   CpuIcon,
-  PlayIcon
+  PlayIcon,
+  Copy01Icon,
+  Tick01Icon
 } from '@hugeicons/core-free-icons'
 import Column from 'primevue/column'
 import { fetchComandosApi, deleteComandoApi } from '../services/comandos.api'
@@ -38,6 +41,7 @@ import ComandoEjecutarModal from '../components/ComandoEjecutarModal.vue'
 loadModuleMessages('comandos')
 
 const { t } = useI18n()
+const toast = useToast()
 const authStore = useAuthStore()
 const groupStore = useGroupStore()
 const { selectedGroup } = storeToRefs(groupStore)
@@ -61,6 +65,84 @@ const itemToExecute = ref<Comando | null>(null)
 const openMenuId = ref<string | null>(null)
 const menuPosition = ref<{ top?: string; bottom?: string; right: string }>({ right: '0px' })
 
+// Estado para el tooltip flotante y copiado de texto
+const tooltipItem = ref<Comando | null>(null)
+const tooltipVisible = ref(false)
+const tooltipPosition = ref<{ top?: string; bottom?: string; left: string }>({ left: '0px' })
+const copiedId = ref<string | null>(null)
+let tooltipTimeout: ReturnType<typeof setTimeout> | null = null
+let copiedTimeout: ReturnType<typeof setTimeout> | null = null
+
+const handleMouseEnterText = (item: Comando, event: MouseEvent) => {
+  if (tooltipTimeout) clearTimeout(tooltipTimeout)
+  const target = event.currentTarget as HTMLElement
+  const rect = target.getBoundingClientRect()
+
+  const tooltipWidth = 380
+  const estimatedHeight = 200
+  const spaceAbove = rect.top
+  const showBelow = spaceAbove < estimatedHeight && (window.innerHeight - rect.bottom) > spaceAbove
+
+  let left = rect.left
+  if (left + tooltipWidth > window.innerWidth - 16) {
+    left = window.innerWidth - tooltipWidth - 16
+  }
+  if (left < 16) left = 16
+
+  if (showBelow) {
+    tooltipPosition.value = {
+      top: `${rect.bottom + 8}px`,
+      left: `${left}px`
+    }
+  } else {
+    tooltipPosition.value = {
+      bottom: `${window.innerHeight - rect.top + 8}px`,
+      left: `${left}px`
+    }
+  }
+
+  tooltipItem.value = item
+  tooltipVisible.value = true
+}
+
+const handleMouseLeaveText = () => {
+  tooltipTimeout = setTimeout(() => {
+    tooltipVisible.value = false
+    tooltipItem.value = null
+  }, 180)
+}
+
+const handleTooltipMouseEnter = () => {
+  if (tooltipTimeout) clearTimeout(tooltipTimeout)
+}
+
+const handleTooltipMouseLeave = () => {
+  tooltipVisible.value = false
+  tooltipItem.value = null
+}
+
+const copyCommandText = async (item: Comando) => {
+  if (!item.texto) return
+  try {
+    await navigator.clipboard.writeText(item.texto)
+    const id = item.id_comando || item.mask || item.nombre
+    copiedId.value = id
+    if (copiedTimeout) clearTimeout(copiedTimeout)
+    copiedTimeout = setTimeout(() => {
+      if (copiedId.value === id) copiedId.value = null
+    }, 2000)
+
+    toast.add({
+      severity: 'success',
+      summary: t('comandos.copied'),
+      detail: item.nombre || t('comandos.tooltipTitle'),
+      life: 2200
+    })
+  } catch (err) {
+    console.error('Error al copiar texto:', err)
+  }
+}
+
 const currentPage = ref(1)
 const itemsPerPage = 10
 
@@ -77,6 +159,11 @@ const cargarFamilias = async () => {
 
 onMounted(() => {
   cargarFamilias()
+})
+
+onUnmounted(() => {
+  if (tooltipTimeout) clearTimeout(tooltipTimeout)
+  if (copiedTimeout) clearTimeout(copiedTimeout)
 })
 
 const opcionesFamilias = computed(() => {
@@ -364,32 +451,29 @@ const exportToExcel = () => {
           </template>
         </Column>
 
-        <!-- Columna Ver Texto (con Tooltip al pasar el mouse) -->
+        <!-- Columna Ver Texto (con Tooltip al pasar el mouse y copiar al hacer click) -->
         <Column :header="t('comandos.thText')" headerStyle="width: 180px">
           <template #body="{ data }">
-            <div class="relative group/tooltip inline-block">
-              <!-- Botón / Chip interactivo -->
-              <div 
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30 transition-all cursor-pointer select-none"
-              >
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" class="text-[#3b82f6] dark:text-[#5da6fc]" />
-                <span class="text-[12px] font-semibold">{{ t('comandos.viewText') }}</span>
-              </div>
-
-              <!-- Tooltip flotante al pasar el mouse -->
-              <div 
-                class="absolute bottom-full left-0 mb-2.5 hidden group-hover/tooltip:flex flex-col gap-1 w-max max-w-sm p-3 bg-slate-900/95 dark:bg-[#1A1D24]/95 text-white rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.3)] border border-slate-700/60 dark:border-white/10 backdrop-blur-md z-50 pointer-events-none transition-all duration-200"
-              >
-                <div class="flex items-center gap-1.5 text-[#5da6fc] font-bold text-[10px] uppercase tracking-wider">
-                  <HugeiconsIcon :icon="CommandLineIcon" :size="12" />
-                  <span>{{ t('comandos.tooltipTitle') }}</span>
-                </div>
-                <div class="font-mono text-[12px] text-slate-200 bg-black/40 px-2 py-1.5 rounded-lg break-all select-all text-left">
-                  {{ data.texto || t('comandos.noCommandText') }}
-                </div>
-                <!-- Flecha inferior del tooltip -->
-                <div class="absolute top-full left-6 -translate-x-1/2 border-4 border-transparent border-t-slate-900/95 dark:border-t-[#1A1D24]/95"></div>
-              </div>
+            <div 
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95"
+              :class="[
+                copiedId === (data.id_comando || data.mask || data.nombre)
+                  ? 'bg-emerald-50 dark:bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-slate-100 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:text-[#3b82f6] dark:hover:text-[#5da6fc] hover:border-[#3b82f6]/30 dark:hover:border-[#3b82f6]/30'
+              ]"
+              @mouseenter="handleMouseEnterText(data, $event)"
+              @mouseleave="handleMouseLeaveText"
+              @click.stop="copyCommandText(data)"
+              :title="t('comandos.copyCommandText')"
+            >
+              <HugeiconsIcon 
+                :icon="copiedId === (data.id_comando || data.mask || data.nombre) ? Tick01Icon : HelpCircleIcon" 
+                :size="14" 
+                :class="copiedId === (data.id_comando || data.mask || data.nombre) ? 'text-emerald-600 dark:text-emerald-400' : 'text-[#3b82f6] dark:text-[#5da6fc]'" 
+              />
+              <span class="text-[12px] font-semibold">
+                {{ copiedId === (data.id_comando || data.mask || data.nombre) ? t('comandos.copied') : t('comandos.viewText') }}
+              </span>
             </div>
           </template>
         </Column>
@@ -461,6 +545,54 @@ const exportToExcel = () => {
       </div>
     </AppTableCard>
 
+    <!-- Tooltip / Popover Flotante para Texto de Comando -->
+    <Teleport to="body">
+      <Transition name="tooltip-popover">
+        <div
+          v-if="tooltipVisible && tooltipItem"
+          class="fixed z-[9999] w-[320px] sm:w-[380px] p-3.5 bg-slate-900/95 dark:bg-[#1A1D24]/95 text-white rounded-2xl shadow-[0_15px_35px_rgba(0,0,0,0.4)] border border-slate-700/70 dark:border-white/10 backdrop-blur-xl pointer-events-auto flex flex-col gap-2"
+          :style="{
+            ...(tooltipPosition.top ? { top: tooltipPosition.top } : {}),
+            ...(tooltipPosition.bottom ? { bottom: tooltipPosition.bottom } : {}),
+            left: tooltipPosition.left
+          }"
+          @mouseenter="handleTooltipMouseEnter"
+          @mouseleave="handleTooltipMouseLeave"
+          @click.stop="copyCommandText(tooltipItem)"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5 text-[#5da6fc] font-bold text-[10px] uppercase tracking-wider">
+              <HugeiconsIcon :icon="CommandLineIcon" :size="13" />
+              <span>{{ t('comandos.tooltipTitle') }}</span>
+            </div>
+            <button
+              v-if="tooltipItem.texto"
+              type="button"
+              @click.stop="copyCommandText(tooltipItem)"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer"
+              :class="[
+                copiedId === (tooltipItem.id_comando || tooltipItem.mask || tooltipItem.nombre)
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : 'bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white'
+              ]"
+            >
+              <HugeiconsIcon 
+                :icon="copiedId === (tooltipItem.id_comando || tooltipItem.mask || tooltipItem.nombre) ? Tick01Icon : Copy01Icon" 
+                :size="11" 
+              />
+              <span>
+                {{ copiedId === (tooltipItem.id_comando || tooltipItem.mask || tooltipItem.nombre) ? t('comandos.copied') : t('comandos.copyCommandText') }}
+              </span>
+            </button>
+          </div>
+
+          <div class="font-mono text-[12px] leading-relaxed text-slate-200 bg-black/40 p-2.5 rounded-xl break-all select-all text-left max-h-48 overflow-y-auto custom-scrollbar border border-white/5 cursor-pointer">
+            {{ tooltipItem.texto || t('comandos.noCommandText') }}
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- Modal Formulario (Crear / Editar) -->
     <ComandoFormModal
       v-model:is-open="isModalOpen"
@@ -499,5 +631,16 @@ const exportToExcel = () => {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.tooltip-popover-enter-active,
+.tooltip-popover-leave-active {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tooltip-popover-enter-from,
+.tooltip-popover-leave-to {
+  opacity: 0;
+  transform: translateY(4px) scale(0.97);
 }
 </style>
