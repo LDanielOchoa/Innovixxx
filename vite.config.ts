@@ -27,6 +27,10 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ['admin.innovixing.com', 'innovix.gfandino.xyz'],
+    fs: {
+      // Permite leer archivos del directorio actual y carpetas del sistema como .git
+      allow: ['.', '/var/www/Frontend/Innovixxx']
+    },
     proxy: {
       '/ws-flota': {
         target: 'ws://74.208.52.73:8901',
