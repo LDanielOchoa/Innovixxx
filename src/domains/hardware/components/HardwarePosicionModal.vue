@@ -63,7 +63,7 @@ interface PosicionItem {
   speed: string
   battery: string
   course: string
-  time_dv: string
+  time_fx: string
   sos: string
   isFirst: boolean
   isLast: boolean
@@ -310,10 +310,10 @@ const createPointMarker = (item: PosicionItem) => {
     position: { lat: item.lat, lng: item.lon },
     map: map.value,
     title: isFirst
-      ? `${t('hardware.start')} ${formatUnixTime(item.time_dv)}`
+      ? `${t('hardware.start')} ${formatUnixTime(item.time_fx)}`
       : isLast
-        ? `${t('hardware.end')} ${formatUnixTime(item.time_dv)}`
-        : formatUnixTime(item.time_dv),
+        ? `${t('hardware.end')} ${formatUnixTime(item.time_fx)}`
+        : formatUnixTime(item.time_fx),
     zIndex: isFirst || isLast ? 100 : 10,
     icon: isFirst
       ? {
@@ -345,7 +345,7 @@ const createPointMarker = (item: PosicionItem) => {
     <div style="font-family:Inter,sans-serif;padding:6px 4px;min-width:185px;">
       <div style="font-size:12px;font-weight:700;color:#0f172a;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
         <span style="display:inline-block;width:8px;height:8px;border-radius:9999px;background:${dotColor};flex-shrink:0;"></span>
-        <span>${formatUnixTime(item.time_dv)}</span>
+        <span>${formatUnixTime(item.time_fx)}</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;font-size:11px;">
         <span style="color:#64748b;">${t('hardware.speed')}</span>
@@ -409,7 +409,7 @@ const drawPositions = async () => {
       speed: pos.speed ?? '0',
       battery: pos.battery ?? '0',
       course: pos.course ?? '0',
-      time_dv: pos.time_dv ?? '',
+      time_fx: pos.time_fx ?? '',
       isFirst: index === 0,
       isLast: index === posiciones.value.length - 1
     })
@@ -838,9 +838,9 @@ const currentTimeDisplay = computed(() => {
   const frac = scaled - idx
   const posA = posiciones.value[Math.min(idx, posiciones.value.length - 1)]
   const posB = posiciones.value[Math.min(idx + 1, posiciones.value.length - 1)]
-  if (!posA?.time_dv) return '--:--'
-  const timeA = parseInt(posA.time_dv) * 1000
-  const timeB = parseInt(posB.time_dv) * 1000
+  if (!posA?.time_fx) return '--:--'
+  const timeA = parseInt(posA.time_fx) * 1000
+  const timeB = parseInt(posB.time_fx) * 1000
   const interpTime = lerp(timeA, timeB, frac)
   const date = new Date(interpTime)
   const hours = String(date.getHours()).padStart(2, '0')
@@ -851,8 +851,8 @@ const currentTimeDisplay = computed(() => {
 const totalTimeDisplay = computed(() => {
   if (!posiciones.value.length) return '--:--'
   const pos = posiciones.value[posiciones.value.length - 1]
-  if (!pos?.time_dv) return '--:--'
-  return formatUnixTimeOnly(pos.time_dv)
+  if (!pos?.time_fx) return '--:--'
+  return formatUnixTimeOnly(pos.time_fx)
 })
 
 const currentDateDisplay = computed(() => {
@@ -860,8 +860,8 @@ const currentDateDisplay = computed(() => {
   const scaled = smoothProgress.value * (posiciones.value.length - 1)
   const idx = Math.floor(scaled)
   const pos = posiciones.value[Math.min(idx, posiciones.value.length - 1)]
-  if (!pos?.time_dv) return ''
-  const date = new Date(parseInt(pos.time_dv) * 1000)
+  if (!pos?.time_fx) return ''
+  const date = new Date(parseInt(pos.time_fx) * 1000)
   const day = String(date.getDate()).padStart(2, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const year = date.getFullYear()
@@ -971,12 +971,12 @@ onUnmounted(() => {
             <div v-if="firstPosition" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
               <span class="text-slate-500 dark:text-slate-400">{{ t('hardware.start') }}</span>
-              <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(firstPosition.time_dv) }}</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(firstPosition.time_fx) }}</span>
             </div>
             <div v-if="lastPosition" class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
               <span class="text-slate-500 dark:text-slate-400">{{ t('hardware.end') }}</span>
-              <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(lastPosition.time_dv) }}</span>
+              <span class="font-semibold text-slate-700 dark:text-slate-200">{{ formatUnixTime(lastPosition.time_fx) }}</span>
             </div>
           </div>
         </div>
