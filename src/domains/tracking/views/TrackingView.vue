@@ -8,6 +8,8 @@ import { useMapSetup } from '../../../composables/useMapSetup'
 import { HugeiconsIcon } from '@hugeicons/vue'
 import { ChipIcon, UserGroupIcon, MapsIcon, Loading03Icon, Settings02Icon, Clock01Icon } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
+import { fetchFamiliasApi } from '../../hardware/services/hardware.api'
+import type { FamiliaHardware } from '../../hardware/types/hardware'
 import { useTrackingWebSocket } from '../composables/useTrackingWebSocket'
 import { useTrackingGeocercas } from '../composables/useTrackingGeocercas'
 import { useTrackingGroup } from '../composables/useTrackingGroup'
@@ -59,8 +61,10 @@ const activeTab = ref<'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS'>('SERVICIOS')
 const searchQuery = ref('')
 const selectedItem = ref<any | null>(null)
 const checkedHardwareSerials = ref<string[]>([])
+// Filtro por familia de hardware ('ALL' = todas); controla lista y mapa
+const familiaFilter = ref<string>('ALL')
 
-watch(checkedHardwareSerials, () => {
+watch([checkedHardwareSerials, familiaFilter], () => {
   scheduleMarkersUpdate()
 }, { deep: true })
 
@@ -126,6 +130,54 @@ const {
 // el DOM): gana el tiempo que antes se perdía esperando al onMounted.
 connectWebSocket()
 loadAllReferenceData()
+
+// Familias de hardware (hardware/familias/): se comparan con hw.id_familia para
+// saber si un dispositivo es w07 y mostrar el ícono de incógnito en el marcador.
+const familiasHw = ref<FamiliaHardware[]>([])
+const getFamiliaNombre = (hw: HardwareWs): string => {
+  const fam = familiasHw.value.find(f => String(f.id_familia) === String(hw.id_familia))
+  return fam?.nombre?.toLowerCase() ?? ''
+}
+fetchFamiliasApi()
+  .then((list) => {
+    familiasHw.value = list
+    scheduleMarkersUpdate()
+  })
+  .catch((e) => console.error('Error cargando familias de hardware:', e))
+
+const satelliteIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="9.5" y="9.5" width="5" height="5" rx="1" transform="rotate(45 12 12)" fill="rgba(45,212,191,0.4)" stroke="#2dd4bf" stroke-width="2.2"/>
+  <path d="M6.5 6.5L3 3M3 7.5l4.5-4.5M17.5 17.5L21 21M16.5 21l4.5-4.5" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M15.5 4.5a6 6 0 0 1 4 4M15 8a2.5 2.5 0 0 1 1 1" stroke="#2dd4bf" stroke-width="2.2" stroke-linecap="round"/>
+</svg>`
+
+// Ícono por familia de hardware (clave = nombre de la familia en minúsculas)
+const getFamiliaIcon = (hw: HardwareWs): { svg: string, glow: string } | null => {
+  switch (getFamiliaNombre(hw)) {
+    case 'w07': return { svg: incognitoIconSvg, glow: 'rgba(167,139,250,0.9)' }
+    case 'g107': return { svg: satelliteIconSvg, glow: 'rgba(45,212,191,0.9)' }
+    default: return null
+  }
+}
+const applyFamiliaIcon = (el: HTMLElement, hw: HardwareWs) => {
+  const icon = getFamiliaIcon(hw)
+  if (!icon) {
+    el.style.display = 'none'
+    return
+  }
+  el.innerHTML = icon.svg
+  el.title = getFamiliaNombre(hw).toUpperCase()
+  el.style.filter = `drop-shadow(0 0 4px ${icon.glow})`
+  el.style.display = 'flex'
+}
+
+const incognitoIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M2 11h20" stroke="#a78bfa" stroke-width="2" stroke-linecap="round"/>
+  <path d="M5 11l1.6-5.2A2 2 0 0 1 8.5 4.4h7a2 2 0 0 1 1.9 1.4L19 11" fill="rgba(167,139,250,0.35)" stroke="#a78bfa" stroke-width="2.2" stroke-linejoin="round"/>
+  <circle cx="7.5" cy="16.5" r="2.8" stroke="#a78bfa" stroke-width="2.2"/>
+  <circle cx="16.5" cy="16.5" r="2.8" stroke="#a78bfa" stroke-width="2.2"/>
+  <path d="M10.3 16.2c1-.6 2.4-.6 3.4 0" stroke="#a78bfa" stroke-width="2.2" stroke-linecap="round"/>
+</svg>`
 
 const handleLogoutFromWsModal = () => {
   showWsModal.value = false
@@ -523,6 +575,12 @@ const createHardwareMarkerElement = (hw: HardwareWs, isSelected: boolean) => {
   speedSection.appendChild(speedBadge)
   speedSection.appendChild(speedUnit)
 
+  const incognitoEl = document.createElement('div')
+  incognitoEl.className = 'tail-incognito'
+  incognitoEl.style.cssText = 'display:none;align-items:center;margin-left:2px;padding-left:5px;border-left:1px solid rgba(255,255,255,0.18);'
+  applyFamiliaIcon(incognitoEl, hw)
+  speedSection.appendChild(incognitoEl)
+
   tail.appendChild(speedSection)
 
   if (hasLockStatus) {
@@ -668,7 +726,9 @@ const updateMarkerContent = (marker: any, hw: HardwareWs, isSelected: boolean) =
   if (speedBadge) {
     speedBadge.textContent = `${Math.round(speedVal)}`
   }
-  const lockBadge = content.querySelector('.tail-lock') as HTMLElement | null
+  const incognitoEl = content.querySelector('.tail-incognito') as HTMLElement | null
+  if (incognitoEl) applyFamiliaIcon(incognitoEl, hw)
+  const lockBadge =content.querySelector('.tail-lock') as HTMLElement | null
   const lockIconEl = content.querySelector('.tail-lock-icon') as HTMLElement | null
   if (lockBadge && lockIconEl) {
     const isLocked = lockProgress >= 0.5
@@ -861,6 +921,9 @@ const updateMarkersOnMap = () => {
 
     hardwareList.value.forEach(hw => {
       if (filterSet && !filterSet.has(hw.serial) && !filterSet.has(hw.id_hardware)) {
+        return
+      }
+      if (activeTab.value === 'HARDWARE' && familiaFilter.value !== 'ALL' && String(hw.id_familia) !== familiaFilter.value) {
         return
       }
       const latNum = Number(hw.lat)
@@ -1505,6 +1568,7 @@ const changeTab = (tab: 'SERVICIOS' | 'HARDWARE' | 'ESCOLTAS') => {
   selectedItem.value = null
   searchQuery.value = ''
   checkedHardwareSerials.value = []
+  familiaFilter.value = 'ALL'
 }
 
 // Al cambiar el grupo de esta ventana (p. ej. por broadcast desde la ventana principal)
@@ -2048,6 +2112,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
     <TrackingSidebar
       v-model:searchQuery="searchQuery"
       v-model:checkedHardwareSerials="checkedHardwareSerials"
+      v-model:familiaFilter="familiaFilter"
       :activeTab="activeTab"
       :hardwareList="hardwareList"
       :serviciosList="serviciosList"
@@ -2056,6 +2121,7 @@ const hoveredEscoltaServiceEstadoInfo = computed(() => {
       :refEscoltas="refEscoltas"
       :refVehiculos="refVehiculos"
       :refHardware="refHardware"
+      :familias="familiasHw"
       :isLoadingSecondary="isLoadingSecondary"
       :wsStatus="wsStatus"
       :wsError="wsError"

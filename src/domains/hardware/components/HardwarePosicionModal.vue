@@ -23,6 +23,9 @@ import { ThreeMarkerRenderer } from '../../../utils/threeMarkerRenderer'
 import { load3dAssets } from '../../../utils/three3dLoader'
 import { fetchMapPositionsApi } from '../services/hardware.api'
 import type { Hardware, Posicion } from '../types/hardware'
+import { fetchGeocercasApi, fetchGeocercaDetallesApi } from '../../geocercas/services/geocercas.api'
+import type { Geocerca, GeocercaDetalle, GeocercaCluster, ElementoGeocercaCluster } from '../../geocercas/types/geocerca'
+import { calcularCentroGeocerca, agruparGeocercasEnClusters } from '../../geocercas/composables/useGeocercaClustering'
 import { useGroupStore } from '../../../stores/group.store'
 import { storeToRefs } from 'pinia'
 import AppDateTimePicker from '../../../components/ui/AppDateTimePicker.vue'
@@ -300,6 +303,81 @@ const groupPointsByZoom = (
   }
 
   return representatives
+}
+
+// Etiqueta flotante (mismo estilo que las etiquetas de GeocercasListView):
+// píldora oscura con borde del color, texto en mayúsculas y escala según el zoom.
+let LabelOverlayClass: any = null
+const getLabelOverlayClass = () => {
+  if (LabelOverlayClass) return LabelOverlayClass
+  const g = (window as any).google
+  if (!g?.maps?.OverlayView) return null
+  LabelOverlayClass = class extends g.maps.OverlayView {
+    private element: HTMLDivElement
+    private position: any
+    private offsetPx: number
+    constructor(position: any, text: string, color: string, offsetPx = 8) {
+      super()
+      this.position = position
+      this.offsetPx = offsetPx
+      this.element = document.createElement('div')
+      const st = this.element.style
+      st.position = 'absolute'
+      st.transformOrigin = 'bottom center'
+      st.transform = `translate(-50%, calc(-100% - ${offsetPx}px)) scale(1)`
+      st.background = 'rgba(15, 23, 42, 0.9)'
+      st.backdropFilter = 'blur(4px)'
+      st.border = `1.5px solid ${color}`
+      st.borderRadius = '6px'
+      st.padding = '4px 8px'
+      st.color = '#ffffff'
+      st.fontSize = '9px'
+      st.fontWeight = '800'
+      st.fontFamily = 'Inter, sans-serif'
+      st.whiteSpace = 'nowrap'
+      st.maxWidth = '180px'
+      st.overflow = 'hidden'
+      st.textOverflow = 'ellipsis'
+      st.pointerEvents = 'none'
+      st.boxShadow = '0 4px 12px rgba(0,0,0,0.4)'
+      st.textTransform = 'uppercase'
+      st.letterSpacing = '0.06em'
+      st.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out'
+      this.element.innerText = text
+    }
+    onAdd() {
+      this.getPanes()?.overlayMouseTarget.appendChild(this.element)
+    }
+    draw() {
+      const point = this.getProjection()?.fromLatLngToDivPixel(this.position)
+      if (!point) return
+      this.element.style.left = point.x + 'px'
+      this.element.style.top = point.y + 'px'
+      const zoom = this.getMap()?.getZoom()
+      if (zoom === undefined) return
+      let scale = 1
+      let opacity = 1
+      if (zoom >= 14) {
+        scale = 1
+        opacity = 1
+      } else if (zoom >= 10) {
+        scale = 0.65 + (zoom - 10) * (0.35 / 4)
+        opacity = 0.75 + (zoom - 10) * (0.25 / 4)
+      } else if (zoom >= 8) {
+        scale = 0.45 + (zoom - 8) * (0.2 / 2)
+        opacity = 0.2 + (zoom - 8) * (0.55 / 2)
+      } else {
+        scale = 0
+        opacity = 0
+      }
+      this.element.style.transform = `translate(-50%, calc(-100% - ${this.offsetPx}px)) scale(${scale})`
+      this.element.style.opacity = String(opacity)
+    }
+    onRemove() {
+      this.element.parentNode?.removeChild(this.element)
+    }
+  }
+  return LabelOverlayClass
 }
 
 const createPointMarker = (item: PosicionItem) => {
@@ -723,10 +801,16 @@ watch(() => props.isOpen, (newVal) => {
     fechaHasta.value = null
     posiciones.value = []
     clearMapElements()
+    clearAllGeocercas()
+    geocercaListenerAttached = false
+    geocercaSearch.value = ''
+    geocercaDetalleCache.clear()
+    loadGeocercasList()
     initializeMap()
   } else {
     stopPlayback()
     clearMapElements()
+    clearAllGeocercas()
     fechaDesde.value = null
     fechaHasta.value = null
     posiciones.value = []
@@ -741,6 +825,256 @@ watch(() => isDarkMapMode.value, () => {
     })
   }
 })
+
+// ─── Geocercas (panel izquierdo) ───────────────────────────────────────────
+const geocercasList = ref<Geocerca[]>([])
+const loadingGeocercasList = ref(false)
+const loadingGeocercaIds = ref<Set<string>>(new Set())
+const selectedGeocercaIds = ref<Set<string>>(new Set())
+const geocercaSearch = ref('')
+const geocercaDetalleCache = new Map<string, GeocercaDetalle>()
+// Dibujos individuales (figura + etiqueta) por geocerca y marcadores de cluster
+const geocercaDrawings = new Map<string, any[]>()
+const geocercaClusterMarkers = new Map<string, any>()
+let geocercaListenerAttached = false
+
+const filteredGeocercas = computed(() => {
+  const q = geocercaSearch.value.trim().toLowerCase()
+  if (!q) return geocercasList.value
+  return geocercasList.value.filter(g => g.nombre?.toLowerCase().includes(q))
+})
+
+const removeGeocercaDrawing = (id: string) => {
+  const drawings = geocercaDrawings.get(id)
+  if (!drawings) return
+  drawings.forEach(d => { try { d.setMap(null) } catch (_) {} })
+  geocercaDrawings.delete(id)
+}
+
+const clearGeocercaClusters = () => {
+  geocercaClusterMarkers.forEach(m => { if (m) m.map = null })
+  geocercaClusterMarkers.clear()
+}
+
+const clearGeocercaDrawings = () => {
+  Array.from(geocercaDrawings.keys()).forEach(removeGeocercaDrawing)
+  clearGeocercaClusters()
+}
+
+// Mismo marcador de grupo (cluster) que GeocercasListView
+const createGeocercaClusterElement = (count: number) => {
+  const container = document.createElement('div')
+  container.style.cssText = 'position: relative; width: 0; height: 0; cursor: pointer; user-select: none; pointer-events: auto;'
+  const labelText = count === 1 ? 'Geocerca' : 'Geocercas'
+  const iconSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>'
+  container.innerHTML = `
+    <div style="position: absolute; bottom: 0; left: 50%; transform: translate(-50%, 0); display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
+      <div style="padding: 4px 10px; border-radius: 8px; background: rgba(15,18,26,0.95); border: 1px solid rgba(59,130,246,0.5); box-shadow: 0 2px 12px rgba(0,0,0,0.5); backdrop-filter: blur(8px); display: flex; align-items: center; gap: 8px; color: white;">
+        <div style="width: 20px; height: 20px; border-radius: 4px; background: rgba(59,130,246,0.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">${iconSvg}</div>
+        <div style="display: flex; align-items: center; gap: 4px; font-family: Inter, ui-sans-serif, system-ui, sans-serif;">
+          <span style="font-size: 12px; font-weight: 700; color: #3b82f6; font-family: monospace; line-height: 1;">${count}</span>
+          <span style="font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #94a3b8; line-height: 1;">${labelText}</span>
+        </div>
+      </div>
+      <div style="width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid #3b82f6; margin-top: -0.5px;"></div>
+    </div>
+  `
+  return container
+}
+
+const drawGeocercaShape = (detalle: GeocercaDetalle) => {
+  const g = (window as any).google
+  if (!map.value || !g || !detalle.puntos?.length) return
+  const color = detalle.color || '#3b82f6'
+  const style = {
+    strokeColor: color,
+    strokeOpacity: 0.45,
+    strokeWeight: 1.2,
+    fillColor: color,
+    fillOpacity: 0.12,
+    map: map.value,
+    clickable: false
+  }
+  const drawings: any[] = []
+  let bounds: any = null
+  if (detalle.tipo === 'Circular') {
+    const p = detalle.puntos[0]
+    const circle = new g.maps.Circle({
+      ...style,
+      center: { lat: parseFloat(p.lat), lng: parseFloat(p.lon) },
+      radius: parseFloat(p.radio || '0')
+    })
+    drawings.push(circle)
+    bounds = circle.getBounds()
+  } else {
+    const paths = detalle.puntos.map(p => ({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+    drawings.push(new g.maps.Polygon({ ...style, paths }))
+    bounds = new g.maps.LatLngBounds()
+    paths.forEach(pt => bounds.extend(pt))
+  }
+  const Cls = getLabelOverlayClass()
+  if (bounds && Cls) {
+    const top = new g.maps.LatLng(bounds.getNorthEast().lat(), bounds.getCenter().lng())
+    const label = new Cls(top, detalle.nombre, color)
+    label.setMap(map.value)
+    drawings.push(label)
+  }
+  geocercaDrawings.set(detalle.id_geocerca, drawings)
+}
+
+// Dibuja las geocercas seleccionadas: figuras individuales o clusters según el zoom
+const renderGeocercas = () => {
+  const g = (window as any).google
+  if (!map.value || !g) return
+
+  const items: ElementoGeocercaCluster[] = []
+  selectedGeocercaIds.value.forEach(id => {
+    const detalle = geocercaDetalleCache.get(id)
+    if (!detalle) return
+    const c = calcularCentroGeocerca(detalle)
+    if (!c) return
+    items.push({
+      id,
+      nombre: detalle.nombre,
+      tipo: detalle.tipo,
+      color: detalle.color || '#3b82f6',
+      lat: c.lat,
+      lon: c.lon,
+      detalle
+    })
+  })
+
+  const zoom = map.value.getZoom() || 12
+  let clusters: GeocercaCluster[] = []
+  let singles: ElementoGeocercaCluster[] = items
+  if (zoom < 15 && items.length > 1) {
+    const grouped = agruparGeocercasEnClusters(items, zoom, 75)
+    clusters = grouped.clusters
+    singles = grouped.elementosIndividuales
+  }
+
+  // Figuras individuales
+  const singleIds = new Set(singles.map(i => i.id))
+  Array.from(geocercaDrawings.keys()).forEach(id => {
+    if (!singleIds.has(id)) removeGeocercaDrawing(id)
+  })
+  singles.forEach(item => {
+    if (!geocercaDrawings.has(item.id)) drawGeocercaShape(item.detalle)
+  })
+
+  // Clusters
+  const activeClusterIds = new Set(clusters.map(c => c.id))
+  geocercaClusterMarkers.forEach((m, key) => {
+    if (!activeClusterIds.has(key)) {
+      if (m) m.map = null
+      geocercaClusterMarkers.delete(key)
+    }
+  })
+  const AdvancedMarker = g.maps?.marker?.AdvancedMarkerElement
+  if (!AdvancedMarker) return
+  clusters.forEach(cluster => {
+    const existing = geocercaClusterMarkers.get(cluster.id)
+    if (existing) {
+      existing.map = map.value
+      existing.position = { lat: cluster.latCentro, lng: cluster.lngCentro }
+      return
+    }
+    const marker = new AdvancedMarker({
+      position: { lat: cluster.latCentro, lng: cluster.lngCentro },
+      map: map.value,
+      title: `${cluster.elementos.length} geocercas agrupadas`,
+      content: createGeocercaClusterElement(cluster.elementos.length),
+      zIndex: 500
+    })
+    marker.addListener('click', () => {
+      map.value.panTo({ lat: cluster.latCentro, lng: cluster.lngCentro })
+      map.value.setZoom(Math.min((map.value.getZoom() || 12) + 3, 16))
+    })
+    geocercaClusterMarkers.set(cluster.id, marker)
+  })
+}
+
+const attachGeocercaListeners = () => {
+  if (!map.value || geocercaListenerAttached) return
+  geocercaListenerAttached = true
+  map.value.addListener('idle', () => {
+    if (selectedGeocercaIds.value.size > 0) renderGeocercas()
+  })
+}
+
+const fitGeocerca = (id: string) => {
+  const g = (window as any).google
+  const detalle = geocercaDetalleCache.get(id)
+  if (!map.value || !g || !detalle?.puntos?.length) return
+  if (detalle.tipo === 'Circular') {
+    const p = detalle.puntos[0]
+    const c = new g.maps.Circle({ center: { lat: parseFloat(p.lat), lng: parseFloat(p.lon) }, radius: parseFloat(p.radio || '0') })
+    const b = c.getBounds()
+    if (b) map.value.fitBounds(b)
+  } else {
+    const b = new g.maps.LatLngBounds()
+    detalle.puntos.forEach(p => b.extend({ lat: parseFloat(p.lat), lng: parseFloat(p.lon) }))
+    map.value.fitBounds(b)
+  }
+}
+
+const setGeocercaSelected = async (id: string, selected: boolean) => {
+  const next = new Set(selectedGeocercaIds.value)
+  if (!selected) {
+    next.delete(id)
+    selectedGeocercaIds.value = next
+    renderGeocercas()
+    return
+  }
+  next.add(id)
+  selectedGeocercaIds.value = next
+  let detalle = geocercaDetalleCache.get(id)
+  if (!detalle) {
+    const groupId = selectedGroup.value?.id
+    if (!groupId) return
+    const loading = new Set(loadingGeocercaIds.value); loading.add(id)
+    loadingGeocercaIds.value = loading
+    try {
+      const res = await fetchGeocercaDetallesApi(groupId, id)
+      if (res) {
+        geocercaDetalleCache.set(id, res)
+        detalle = res
+      }
+    } catch (e) {
+      console.error('Error cargando detalle de geocerca:', e)
+    } finally {
+      const l2 = new Set(loadingGeocercaIds.value); l2.delete(id)
+      loadingGeocercaIds.value = l2
+    }
+  }
+  // Pudo deseleccionarse mientras cargaba
+  if (detalle && selectedGeocercaIds.value.has(id)) {
+    attachGeocercaListeners()
+    renderGeocercas()
+  }
+}
+
+const toggleGeocerca = (id: string) => setGeocercaSelected(id, !selectedGeocercaIds.value.has(id))
+
+const selectAllGeocercas = () => { filteredGeocercas.value.forEach(g => setGeocercaSelected(g.id_geocerca, true)) }
+const clearAllGeocercas = () => {
+  selectedGeocercaIds.value = new Set()
+  clearGeocercaDrawings()
+}
+
+const loadGeocercasList = async () => {
+  const groupId = selectedGroup.value?.id
+  if (!groupId) return
+  loadingGeocercasList.value = true
+  try {
+    geocercasList.value = await fetchGeocercasApi(groupId)
+  } catch (e) {
+    console.error('Error cargando geocercas:', e)
+    geocercasList.value = []
+  } finally {
+    loadingGeocercasList.value = false
+  }
+}
 
 const positionCount = computed(() => posiciones.value.length)
 
@@ -871,6 +1205,7 @@ const currentDateDisplay = computed(() => {
 onUnmounted(() => {
   stopPlayback()
   clearMapElements()
+  clearGeocercaDrawings()
 })
 </script>
 
@@ -892,7 +1227,89 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div class="flex-1 relative flex flex-col">
+      <div class="flex-1 min-h-0 relative flex flex-row">
+      <!-- Panel flotante izquierdo: listado de geocercas -->
+      <aside
+        class="absolute left-4 top-[104px] w-[264px] flex flex-col overflow-hidden rounded-2xl bg-white/95 dark:bg-[#13161C]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.5)] z-30"
+        :class="positionCount > 0 ? 'max-h-[calc(100%-330px)]' : 'max-h-[calc(100%-132px)]'"
+      >
+        <div class="p-3 border-b border-slate-200/70 dark:border-white/5 shrink-0">
+          <div class="flex items-center justify-between mb-2.5">
+            <div class="flex items-center gap-2">
+              <HugeiconsIcon :icon="MapsIcon" :size="16" class="text-[#3b82f6]" />
+              <h4 class="text-[13px] font-bold text-slate-800 dark:text-white tracking-tight">Geocercas</h4>
+              <span class="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                {{ selectedGeocercaIds.size }}/{{ geocercasList.length }}
+              </span>
+            </div>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                @click="selectAllGeocercas"
+                :disabled="filteredGeocercas.length === 0"
+                class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer disabled:opacity-40"
+              >Todas</button>
+              <button
+                type="button"
+                @click="clearAllGeocercas"
+                :disabled="selectedGeocercaIds.size === 0"
+                class="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-slate-400 hover:text-rose-500 transition-colors cursor-pointer disabled:opacity-40"
+              >Ninguna</button>
+            </div>
+          </div>
+          <input
+            v-model="geocercaSearch"
+            type="text"
+            placeholder="Buscar geocerca..."
+            class="w-full px-3 py-2 rounded-xl text-[12px] bg-slate-100 dark:bg-white/5 border border-transparent focus:border-blue-500/40 outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400"
+          />
+        </div>
+
+        <div class="geo-scroll flex-1 min-h-[72px] max-h-[340px] overflow-y-scroll p-2 pr-1.5 space-y-1">
+          <div v-if="loadingGeocercasList" class="py-10 flex justify-center">
+            <HugeiconsIcon :icon="Loading02Icon" :size="22" class="text-[#3b82f6] animate-spin" />
+          </div>
+          <p v-else-if="filteredGeocercas.length === 0" class="py-10 text-center text-[11px] font-bold text-slate-400 dark:text-white/30">
+            No se encontraron geocercas
+          </p>
+          <template v-else>
+            <button
+              v-for="g in filteredGeocercas"
+              :key="g.id_geocerca"
+              type="button"
+              @click="toggleGeocerca(g.id_geocerca)"
+              class="w-full text-left py-2 px-2.5 rounded-lg border transition-colors flex items-center gap-2.5 cursor-pointer select-none"
+              :class="selectedGeocercaIds.has(g.id_geocerca)
+                ? 'bg-blue-500/10 border-blue-500/30'
+                : 'bg-white dark:bg-white/[0.02] border-slate-200/60 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/5'"
+            >
+              <span
+                class="w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors"
+                :class="selectedGeocercaIds.has(g.id_geocerca) ? 'bg-[#3b82f6] border-[#3b82f6] text-white' : 'border-slate-300 dark:border-white/20'"
+              >
+                <HugeiconsIcon v-if="loadingGeocercaIds.has(g.id_geocerca)" :icon="Loading02Icon" :size="10" class="animate-spin" />
+                <svg v-else-if="selectedGeocercaIds.has(g.id_geocerca)" class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              </span>
+              <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="{ background: g.color || '#f59e0b' }"></span>
+              <span class="flex-1 min-w-0">
+                <span class="block text-[12px] font-semibold text-slate-700 dark:text-slate-200 truncate">{{ g.nombre }}</span>
+                <span class="block text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-wider">{{ g.tipo }}</span>
+              </span>
+              <span
+                v-if="selectedGeocercaIds.has(g.id_geocerca) && geocercaDetalleCache.has(g.id_geocerca)"
+                role="button"
+                title="Centrar en el mapa"
+                @click.stop="fitGeocerca(g.id_geocerca)"
+                class="shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-slate-400 hover:text-blue-500 hover:bg-blue-500/10"
+              >
+                <HugeiconsIcon :icon="Location01Icon" :size="13" />
+              </span>
+            </button>
+          </template>
+        </div>
+      </aside>
+
+      <div class="flex-1 min-w-0 relative flex flex-col">
         <div id="hardware-posicion-map-container" class="absolute inset-0 z-0" style="width:100%;height:100%;"></div>
 
         <!-- Selector de Tipo de Mapa Flotante en Hardware Posición -->
@@ -961,7 +1378,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div v-if="positionCount > 0" class="absolute top-[82px] left-4 z-20 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 max-w-xs">
+        <div v-if="positionCount > 0" class="absolute top-[104px] left-[296px] z-20 bg-white/95 dark:bg-[#1A1D24]/95 backdrop-blur-xl border border-slate-200/60 dark:border-white/10 rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.4)] px-4 py-3 max-w-xs">
           <div class="flex items-center gap-2 mb-2">
             <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{{ t('hardware.positions') }}</span>
             <span class="text-[11px] font-bold text-[#3b82f6] dark:text-[#5da6fc] bg-[#3b82f6]/10 dark:bg-[#5da6fc]/10 px-2 py-0.5 rounded-full">{{ positionCount }}</span>
@@ -1129,9 +1546,31 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
+      </div>
     </div>
   </Teleport>
 </template>
 
 <style scoped>
+/* Barra de desplazamiento visible para la lista de geocercas */
+.geo-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.6) transparent;
+}
+.geo-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.geo-scroll::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 9999px;
+  margin: 4px 0;
+}
+.geo-scroll::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.6);
+  border-radius: 9999px;
+}
+.geo-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.85);
+}
 </style>
+

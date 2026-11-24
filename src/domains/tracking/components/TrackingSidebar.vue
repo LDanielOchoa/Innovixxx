@@ -22,6 +22,7 @@ import {
   Clock01Icon
 } from '@hugeicons/core-free-icons'
 import type { HardwareWs } from '../types/tracking'
+import type { FamiliaHardware } from '../../hardware/types/hardware'
 import SolventarAlertaModal from '../../servicios/components/SolventarAlertaModal.vue'
 import { useToast } from 'primevue/usetoast'
 
@@ -46,10 +47,14 @@ interface Props {
   selectedItem: any | null
   showGeocercas?: boolean
   loadingGeocercas?: boolean
+  familias?: FamiliaHardware[]
+  familiaFilter?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   checkedHardwareSerials: () => [],
+  familias: () => [],
+  familiaFilter: 'ALL',
   showGeocercas: false,
   loadingGeocercas: false
 })
@@ -57,6 +62,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   (e: 'update:searchQuery', val: string): void
   (e: 'update:checkedHardwareSerials', val: string[]): void
+  (e: 'update:familiaFilter', val: string): void
   (e: 'reconnect'): void
   (e: 'select', item: any): void
   (e: 'toggleGeocercas'): void
@@ -69,11 +75,32 @@ const localSearchQuery = computed({
   set: (val) => emit('update:searchQuery', val)
 })
 
+// Filtro por familia de hardware ('ALL' = todos), compartido con el mapa
+const familiaFilter = computed({
+  get: () => props.familiaFilter,
+  set: (val: string) => emit('update:familiaFilter', val)
+})
+
+const familiaTabs = computed(() => {
+  const counts = new Map<string, number>()
+  props.hardwareList.forEach(h => {
+    const k = String(h.id_familia)
+    counts.set(k, (counts.get(k) || 0) + 1)
+  })
+  const tabs = props.familias
+    .filter(f => counts.has(String(f.id_familia)))
+    .map(f => ({ id: String(f.id_familia), label: f.nombre.toUpperCase(), count: counts.get(String(f.id_familia)) || 0 }))
+  return [{ id: 'ALL', label: 'Todos', count: props.hardwareList.length }, ...tabs]
+})
+
 const filteredItems = computed(() => {
   const query = props.searchQuery.toLowerCase()
   if (props.activeTab === 'HARDWARE') {
-    if (!query) return props.hardwareList
-    return props.hardwareList.filter(h => 
+    const base = familiaFilter.value === 'ALL'
+      ? props.hardwareList
+      : props.hardwareList.filter(h => String(h.id_familia) === familiaFilter.value)
+    if (!query) return base
+    return base.filter(h =>
       h.nombre.toLowerCase().includes(query) || 
       h.serial.toLowerCase().includes(query) ||
       h.descripcion.toLowerCase().includes(query)
@@ -519,7 +546,7 @@ const clearCheckedHardware = () => {
 
 const toggleSelectAllHardware = () => {
   if (!props.checkedHardwareSerials || props.checkedHardwareSerials.length === 0) {
-    const allKeys = props.hardwareList.map(h => h.serial || h.id_hardware).filter(Boolean)
+    const allKeys = (filteredItems.value as HardwareWs[]).map(h => h.serial || h.id_hardware).filter(Boolean)
     emit('update:checkedHardwareSerials', allKeys)
     copyHardwareListToClipboard(allKeys)
   } else {
@@ -585,6 +612,26 @@ const toggleSelectAllHardware = () => {
           :icon="Search01Icon"
           class="w-full"
         />
+      </div>
+
+      <!-- Tabs por familia de hardware -->
+      <div
+        v-if="activeTab === 'HARDWARE' && familiaTabs.length > 1"
+        class="mt-2.5 flex flex-wrap items-stretch gap-1.5"
+      >
+        <button
+          v-for="tab in familiaTabs"
+          :key="tab.id"
+          type="button"
+          @click="familiaFilter = tab.id"
+          class="flex-1 basis-[60px] min-w-0 px-2 py-1.5 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer flex items-center justify-center gap-1 whitespace-nowrap"
+          :class="familiaFilter === tab.id
+            ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+            : 'bg-slate-100 dark:bg-white/5 border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-white/10'"
+        >
+          {{ tab.label }}
+          <span class="text-[9px] font-semibold opacity-70">{{ tab.count }}</span>
+        </button>
       </div>
 
       <!-- Banner Informativo de Filtro Activo de Dispositivos -->
