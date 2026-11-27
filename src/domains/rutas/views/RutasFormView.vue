@@ -1190,9 +1190,26 @@ const handleMapInit = (googleMapsApi: any) => {
     if (paradasTemporales.value.length >= 2) {
       drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
     }
+    fitMapToParadas()
   }
 }
 
+
+// Encuadra el mapa sobre la ruta cargada (modo edición)
+const fitMapToParadas = () => {
+  const googleMaps = (window as any).google?.maps
+  if (!map.value || !googleMaps || paradasTemporales.value.length === 0) return
+  const limites = new googleMaps.LatLngBounds()
+  paradasTemporales.value.forEach(p => {
+    if (!isNaN(p.lat) && !isNaN(p.lon)) limites.extend({ lat: p.lat, lng: p.lon })
+  })
+  if (limites.isEmpty()) return
+  map.value.fitBounds(limites, 80)
+  // Evita un zoom excesivo cuando la ruta tiene un solo punto o puntos muy cercanos
+  googleMaps.event.addListenerOnce(map.value, 'idle', () => {
+    if ((map.value?.getZoom() ?? 0) > 17) map.value?.setZoom(17)
+  })
+}
 
 // ── Carga de datos en modo edición ────────────────────
 const loadRouteData = async (id_ruta: string) => {
@@ -1234,6 +1251,7 @@ const loadRouteData = async (id_ruta: string) => {
       if (paradasTemporales.value.length >= 2) {
         drawFullRoute(paradasTemporales.value, routeColor.value, isGpsRoute.value)
       }
+      fitMapToParadas()
     }
   } catch (error) {
     console.error('Error cargando detalles para edición:', error)

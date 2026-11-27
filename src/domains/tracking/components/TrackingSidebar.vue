@@ -533,12 +533,31 @@ const toggleCheckItem = (item: any) => {
   } else {
     current.push(key)
   }
-  emit('update:checkedHardwareSerials', current)
-
   if (idx < 0) {
     copyHardwareListToClipboard(current)
   }
+
+  // Si ya están todos seleccionados, se resetea (equivale a mostrar todos)
+  const allKeys = props.hardwareList.map(h => h.serial || h.id_hardware).filter(Boolean)
+  if (allKeys.length > 0 && allKeys.every(k => current.includes(k))) {
+    emit('update:checkedHardwareSerials', [])
+    return
+  }
+  emit('update:checkedHardwareSerials', current)
 }
+
+// Cantidad de seleccionados por pestaña de familia (la selección persiste entre pestañas)
+const checkedCountByTab = computed(() => {
+  const checked = new Set(props.checkedHardwareSerials || [])
+  const counts: Record<string, number> = { ALL: 0 }
+  props.hardwareList.forEach(h => {
+    if (!checked.has(h.serial || h.id_hardware)) return
+    const k = String(h.id_familia)
+    counts[k] = (counts[k] || 0) + 1
+    counts.ALL++
+  })
+  return counts
+})
 
 const clearCheckedHardware = () => {
   emit('update:checkedHardwareSerials', [])
@@ -629,8 +648,18 @@ const toggleSelectAllHardware = () => {
             ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
             : 'bg-slate-100 dark:bg-white/5 border-transparent text-slate-500 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-white/10'"
         >
-          {{ tab.label }}
-          <span class="text-[9px] font-semibold opacity-70">{{ tab.count }}</span>
+          <span class="flex flex-col items-center min-w-0 leading-tight">
+            <span class="flex items-center gap-1">
+              {{ tab.label }}
+              <span class="text-[9px] font-semibold opacity-70">{{ tab.count }}</span>
+            </span>
+            <span
+              v-if="checkedCountByTab[tab.id]"
+              class="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 truncate max-w-full"
+            >
+              {{ checkedCountByTab[tab.id] }} {{ checkedCountByTab[tab.id] === 1 ? 'Seleccionado' : 'Seleccionados' }}
+            </span>
+          </span>
         </button>
       </div>
 

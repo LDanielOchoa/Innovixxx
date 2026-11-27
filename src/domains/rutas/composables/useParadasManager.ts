@@ -191,7 +191,7 @@ export function useParadasManager(
   // ── Marcadores ────────────────────────────────────────────
 
   /** Agrega un marcador al mapa para una parada concreta */
-  const addMarker = (lat: number, lon: number, tipoNombre: string, index: number, tipoId: number, fecha?: string) => {
+  const addMarker = (lat: number, lon: number, tipoNombre: string, index: number, tipoId: number, fecha?: string, offsetX: number = 0) => {
     if (!map.value || !(window as any).google) return null
 
     const color    = routeColor.value || '#3b82f6'
@@ -199,9 +199,10 @@ export function useParadasManager(
     const currentMap = map.value
 
     const placeholderUrl = createPlaceholderIcon(color, isNormal)
+    // offsetX separa visualmente inicio y fin cuando caen en el mismo punto (rutas circulares)
     const anchorPoint = isNormal
       ? new (window as any).google.maps.Point(32, 32)
-      : new (window as any).google.maps.Point(32, 60)
+      : new (window as any).google.maps.Point(32 + offsetX, 60)
 
     const marker = new (window as any).google.maps.Marker({
       position: { lat, lng: lon },
@@ -338,10 +339,28 @@ export function useParadasManager(
 
     clearMarkers()
 
+    // Detectar si inicio y fin están (casi) en el mismo lugar en pantalla
+    const lista = paradasTemporales.value
+    let separarExtremos = false
+    if (lista.length >= 2) {
+      const a = lista[0]!
+      const b = lista[lista.length - 1]!
+      const pxPorGrado = (256 * Math.pow(2, zoom)) / 360
+      const dx = (a.lon - b.lon) * pxPorGrado
+      const dy = (a.lat - b.lat) * pxPorGrado
+      separarExtremos = Math.sqrt(dx * dx + dy * dy) < 40
+    }
+    const lastIndex = lista.length - 1
+
     const newMarkers: any[] = []
     visibles.forEach(item => {
       const nombre = tiposParada.value.find(t => t.id_tipo === item.parada.tipo)?.nombre || 'Parada'
-      const m = addMarker(item.parada.lat, item.parada.lon, nombre, item.index, item.parada.tipo, item.parada.fecha)
+      let offsetX = 0
+      if (separarExtremos && lastIndex > 0) {
+        if (item.index === 0) offsetX = 18       // inicio queda a la izquierda
+        else if (item.index === lastIndex) offsetX = -18 // fin queda a la derecha
+      }
+      const m = addMarker(item.parada.lat, item.parada.lon, nombre, item.index, item.parada.tipo, item.parada.fecha, offsetX)
       if (m) {
         ;(m as any)._originalIndex = item.index
         newMarkers.push(m)

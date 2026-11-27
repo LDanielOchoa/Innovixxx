@@ -916,15 +916,19 @@ const updateMarkersOnMap = () => {
   const allActiveItems: ClusterItem[] = []
 
   if (activeTab.value === 'SERVICIOS' || activeTab.value === 'HARDWARE') {
-    const isHardwareFiltered = activeTab.value === 'HARDWARE' && checkedHardwareSerials.value.length > 0
-    const filterSet = isHardwareFiltered ? new Set(checkedHardwareSerials.value) : null
+    const checkedSet = new Set(checkedHardwareSerials.value)
+    const isChecked = (hw: HardwareWs) => checkedSet.has(hw.serial) || checkedSet.has(hw.id_hardware)
+    const inTab = (hw: HardwareWs) =>
+      familiaFilter.value === 'ALL' || String(hw.id_familia) === familiaFilter.value
+    const isHardwareTab = activeTab.value === 'HARDWARE'
+    // Si en la pestaña actual hay marcados, el mapa se limita a los marcados (de cualquier pestaña).
+    // Si no hay marcados en ella, se muestran todos los de la pestaña + los marcados de otras pestañas.
+    const tabHasChecked = isHardwareTab && hardwareList.value.some(hw => inTab(hw) && isChecked(hw))
 
     hardwareList.value.forEach(hw => {
-      if (filterSet && !filterSet.has(hw.serial) && !filterSet.has(hw.id_hardware)) {
-        return
-      }
-      if (activeTab.value === 'HARDWARE' && familiaFilter.value !== 'ALL' && String(hw.id_familia) !== familiaFilter.value) {
-        return
+      if (isHardwareTab) {
+        const visible = tabHasChecked ? isChecked(hw) : (inTab(hw) || isChecked(hw))
+        if (!visible) return
       }
       const latNum = Number(hw.lat)
       const lonNum = Number(hw.lon)

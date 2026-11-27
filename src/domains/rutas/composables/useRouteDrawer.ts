@@ -28,11 +28,26 @@ export function useRouteDrawer(
         strokeColor: color,
         strokeOpacity: 0.9,
         strokeWeight: 4,
+        // Flechas de dirección para distinguir inicio y fin en rutas circulares
+        icons: [{
+          icon: {
+            path: (window as any).google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 2.5,
+            strokeColor: '#ffffff',
+            strokeWeight: 1,
+            fillColor: color,
+            fillOpacity: 1
+          },
+          offset: '50px',
+          repeat: '120px'
+        }],
         map: mapObj
       })
     } else if (mainPolyline) {
       try {
-        mainPolyline.setOptions({ strokeColor: color, map: mapObj })
+        const icons = mainPolyline.get('icons')
+        if (Array.isArray(icons) && icons[0]?.icon) icons[0].icon.fillColor = color
+        mainPolyline.setOptions({ strokeColor: color, map: mapObj, icons })
       } catch (_) {}
     }
     return mainPolyline
